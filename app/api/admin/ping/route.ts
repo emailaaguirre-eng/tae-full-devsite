@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   return NextResponse.json({ 
     success: true, 
     message: 'Admin API is working',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    path: '/api/admin/ping'
   });
 }
