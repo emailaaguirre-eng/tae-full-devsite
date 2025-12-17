@@ -725,48 +725,39 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       {artKeyData.title || 'Your Title Here'}
                     </h1>
 
-                        {/* Buttons Preview */}
-                        <div className="flex flex-col gap-2 mt-3 w-full max-w-sm">
-                          {customLinks.slice(0, 5).map((link, idx) => (
-                            <button
-                              key={idx}
-                              className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
-                            >
-                              {link.label || `Link ${idx + 1}`}
-                            </button>
-                          ))}
-                          {artKeyData.featured_video && (
-                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                              🎬 {artKeyData.featured_video.button_label || 'Watch Video'}
-                            </button>
-                          )}
-                          {artKeyData.spotify.url?.length > 10 && (
-                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                              🎵 Playlist
-                            </button>
-                          )}
-                          {artKeyData.features.show_guestbook && (
-                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                              📝 {artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}
-                            </button>
-                          )}
-                          {artKeyData.features.enable_gallery && (
-                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                              🖼️ Image Gallery {artKeyData.uploadedImages.length > 0 && `(${artKeyData.uploadedImages.length})`}
-                            </button>
-                          )}
-                          {artKeyData.features.enable_video && (
-                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                              🎥 Video Gallery {artKeyData.uploadedVideos.length > 0 && `(${artKeyData.uploadedVideos.length})`}
-                            </button>
-                          )}
-                        </div>
+                        {/* Buttons Preview - Two columns when many buttons */}
+                        {(() => {
+                          const allButtons = [
+                            ...customLinks,
+                            ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}` }] : []),
+                            ...(artKeyData.spotify.url?.length > 10 ? [{ label: '🎵 Playlist' }] : []),
+                            ...(artKeyData.features.show_guestbook ? [{ label: `📝 ${artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}` }] : []),
+                            ...(artKeyData.features.enable_gallery ? [{ label: `🖼️ Image Gallery ${artKeyData.uploadedImages.length > 0 ? `(${artKeyData.uploadedImages.length})` : ''}` }] : []),
+                            ...(artKeyData.features.enable_video ? [{ label: `🎥 Video Gallery ${artKeyData.uploadedVideos.length > 0 ? `(${artKeyData.uploadedVideos.length})` : ''}` }] : []),
+                          ];
+                          const useTwoColumns = allButtons.length > 6;
+                          const maxChars = 20; // Max characters per button text
+                          const fontSize = useTwoColumns ? 'text-xs' : 'text-sm';
+                          
+                          return (
+                            <div className={`mt-3 w-full max-w-sm ${useTwoColumns ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
+                              {allButtons.map((btn, idx) => {
+                                const displayText = (btn.label || `Link ${idx + 1}`).length > maxChars 
+                                  ? (btn.label || `Link ${idx + 1}`).substring(0, maxChars - 3) + '...'
+                                  : (btn.label || `Link ${idx + 1}`);
+                                return (
+                                  <button
+                                    key={idx}
+                                    className={`${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 rounded-full ${fontSize} font-semibold transition-all shadow-md`}
+                                    style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
+                                  >
+                                    {displayText}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
 
                         {artKeyData.uploadedImages.length > 0 && (
                           <div className="grid grid-cols-4 gap-1 mt-3 w-full max-w-sm">
@@ -807,48 +798,39 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       {artKeyData.title || 'Your Title Here'}
                     </h1>
 
-                        {/* Buttons Preview */}
-                        <div className="flex flex-col gap-2 mt-3 w-full max-w-sm">
-                          {customLinks.slice(0, 5).map((link, idx) => (
-                            <button
-                              key={idx}
-                              className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
-                            >
-                              {link.label || `Link ${idx + 1}`}
-                            </button>
-                          ))}
-                          {artKeyData.featured_video && (
-                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                              🎬 {artKeyData.featured_video.button_label || 'Watch Video'}
-                            </button>
-                          )}
-                          {artKeyData.spotify.url?.length > 10 && (
-                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                              🎵 Playlist
-                            </button>
-                          )}
-                          {artKeyData.features.show_guestbook && (
-                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                              📝 {artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}
-                            </button>
-                          )}
-                          {artKeyData.features.enable_gallery && (
-                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                              🖼️ Image Gallery {artKeyData.uploadedImages.length > 0 && `(${artKeyData.uploadedImages.length})`}
-                            </button>
-                          )}
-                          {artKeyData.features.enable_video && (
-                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
-                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                              🎥 Video Gallery {artKeyData.uploadedVideos.length > 0 && `(${artKeyData.uploadedVideos.length})`}
-                            </button>
-                          )}
-                        </div>
+                        {/* Buttons Preview - Two columns when many buttons */}
+                        {(() => {
+                          const allButtons = [
+                            ...customLinks,
+                            ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}` }] : []),
+                            ...(artKeyData.spotify.url?.length > 10 ? [{ label: '🎵 Playlist' }] : []),
+                            ...(artKeyData.features.show_guestbook ? [{ label: `📝 ${artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}` }] : []),
+                            ...(artKeyData.features.enable_gallery ? [{ label: `🖼️ Image Gallery ${artKeyData.uploadedImages.length > 0 ? `(${artKeyData.uploadedImages.length})` : ''}` }] : []),
+                            ...(artKeyData.features.enable_video ? [{ label: `🎥 Video Gallery ${artKeyData.uploadedVideos.length > 0 ? `(${artKeyData.uploadedVideos.length})` : ''}` }] : []),
+                          ];
+                          const useTwoColumns = allButtons.length > 6;
+                          const maxChars = 20; // Max characters per button text
+                          const fontSize = useTwoColumns ? 'text-xs' : 'text-sm';
+                          
+                          return (
+                            <div className={`mt-3 w-full max-w-sm ${useTwoColumns ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
+                              {allButtons.map((btn, idx) => {
+                                const displayText = (btn.label || `Link ${idx + 1}`).length > maxChars 
+                                  ? (btn.label || `Link ${idx + 1}`).substring(0, maxChars - 3) + '...'
+                                  : (btn.label || `Link ${idx + 1}`);
+                                return (
+                                  <button
+                                    key={idx}
+                                    className={`${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 rounded-full ${fontSize} font-semibold transition-all shadow-md`}
+                                    style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
+                                  >
+                                    {displayText}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
 
                         {artKeyData.uploadedImages.length > 0 && (
                           <div className="grid grid-cols-4 gap-1 mt-3 w-full max-w-sm">
