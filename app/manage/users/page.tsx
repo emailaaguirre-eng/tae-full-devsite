@@ -98,30 +98,51 @@ ${newUser.username}:${newUser.password},...other admins...`);
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">2. Update ADMIN_USERS Variable</h3>
-            <p className="mb-2">Use one of these formats:</p>
+            <h3 className="font-semibold mb-2">2. Choose a Method</h3>
             
-            <div className="bg-gray-100 p-4 rounded-lg mb-2">
-              <p className="font-mono text-xs mb-2">JSON Format (Recommended):</p>
-              <pre className="text-xs overflow-x-auto">
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-semibold text-blue-600 mb-2">Method 1: Numbered Variables (Easiest)</h4>
+                <p className="mb-2">Add separate variables for each admin:</p>
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <pre className="text-xs overflow-x-auto">
+{`ADMIN1_USERNAME=admin1
+ADMIN1_PASSWORD=password1
+ADMIN2_USERNAME=admin2
+ADMIN2_PASSWORD=password2
+ADMIN3_USERNAME=admin3
+ADMIN3_PASSWORD=password3`}
+                  </pre>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-blue-600 mb-2">Method 2: ADMIN_USERS Variable</h4>
+                <p className="mb-2">Use one of these formats:</p>
+                
+                <div className="bg-gray-100 p-4 rounded-lg mb-2">
+                  <p className="font-mono text-xs mb-2">JSON Format:</p>
+                  <pre className="text-xs overflow-x-auto">
 {`[
   {"username": "admin1", "password": "pass1"},
   {"username": "admin2", "password": "pass2"}
 ]`}
-              </pre>
-            </div>
+                  </pre>
+                </div>
 
-            <div className="bg-gray-100 p-4 rounded-lg">
-              <p className="font-mono text-xs mb-2">Comma-Separated Format:</p>
-              <pre className="text-xs overflow-x-auto">
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <p className="font-mono text-xs mb-2">Comma-Separated Format:</p>
+                  <pre className="text-xs overflow-x-auto">
 {`admin1:pass1,admin2:pass2`}
-              </pre>
+                  </pre>
+                </div>
+              </div>
             </div>
           </div>
 
           <div>
             <h3 className="font-semibold mb-2">3. Redeploy</h3>
-            <p>After updating the environment variable, redeploy your application for changes to take effect.</p>
+            <p>After updating the environment variables, redeploy your application for changes to take effect.</p>
           </div>
         </div>
       </div>
