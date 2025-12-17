@@ -74,7 +74,17 @@ export default function CardsSection() {
                   <p className="text-brand-darkest mb-4 text-center">
                     Use the Design Editor to customize your card
                   </p>
-                  <button className="w-full bg-brand-dark text-white py-4 rounded-full font-semibold hover:bg-brand-darkest transition-all shadow-lg text-lg">
+                  <button 
+                    onClick={() => {
+                      const params = new URLSearchParams({
+                        product_type: 'card',
+                        product_name: 'Card',
+                        price: '19.99',
+                      });
+                      window.location.href = `/customize?${params}`;
+                    }}
+                    className="w-full bg-brand-dark text-white py-4 rounded-full font-semibold hover:bg-brand-darkest transition-all shadow-lg text-lg"
+                  >
                     🎨 Open the Design Editor
                   </button>
                   <div className="mt-4 text-sm text-brand-darkest text-center">
