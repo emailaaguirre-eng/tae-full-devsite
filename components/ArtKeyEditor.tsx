@@ -41,12 +41,11 @@ interface ArtKeyData {
   };
   links: Link[];
   spotify: { url: string; autoplay: boolean };
-  featured_video: { video_id: number; button_label: string };
+  featured_video: { video_url: string; button_label: string } | null;
   features: {
     enable_gallery: boolean;
     enable_video: boolean;
     show_guestbook: boolean;
-    enable_featured_video: boolean;
     allow_img_uploads: boolean;
     allow_vid_uploads: boolean;
     gb_btn_view: boolean;
@@ -116,12 +115,11 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     },
     links: [],
     spotify: { url: 'https://', autoplay: false },
-    featured_video: { video_id: 0, button_label: 'Video Greeting' },
+    featured_video: null,
     features: {
       enable_gallery: false,
       enable_video: false,
       show_guestbook: false,
-      enable_featured_video: false,
       allow_img_uploads: false,
       allow_vid_uploads: false,
       gb_btn_view: true,
@@ -131,7 +129,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       gb_require_approval: true,
       img_require_approval: true,
       vid_require_approval: true,
-      order: ['gallery', 'guestbook', 'featured_video', 'video'],
+      order: ['gallery', 'guestbook', 'video'],
     },
     uploadedImages: [],
     uploadedVideos: [],
@@ -384,9 +382,29 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
       if (!res.ok) return;
       const result = await res.json();
-      setArtKeyData((prev) => ({ ...prev, uploadedVideos: [...prev.uploadedVideos, result.url || result.fileUrl] }));
+      const videoUrl = result.url || result.fileUrl;
+      setArtKeyData((prev) => ({ ...prev, uploadedVideos: [...prev.uploadedVideos, videoUrl] }));
     } catch (err) {
       console.error('Upload failed', err);
+    }
+  };
+
+  const handleSetFeaturedVideo = (videoUrl: string, isFeatured: boolean) => {
+    if (isFeatured) {
+      // Set this video as featured (only one can be featured)
+      setArtKeyData((prev) => ({
+        ...prev,
+        featured_video: {
+          video_url: videoUrl,
+          button_label: prev.featured_video?.button_label || 'Watch Video',
+        },
+      }));
+    } else {
+      // Remove featured status
+      setArtKeyData((prev) => ({
+        ...prev,
+        featured_video: null,
+      }));
     }
   };
 
@@ -671,7 +689,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                               📝 {artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}
                             </button>
                           )}
-                          {artKeyData.features.enable_featured_video && (
+                          {artKeyData.featured_video && (
                             <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
                               style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
                               🎬 {artKeyData.featured_video.button_label || 'Watch Video'}
@@ -753,7 +771,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                               📝 {artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}
                             </button>
                           )}
-                          {artKeyData.features.enable_featured_video && (
+                          {artKeyData.featured_video && (
                             <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
                               style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
                               🎬 {artKeyData.featured_video.button_label || 'Watch Video'}
@@ -1142,23 +1160,34 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   <span className="text-xs text-blue-800">Click to toggle; drag to reorder buttons.</span>
                 </div>
 
-                {/* Featured Video Toggle */}
-                <div className="mb-4 p-3 rounded-lg border-2" style={{ borderColor: artKeyData.features.enable_featured_video ? COLOR_ACCENT : '#e2e2e0', background: artKeyData.features.enable_featured_video ? COLOR_ALT : COLOR_PRIMARY }}>
-                  <div className="flex items-center gap-3">
+                {/* Featured Video Button (if a video is marked as featured) - appears as draggable button */}
+                {artKeyData.featured_video && (
+                  <div className="mb-4">
                     <div
-                      className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer"
-                      style={{ borderColor: artKeyData.features.enable_featured_video ? COLOR_ACCENT : '#d0d0ce', background: artKeyData.features.enable_featured_video ? COLOR_ACCENT : 'transparent' }}
-                      onClick={() => toggleFeature('enable_featured_video')}
+                      draggable
+                      onDragStart={() => handleLinkDragStart(customLinks.length)} // Add after all links
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        // Handle drag over for featured video button
+                      }}
+                      onDragEnd={handleLinkDragEnd}
+                      className="flex items-center gap-2 p-2 rounded-lg cursor-grab transition-all"
+                      style={{
+                        background: COLOR_ALT,
+                      }}
                     >
-                      {artKeyData.features.enable_featured_video && <span className="text-white text-xs">✓</span>}
-                    </div>
-                    <span className="flex-1 text-sm font-medium" style={{ color: COLOR_ACCENT }}>🎬 Featured Video</span>
-                    {artKeyData.features.enable_featured_video && (
+                      <div className="text-gray-400">⋮⋮</div>
+                      <span className="text-sm flex-1" style={{ color: COLOR_ACCENT }}>
+                        🎬 {artKeyData.featured_video.button_label || 'Watch Video'}
+                      </span>
                       <button
                         onClick={() => {
-                          const newLabel = prompt('Enter button label:', artKeyData.featured_video.button_label || 'Watch Video');
-                          if (newLabel !== null) {
-                            setArtKeyData((prev) => ({ ...prev, featured_video: { ...prev.featured_video, button_label: newLabel } }));
+                          const newLabel = prompt('Enter button label:', artKeyData.featured_video?.button_label || 'Watch Video');
+                          if (newLabel !== null && artKeyData.featured_video) {
+                            setArtKeyData((prev) => ({
+                              ...prev,
+                              featured_video: prev.featured_video ? { ...prev.featured_video, button_label: newLabel } : null,
+                            }));
                           }
                         }}
                         className="text-blue-500 hover:text-blue-700 text-sm p-1"
@@ -1166,9 +1195,18 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       >
                         ✏️
                       </button>
-                    )}
+                      <button
+                        onClick={() => {
+                          setArtKeyData((prev) => ({ ...prev, featured_video: null }));
+                        }}
+                        className="text-red-500 hover:text-red-700 text-sm p-1"
+                        title="Remove featured video"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="space-y-3 mb-4">
                   <div>
@@ -1202,6 +1240,47 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     + Add Button
                   </button>
                 </div>
+                {/* Featured Video Button (if a video is marked as featured) - appears as draggable button */}
+                {artKeyData.featured_video && (
+                  <div className="mb-4">
+                    <div
+                      draggable
+                      className="flex items-center gap-2 p-2 rounded-lg cursor-grab transition-all"
+                      style={{
+                        background: COLOR_ALT,
+                      }}
+                    >
+                      <div className="text-gray-400">⋮⋮</div>
+                      <span className="text-sm flex-1" style={{ color: COLOR_ACCENT }}>
+                        🎬 {artKeyData.featured_video.button_label || 'Watch Video'}
+                      </span>
+                      <button
+                        onClick={() => {
+                          const newLabel = prompt('Enter button label:', artKeyData.featured_video?.button_label || 'Watch Video');
+                          if (newLabel !== null && artKeyData.featured_video) {
+                            setArtKeyData((prev) => ({
+                              ...prev,
+                              featured_video: prev.featured_video ? { ...prev.featured_video, button_label: newLabel } : null,
+                            }));
+                          }
+                        }}
+                        className="text-blue-500 hover:text-blue-700 text-sm p-1"
+                        title="Edit label"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => {
+                          setArtKeyData((prev) => ({ ...prev, featured_video: null }));
+                        }}
+                        className="text-red-500 hover:text-red-700 text-sm p-1"
+                        title="Remove featured video"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {customLinks.length > 0 && (
                   <div className="space-y-2">
                     {customLinks.map((link, idx) => (
@@ -1329,12 +1408,31 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   <MediaColumn
                     title="Videos"
                     items={artKeyData.uploadedVideos}
-                    onRemove={(idx) => setArtKeyData((prev) => ({ ...prev, uploadedVideos: prev.uploadedVideos.filter((_, i) => i !== idx) }))}
+                    onRemove={(idx) => {
+                      const removedUrl = artKeyData.uploadedVideos[idx];
+                      setArtKeyData((prev) => {
+                        const newVideos = prev.uploadedVideos.filter((_, i) => i !== idx);
+                        // If removed video was featured, clear featured video
+                        const newFeatured = prev.featured_video?.video_url === removedUrl ? null : prev.featured_video;
+                        return { ...prev, uploadedVideos: newVideos, featured_video: newFeatured };
+                      });
+                    }}
                     onUpload={handleVideoUpload}
                     accept="video/*"
                     inputId="video-upload"
                     buttonLabel="+ Upload"
                     isVideo
+                    featuredVideoUrl={artKeyData.featured_video?.video_url || null}
+                    onSetFeatured={handleSetFeaturedVideo}
+                    featuredVideoLabel={artKeyData.featured_video?.button_label}
+                    onUpdateFeaturedLabel={(label) => {
+                      if (artKeyData.featured_video) {
+                        setArtKeyData((prev) => ({
+                          ...prev,
+                          featured_video: prev.featured_video ? { ...prev.featured_video, button_label: label } : null,
+                        }));
+                      }
+                    }}
                   />
                 </div>
               </Card>
@@ -1829,7 +1927,7 @@ function ColorPicker({ page, setPage, pages, label, colors, selected, onSelect, 
   );
 }
 
-function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, buttonLabel, isVideo }: {
+function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, buttonLabel, isVideo, featuredVideoUrl, onSetFeatured, featuredVideoLabel, onUpdateFeaturedLabel }: {
   title: string;
   items: string[];
   onRemove: (idx: number) => void;
@@ -1838,6 +1936,10 @@ function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, button
   inputId: string;
   buttonLabel: string;
   isVideo?: boolean;
+  featuredVideoUrl?: string | null;
+  onSetFeatured?: (url: string, isFeatured: boolean) => void;
+  featuredVideoLabel?: string;
+  onUpdateFeaturedLabel?: (label: string) => void;
 }) {
   return (
     <div>
@@ -1847,18 +1949,48 @@ function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, button
           {items.map((it, idx) => (
             <div key={idx} className="relative group">
               {isVideo ? (
-                <video src={it} className="w-full h-20 object-cover rounded-lg" controls />
+                <>
+                  <video src={it} className="w-full h-20 object-cover rounded-lg" controls />
+                  {isVideo && onSetFeatured && (
+                    <div className="absolute bottom-1 left-1 flex items-center gap-1 bg-black/70 text-white px-2 py-1 rounded text-xs z-10">
+                      <input
+                        type="checkbox"
+                        checked={featuredVideoUrl === it}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          onSetFeatured(it, e.target.checked);
+                        }}
+                        className="w-3 h-3 cursor-pointer"
+                        title="Mark as Featured Video"
+                      />
+                      <span className="text-[10px]">Featured</span>
+                    </div>
+                  )}
+                </>
               ) : (
                 <img src={it} alt="" className="w-full h-20 object-cover rounded-lg" />
               )}
               <button
                 onClick={() => onRemove(idx)}
-                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs z-10"
               >
                 ×
               </button>
             </div>
           ))}
+        </div>
+      )}
+      {isVideo && featuredVideoUrl && onUpdateFeaturedLabel && (
+        <div className="mb-2 p-2 rounded-lg" style={{ background: COLOR_ALT, border: '1px solid #e2e2e0' }}>
+          <label className="block text-xs font-medium mb-1" style={{ color: COLOR_ACCENT }}>Featured Video Button Label:</label>
+          <input
+            type="text"
+            value={featuredVideoLabel || 'Watch Video'}
+            onChange={(e) => onUpdateFeaturedLabel(e.target.value)}
+            className="w-full px-2 py-1 rounded text-xs"
+            style={{ border: '1px solid #d8d8d6' }}
+            placeholder="Watch Video"
+          />
         </div>
       )}
       <div className="flex gap-2">
