@@ -76,7 +76,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [buttonColorPage, setButtonColorPage] = useState(0);
   const [titleColorPage, setTitleColorPage] = useState(0);
   const [bgTab, setBgTab] = useState('solid');
-  const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
+  // Default to desktop on PC, mobile on mobile devices
+  const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768 ? 'desktop' : 'mobile';
+    }
+    return 'desktop';
+  });
   const [customLinks, setCustomLinks] = useState<Link[]>([]);
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('https://www.');
@@ -84,6 +90,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [editingLinkIndex, setEditingLinkIndex] = useState<number | null>(null);
   const [editLinkLabel, setEditLinkLabel] = useState('');
   const [editLinkUrl, setEditLinkUrl] = useState('');
+  const [showColorPicker, setShowColorPicker] = useState<{ type: 'button' | 'title' | 'background' | null }>({ type: null });
+  const [customColor, setCustomColor] = useState<string>('#000000');
   
   // QR Code & Skeleton Key state (only for cards/invitations/postcards)
   const [productInfo, setProductInfo] = useState<any>(null);
@@ -236,20 +244,19 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const totalTemplatePages = Math.ceil(templates.length / templatesPerPage);
   const getCurrentPageTemplates = () => templates.slice(templatePage * templatesPerPage, (templatePage + 1) * templatesPerPage);
 
-  // Colors
+  // Colors - Primary colors only for solid, gradients separate
   const buttonColors = useMemo(() => ([
+    // Primary solid colors
     { bg: '#ffffff', color: '#ffffff', label: 'White', type: 'solid' },
-    { bg: '#fef3c7', color: '#fef3c7', label: 'Cream', type: 'solid' },
-    { bg: '#fde047', color: '#fde047', label: 'Yellow', type: 'solid' },
-    { bg: '#f59e0b', color: '#f59e0b', label: 'Amber', type: 'solid' },
-    { bg: '#f97316', color: '#f97316', label: 'Orange', type: 'solid' },
-    { bg: '#ef4444', color: '#ef4444', label: 'Red', type: 'solid' },
-    { bg: '#ec4899', color: '#ec4899', label: 'Pink', type: 'solid' },
-    { bg: '#a855f7', color: '#a855f7', label: 'Purple', type: 'solid' },
-    { bg: '#8b5cf6', color: '#8b5cf6', label: 'Violet', type: 'solid' },
-    { bg: '#3b82f6', color: '#3b82f6', label: 'Blue', type: 'solid' },
-    { bg: '#10b981', color: '#10b981', label: 'Green', type: 'solid' },
     { bg: '#000000', color: '#000000', label: 'Black', type: 'solid' },
+    { bg: '#ef4444', color: '#ef4444', label: 'Red', type: 'solid' },
+    { bg: '#f97316', color: '#f97316', label: 'Orange', type: 'solid' },
+    { bg: '#fde047', color: '#fde047', label: 'Yellow', type: 'solid' },
+    { bg: '#10b981', color: '#10b981', label: 'Green', type: 'solid' },
+    { bg: '#3b82f6', color: '#3b82f6', label: 'Blue', type: 'solid' },
+    { bg: '#8b5cf6', color: '#8b5cf6', label: 'Purple', type: 'solid' },
+    { bg: '#ec4899', color: '#ec4899', label: 'Pink', type: 'solid' },
+    { bg: '#64748b', color: '#64748b', label: 'Gray', type: 'solid' },
     // Gradients
     { bg: 'linear-gradient(135deg,#ffecd2,#fcb69f)', color: 'gradient', label: 'Peachy', type: 'gradient' },
     { bg: 'linear-gradient(135deg,#ff9a9e,#fecfef)', color: 'gradient', label: 'Pink Blush', type: 'gradient' },
@@ -307,11 +314,11 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const featureDefsDefault = [
     { key: 'gallery', label: '📸 Image Gallery', field: 'enable_gallery' },
     { key: 'guestbook', label: '📖 Guestbook', field: 'show_guestbook' },
-    { key: 'featured_video', label: '▶️ Featured Video', field: 'enable_featured_video' },
     { key: 'video', label: '🎥 Video Gallery', field: 'enable_video' },
   ];
   const [featureDefs, setFeatureDefs] = useState(featureDefsDefault);
   const [draggedFeature, setDraggedFeature] = useState<number | null>(null);
+  const [draggedLink, setDraggedLink] = useState<number | null>(null);
 
   // Helpers
   const handleTemplateSelect = (tpl: typeof templates[0]) => {
@@ -551,6 +558,21 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     setDraggedFeature(index);
   };
   const handleFeatureDragEnd = () => setDraggedFeature(null);
+
+  // Drag reorder for links
+  const handleLinkDragStart = (index: number) => setDraggedLink(index);
+  const handleLinkDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedLink === null || draggedLink === index) return;
+    const newLinks = [...customLinks];
+    const draggedItem = newLinks[draggedLink];
+    newLinks.splice(draggedLink, 1);
+    newLinks.splice(index, 0, draggedItem);
+    setCustomLinks(newLinks);
+    setArtKeyData((prev) => ({ ...prev, links: newLinks }));
+    setDraggedLink(index);
+  };
+  const handleLinkDragEnd = () => setDraggedLink(null);
 
   return (
     <div style={{ background: COLOR_ALT }} className="min-h-screen">
@@ -830,15 +852,60 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                 ]} />
 
                 {bgTab === 'solid' && (
-                  <ColorPicker
-                    page={bgColorPage}
-                    setPage={setBgColorPage}
-                    pages={3}
-                    label={(page) => (page === 0 ? 'Solid Colors' : page === 1 ? 'Gradients: Cool' : 'Gradients: Warm')}
-                    colors={buttonColors}
-                    selected={artKeyData.theme.bg_color}
-                    onSelect={(c) => handleColorSelect(c, 'background')}
-                  />
+                  <>
+                    <ColorPicker
+                      page={bgColorPage}
+                      setPage={setBgColorPage}
+                      pages={2}
+                      label={(page) => (page === 0 ? 'Solid Colors' : 'Gradients')}
+                      colors={buttonColors}
+                      selected={artKeyData.theme.bg_color}
+                      onSelect={(c) => handleColorSelect(c, 'background')}
+                      onCustomColor={() => {
+                        const currentColor = artKeyData.theme.bg_color?.startsWith('#') ? artKeyData.theme.bg_color : '#000000';
+                        setCustomColor(currentColor);
+                        setShowColorPicker({ type: 'background' });
+                      }}
+                    />
+                    {showColorPicker.type === 'background' && (
+                      <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
+                          <input
+                            type="color"
+                            value={customColor}
+                            onChange={(e) => {
+                              setCustomColor(e.target.value);
+                              handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'background');
+                            }}
+                            className="h-8 w-16 rounded border"
+                            style={{ borderColor: '#d8d8d6' }}
+                          />
+                          <input
+                            type="text"
+                            value={customColor}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                                setCustomColor(val);
+                                handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'background');
+                              }
+                            }}
+                            className="flex-1 px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6' }}
+                            placeholder="#000000"
+                          />
+                          <button
+                            onClick={() => setShowColorPicker({ type: null })}
+                            className="px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {bgTab === 'stock' && (
@@ -985,9 +1052,42 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               </Card>
             )}
 
-            {/* Step 4 Links */}
+            {/* Step 4 Links & Buttons */}
             {designMode !== null && (
               <Card title="Share Your Interests" step="4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-start gap-2">
+                  <span className="text-lg">💡</span>
+                  <span className="text-xs text-blue-800">Click to toggle; drag to reorder buttons.</span>
+                </div>
+
+                {/* Featured Video Toggle */}
+                <div className="mb-4 p-3 rounded-lg border-2" style={{ borderColor: artKeyData.features.enable_featured_video ? COLOR_ACCENT : '#e2e2e0', background: artKeyData.features.enable_featured_video ? COLOR_ALT : COLOR_PRIMARY }}>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer"
+                      style={{ borderColor: artKeyData.features.enable_featured_video ? COLOR_ACCENT : '#d0d0ce', background: artKeyData.features.enable_featured_video ? COLOR_ACCENT : 'transparent' }}
+                      onClick={() => toggleFeature('enable_featured_video')}
+                    >
+                      {artKeyData.features.enable_featured_video && <span className="text-white text-xs">✓</span>}
+                    </div>
+                    <span className="flex-1 text-sm font-medium" style={{ color: COLOR_ACCENT }}>🎬 Featured Video</span>
+                    {artKeyData.features.enable_featured_video && (
+                      <button
+                        onClick={() => {
+                          const newLabel = prompt('Enter button label:', artKeyData.featured_video.button_label || 'Watch Video');
+                          if (newLabel !== null) {
+                            setArtKeyData((prev) => ({ ...prev, featured_video: { ...prev.featured_video, button_label: newLabel } }));
+                          }
+                        }}
+                        className="text-blue-500 hover:text-blue-700 text-sm p-1"
+                        title="Edit label"
+                      >
+                        ✏️
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <div className="space-y-3 mb-4">
                   <div>
                     <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Button Name</label>
@@ -1068,8 +1168,19 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                             </div>
                           </div>
                         ) : (
-                          // Display mode
-                          <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: COLOR_ALT }}>
+                          // Display mode with drag
+                          <div
+                            draggable
+                            onDragStart={() => handleLinkDragStart(idx)}
+                            onDragOver={(e) => handleLinkDragOver(e, idx)}
+                            onDragEnd={handleLinkDragEnd}
+                            className="flex items-center gap-2 p-2 rounded-lg cursor-grab transition-all"
+                            style={{
+                              background: COLOR_ALT,
+                              opacity: draggedLink === idx ? 0.5 : 1,
+                            }}
+                          >
+                            <div className="text-gray-400">⋮⋮</div>
                             <span className="text-sm flex-1" style={{ color: COLOR_ACCENT }}>{link.label}</span>
                             <button
                               onClick={() => handleEditLink(idx)}
@@ -1148,7 +1259,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             )}
 
             {/* Step 7 Settings */}
-            {designMode !== null && (artKeyData.features.show_guestbook || artKeyData.features.enable_gallery || artKeyData.features.enable_video || artKeyData.features.enable_featured_video) && (
+            {designMode !== null && (artKeyData.features.show_guestbook || artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
               <Card title="ArtKey Settings" step="7">
                 {artKeyData.features.show_guestbook && (
                   <SettingsBlock title="📖 Guestbook Settings">
@@ -1248,34 +1359,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   </SettingsBlock>
                 )}
 
-                {artKeyData.features.enable_featured_video && (
-                  <SettingsBlock title="▶️ Featured Video Settings">
-                    <label className="block text-xs font-medium mb-1">Button Label</label>
-                    <input
-                      type="text"
-                      value={artKeyData.featured_video.button_label}
-                      onChange={(e) => setArtKeyData((prev) => ({ ...prev, featured_video: { ...prev.featured_video, button_label: e.target.value } }))}
-                      className="w-full px-3 py-2 rounded-lg text-sm"
-                      style={{ border: '1px solid #d8d8d6' }}
-                      placeholder="e.g., Watch Video Greeting"
-                    />
-                    <div className="mt-3">
-                      <label className="block text-xs font-medium mb-1">Upload Featured Video</label>
-                      <div className="border-2 border-dashed rounded-xl p-6 text-center" style={{ borderColor: '#d8d8d6', background: COLOR_ALT }}>
-                        <div className="text-4xl mb-2">🎬</div>
-                        <input type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" id="featured-video-upload" />
-                        <label
-                          htmlFor="featured-video-upload"
-                          className="inline-block px-4 py-2 rounded-full font-semibold cursor-pointer transition-all"
-                          style={{ background: COLOR_ACCENT, color: '#fff' }}
-                        >
-                          + Upload Video
-                        </label>
-                        <p className="text-xs mt-2" style={{ color: '#666' }}>MP4, MOV, WebM up to 100MB</p>
-                      </div>
-                    </div>
-                  </SettingsBlock>
-                )}
               </Card>
             )}
 
@@ -1597,7 +1680,7 @@ function Carousel({ page, setPage, total, children, labelPrefix }: { page: numbe
   );
 }
 
-function ColorPicker({ page, setPage, pages, label, colors, selected, onSelect }: {
+function ColorPicker({ page, setPage, pages, label, colors, selected, onSelect, onCustomColor }: {
   page: number;
   setPage: (p: number) => void;
   pages: number;
@@ -1605,6 +1688,7 @@ function ColorPicker({ page, setPage, pages, label, colors, selected, onSelect }
   colors: typeof buttonColors;
   selected: string;
   onSelect: (color: typeof buttonColors[0]) => void;
+  onCustomColor?: () => void;
 }) {
   const maxPage = pages - 1;
   const getColorsForPage = (page: number, arr: typeof buttonColors) => arr.slice(page * 12, page * 12 + 12);
@@ -1650,6 +1734,15 @@ function ColorPicker({ page, setPage, pages, label, colors, selected, onSelect }
           );
         })}
       </div>
+      {onCustomColor && (
+        <button
+          onClick={onCustomColor}
+          className="w-full px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
+          style={{ border: '2px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+        >
+          🎨 More Colors
+        </button>
+      )}
     </div>
   );
 }
