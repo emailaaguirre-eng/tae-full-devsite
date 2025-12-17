@@ -1,0 +1,36 @@
+{
+  "title": "TheAE Gallery",
+  "subtitle": "Explore our curated collection of art and photography from internationally recognized artists",
+  "featuredArtist": {
+    "name": "Deanna Lankin",
+    "title": "ARTIST | ASTROLOGY | THETA GUIDE",
+    "image": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/IMG_8704-e1751264048493.jpg",
+    "bio": "World-renowned artist specializing in artful image enhancement and personalized art experiences.",
+    "description": "Deanna Lankin brings years of artistic expertise to transform your images into stunning works of art.",
+    "buttonText": "View Portfolio →",
+    "slug": "deanna-lankin"
+  },
+  "artists": [
+    {
+      "name": "Deanna Lankin",
+      "title": "ARTIST | ASTROLOGY | THETA GUIDE",
+      "image": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/IMG_8704-e1751264048493.jpg",
+      "bio": "World-renowned artist specializing in artful image enhancement and personalized art experiences.",
+      "description": "Deanna Lankin brings years of artistic expertise to transform your images into stunning works of art. Her unique approach combines traditional artistic techniques with modern digital tools to create personalized art experiences that resonate deeply with each client.",
+      "slug": "deanna-lankin",
+      "portfolio": [
+        {
+          "title": "First Light",
+          "image": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/legacy-2.jpeg",
+          "forSale": true,
+          "price": null
+        }
+      ]
+    }
+  ],
+  "comingSoon": {
+    "title": "More Artists Coming Soon",
+    "description": "We're continuously adding new talented artists to our gallery. Check back soon!"
+  }
+}
+
