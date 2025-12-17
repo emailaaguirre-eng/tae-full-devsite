@@ -49,12 +49,18 @@ export default function DemoPage() {
           <p className="text-sm text-gray-500 text-center">
             Or visit directly: <code className="bg-gray-100 px-2 py-1 rounded text-xs">/art-key/[your-token]</code>
           </p>
-          <div className="text-center">
+          <div className="text-center space-y-2">
             <a
               href="/art-key/691e3d09ef58e"
-              className="text-blue-600 hover:text-blue-700 underline text-sm"
+              className="block text-blue-600 hover:text-blue-700 underline text-sm"
             >
               Test with existing token: 691e3d09ef58e
+            </a>
+            <a
+              href="/demo/artkey-691e3d09ef58e"
+              className="block text-green-600 hover:text-green-700 underline text-sm font-semibold"
+            >
+              🎯 Sales Demo Link (Direct)
             </a>
           </div>
         </div>
