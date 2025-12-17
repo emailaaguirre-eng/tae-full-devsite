@@ -760,7 +760,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                             ...(artKeyData.features.enable_video ? [{ label: `🎥 Video Gallery ${artKeyData.uploadedVideos.length > 0 ? `(${artKeyData.uploadedVideos.length})` : ''}` }] : []),
                           ];
                           const useTwoColumns = allButtons.length > 6;
-                          const maxChars = 20; // Max characters per button text
+                          const maxChars = 40; // Max characters per button text
                           const fontSize = useTwoColumns ? 'text-xs' : 'text-sm';
                           
                           return (
@@ -833,7 +833,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                             ...(artKeyData.features.enable_video ? [{ label: `🎥 Video Gallery ${artKeyData.uploadedVideos.length > 0 ? `(${artKeyData.uploadedVideos.length})` : ''}` }] : []),
                           ];
                           const useTwoColumns = allButtons.length > 6;
-                          const maxChars = 20; // Max characters per button text
+                          const maxChars = 40; // Max characters per button text
                           const fontSize = useTwoColumns ? 'text-xs' : 'text-sm';
                           
                           return (
@@ -1284,15 +1284,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               </Card>
             )}
 
-            {/* Step 4 Links & Buttons */}
-            {designMode !== null && artKeyData.features.enable_custom_links && (
-              <Card title="Share A Link">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-start gap-2">
-                  <span className="text-lg">💡</span>
-                  <span className="text-xs text-blue-800">Click to toggle; drag to reorder buttons.</span>
-                </div>
-
-                <div className="space-y-3 mb-4">
+            {/* Add New Link Button - Simplified */}
+            {designMode !== null && (
+              <Card title="Add New Link Button">
+                <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Button Name</label>
                     <input
@@ -1301,6 +1296,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       onChange={(e) => setNewLinkLabel(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg text-sm"
                       style={{ border: '1px solid #d8d8d6' }}
+                      placeholder="e.g., Instagram, Website, Portfolio"
                     />
                   </div>
                   <div>
@@ -1313,149 +1309,21 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                         onChange={(e) => setNewLinkUrl(e.target.value)}
                         className="flex-1 px-3 py-2 rounded-lg text-sm"
                         style={{ border: '1px solid #d8d8d6' }}
+                        placeholder="https://..."
                       />
                     </div>
                   </div>
                   <button
                     onClick={handleAddLink}
-                    className="w-full px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                    style={{ border: '2px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                    className="w-full px-4 py-3 rounded-lg text-sm font-semibold transition-all"
+                    style={{ background: COLOR_ACCENT, color: COLOR_PRIMARY }}
                   >
-                    {customLinks.length > 0 ? '+ Add Another Button' : '+ Add Button'}
+                    ✨ Add Link Button
                   </button>
+                  <p className="text-xs text-gray-500 text-center">
+                    Your link will appear as a toggleable button above in the features list
+                  </p>
                 </div>
-                {(customLinks.length > 0 || artKeyData.featured_video) && (
-                  <div className="space-y-2 mb-4">
-                    {/* Render custom links */}
-                    {customLinks.map((link, linkIdx) => (
-                      <div key={linkIdx}>
-                        {editingLinkIndex === linkIdx ? (
-                          // Edit mode for regular links
-                          <div className="p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
-                            <div className="space-y-2">
-                              <div>
-                                <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Button Name</label>
-                                <input
-                                  type="text"
-                                  value={editLinkLabel}
-                                  onChange={(e) => setEditLinkLabel(e.target.value)}
-                                  className="w-full px-3 py-2 rounded-lg text-sm"
-                                  style={{ border: '1px solid #d8d8d6' }}
-                                  autoFocus
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>URL</label>
-                                <input
-                                  type="url"
-                                  value={editLinkUrl}
-                                  onChange={(e) => setEditLinkUrl(e.target.value)}
-                                  className="w-full px-3 py-2 rounded-lg text-sm"
-                                  style={{ border: '1px solid #d8d8d6' }}
-                                />
-                              </div>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={handleSaveEditLink}
-                                  className="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all"
-                                  style={{ background: COLOR_ACCENT, color: COLOR_PRIMARY }}
-                                >
-                                  ✓ Save
-                                </button>
-                                <button
-                                  onClick={handleCancelEditLink}
-                                  className="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all"
-                                  style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          // Display mode with drag
-                          <div
-                            draggable
-                            onDragStart={() => handleLinkDragStart(linkIdx)}
-                            onDragOver={(e) => handleLinkDragOver(e, linkIdx)}
-                            onDragEnd={handleLinkDragEnd}
-                            className="flex items-center gap-2 p-2 rounded-lg cursor-grab transition-all"
-                            style={{
-                              background: COLOR_ALT,
-                              opacity: draggedLink === linkIdx ? 0.5 : 1,
-                            }}
-                          >
-                            <div className="text-gray-400">⋮⋮</div>
-                            <span className="text-sm flex-1" style={{ color: COLOR_ACCENT }}>
-                              {link.label}
-                            </span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditLink(linkIdx);
-                              }}
-                              className="text-blue-500 hover:text-blue-700 p-2 text-base"
-                              title="Edit button name and URL"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveLink(linkIdx);
-                              }}
-                              className="text-red-500 hover:text-red-700 p-2 text-base"
-                              title="Remove button"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    
-                    {/* Render featured video button if exists */}
-                    {artKeyData.featured_video && (
-                      <div key="featured-video">
-                        <div
-                          className="flex items-center gap-2 p-2 rounded-lg transition-all"
-                          style={{ background: COLOR_ALT }}
-                        >
-                          <div className="text-gray-400">🎬</div>
-                          <span className="text-sm flex-1" style={{ color: COLOR_ACCENT }}>
-                            {artKeyData.featured_video.button_label || 'Watch Video'}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const newLabel = prompt('Enter button label:', artKeyData.featured_video?.button_label || 'Watch Video');
-                              if (newLabel !== null && artKeyData.featured_video) {
-                                setArtKeyData((prev) => ({
-                                  ...prev,
-                                  featured_video: prev.featured_video ? { ...prev.featured_video, button_label: newLabel } : null,
-                                }));
-                              }
-                            }}
-                            className="text-blue-500 hover:text-blue-700 p-2 text-base"
-                            title="Edit video button label"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setArtKeyData((prev) => ({ ...prev, featured_video: null }));
-                            }}
-                            className="text-red-500 hover:text-red-700 p-2 text-base"
-                            title="Remove featured video button"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </Card>
             )}
 
