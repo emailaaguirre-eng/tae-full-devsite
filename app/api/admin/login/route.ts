@@ -64,6 +64,37 @@ function getAdminUsers() {
   return admins;
 }
 
+// GET handler for testing admin configuration
+export async function GET() {
+  try {
+    const adminUsers = getAdminUsers();
+    return NextResponse.json({
+      success: true,
+      message: 'Login API is accessible',
+      adminConfig: {
+        adminCount: adminUsers.length,
+        admins: adminUsers.map(a => ({ username: a.username })),
+        defaultCredentials: adminUsers.length > 0 ? {
+          username: adminUsers[0].username,
+          note: 'Use the password you set in environment variables, or default: admin123'
+        } : null,
+      },
+      environment: {
+        hasAdminUsers: !!process.env.ADMIN_USERS,
+        hasAdmin1: !!(process.env.ADMIN1_USERNAME && process.env.ADMIN1_PASSWORD),
+        hasAdminUsername: !!process.env.ADMIN_USERNAME,
+        hasAdminPassword: !!process.env.ADMIN_PASSWORD,
+        nodeEnv: process.env.NODE_ENV,
+      }
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err.message || 'Test failed' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
