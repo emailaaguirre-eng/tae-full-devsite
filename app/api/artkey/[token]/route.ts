@@ -1,8 +1,32 @@
 import { NextResponse } from "next/server";
+import { artKeyStore } from "@/lib/artKeyStore";
 
-export async function GET(_: Request, { params }: { params: Promise<{ token: string }> }) {
+export async function GET(_: Request, { params }: { params: { token: string } }) {
   try {
-    let { token } = await params;
+    let { token } = params;
+
+    // 1) Back-compat: if this token matches our in-memory store key, return that record.
+    // This used to be served from /api/artkey/[id], but Next.js won't allow both [id] and [token].
+    const record = artKeyStore.get(token);
+    if (record) {
+      return NextResponse.json(
+        {
+          id: record.id,
+          status: record.status,
+          productId: record.productId,
+          cartItemId: record.cartItemId,
+          artKeyData: record.artKeyData,
+          createdAt: record.createdAt,
+          activatedAt: record.activatedAt,
+        },
+        {
+          status: 200,
+          headers: {
+            "X-Robots-Tag": "noindex, nofollow, noarchive, nosnippet, noimageindex",
+          },
+        }
+      );
+    }
     
     // Handle different token formats from URLs
     // e.g., "artkey-session-691e3d09ef58e" -> "691e3d09ef58e"
