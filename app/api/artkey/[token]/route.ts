@@ -5,8 +5,23 @@ export async function GET(_: Request, { params }: { params: Promise<{ token: str
   try {
     const { token } = await params;
     const data = await fetchArtKey(token);
-    return NextResponse.json(data, { status: 200 });
+    
+    // Add X-Robots-Tag header to prevent indexing
+    return NextResponse.json(data, {
+      status: 200,
+      headers: {
+        'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet, noimageindex',
+      },
+    });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message || "Unknown error" }, { status: 500 });
+    return NextResponse.json(
+      { error: err?.message || "Unknown error" },
+      {
+        status: 500,
+        headers: {
+          'X-Robots-Tag': 'noindex, nofollow',
+        },
+      }
+    );
   }
 }

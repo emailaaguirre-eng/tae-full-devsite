@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
 // Dynamic import to avoid SSR issues
@@ -20,6 +20,21 @@ const ArtKeyEditor = dynamic(
 );
 
 function ArtKeyEditorContent() {
+  // Prevent search engines from indexing ArtKey editor URLs
+  useEffect(() => {
+    // Add noindex meta tag
+    const metaRobots = document.createElement('meta');
+    metaRobots.name = 'robots';
+    metaRobots.content = 'noindex, nofollow, noarchive, nosnippet, noimageindex';
+    document.head.appendChild(metaRobots);
+    
+    return () => {
+      if (document.head.contains(metaRobots)) {
+        document.head.removeChild(metaRobots);
+      }
+    };
+  }, []);
+
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-brand-lightest">
