@@ -38,7 +38,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (!authenticated && pathname !== '/admin/login') {
+  if (!authenticated && pathname !== '/manage/login') {
     return null;
   }
 
