@@ -365,7 +365,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     }
   };
 
-  const handleSaveAndCheckout = async () => {
+  const handleSave = async (redirectToShop = false) => {
     try {
       const res = await fetch('/api/artkey/save', {
         method: 'POST',
@@ -382,12 +382,17 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       }
       const result = await res.json();
       alert(`ArtKey saved! ${result.share_url ? `Share URL: ${result.share_url}` : ''}`);
-      router.push('/shop');
+      if (redirectToShop) {
+        router.push('/shop');
+      }
     } catch (err) {
       console.error('Save failed', err);
       alert('Failed to save ArtKey');
     }
   };
+
+  const handleSaveAndContinue = () => handleSave(false);
+  const handleSaveAndCheckout = () => handleSave(true);
 
   const toggleFeature = (field: keyof ArtKeyData['features']) => {
     setArtKeyData((prev) => ({
@@ -451,6 +456,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             <h1 className="text-2xl font-bold font-playfair">✨ Edit Your ArtKey Page</h1>
             <div className="flex gap-3">
               <button
+                onClick={handleSaveAndContinue}
+                className="px-6 py-2 rounded-lg font-semibold transition-all"
+                style={{ background: COLOR_PRIMARY, color: COLOR_ACCENT, border: '1px solid rgba(255,255,255,0.2)' }}
+              >
+                💾 Save & Continue
+              </button>
+              <button
                 onClick={handleSaveAndCheckout}
                 className="px-6 py-2 rounded-lg font-semibold transition-all"
                 style={{ background: COLOR_PRIMARY, color: COLOR_ACCENT, border: '1px solid rgba(255,255,255,0.2)' }}
@@ -493,6 +505,77 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               </div>
 
               {previewDevice === 'mobile' && (
+                // Mobile preview: Fullscreen, no phone container
+                <div className="w-full rounded-xl overflow-hidden border-2" style={{ borderColor: '#e2e2e0', ...getPreviewBackground(), minHeight: '600px' }}>
+                  <div className="h-full w-full pt-6 pb-6 px-6 flex flex-col items-center text-center min-h-[600px]">
+                    <h1
+                      className="text-2xl md:text-3xl font-bold mb-3 font-playfair break-words mt-16"
+                      style={{
+                        color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
+                        background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
+                        backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                        WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                      }}
+                    >
+                      {artKeyData.title || 'Your Title Here'}
+                    </h1>
+
+                        {/* Buttons Preview */}
+                        <div className="flex flex-col gap-2 mt-3 w-full max-w-sm">
+                          {customLinks.slice(0, 3).map((link, idx) => (
+                            <button
+                              key={idx}
+                              className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
+                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
+                            >
+                              {link.label || `Link ${idx + 1}`}
+                            </button>
+                          ))}
+                          {artKeyData.spotify.url?.length > 10 && (
+                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2"
+                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
+                              🎵 Playlist
+                            </button>
+                          )}
+                          {artKeyData.features.show_guestbook && (
+                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
+                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
+                              📝 {artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}
+                            </button>
+                          )}
+                          {artKeyData.features.enable_featured_video && (
+                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
+                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
+                              🎬 {artKeyData.featured_video.button_label || 'Watch Video'}
+                            </button>
+                          )}
+                          {artKeyData.features.enable_gallery && (
+                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
+                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
+                              🖼️ Image Gallery {artKeyData.uploadedImages.length > 0 && `(${artKeyData.uploadedImages.length})`}
+                            </button>
+                          )}
+                          {artKeyData.features.enable_video && (
+                            <button className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md"
+                              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
+                              🎥 Video Gallery {artKeyData.uploadedVideos.length > 0 && `(${artKeyData.uploadedVideos.length})`}
+                            </button>
+                          )}
+                        </div>
+
+                        {artKeyData.uploadedImages.length > 0 && (
+                          <div className="grid grid-cols-4 gap-1 mt-3 w-full max-w-sm">
+                            {artKeyData.uploadedImages.slice(0, 4).map((img, idx) => (
+                              <img key={idx} src={img} alt="" className="w-full h-12 object-cover rounded-md border border-white/50 shadow-sm" />
+                            ))}
+                          </div>
+                        )}
+                  </div>
+                </div>
+              )}
+
+              {previewDevice === 'desktop' && (
+                // Desktop preview: Phone container frame
                 <div className="flex justify-center">
                   <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-[32px] p-2 shadow-2xl relative" style={{ width: 'min(380px, 100%)' }}>
                     <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-10">
@@ -573,63 +656,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   </div>
                 </div>
               )}
-
-              {previewDevice === 'desktop' && (
-                <div className="w-full rounded-xl overflow-hidden border-2" style={{ borderColor: '#e2e2e0', ...getPreviewBackground(), minHeight: '500px' }}>
-                  <div className="p-8 h-full flex flex-col items-center justify-center text-center min-h-[500px]">
-                      <h1
-                        className="text-3xl md:text-4xl font-bold mb-4 font-playfair break-words mt-20"
-                        style={{
-                          color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
-                          background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
-                          backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
-                          WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
-                        }}
-                      >
-                        {artKeyData.title || 'Your Title Here'}
-                      </h1>
-
-                    <div className="flex flex-col gap-3 mt-4 w-full max-w-md">
-                      {customLinks.slice(0, 3).map((link, idx) => (
-                        <button
-                          key={idx}
-                          className="w-full py-3 px-6 rounded-full text-base font-semibold transition-all shadow-md"
-                          style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
-                        >
-                          {link.label || `Link ${idx + 1}`}
-                        </button>
-                      ))}
-                      {artKeyData.spotify.url?.length > 10 && (
-                        <button className="w-full py-3 px-6 rounded-full text-base font-semibold transition-all shadow-md flex items-center justify-center gap-2"
-                          style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                          🎵 Playlist
-                        </button>
-                      )}
-                      {artKeyData.features.show_guestbook && (
-                        <button className="w-full py-3 px-6 rounded-full text-base font-semibold transition-all shadow-md"
-                          style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                          📝 {artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}
-                        </button>
-                      )}
-                      {artKeyData.features.enable_featured_video && (
-                        <button className="w-full py-3 px-6 rounded-full text-base font-semibold transition-all shadow-md"
-                          style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                          🎬 {artKeyData.featured_video.button_label || 'Watch Video'}
-                        </button>
-                      )}
-                      {artKeyData.features.enable_gallery && (
-                        <button className="w-full py-3 px-6 rounded-full text-base font-semibold transition-all shadow-md"
-                          style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                          🖼️ Image Gallery {artKeyData.uploadedImages.length > 0 && `(${artKeyData.uploadedImages.length})`}
-                        </button>
-                      )}
-                      {artKeyData.features.enable_video && (
-                        <button className="w-full py-3 px-6 rounded-full text-base font-semibold transition-all shadow-md"
-                          style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}>
-                          🎥 Video Gallery {artKeyData.uploadedVideos.length > 0 && `(${artKeyData.uploadedVideos.length})`}
-                        </button>
-                      )}
-                    </div>
 
                     {artKeyData.uploadedImages.length > 0 && (
                       <div className="grid grid-cols-4 gap-2 mt-4 w-full max-w-md">
