@@ -21,14 +21,27 @@ export async function POST(request: NextRequest) {
     const wpUser = process.env.WP_APP_USER;
     const wpPass = process.env.WP_APP_PASS;
 
+    console.log('[ARTKEY SAVE] WP Base:', wpBase);
+    console.log('[ARTKEY SAVE] WP User:', wpUser);
+    console.log('[ARTKEY SAVE] WP Pass length:', wpPass?.length);
+
     if (!wpBase || !wpUser || !wpPass) {
       return NextResponse.json(
-        { error: 'WordPress API credentials not configured' },
+        { 
+          error: 'WordPress API credentials not configured',
+          debug: {
+            hasWpBase: !!wpBase,
+            hasWpUser: !!wpUser,
+            hasWpPass: !!wpPass,
+          }
+        },
         { status: 500 }
       );
     }
 
-    const auth = Buffer.from(`${wpUser}:${wpPass}`).toString('base64');
+    // Remove any spaces from password (WordPress app passwords have spaces but we need to remove them)
+    const cleanPass = wpPass.replace(/\s+/g, '');
+    const auth = Buffer.from(`${wpUser}:${cleanPass}`).toString('base64');
 
     // Check if product requires QR code (only for cards, invitations, postcards)
     let requiresQR = false;
@@ -81,9 +94,21 @@ export async function POST(request: NextRequest) {
     });
 
     if (!wpResponse.ok) {
-      const error = await wpResponse.json().catch(() => ({ message: 'Save failed' }));
+      const errorText = await wpResponse.text();
+      console.error('[ARTKEY SAVE] WordPress error response:', errorText);
+      let error;
+      try {
+        error = JSON.parse(errorText);
+      } catch {
+        error = { message: errorText || 'Save failed' };
+      }
       return NextResponse.json(
-        { error: error.message || 'Save failed' },
+        { 
+          error: error.message || 'Save failed',
+          details: error,
+          status: wpResponse.status,
+          url: `${wpBase}/wp-json/artkey/v1/save`
+        },
         { status: wpResponse.status }
       );
     }
