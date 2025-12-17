@@ -24,16 +24,18 @@ export default function AdminLoginPage() {
 
       const data = await res.json();
 
-      if (res.ok) {
+      if (res.ok && data.token) {
         // Store session token
         localStorage.setItem('admin_token', data.token);
-        router.push('/manage/dashboard');
+        // Force navigation
+        window.location.href = '/manage/dashboard';
       } else {
-        setError(data.error || 'Login failed');
+        setError(data.error || 'Login failed. Please check your credentials.');
+        setLoading(false);
       }
     } catch (err: any) {
-      setError('Failed to connect to server');
-    } finally {
+      console.error('Login error:', err);
+      setError('Failed to connect to server. Please try again.');
       setLoading(false);
     }
   };
