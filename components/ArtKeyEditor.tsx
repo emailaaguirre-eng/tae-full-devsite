@@ -1321,16 +1321,22 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                               {link.label}
                             </span>
                             <button
-                              onClick={() => handleEditLink(linkIdx)}
-                              className="text-blue-500 hover:text-blue-700 text-sm p-1"
-                              title="Edit link"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditLink(linkIdx);
+                              }}
+                              className="text-blue-500 hover:text-blue-700 p-2 text-base"
+                              title="Edit button name and URL"
                             >
                               ✏️
                             </button>
                             <button
-                              onClick={() => handleRemoveLink(linkIdx)}
-                              className="text-red-500 hover:text-red-700 text-sm p-1"
-                              title="Remove link"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveLink(linkIdx);
+                              }}
+                              className="text-red-500 hover:text-red-700 p-2 text-base"
+                              title="Remove button"
                             >
                               ✕
                             </button>
@@ -1351,7 +1357,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                             {artKeyData.featured_video.button_label || 'Watch Video'}
                           </span>
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               const newLabel = prompt('Enter button label:', artKeyData.featured_video?.button_label || 'Watch Video');
                               if (newLabel !== null && artKeyData.featured_video) {
                                 setArtKeyData((prev) => ({
@@ -1360,17 +1367,18 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                 }));
                               }
                             }}
-                            className="text-blue-500 hover:text-blue-700 text-sm p-1"
-                            title="Edit label"
+                            className="text-blue-500 hover:text-blue-700 p-2 text-base"
+                            title="Edit video button label"
                           >
                             ✏️
                           </button>
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setArtKeyData((prev) => ({ ...prev, featured_video: null }));
                             }}
-                            className="text-red-500 hover:text-red-700 text-sm p-1"
-                            title="Remove featured video"
+                            className="text-red-500 hover:text-red-700 p-2 text-base"
+                            title="Remove featured video button"
                           >
                             ✕
                           </button>
