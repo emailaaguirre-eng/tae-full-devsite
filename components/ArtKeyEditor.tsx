@@ -1231,7 +1231,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     className="w-full px-4 py-2 rounded-lg text-sm font-medium transition-all"
                     style={{ border: '2px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
                   >
-                    + Add Button
+                    {customLinks.length > 0 ? '+ Add Another Button' : '+ Add Button'}
                   </button>
                 </div>
                 {(customLinks.length > 0 || artKeyData.featured_video) && (
@@ -1355,21 +1355,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     })}
                   </div>
                 )}
-                
-                {/* Add Another Button - Always visible when feature is enabled */}
-                <div className="mt-4 pt-4 border-t" style={{ borderColor: '#e2e2e0' }}>
-                  <button
-                    onClick={handleAddLink}
-                    className="w-full px-4 py-3 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
-                    style={{ border: '2px solid', borderColor: COLOR_ACCENT, background: COLOR_PRIMARY, color: COLOR_ACCENT }}
-                  >
-                    <span className="text-lg">➕</span>
-                    <span>Add Another Button</span>
-                  </button>
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    Keep adding buttons to create your custom link collection
-                  </p>
-                </div>
               </Card>
             )}
 
