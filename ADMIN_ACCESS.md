@@ -10,7 +10,29 @@ https://your-vercel-site.vercel.app/manage/login
 
 ## Login Credentials
 
-Set these environment variables in Vercel:
+### Option 1: Multiple Admins (Recommended)
+
+Set this environment variable in Vercel to support multiple admin users:
+
+**ADMIN_USERS** - JSON array or comma-separated format:
+
+**JSON Format:**
+```json
+[
+  {"username": "admin1", "password": "secure-password-1"},
+  {"username": "admin2", "password": "secure-password-2"},
+  {"username": "sales", "password": "sales-password-123"}
+]
+```
+
+**Comma-Separated Format:**
+```
+admin1:secure-password-1,admin2:secure-password-2,sales:sales-password-123
+```
+
+### Option 2: Single Admin (Backward Compatible)
+
+Set these environment variables for a single admin:
 
 - **ADMIN_USERNAME** - Your admin username (default: `admin`)
 - **ADMIN_PASSWORD** - Your admin password (default: `admin123`)
