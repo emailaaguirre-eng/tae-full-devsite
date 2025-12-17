@@ -40,8 +40,16 @@ export default function PDFViewer({ url, onClose, title }: PDFViewerProps) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl h-full max-h-[90vh] flex flex-col">
+    <div 
+      className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-2 sm:p-4"
+      onClick={(e) => {
+        // Close when clicking backdrop (but not the modal itself)
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl h-full max-h-[95vh] sm:max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
@@ -85,41 +93,42 @@ export default function PDFViewer({ url, onClose, title }: PDFViewerProps) {
             </div>
           ) : (
             <>
-              {/* Try multiple PDF viewer methods for best compatibility */}
-              {/* Method 1: Google Docs Viewer (best for mobile, handles links well) */}
+              {/* Use Google Docs Viewer - best for mobile compatibility and link handling */}
+              {/* Links within PDFs will open in new tabs automatically */}
               <iframe
                 key="google-viewer"
                 src={`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`}
                 className="w-full h-full border-0"
                 onLoad={() => setLoading(false)}
                 onError={() => {
-                  // If Google viewer fails, try direct embed
+                  setError('Failed to load PDF. Please try opening in a new tab.');
                   setLoading(false);
                 }}
                 title={title || 'PDF Viewer'}
+                allow="fullscreen"
               />
             </>
           )}
         </div>
 
         {/* Footer with instructions */}
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-            <p className="text-sm text-gray-600 text-center sm:text-left">
-              💡 Tip: Links in PDFs open in new tabs. Close this viewer to return to your ArtKey.
+        <div className="p-3 sm:p-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
+              💡 <strong>Mobile Tip:</strong> Tap links in PDF to open in new tab. Tap "Close & Return" to come back to your ArtKey.
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
               <a
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium"
+                className="flex-1 sm:flex-none px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium text-center"
               >
                 Open in New Tab
               </a>
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
               >
                 Close & Return
               </button>
