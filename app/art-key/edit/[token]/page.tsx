@@ -1,21 +1,55 @@
-import Link from "next/link";
-import { brand } from "@/lib/theme";
-import { ArtKeyEditor } from "@/components/ArtKeyEditor";
+"use client";
 
-export default function ArtKeyEditorPage({ params }: { params: { token: string } }) {
-  const { token } = params;
-  return (
-    <main className="min-h-screen" style={{ background: brand.lightest }}>
-      <div className="max-w-6xl mx-auto p-6 flex flex-col gap-4">
-        <header className="flex items-center justify-between">
-          <div className="text-xs text-brand-darkest/70">Editing token: {token}</div>
-          <Link href="/" className="text-sm text-brand-dark underline">Home</Link>
-        </header>
-        <div className="rounded-2xl bg-white shadow border border-brand-light p-6">
-          <h1 className="text-xl font-bold text-brand-dark mb-4">ArtKey Editor</h1>
-          <ArtKeyEditor token={token} />
+import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
+
+// Dynamic import to avoid SSR issues
+const ArtKeyEditor = dynamic(
+  () => import('@/components/ArtKeyEditor'),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="min-h-screen flex items-center justify-center bg-brand-lightest">
+        <div className="text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-brand-dark text-lg">Loading ArtKey Editor...</p>
         </div>
       </div>
-    </main>
+    )
+  }
+);
+
+function ArtKeyEditorContent({ token }: { token: string }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-brand-lightest">
+        <div className="text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-brand-dark text-lg">Loading editor...</p>
+        </div>
+      </div>
+    }>
+      <ArtKeyEditor artkeyId={token} />
+    </Suspense>
   );
+}
+
+export default function ArtKeyEditorPage({ params }: { params: Promise<{ token: string }> }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-brand-lightest">
+        <div className="text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-brand-dark text-lg">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ArtKeyEditorPageContent params={params} />
+    </Suspense>
+  );
+}
+
+async function ArtKeyEditorPageContent({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  return <ArtKeyEditorContent token={token} />;
 }
