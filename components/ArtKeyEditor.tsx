@@ -239,7 +239,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     { label: 'Palm Trees', url: 'https://images.unsplash.com/photo-1509233725247-49e657c54213?w=1600&q=80&auto=format&fit=crop' },
     { label: 'Coastal Cliffs', url: 'https://images.unsplash.com/photo-1468581264429-2548ef9eb732?w=1600&q=80&auto=format&fit=crop' },
     { label: 'Forest Mist', url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1600&q=80&auto=format&fit=crop' },
-    { label: 'Autumn Forest', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Autumn Forest', url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80&auto=format&fit=crop' },
     { label: 'Cherry Blossoms', url: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1600&q=80&auto=format&fit=crop' },
     { label: 'Lavender Field', url: 'https://images.unsplash.com/photo-1499002238440-d264edd596ec?w=1600&q=80&auto=format&fit=crop' },
     { label: 'Sunflowers', url: 'https://images.unsplash.com/photo-1470509037663-253afd7f0f51?w=1600&q=80&auto=format&fit=crop' },
@@ -507,7 +507,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                         style={getPreviewBackground()}
                       >
                         <h1
-                          className="text-2xl md:text-3xl font-bold mb-3 font-playfair break-words"
+                          className="text-2xl md:text-3xl font-bold mb-3 font-playfair break-words mt-16"
                           style={{
                             color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
                             background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
@@ -577,17 +577,17 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               {previewDevice === 'desktop' && (
                 <div className="w-full rounded-xl overflow-hidden border-2" style={{ borderColor: '#e2e2e0', ...getPreviewBackground(), minHeight: '500px' }}>
                   <div className="p-8 h-full flex flex-col items-center justify-center text-center min-h-[500px]">
-                    <h1
-                      className="text-3xl md:text-4xl font-bold mb-4 font-playfair break-words"
-                      style={{
-                        color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
-                        background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
-                        backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
-                        WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
-                      }}
-                    >
-                      {artKeyData.title || 'Your Title Here'}
-                    </h1>
+                      <h1
+                        className="text-3xl md:text-4xl font-bold mb-4 font-playfair break-words mt-20"
+                        style={{
+                          color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
+                          background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
+                          backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                          WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                        }}
+                      >
+                        {artKeyData.title || 'Your Title Here'}
+                      </h1>
 
                     <div className="flex flex-col gap-3 mt-4 w-full max-w-md">
                       {customLinks.slice(0, 3).map((link, idx) => (
