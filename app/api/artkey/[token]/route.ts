@@ -2,12 +2,21 @@ import { NextResponse } from "next/server";
 
 export async function GET(_: Request, { params }: { params: Promise<{ token: string }> }) {
   try {
-    const { token } = await params;
+    let { token } = await params;
+    
+    // Handle different token formats from URLs
+    // e.g., "artkey-session-691e3d09ef58e" -> "691e3d09ef58e"
+    if (token.includes('artkey-session-')) {
+      token = token.replace('artkey-session-', '');
+    }
+    if (token.includes('session-')) {
+      token = token.replace('session-', '');
+    }
     
     // Query WordPress REST API directly
     const wpBase = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL;
     if (!wpBase) {
-      throw new Error('WP_API_BASE not configured');
+      throw new Error('WP_API_BASE not configured. Set WP_API_BASE or NEXT_PUBLIC_WORDPRESS_URL to your WordPress URL (e.g., https://theartfulexperience.com)');
     }
     
     const baseUrl = wpBase.replace(/\/$/, '');
@@ -16,6 +25,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ token: str
     const endpoints = [
       // Custom endpoint (if exists)
       `${baseUrl}/wp-json/artkey/v1/get/${token}`,
+      // Try with full token format
+      `${baseUrl}/wp-json/artkey/v1/get/artkey-session-${token}`,
       // Alternative custom endpoint pattern
       `${baseUrl}/wp-json/wp/v2/artkey/get/${token}`,
       // Direct post type with token in path (if supported)
@@ -58,14 +69,27 @@ export async function GET(_: Request, { params }: { params: Promise<{ token: str
       
       if (res.ok) {
         const posts = await res.json();
-        // Find post with matching token
+        // Find post with matching token - try multiple token formats
+        const tokenVariations = [
+          token, // Original token
+          `artkey-session-${token}`, // Full format
+          `session-${token}`, // Alternative format
+        ];
+        
         for (const post of posts) {
           // Check if meta is exposed in REST response
-          if (post.meta?._artkey_token === token) {
+          const postToken = post.meta?._artkey_token || post._artkey_token;
+          
+          // Try matching against all token variations
+          if (tokenVariations.includes(postToken) || postToken === token) {
             const artkeyData = {
               id: post.id,
-              token: post.meta._artkey_token,
-              data: post.meta._artkey_json ? (typeof post.meta._artkey_json === 'string' ? JSON.parse(post.meta._artkey_json) : post.meta._artkey_json) : null,
+              token: postToken,
+              data: (post.meta?._artkey_json || post._artkey_json) 
+                ? (typeof (post.meta?._artkey_json || post._artkey_json) === 'string' 
+                  ? JSON.parse(post.meta?._artkey_json || post._artkey_json) 
+                  : (post.meta?._artkey_json || post._artkey_json))
+                : null,
             };
             
             return NextResponse.json(artkeyData, {
