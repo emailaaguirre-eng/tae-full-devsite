@@ -17,13 +17,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setAuthenticated(auth);
       setLoading(false);
       
+      // Only redirect if we're not already on the login page
       if (!auth && pathname !== '/manage/login') {
-        router.push('/manage/login');
+        // Use window.location for reliable redirect
+        window.location.href = '/manage/login';
       }
     };
 
-    checkAuth();
-  }, [pathname, router]);
+    // Small delay to allow localStorage to be set after login
+    const timer = setTimeout(checkAuth, 50);
+    return () => clearTimeout(timer);
+  }, [pathname]);
 
   const handleLogout = () => {
     removeAdminToken();

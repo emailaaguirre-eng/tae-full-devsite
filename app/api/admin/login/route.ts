@@ -66,7 +66,16 @@ function getAdminUsers() {
 
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json();
+    const body = await request.json();
+    const { username, password } = body;
+    
+    if (!username || !password) {
+      return NextResponse.json(
+        { error: 'Username and password are required' },
+        { status: 400 }
+      );
+    }
+    
     const adminUsers = getAdminUsers();
     
     // Check if credentials match any admin
@@ -93,6 +102,7 @@ export async function POST(request: Request) {
       );
     }
   } catch (err: any) {
+    console.error('Login API error:', err);
     return NextResponse.json(
       { error: err.message || 'Login failed' },
       { status: 500 }

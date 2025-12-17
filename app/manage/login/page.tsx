@@ -22,20 +22,41 @@ export default function AdminLoginPage() {
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await res.json();
+      // Check if response is ok before parsing
+      if (!res.ok) {
+        const errorText = await res.text();
+        let errorMessage = 'Login failed';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = errorText || `Server error: ${res.status}`;
+        }
+        setError(errorMessage);
+        setLoading(false);
+        return;
+      }
 
-      if (res.ok && data.token) {
+      const data = await res.json();
+      console.log('Login response:', data);
+
+      if (data.token) {
         // Store session token
         localStorage.setItem('admin_token', data.token);
-        // Force navigation
-        window.location.href = '/manage/dashboard';
+        console.log('Token stored:', data.token.substring(0, 10) + '...');
+        
+        // Small delay to ensure token is saved, then redirect
+        setTimeout(() => {
+          window.location.href = '/manage/dashboard';
+        }, 100);
       } else {
-        setError(data.error || 'Login failed. Please check your credentials.');
+        console.error('No token in response:', data);
+        setError(data.error || 'Login failed. No token received.');
         setLoading(false);
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError('Failed to connect to server. Please try again.');
+      setError(`Failed to connect to server: ${err.message || 'Unknown error'}`);
       setLoading(false);
     }
   };
