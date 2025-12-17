@@ -975,14 +975,55 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     <ColorPicker
                       page={titleColorPage}
                       setPage={setTitleColorPage}
-                      pages={4}
-                      label={(page) =>
-                        page === 0 ? 'Solid Colors' : page === 1 ? 'Light & Pastel Gradients' : page === 2 ? 'Vibrant Gradients' : 'Dark Gradients'
-                      }
+                      pages={2}
+                      label={(page) => (page === 0 ? 'Solid Colors' : 'Gradients')}
                       colors={buttonColors}
                       selected={artKeyData.theme.title_color}
                       onSelect={(c) => handleColorSelect(c, 'title')}
+                      onCustomColor={() => {
+                        const currentColor = artKeyData.theme.title_color?.startsWith('#') ? artKeyData.theme.title_color : '#000000';
+                        setCustomColor(currentColor);
+                        setShowColorPicker({ type: 'title' });
+                      }}
                     />
+                    {showColorPicker.type === 'title' && (
+                      <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
+                          <input
+                            type="color"
+                            value={customColor}
+                            onChange={(e) => {
+                              setCustomColor(e.target.value);
+                              handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'title');
+                            }}
+                            className="h-8 w-16 rounded border"
+                            style={{ borderColor: '#d8d8d6' }}
+                          />
+                          <input
+                            type="text"
+                            value={customColor}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                                setCustomColor(val);
+                                handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'title');
+                              }
+                            }}
+                            className="flex-1 px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6' }}
+                            placeholder="#000000"
+                          />
+                          <button
+                            onClick={() => setShowColorPicker({ type: null })}
+                            className="px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="mt-4">
@@ -1003,18 +1044,59 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             {designMode !== null && (
               <Card title="Choose ArtKey Features and Colors" step="3">
                 <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
-                  <h4 className="text-sm font-semibold mb-3">🎨 Button Color</h4>
+                  <h4 className="text-sm font-semibold mb-3">Button Color</h4>
                   <ColorPicker
                     page={buttonColorPage}
                     setPage={setButtonColorPage}
-                    pages={4}
-                    label={(page) =>
-                      page === 0 ? 'Solid Colors' : page === 1 ? 'Gradients: Cool' : page === 2 ? 'Gradients: Warm' : 'Gradients: Dark'
-                    }
+                    pages={2}
+                    label={(page) => (page === 0 ? 'Solid Colors' : 'Gradients')}
                     colors={buttonColors}
                     selected={artKeyData.theme.button_color}
                     onSelect={(c) => handleColorSelect(c, 'button')}
+                    onCustomColor={() => {
+                      const currentColor = artKeyData.theme.button_color?.startsWith('#') ? artKeyData.theme.button_color : '#000000';
+                      setCustomColor(currentColor);
+                      setShowColorPicker({ type: 'button' });
+                    }}
                   />
+                  {showColorPicker.type === 'button' && (
+                    <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
+                        <input
+                          type="color"
+                          value={customColor}
+                          onChange={(e) => {
+                            setCustomColor(e.target.value);
+                            handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'button');
+                          }}
+                          className="h-8 w-16 rounded border"
+                          style={{ borderColor: '#d8d8d6' }}
+                        />
+                        <input
+                          type="text"
+                          value={customColor}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                              setCustomColor(val);
+                              handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'button');
+                            }
+                          }}
+                          className="flex-1 px-2 py-1 rounded text-xs"
+                          style={{ border: '1px solid #d8d8d6' }}
+                          placeholder="#000000"
+                        />
+                        <button
+                          onClick={() => setShowColorPicker({ type: null })}
+                          className="px-2 py-1 rounded text-xs"
+                          style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                        >
+                          ✓
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-start gap-2">
