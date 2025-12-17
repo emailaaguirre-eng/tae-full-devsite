@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from 'crypto';
 
-// Route segment config - ensure this route is dynamic and not cached
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-
 // Generate a simple token (in production, use JWT)
 function generateToken() {
   return crypto.randomBytes(32).toString('hex');
