@@ -93,6 +93,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [editLinkUrl, setEditLinkUrl] = useState('');
   const [showColorPicker, setShowColorPicker] = useState<{ type: 'button' | 'title' | 'background' | null }>({ type: null });
   const [customColor, setCustomColor] = useState<string>('#000000');
+  const [openedGallery, setOpenedGallery] = useState<'images' | 'videos' | null>(null); // Track which gallery is opened
   
   // QR Code & Skeleton Key state (only for cards/invitations/postcards)
   const [productInfo, setProductInfo] = useState<any>(null);
@@ -1195,7 +1196,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Step 4 Links & Buttons */}
             {designMode !== null && artKeyData.features.enable_custom_links && (
-              <Card title="Share Your Interests" step="4">
+              <Card title="Share Your Interests">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-start gap-2">
                   <span className="text-lg">💡</span>
                   <span className="text-xs text-blue-800">Click to toggle; drag to reorder buttons.</span>
@@ -1374,7 +1375,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Step 5 Spotify */}
             {designMode !== null && artKeyData.features.enable_spotify && (
-              <Card title="Share Your Playlist" step="5">
+              <Card title="Share Your Playlist">
                 <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Playlist URL</label>
                 <div className="flex items-center gap-2">
                   <span className="text-xl">🔗</span>
@@ -1399,54 +1400,108 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             )}
 
             {/* Step 6 Media */}
-            {designMode !== null && (
-              <Card title="Media Gallery" step="6">
+            {designMode !== null && (artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
+              <Card title="Media Gallery">
                 <div className="grid grid-cols-2 gap-4">
-                  <MediaColumn
-                    title="Images"
-                    items={artKeyData.uploadedImages}
-                    onRemove={(idx) => setArtKeyData((prev) => ({ ...prev, uploadedImages: prev.uploadedImages.filter((_, i) => i !== idx) }))}
-                    onUpload={handleImageUpload}
-                    accept="image/*"
-                    inputId="image-upload"
-                    buttonLabel="+ Upload"
-                  />
-                  <MediaColumn
-                    title="Videos"
-                    items={artKeyData.uploadedVideos}
-                    onRemove={(idx) => {
-                      const removedUrl = artKeyData.uploadedVideos[idx];
-                      setArtKeyData((prev) => {
-                        const newVideos = prev.uploadedVideos.filter((_, i) => i !== idx);
-                        // If removed video was featured, clear featured video
-                        const newFeatured = prev.featured_video?.video_url === removedUrl ? null : prev.featured_video;
-                        return { ...prev, uploadedVideos: newVideos, featured_video: newFeatured };
-                      });
-                    }}
-                    onUpload={handleVideoUpload}
-                    accept="video/*"
-                    inputId="video-upload"
-                    buttonLabel="+ Upload"
-                    isVideo
-                    featuredVideoUrl={artKeyData.featured_video?.video_url || null}
-                    onSetFeatured={handleSetFeaturedVideo}
-                    featuredVideoLabel={artKeyData.featured_video?.button_label}
-                    onUpdateFeaturedLabel={(label) => {
-                      if (artKeyData.featured_video) {
-                        setArtKeyData((prev) => ({
-                          ...prev,
-                          featured_video: prev.featured_video ? { ...prev.featured_video, button_label: label } : null,
-                        }));
+                  <div 
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      !artKeyData.features.enable_gallery 
+                        ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200' 
+                        : openedGallery === 'videos'
+                        ? 'opacity-50 cursor-pointer bg-gray-100 border-gray-300'
+                        : openedGallery === 'images'
+                        ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                        : 'border-gray-300 bg-gray-50 cursor-pointer'
+                    }`}
+                    onClick={() => {
+                      if (artKeyData.features.enable_gallery) {
+                        setOpenedGallery(openedGallery === 'images' ? null : 'images');
                       }
                     }}
-                  />
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className={`font-semibold text-sm ${!artKeyData.features.enable_gallery ? 'text-gray-400' : ''}`}>
+                        📸 Image Gallery
+                      </h4>
+                      {openedGallery === 'images' && <span className="text-xs text-blue-600">▼ Open</span>}
+                      {openedGallery !== 'images' && artKeyData.features.enable_gallery && <span className="text-xs text-gray-500">▶ Closed</span>}
+                      {!artKeyData.features.enable_gallery && <span className="text-xs text-gray-400">Disabled</span>}
+                    </div>
+                    {openedGallery === 'images' && artKeyData.features.enable_gallery && (
+                      <MediaColumn
+                        title="Images"
+                        items={artKeyData.uploadedImages}
+                        onRemove={(idx) => setArtKeyData((prev) => ({ ...prev, uploadedImages: prev.uploadedImages.filter((_, i) => i !== idx) }))}
+                        onUpload={handleImageUpload}
+                        accept="image/*"
+                        inputId="image-upload"
+                        buttonLabel="+ Upload"
+                      />
+                    )}
+                  </div>
+                  <div 
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      !artKeyData.features.enable_video 
+                        ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200' 
+                        : openedGallery === 'images'
+                        ? 'opacity-50 cursor-pointer bg-gray-100 border-gray-300'
+                        : openedGallery === 'videos'
+                        ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                        : 'border-gray-300 bg-gray-50 cursor-pointer'
+                    }`}
+                    onClick={() => {
+                      if (artKeyData.features.enable_video) {
+                        setOpenedGallery(openedGallery === 'videos' ? null : 'videos');
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className={`font-semibold text-sm ${!artKeyData.features.enable_video ? 'text-gray-400' : ''}`}>
+                        🎥 Video Gallery
+                      </h4>
+                      {openedGallery === 'videos' && <span className="text-xs text-blue-600">▼ Open</span>}
+                      {openedGallery !== 'videos' && artKeyData.features.enable_video && <span className="text-xs text-gray-500">▶ Closed</span>}
+                      {!artKeyData.features.enable_video && <span className="text-xs text-gray-400">Disabled</span>}
+                    </div>
+                    {openedGallery === 'videos' && artKeyData.features.enable_video && (
+                      <MediaColumn
+                        title="Videos"
+                        items={artKeyData.uploadedVideos}
+                        onRemove={(idx) => {
+                          const removedUrl = artKeyData.uploadedVideos[idx];
+                          setArtKeyData((prev) => {
+                            const newVideos = prev.uploadedVideos.filter((_, i) => i !== idx);
+                            // If removed video was featured, clear featured video
+                            const newFeatured = prev.featured_video?.video_url === removedUrl ? null : prev.featured_video;
+                            return { ...prev, uploadedVideos: newVideos, featured_video: newFeatured };
+                          });
+                        }}
+                        onUpload={handleVideoUpload}
+                        accept="video/*"
+                        inputId="video-upload"
+                        buttonLabel="+ Upload"
+                        isVideo
+                        featuredVideoUrl={artKeyData.featured_video?.video_url || null}
+                        onSetFeatured={handleSetFeaturedVideo}
+                        featuredVideoLabel={artKeyData.featured_video?.button_label}
+                        onUpdateFeaturedLabel={(label) => {
+                          if (artKeyData.featured_video) {
+                            setArtKeyData((prev) => ({
+                              ...prev,
+                              featured_video: prev.featured_video ? { ...prev.featured_video, button_label: label } : null,
+                            }));
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
               </Card>
             )}
 
             {/* Step 7 Settings */}
             {designMode !== null && (artKeyData.features.show_guestbook || artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
-              <Card title="ArtKey Settings" step="7">
+              <Card title="ArtKey Settings">
                 {artKeyData.features.show_guestbook && (
                   <SettingsBlock title="📖 Guestbook Settings">
                     <label className="flex items-center gap-2 text-sm">
@@ -1550,7 +1605,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Step 8: QR Code & Skeleton Key (only for cards/invitations/postcards) */}
             {designMode !== null && productInfo?.requiresQR && (
-              <Card title="QR Code Placement" step="8">
+              <Card title="QR Code Placement">
                 <div className="space-y-6">
                   {/* Skeleton Key Selection */}
                   <div>
