@@ -15,47 +15,68 @@ export default function AdminLoginPage() {
     setError('');
     setLoading(true);
 
+    console.log('=== LOGIN ATTEMPT START ===');
+    console.log('Username:', username);
+    console.log('Password length:', password.length);
+
     try {
+      console.log('Sending request to /api/admin/login...');
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
       });
 
+      console.log('Response status:', res.status);
+      console.log('Response ok:', res.ok);
+
       // Check if response is ok before parsing
       if (!res.ok) {
         const errorText = await res.text();
+        console.error('Error response text:', errorText);
         let errorMessage = 'Login failed';
         try {
           const errorData = JSON.parse(errorText);
           errorMessage = errorData.error || errorMessage;
+          console.error('Parsed error:', errorData);
         } catch {
           errorMessage = errorText || `Server error: ${res.status}`;
         }
         setError(errorMessage);
         setLoading(false);
+        console.log('=== LOGIN FAILED ===');
         return;
       }
 
       const data = await res.json();
-      console.log('Login response:', data);
+      console.log('Login response data:', data);
 
       if (data.token) {
         // Store session token
         localStorage.setItem('admin_token', data.token);
-        console.log('Token stored:', data.token.substring(0, 10) + '...');
+        console.log('Token stored in localStorage:', data.token.substring(0, 10) + '...');
+        console.log('Verifying token storage...');
+        const storedToken = localStorage.getItem('admin_token');
+        console.log('Token verification:', storedToken ? 'SUCCESS' : 'FAILED');
         
         // Small delay to ensure token is saved, then redirect
+        console.log('Redirecting to dashboard in 100ms...');
         setTimeout(() => {
+          console.log('Redirecting now...');
           window.location.href = '/manage/dashboard';
         }, 100);
       } else {
         console.error('No token in response:', data);
         setError(data.error || 'Login failed. No token received.');
         setLoading(false);
+        console.log('=== LOGIN FAILED (NO TOKEN) ===');
       }
     } catch (err: any) {
-      console.error('Login error:', err);
+      console.error('=== LOGIN ERROR ===');
+      console.error('Error type:', err.constructor.name);
+      console.error('Error message:', err.message);
+      console.error('Error stack:', err.stack);
+      console.error('Full error:', err);
       setError(`Failed to connect to server: ${err.message || 'Unknown error'}`);
       setLoading(false);
     }
