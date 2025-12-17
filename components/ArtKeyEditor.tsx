@@ -244,7 +244,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
   // Colors - Primary colors only for solid, gradients separate
   const buttonColors = useMemo(() => ([
-    // Primary solid colors
+    // Page 1: Primary solid colors (12 colors)
     { bg: '#ffffff', color: '#ffffff', label: 'White', type: 'solid' },
     { bg: '#000000', color: '#000000', label: 'Black', type: 'solid' },
     { bg: '#ef4444', color: '#ef4444', label: 'Red', type: 'solid' },
@@ -255,13 +255,33 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     { bg: '#8b5cf6', color: '#8b5cf6', label: 'Purple', type: 'solid' },
     { bg: '#ec4899', color: '#ec4899', label: 'Pink', type: 'solid' },
     { bg: '#64748b', color: '#64748b', label: 'Gray', type: 'solid' },
-    // Gradients
+    { bg: '#f59e0b', color: '#f59e0b', label: 'Amber', type: 'solid' },
+    { bg: '#06b6d4', color: '#06b6d4', label: 'Cyan', type: 'solid' },
+    // Page 2: Additional solid colors (12 colors)
+    { bg: '#dc2626', color: '#dc2626', label: 'Dark Red', type: 'solid' },
+    { bg: '#ea580c', color: '#ea580c', label: 'Dark Orange', type: 'solid' },
+    { bg: '#ca8a04', color: '#ca8a04', label: 'Dark Yellow', type: 'solid' },
+    { bg: '#059669', color: '#059669', label: 'Dark Green', type: 'solid' },
+    { bg: '#2563eb', color: '#2563eb', label: 'Dark Blue', type: 'solid' },
+    { bg: '#7c3aed', color: '#7c3aed', label: 'Dark Purple', type: 'solid' },
+    { bg: '#db2777', color: '#db2777', label: 'Dark Pink', type: 'solid' },
+    { bg: '#475569', color: '#475569', label: 'Dark Gray', type: 'solid' },
+    { bg: '#d97706', color: '#d97706', label: 'Dark Amber', type: 'solid' },
+    { bg: '#0891b2', color: '#0891b2', label: 'Dark Cyan', type: 'solid' },
+    { bg: '#991b1b', color: '#991b1b', label: 'Maroon', type: 'solid' },
+    // Page 3: Gradients (12 colors)
     { bg: 'linear-gradient(135deg,#ffecd2,#fcb69f)', color: 'gradient', label: 'Peachy', type: 'gradient' },
     { bg: 'linear-gradient(135deg,#ff9a9e,#fecfef)', color: 'gradient', label: 'Pink Blush', type: 'gradient' },
     { bg: 'linear-gradient(135deg,#a8edea,#fed6e3)', color: 'gradient', label: 'Cotton Candy', type: 'gradient' },
     { bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', color: 'gradient', label: 'Electric Blue', type: 'gradient' },
     { bg: 'linear-gradient(135deg,#ff6b6b,#feca57)', color: 'gradient', label: 'Fire Glow', type: 'gradient' },
     { bg: 'linear-gradient(135deg,#434343,#666666)', color: 'gradient', label: 'Steel Gray', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#667eea,#764ba2)', color: 'gradient', label: 'Purple Dream', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#f093fb,#f5576c)', color: 'gradient', label: 'Rose Gold', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', color: 'gradient', label: 'Ocean Breeze', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#43e97b,#38f9d7)', color: 'gradient', label: 'Mint Fresh', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#fa709a,#fee140)', color: 'gradient', label: 'Sunset', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#30cfd0,#330867)', color: 'gradient', label: 'Deep Space', type: 'gradient' },
   ]), []);
 
   const stockBackgrounds = useMemo(() => [
@@ -530,6 +550,21 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     return '#ffffff';
   };
 
+  // Load Google Font when font changes
+  useEffect(() => {
+    if (artKeyData?.theme?.font && artKeyData.theme.font.startsWith('g:')) {
+      const fontName = artKeyData.theme.font.replace('g:', '').replace(/\s+/g, '+');
+      const linkId = `google-font-${fontName}`;
+      if (typeof window !== 'undefined' && !document.getElementById(linkId)) {
+        const link = document.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;600;700&display=swap`;
+        document.head.appendChild(link);
+      }
+    }
+  }, [artKeyData?.theme?.font]);
+
   // Parse font value and return font-family CSS
   const getFontFamily = (fontValue: string) => {
     if (!fontValue) return 'inherit';
@@ -537,7 +572,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     if (fontValue.startsWith('g:')) {
       // Google Font - extract font name
       const fontName = fontValue.replace('g:', '').replace(/\s+/g, '+');
-      // Load Google Font dynamically
+      // Load Google Font dynamically (fallback if useEffect didn't catch it)
       if (typeof window !== 'undefined') {
         const linkId = `google-font-${fontName}`;
         if (!document.getElementById(linkId)) {
@@ -892,8 +927,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     <ColorPicker
                       page={bgColorPage}
                       setPage={setBgColorPage}
-                      pages={2}
-                      label={(page) => (page === 0 ? 'Solid Colors' : 'Gradients')}
+                      pages={3}
+                      label={(page) => (page === 0 ? 'Page 1' : page === 1 ? 'Page 2' : 'Page 3')}
                       colors={buttonColors}
                       selected={artKeyData.theme.bg_color}
                       onSelect={(c) => handleColorSelect(c, 'background')}
@@ -1011,8 +1046,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     <ColorPicker
                       page={titleColorPage}
                       setPage={setTitleColorPage}
-                      pages={2}
-                      label={(page) => (page === 0 ? 'Solid Colors' : 'Gradients')}
+                      pages={3}
+                      label={(page) => (page === 0 ? 'Page 1' : page === 1 ? 'Page 2' : 'Page 3')}
                       colors={buttonColors}
                       selected={artKeyData.theme.title_color}
                       onSelect={(c) => handleColorSelect(c, 'title')}
@@ -1084,8 +1119,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   <ColorPicker
                     page={buttonColorPage}
                     setPage={setButtonColorPage}
-                    pages={2}
-                    label={(page) => (page === 0 ? 'Solid Colors' : 'Gradients')}
+                    pages={3}
+                    label={(page) => (page === 0 ? 'Page 1' : page === 1 ? 'Page 2' : 'Page 3')}
                     colors={buttonColors}
                     selected={artKeyData.theme.button_color}
                     onSelect={(c) => handleColorSelect(c, 'button')}
@@ -1866,7 +1901,7 @@ function ColorPicker({ page, setPage, pages, label, colors, selected, onSelect, 
           ›
         </button>
       </div>
-      <div className="grid grid-cols-6 gap-2 mb-2">
+      <div className="grid grid-cols-6 gap-2 mb-2" style={{ gridTemplateRows: 'repeat(2, minmax(0, 1fr))' }}>
         {getColorsForPage(page, colors).map((color, idx) => {
           const isSelected =
             selected === color.color ||
