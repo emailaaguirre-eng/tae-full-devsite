@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const wpBase = process.env.WP_API_BASE;
+    const wpBase = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_WORDPRESS_URL;
     const wpUser = process.env.WP_APP_USER;
     const wpPass = process.env.WP_APP_PASS;
 

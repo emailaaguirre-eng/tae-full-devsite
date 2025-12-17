@@ -3,16 +3,17 @@ import { NextResponse } from "next/server";
 // Test endpoint to check WordPress REST API connectivity
 export async function GET() {
   try {
-    const wpBase = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL;
-    if (!wpBase) {
-      return NextResponse.json({
-        error: 'WP_API_BASE not configured',
-        env: {
-          WP_API_BASE: process.env.WP_API_BASE,
-          NEXT_PUBLIC_WORDPRESS_URL: process.env.NEXT_PUBLIC_WORDPRESS_URL,
-        }
-      }, { status: 500 });
-    }
+                const wpBase = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_WORDPRESS_URL;
+                if (!wpBase) {
+                  return NextResponse.json({
+                    error: 'WordPress URL not configured',
+                    env: {
+                      WP_API_BASE: process.env.WP_API_BASE,
+                      NEXT_PUBLIC_WORDPRESS_URL: process.env.NEXT_PUBLIC_WORDPRESS_URL,
+                      NEXT_WORDPRESS_URL: process.env.NEXT_WORDPRESS_URL,
+                    }
+                  }, { status: 500 });
+                }
     
     const baseUrl = wpBase.replace(/\/$/, '');
     

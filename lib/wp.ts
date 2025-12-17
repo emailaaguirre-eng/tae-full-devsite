@@ -1,4 +1,4 @@
-const base = process.env.WP_API_BASE;
+const base = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_WORDPRESS_URL;
 const user = process.env.WP_APP_USER;
 const pass = process.env.WP_APP_PASS;
 

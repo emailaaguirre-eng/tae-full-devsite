@@ -14,9 +14,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ token: str
     }
     
     // Query WordPress REST API directly
-    const wpBase = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL;
+    const wpBase = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_WORDPRESS_URL;
     if (!wpBase) {
-      throw new Error('WP_API_BASE not configured. Set WP_API_BASE or NEXT_PUBLIC_WORDPRESS_URL to your WordPress URL (e.g., https://theartfulexperience.com)');
+      throw new Error('WordPress URL not configured. Set WP_API_BASE, NEXT_PUBLIC_WORDPRESS_URL, or NEXT_WORDPRESS_URL to your WordPress URL (e.g., https://theartfulexperience.com)');
     }
     
     const baseUrl = wpBase.replace(/\/$/, '');
