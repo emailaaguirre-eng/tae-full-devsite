@@ -46,6 +46,8 @@ interface ArtKeyData {
     enable_gallery: boolean;
     enable_video: boolean;
     show_guestbook: boolean;
+    enable_custom_links: boolean;
+    enable_spotify: boolean;
     allow_img_uploads: boolean;
     allow_vid_uploads: boolean;
     gb_btn_view: boolean;
@@ -129,6 +131,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       gb_require_approval: true,
       img_require_approval: true,
       vid_require_approval: true,
+      enable_custom_links: false,
+      enable_spotify: false,
       order: ['gallery', 'guestbook', 'video'],
     },
     uploadedImages: [],
@@ -330,6 +334,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   ];
 
   const featureDefsDefault = [
+    { key: 'custom_links', label: '🔗 Share Your Interests', field: 'enable_custom_links' },
+    { key: 'spotify', label: '🎵 Share Your Playlist', field: 'enable_spotify' },
     { key: 'gallery', label: '📸 Image Gallery', field: 'enable_gallery' },
     { key: 'guestbook', label: '📖 Guestbook', field: 'show_guestbook' },
     { key: 'video', label: '🎥 Video Gallery', field: 'enable_video' },
@@ -1206,7 +1212,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             )}
 
             {/* Step 4 Links & Buttons */}
-            {designMode !== null && (
+            {designMode !== null && artKeyData.features.enable_custom_links && (
               <Card title="Share Your Interests" step="4">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-start gap-2">
                   <span className="text-lg">💡</span>
@@ -1246,7 +1252,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   </button>
                 </div>
                 {(customLinks.length > 0 || artKeyData.featured_video) && (
-                  <div className="space-y-2">
+                  <div className="space-y-2 mb-4">
                     {/* Combine links and featured video for unified drag-and-drop */}
                     {[...customLinks, ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}`, url: artKeyData.featured_video.video_url, isFeatured: true }] : [])].map((item, idx) => {
                       const isFeatured = (item as any).isFeatured;
@@ -1365,16 +1371,26 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     ))}
                   </div>
                 )}
-                {customLinks.length === 0 && !artKeyData.featured_video && (
-                  <div className="text-center py-4 text-sm text-gray-500">
-                    No buttons yet. Add links or mark a video as featured.
-                  </div>
-                )}
+                
+                {/* Add Another Button - Always visible when feature is enabled */}
+                <div className="mt-4 pt-4 border-t" style={{ borderColor: '#e2e2e0' }}>
+                  <button
+                    onClick={handleAddLink}
+                    className="w-full px-4 py-3 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                    style={{ border: '2px solid', borderColor: COLOR_ACCENT, background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                  >
+                    <span className="text-lg">➕</span>
+                    <span>Add Another Button</span>
+                  </button>
+                  <p className="text-xs text-gray-500 text-center mt-2">
+                    Keep adding buttons to create your custom link collection
+                  </p>
+                </div>
               </Card>
             )}
 
             {/* Step 5 Spotify */}
-            {designMode !== null && (
+            {designMode !== null && artKeyData.features.enable_spotify && (
               <Card title="Share Your Playlist" step="5">
                 <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Playlist URL</label>
                 <div className="flex items-center gap-2">
