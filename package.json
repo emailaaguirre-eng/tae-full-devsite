@@ -16,7 +16,6 @@
     "fabric": "^6.9.0",
     "lucide-react": "^0.556.0",
     "next": "^15.5.9",
-    "next-auth": "^5.0.0-beta.30",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
