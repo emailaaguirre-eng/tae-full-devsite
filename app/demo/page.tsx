@@ -62,6 +62,12 @@ export default function DemoPage() {
             >
               🎯 Sales Demo Link (Direct)
             </a>
+            <a
+              href="/demo/preview"
+              className="block text-purple-600 hover:text-purple-700 underline text-sm font-semibold"
+            >
+              📱 Device Preview (Mobile/Desktop Toggle)
+            </a>
           </div>
         </div>
       </div>
