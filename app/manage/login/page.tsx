@@ -38,9 +38,29 @@ export default function AdminLoginPage() {
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
-          throw new Error('Request timed out. The server may be slow or the API route may not exist.');
+          const errorMsg = 'Request timed out after 10 seconds. The API route may not exist or the server is not responding. Please check Vercel deployment logs.';
+          console.error(errorMsg);
+          setError(errorMsg);
+          setLoading(false);
+          return;
+        }
+        if (fetchError.message?.includes('Failed to fetch') || fetchError.message?.includes('NetworkError')) {
+          const errorMsg = 'Network error: Unable to reach the server. The API route may not be deployed. Check Vercel deployment status.';
+          console.error(errorMsg, fetchError);
+          setError(errorMsg);
+          setLoading(false);
+          return;
         }
         throw fetchError;
+      }
+      
+      // Check if we got a 404
+      if (res.status === 404) {
+        const errorMsg = 'API route not found (404). The route may not be deployed. Please check Vercel deployment.';
+        console.error(errorMsg);
+        setError(errorMsg);
+        setLoading(false);
+        return;
       }
 
       console.log('Response status:', res.status);
