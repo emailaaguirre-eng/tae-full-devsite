@@ -14,6 +14,7 @@ interface ArtKeyData {
     title_color: string;
     title_style: 'solid' | 'gradient';
     button_color: string;
+    font?: string;
   };
   links: Array<{ label: string; url: string }>;
   spotify: { url: string };
@@ -117,6 +118,39 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
     return brightness > 128 ? '#000000' : '#ffffff';
   };
 
+  // Parse font value and return font-family CSS
+  const getFontFamily = (fontValue: string) => {
+    if (!fontValue) return 'inherit';
+    
+    if (fontValue.startsWith('g:')) {
+      // Google Font - extract font name
+      const fontName = fontValue.replace('g:', '').replace(/\s+/g, '+');
+      // Load Google Font dynamically
+      if (typeof window !== 'undefined') {
+        const linkId = `google-font-${fontName}`;
+        if (!document.getElementById(linkId)) {
+          const link = document.createElement('link');
+          link.id = linkId;
+          link.rel = 'stylesheet';
+          link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;600;700&display=swap`;
+          document.head.appendChild(link);
+        }
+      }
+      return `"${fontValue.replace('g:', '')}", sans-serif`;
+    }
+    
+    switch (fontValue) {
+      case 'system':
+        return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+      case 'serif':
+        return 'Georgia, "Times New Roman", Times, serif';
+      case 'mono':
+        return '"Courier New", Courier, monospace';
+      default:
+        return 'inherit';
+    }
+  };
+
   const handleLinkClick = (url: string, label?: string) => {
     if (!url) return;
     
@@ -143,8 +177,9 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
         style={getPreviewBackground()}
       >
         <h1
-          className="text-2xl md:text-3xl font-bold mb-3 font-playfair break-words mt-16"
+          className="text-2xl md:text-3xl font-bold mb-3 break-words mt-16"
           style={{
+            fontFamily: getFontFamily(artKeyData.theme.font || 'g:Playfair Display'),
             color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
             background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
             backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
@@ -246,17 +281,18 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
             className="h-full w-full pt-6 pb-6 px-6 flex flex-col items-center text-center"
             style={getPreviewBackground()}
           >
-            <h1
-              className="text-2xl md:text-3xl font-bold mb-3 font-playfair break-words mt-16"
-              style={{
-                color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
-                background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
-                backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
-                WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
-              }}
-            >
-              {artKeyData.title || 'Your Title Here'}
-            </h1>
+              <h1
+                className="text-2xl md:text-3xl font-bold mb-3 break-words mt-16"
+                style={{
+                  fontFamily: getFontFamily(artKeyData.theme.font || 'g:Playfair Display'),
+                  color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
+                  background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
+                  backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                  WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                }}
+              >
+                {artKeyData.title || 'Your Title Here'}
+              </h1>
 
             {/* Buttons */}
             <div className="flex flex-col gap-2 mt-3 w-full max-w-sm">
