@@ -30,9 +30,41 @@ export async function POST(request: NextRequest) {
 
     const auth = Buffer.from(`${wpUser}:${wpPass}`).toString('base64');
 
-    // Always generate QR code for all ArtKeys
-    let requiresQR = true; // Always true - generate QR for everything
+    // Check if product requires QR code (only for cards, invitations, postcards)
+    let requiresQR = false;
     let qrCodeUrl = null;
+
+    if (product_id) {
+      try {
+        // Fetch product info to check if it requires QR
+        const productRes = await fetch(`${wpBase}/wp-json/wc/v3/products/${product_id}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (productRes.ok) {
+          const product = await productRes.json();
+          const productName = (product.name || '').toLowerCase();
+          const productCategories = (product.categories || []).map((cat: any) => cat.name?.toLowerCase() || '').join(' ');
+          const productTags = (product.tags || []).map((tag: any) => tag.name?.toLowerCase() || '').join(' ');
+          const allText = `${productName} ${productCategories} ${productTags}`;
+          
+          requiresQR = 
+            allText.includes('card') || 
+            allText.includes('invitation') || 
+            allText.includes('postcard') ||
+            product.meta_data?.some((meta: any) => 
+              meta.key === '_requires_qr_code' && meta.value === 'yes'
+            );
+        }
+      } catch (err) {
+        console.warn('Failed to fetch product info for QR check:', err);
+        // Default to false if we can't determine
+      }
+    }
 
     // Forward to WordPress REST API
     const wpResponse = await fetch(`${wpBase}/wp-json/artkey/v1/save`, {
@@ -44,7 +76,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         data: { ...data, product_id },
         product_id,
-        requires_qr: true, // Always generate QR code
+        requires_qr: requiresQR, // Only true for cards/invitations/postcards
       }),
     });
 
@@ -64,8 +96,8 @@ export async function POST(request: NextRequest) {
                    'http://localhost:3000';
     const shareUrl = `${baseUrl}/art-key/${result.token}`;
 
-    // Always generate QR code for every ArtKey (unique URL per token)
-    if (result.token) {
+    // Only generate QR code if product requires it (cards/invitations/postcards)
+    if (requiresQR && result.token) {
       try {
         // Generate QR code using the unique ArtKey share URL
         const qrResponse = await fetch(`${baseUrl}/api/artkey/qr?url=${encodeURIComponent(shareUrl)}&format=wordpress`, {

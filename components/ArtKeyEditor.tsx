@@ -81,6 +81,11 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('https://www.');
   const [customizationData, setCustomizationData] = useState<any>(null);
+  
+  // QR Code & Skeleton Key state (only for cards/invitations/postcards)
+  const [productInfo, setProductInfo] = useState<any>(null);
+  const [skeletonKey, setSkeletonKey] = useState<string>('template-1'); // Default template
+  const [qrPosition, setQrPosition] = useState<string>('bottom-right'); // Default position
 
   // ArtKey data
   const [artKeyData, setArtKeyData] = useState<ArtKeyData>({
@@ -130,6 +135,25 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     }
   }, [fromCustomize]);
 
+  // Load product info to check if QR code is needed
+  useEffect(() => {
+    if (productId) {
+      fetch(`/api/woocommerce/products/${productId}`)
+        .then(res => res.json())
+        .then(data => {
+          setProductInfo(data);
+          // Load saved skeleton key and QR position if editing existing ArtKey
+          if (data.customizations?.skeleton_key) {
+            setSkeletonKey(data.customizations.skeleton_key);
+          }
+          if (data.customizations?.qr_position) {
+            setQrPosition(data.customizations.qr_position);
+          }
+        })
+        .catch(err => console.error('Failed to load product info:', err));
+    }
+  }, [productId]);
+
   // Load existing ArtKey if provided
   useEffect(() => {
     if (artkeyId) loadArtKey(artkeyId);
@@ -143,6 +167,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       if (data?.data) {
         setArtKeyData(data.data);
         setCustomLinks(data.data.links || []);
+        // Load skeleton key and QR position from customizations
+        if (data.data.customizations?.skeleton_key) {
+          setSkeletonKey(data.data.customizations.skeleton_key);
+        }
+        if (data.data.customizations?.qr_position) {
+          setQrPosition(data.data.customizations.qr_position);
+        }
       }
     } catch (e) {
       console.error('Failed to load ArtKey', e);
@@ -367,11 +398,24 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
   const handleSave = async (redirectToShop = false) => {
     try {
+      // Include skeleton key and QR position in customizations if product requires QR
+      const customizations = {
+        ...artKeyData.customizations,
+        ...(productInfo?.requiresQR ? {
+          skeleton_key: skeletonKey,
+          qr_position: qrPosition,
+        } : {}),
+      };
+
       const res = await fetch('/api/artkey/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: { ...artKeyData, links: customLinks },
+          data: { 
+            ...artKeyData, 
+            links: customLinks,
+            customizations,
+          },
           product_id: productId,
         }),
       });
@@ -1108,6 +1152,246 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     </div>
                   </SettingsBlock>
                 )}
+              </Card>
+            )}
+
+            {/* Step 8: QR Code & Skeleton Key (only for cards/invitations/postcards) */}
+            {designMode !== null && productInfo?.requiresQR && (
+              <Card title="QR Code Placement" step="8">
+                <div className="space-y-6">
+                  {/* Skeleton Key Selection */}
+                  <div>
+                    <label className="block text-sm font-semibold mb-3" style={{ color: COLOR_ACCENT }}>
+                      🔑 Choose Skeleton Key Template
+                    </label>
+                    <p className="text-xs text-gray-600 mb-3">
+                      Select a template layout for your card/invitation/postcard where the QR code will be placed.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {[
+                        { 
+                          id: 'template-1', 
+                          name: 'Classic Corner', 
+                          description: 'QR code in bottom-right corner',
+                          qrArea: 'bottom-right',
+                          preview: (
+                            <div className="w-full h-32 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden">
+                              <div className="absolute bottom-2 right-2 w-16 h-16 bg-white rounded border-2 border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR</div>
+                                <div className="text-[8px] text-gray-500 mt-0.5">Scan</div>
+                              </div>
+                            </div>
+                          )
+                        },
+                        { 
+                          id: 'template-2', 
+                          name: 'Top Header', 
+                          description: 'QR code in top-right with text',
+                          qrArea: 'top-right',
+                          preview: (
+                            <div className="w-full h-32 bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden">
+                              <div className="absolute top-2 right-2 w-16 h-16 bg-white rounded border-2 border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR</div>
+                                <div className="text-[8px] text-gray-500 mt-0.5">Scan</div>
+                              </div>
+                              <div className="absolute top-2 left-2 text-xs font-semibold text-gray-700">Scan QR Code</div>
+                            </div>
+                          )
+                        },
+                        { 
+                          id: 'template-3', 
+                          name: 'Center Bottom', 
+                          description: 'QR code centered at bottom',
+                          qrArea: 'bottom-center',
+                          preview: (
+                            <div className="w-full h-32 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden">
+                              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-white rounded border-2 border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR</div>
+                                <div className="text-[8px] text-gray-500 mt-0.5">Scan</div>
+                              </div>
+                              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 -translate-y-6 text-xs font-semibold text-gray-700">Scan QR Code</div>
+                            </div>
+                          )
+                        },
+                        { 
+                          id: 'template-4', 
+                          name: 'Side Panel', 
+                          description: 'QR code on left side',
+                          qrArea: 'center-left',
+                          preview: (
+                            <div className="w-full h-32 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden">
+                              <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-16 h-16 bg-white rounded border-2 border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR</div>
+                                <div className="text-[8px] text-gray-500 mt-0.5">Scan</div>
+                              </div>
+                              <div className="absolute left-20 top-1/2 transform -translate-y-1/2 text-xs font-semibold text-gray-700">Scan QR Code</div>
+                            </div>
+                          )
+                        },
+                        { 
+                          id: 'template-5', 
+                          name: 'Back Cover', 
+                          description: 'QR code centered on back',
+                          qrArea: 'center',
+                          preview: (
+                            <div className="w-full h-32 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden">
+                              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white rounded border-2 border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR</div>
+                                <div className="text-[8px] text-gray-500 mt-0.5">Scan</div>
+                              </div>
+                              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700">Scan QR Code</div>
+                            </div>
+                          )
+                        },
+                      ].map((template) => (
+                        <button
+                          key={template.id}
+                          onClick={() => {
+                            setSkeletonKey(template.id);
+                            // Auto-set QR position based on template default
+                            if (template.qrArea) {
+                              setQrPosition(template.qrArea);
+                            }
+                          }}
+                          className={`p-3 rounded-xl border-2 transition-all ${
+                            skeletonKey === template.id ? 'shadow-lg scale-105' : ''
+                          }`}
+                          style={{
+                            borderColor: skeletonKey === template.id ? COLOR_ACCENT : '#e2e2e0',
+                            background: skeletonKey === template.id ? '#f0f9ff' : COLOR_PRIMARY,
+                          }}
+                        >
+                          {template.preview}
+                          <div className="mt-2 text-center">
+                            <div className="text-xs font-semibold" style={{ color: COLOR_ACCENT }}>
+                              {template.name}
+                            </div>
+                            <div className="text-[10px] text-gray-500 mt-0.5">
+                              {template.description}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* QR Code Position */}
+                  <div>
+                    <label className="block text-sm font-semibold mb-3" style={{ color: COLOR_ACCENT }}>
+                      📍 QR Code Position
+                    </label>
+                    <p className="text-xs text-gray-600 mb-3">
+                      Choose where on the skeleton key template the QR code should be placed.
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'top-left', label: 'Top Left', icon: '↖️' },
+                        { id: 'top-center', label: 'Top Center', icon: '⬆️' },
+                        { id: 'top-right', label: 'Top Right', icon: '↗️' },
+                        { id: 'center-left', label: 'Center Left', icon: '⬅️' },
+                        { id: 'center', label: 'Center', icon: '🎯' },
+                        { id: 'center-right', label: 'Center Right', icon: '➡️' },
+                        { id: 'bottom-left', label: 'Bottom Left', icon: '↙️' },
+                        { id: 'bottom-center', label: 'Bottom Center', icon: '⬇️' },
+                        { id: 'bottom-right', label: 'Bottom Right', icon: '↘️' },
+                      ].map((position) => (
+                        <button
+                          key={position.id}
+                          onClick={() => setQrPosition(position.id)}
+                          className={`p-3 rounded-lg border-2 transition-all text-center ${
+                            qrPosition === position.id ? 'shadow-md' : ''
+                          }`}
+                          style={{
+                            borderColor: qrPosition === position.id ? COLOR_ACCENT : '#e2e2e0',
+                            background: qrPosition === position.id ? '#f0f9ff' : COLOR_PRIMARY,
+                          }}
+                        >
+                          <div className="text-xl mb-1">{position.icon}</div>
+                          <div className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>
+                            {position.label}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Preview of Selected Template */}
+                  {skeletonKey && (
+                    <div>
+                      <label className="block text-sm font-semibold mb-3" style={{ color: COLOR_ACCENT }}>
+                        📋 Template Preview
+                      </label>
+                      <div className="p-4 rounded-lg border-2" style={{ borderColor: '#e2e2e0', background: COLOR_ALT }}>
+                        <div className="bg-white rounded-lg p-6 relative" style={{ minHeight: '200px', aspectRatio: '5/7' }}>
+                          {/* Template-specific layout preview */}
+                          {skeletonKey === 'template-1' && (
+                            <div className="absolute bottom-4 right-4">
+                              <div className="w-20 h-20 bg-gray-100 rounded border-2 border-dashed border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR Code</div>
+                                <div className="text-[10px] text-gray-500 mt-1">Scan QR Code</div>
+                              </div>
+                            </div>
+                          )}
+                          {skeletonKey === 'template-2' && (
+                            <>
+                              <div className="absolute top-4 right-4">
+                                <div className="w-20 h-20 bg-gray-100 rounded border-2 border-dashed border-gray-400 flex flex-col items-center justify-center">
+                                  <div className="text-xs font-bold text-gray-600">QR Code</div>
+                                  <div className="text-[10px] text-gray-500 mt-1">Scan</div>
+                                </div>
+                              </div>
+                              <div className="absolute top-4 left-4 text-sm font-semibold text-gray-700">Scan QR Code</div>
+                            </>
+                          )}
+                          {skeletonKey === 'template-3' && (
+                            <>
+                              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+                                <div className="w-20 h-20 bg-gray-100 rounded border-2 border-dashed border-gray-400 flex flex-col items-center justify-center">
+                                  <div className="text-xs font-bold text-gray-600">QR Code</div>
+                                  <div className="text-[10px] text-gray-500 mt-1">Scan</div>
+                                </div>
+                              </div>
+                              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 -translate-y-8 text-sm font-semibold text-gray-700">Scan QR Code</div>
+                            </>
+                          )}
+                          {skeletonKey === 'template-4' && (
+                            <>
+                              <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                                <div className="w-20 h-20 bg-gray-100 rounded border-2 border-dashed border-gray-400 flex flex-col items-center justify-center">
+                                  <div className="text-xs font-bold text-gray-600">QR Code</div>
+                                  <div className="text-[10px] text-gray-500 mt-1">Scan</div>
+                                </div>
+                              </div>
+                              <div className="absolute left-28 top-1/2 transform -translate-y-1/2 text-sm font-semibold text-gray-700">Scan QR Code</div>
+                            </>
+                          )}
+                          {skeletonKey === 'template-5' && (
+                            <>
+                              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                                <div className="w-20 h-20 bg-gray-100 rounded border-2 border-dashed border-gray-400 flex flex-col items-center justify-center">
+                                  <div className="text-xs font-bold text-gray-600">QR Code</div>
+                                  <div className="text-[10px] text-gray-500 mt-1">Scan</div>
+                                </div>
+                              </div>
+                              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-sm font-semibold text-gray-700">Scan QR Code</div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Info Box */}
+                  <div className="p-4 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fcd34d' }}>
+                    <div className="text-sm font-semibold mb-1" style={{ color: '#92400e' }}>
+                      💡 QR Code Information
+                    </div>
+                    <p className="text-xs" style={{ color: '#78350f' }}>
+                      A unique QR code will be generated for this ArtKey and placed on your selected template at the chosen position. 
+                      The QR code will include "Scan QR Code" text and will link directly to your ArtKey portal.
+                    </p>
+                  </div>
+                </div>
               </Card>
             )}
           </div>
