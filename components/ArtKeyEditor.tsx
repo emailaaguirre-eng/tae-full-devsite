@@ -69,6 +69,15 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const router = useRouter();
   const productId = searchParams.get('product_id');
   const fromCustomize = searchParams.get('from_customize') === 'true';
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is logged in as admin
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const adminToken = localStorage.getItem('admin_token');
+      setIsAdmin(!!adminToken);
+    }
+  }, []);
 
   // Core state
   const [designMode, setDesignMode] = useState<'template' | 'custom' | null>(null);
@@ -658,7 +667,19 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       <div style={{ background: COLOR_ACCENT }} className="text-white sticky top-0 z-50 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center flex-wrap gap-4">
-            <h1 className="text-2xl font-bold font-playfair">✨ Edit Your ArtKey Page</h1>
+            <div className="flex items-center gap-3">
+              {isAdmin && (
+                <button
+                  onClick={() => router.push('/manage/dashboard')}
+                  className="px-4 py-2 rounded-lg font-medium transition-all text-sm"
+                  style={{ background: 'rgba(255,255,255,0.2)', color: COLOR_PRIMARY, border: '1px solid rgba(255,255,255,0.3)' }}
+                  title="Back to Admin Dashboard"
+                >
+                  ← Dashboard
+                </button>
+              )}
+              <h1 className="text-2xl font-bold font-playfair">✨ Edit Your ArtKey Page</h1>
+            </div>
             <div className="flex gap-3">
               <button
                 onClick={handleSaveAndContinue}
