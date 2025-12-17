@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import PDFViewer from './PDFViewer';
 
 interface ArtKeyData {
   title: string;
@@ -36,6 +37,7 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
   const [artKeyData, setArtKeyData] = useState<ArtKeyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pdfViewer, setPdfViewer] = useState<{ url: string; title: string } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -115,8 +117,17 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
     return brightness > 128 ? '#000000' : '#ffffff';
   };
 
-  const handleLinkClick = (url: string) => {
-    if (url) {
+  const handleLinkClick = (url: string, label?: string) => {
+    if (!url) return;
+    
+    // Check if URL is a PDF
+    const isPDF = url.toLowerCase().endsWith('.pdf') || url.toLowerCase().includes('.pdf?');
+    
+    if (isPDF) {
+      // Open PDF in modal viewer
+      setPdfViewer({ url, title: label || 'PDF Document' });
+    } else {
+      // Open regular links in new tab
       window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
@@ -148,7 +159,7 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
           {artKeyData.links?.slice(0, 10).map((link, idx) => (
             <button
               key={idx}
-              onClick={() => handleLinkClick(link.url)}
+              onClick={() => handleLinkClick(link.url, link.label)}
               className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
               style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
             >
@@ -207,7 +218,17 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
           </div>
         )}
       </div>
-    );
+      
+      {/* PDF Viewer Modal */}
+      {pdfViewer && (
+        <PDFViewer
+          url={pdfViewer.url}
+          title={pdfViewer.title}
+          onClose={() => setPdfViewer(null)}
+        />
+      )}
+    </div>
+  );
   }
 
   // Desktop: Phone frame view
@@ -242,7 +263,7 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
               {artKeyData.links?.slice(0, 10).map((link, idx) => (
                 <button
                   key={idx}
-                  onClick={() => handleLinkClick(link.url)}
+                  onClick={() => handleLinkClick(link.url, link.label)}
                   className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
                   style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
                 >
@@ -303,6 +324,15 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
           </div>
         </div>
       </div>
+      
+      {/* PDF Viewer Modal */}
+      {pdfViewer && (
+        <PDFViewer
+          url={pdfViewer.url}
+          title={pdfViewer.title}
+          onClose={() => setPdfViewer(null)}
+        />
+      )}
     </div>
   );
 }
