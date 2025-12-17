@@ -80,12 +80,20 @@ export default function AdminDashboard() {
           </Link>
 
           <Link
+            href="/art-key/691e3d09ef58e"
+            target="_blank"
+            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            <h3 className="font-semibold mb-2">🎯 Critical Demo (Customer-Facing)</h3>
+            <p className="text-sm text-gray-600">Open the professional demo URL (no "demo" in URL)</p>
+          </Link>
+          <Link
             href="/demo/artkey-691e3d09ef58e"
             target="_blank"
             className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
           >
-            <h3 className="font-semibold mb-2">View Demo Portal</h3>
-            <p className="text-sm text-gray-600">Open the sales demo in a new tab</p>
+            <h3 className="font-semibold mb-2">View Demo Portal (Internal)</h3>
+            <p className="text-sm text-gray-600">Internal testing link</p>
           </Link>
 
           <Link
