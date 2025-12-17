@@ -1350,7 +1350,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                           </div>
                         )}
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
                 
