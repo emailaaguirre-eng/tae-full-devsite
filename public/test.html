@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Static Test</title>
+</head>
+<body>
+    <h1>Static HTML Works!</h1>
+    <p>This file is served directly from the public folder.</p>
+    <p>If you see this, static files work.</p>
+    <p>Timestamp: 2024-01-01 (deployment marker)</p>
+    
+    <h2>API Tests</h2>
+    <button onclick="testAPI('/api/test-simple')">Test Simple API</button>
+    <button onclick="testAPI('/api/admin/ping')">Test Admin Ping</button>
+    <button onclick="testAPI('/api/hero-content')">Test Hero Content</button>
+    
+    <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; min-height: 100px;">
+        Click a button to test...
+    </div>
+    
+    <script>
+        async function testAPI(url) {
+            document.getElementById('result').innerHTML = 'Testing ' + url + '...';
+            const startTime = Date.now();
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                
+                const res = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                
+                const elapsed = Date.now() - startTime;
+                const data = await res.json();
+                
+                document.getElementById('result').innerHTML = 
+                    '<strong>SUCCESS (' + elapsed + 'ms)</strong><br>' +
+                    '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (err) {
+                const elapsed = Date.now() - startTime;
+                document.getElementById('result').innerHTML = 
+                    '<strong style="color:red">ERROR (' + elapsed + 'ms)</strong><br>' +
+                    err.message;
+            }
+        }
+    </script>
+</body>
+</html>
