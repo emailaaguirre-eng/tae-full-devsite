@@ -656,17 +656,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   </div>
                 </div>
               )}
-
-                    {artKeyData.uploadedImages.length > 0 && (
-                      <div className="grid grid-cols-4 gap-2 mt-4 w-full max-w-md">
-                        {artKeyData.uploadedImages.slice(0, 4).map((img, idx) => (
-                          <img key={idx} src={img} alt="" className="w-full h-16 object-cover rounded-lg border border-white/50 shadow-sm" />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
