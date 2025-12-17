@@ -10,6 +10,8 @@ export default function robots(): MetadataRoute.Robots {
           '/art-key/*', // Disallow all ArtKey portal URLs with tokens
           '/art-key/edit/', // Disallow ArtKey editor URLs
           '/art-key/edit/*', // Disallow ArtKey editor URLs with tokens
+          '/manage/', // Disallow admin/management URLs
+          '/manage/*', // Disallow all admin/management URLs
         ],
       },
     ],

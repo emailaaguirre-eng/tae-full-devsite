@@ -17,8 +17,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setAuthenticated(auth);
       setLoading(false);
       
-      if (!auth && pathname !== '/admin/login') {
-        router.push('/admin/login');
+      if (!auth && pathname !== '/manage/login') {
+        router.push('/manage/login');
       }
     };
 
@@ -27,7 +27,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const handleLogout = () => {
     removeAdminToken();
-    router.push('/admin/login');
+    router.push('/manage/login');
   };
 
   if (loading) {
@@ -42,7 +42,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return null;
   }
 
-  if (pathname === '/admin/login') {
+  if (pathname === '/manage/login') {
     return <>{children}</>;
   }
 
@@ -57,9 +57,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
             <nav className="flex items-center space-x-4">
               <Link
-                href="/admin/dashboard"
+                href="/manage/dashboard"
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/admin/dashboard'
+                  pathname === '/manage/dashboard'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
@@ -67,9 +67,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 Dashboard
               </Link>
               <Link
-                href="/admin/demos"
+                href="/manage/demos"
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/admin/demos'
+                  pathname === '/manage/demos'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
@@ -77,9 +77,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 Demos
               </Link>
               <Link
-                href="/admin/artkeys"
+                href="/manage/artkeys"
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/admin/artkeys'
+                  pathname === '/manage/artkeys'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
