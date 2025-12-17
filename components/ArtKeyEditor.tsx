@@ -184,13 +184,34 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
   const loadArtKey = async (id: string) => {
     try {
+      // Try localStorage first (for demo mode)
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem(`artkey_${id}`);
+        if (stored) {
+          const savedData = JSON.parse(stored);
+          console.log('[ARTKEY EDITOR] Loaded from localStorage:', id);
+          setArtKeyData(savedData);
+          setCustomLinks(savedData.links || []);
+          if (savedData.featureDefs) {
+            setFeatureDefs(savedData.featureDefs);
+          }
+          if (savedData.customizations?.skeleton_key) {
+            setSkeletonKey(savedData.customizations.skeleton_key);
+          }
+          if (savedData.customizations?.qr_position) {
+            setQrPosition(savedData.customizations.qr_position);
+          }
+          return;
+        }
+      }
+      
+      // Fallback to API (won't work without WordPress, but that's OK)
       const res = await fetch(`/api/artkey/get/${id}`);
       if (!res.ok) return;
       const data = await res.json();
       if (data?.data) {
         setArtKeyData(data.data);
         setCustomLinks(data.data.links || []);
-        // Load skeleton key and QR position from customizations
         if (data.data.customizations?.skeleton_key) {
           setSkeletonKey(data.data.customizations.skeleton_key);
         }
@@ -473,25 +494,48 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         } : {}),
       };
 
+      const dataToSave = {
+        ...artKeyData,
+        links: customLinks,
+        customizations,
+        featureDefs, // Save custom feature labels
+        token: artkeyId,
+      };
+
+      // Save to localStorage for immediate persistence (demo mode)
+      if (typeof window !== 'undefined' && artkeyId) {
+        localStorage.setItem(`artkey_${artkeyId}`, JSON.stringify({
+          ...dataToSave,
+          savedAt: new Date().toISOString(),
+        }));
+        console.log('[ARTKEY EDITOR] Saved to localStorage:', artkeyId);
+      }
+
       const res = await fetch('/api/artkey/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: { 
-            ...artKeyData, 
-            links: customLinks,
-            customizations,
-          },
+          data: dataToSave,
           product_id: productId,
         }),
       });
+      
       if (!res.ok) {
         const err = await res.json();
+        // If it's just missing WordPress config, that's OK for demos
+        if (err.message?.includes('demo mode')) {
+          alert('✅ Demo saved successfully!');
+          if (redirectToShop) {
+            router.push('/shop');
+          }
+          return;
+        }
         alert(err.error || err.message || 'Save failed');
         return;
       }
+      
       const result = await res.json();
-      alert(`ArtKey saved! ${result.share_url ? `Share URL: ${result.share_url}` : ''}`);
+      alert(`✅ ArtKey saved! ${result.share_url ? `\nURL: ${result.share_url}` : ''}`);
       if (redirectToShop) {
         router.push('/shop');
       }
