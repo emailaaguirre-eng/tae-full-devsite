@@ -684,6 +684,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             </div>
             <div className="flex gap-3">
               <button
+                onClick={() => handleSave(false)}
+                className="px-6 py-2 rounded-lg font-semibold transition-all"
+                style={{ background: COLOR_PRIMARY, color: COLOR_ACCENT, border: '1px solid rgba(255,255,255,0.2)' }}
+              >
+                💾 Save
+              </button>
+              <button
                 onClick={handleSaveAndContinue}
                 className="px-6 py-2 rounded-lg font-semibold transition-all"
                 style={{ background: COLOR_PRIMARY, color: COLOR_ACCENT, border: '1px solid rgba(255,255,255,0.2)' }}
@@ -754,10 +761,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                           const allButtons = [
                             ...customLinks,
                             ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}` }] : []),
-                            ...(artKeyData.spotify.url?.length > 10 ? [{ label: '🎵 Playlist' }] : []),
-                            ...(artKeyData.features.show_guestbook ? [{ label: `📝 ${artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}` }] : []),
-                            ...(artKeyData.features.enable_gallery ? [{ label: `🖼️ Image Gallery ${artKeyData.uploadedImages.length > 0 ? `(${artKeyData.uploadedImages.length})` : ''}` }] : []),
-                            ...(artKeyData.features.enable_video ? [{ label: `🎥 Video Gallery ${artKeyData.uploadedVideos.length > 0 ? `(${artKeyData.uploadedVideos.length})` : ''}` }] : []),
+                            ...(artKeyData.spotify.url?.length > 10 ? [{ label: featureDefs.find(f => f.key === 'spotify')?.label || '🎵 Share Your Playlist' }] : []),
+                            ...(artKeyData.features.show_guestbook ? [{ label: featureDefs.find(f => f.key === 'guestbook')?.label || '📖 Guestbook' }] : []),
+                            ...(artKeyData.features.enable_gallery ? [{ label: featureDefs.find(f => f.key === 'gallery')?.label || '📸 Image Gallery' }] : []),
+                            ...(artKeyData.features.enable_video ? [{ label: featureDefs.find(f => f.key === 'video')?.label || '🎥 Video Gallery' }] : []),
                           ];
                           const useTwoColumns = allButtons.length > 6;
                           const maxChars = 40; // Max characters per button text
@@ -827,10 +834,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                           const allButtons = [
                             ...customLinks,
                             ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}` }] : []),
-                            ...(artKeyData.spotify.url?.length > 10 ? [{ label: '🎵 Playlist' }] : []),
-                            ...(artKeyData.features.show_guestbook ? [{ label: `📝 ${artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}` }] : []),
-                            ...(artKeyData.features.enable_gallery ? [{ label: `🖼️ Image Gallery ${artKeyData.uploadedImages.length > 0 ? `(${artKeyData.uploadedImages.length})` : ''}` }] : []),
-                            ...(artKeyData.features.enable_video ? [{ label: `🎥 Video Gallery ${artKeyData.uploadedVideos.length > 0 ? `(${artKeyData.uploadedVideos.length})` : ''}` }] : []),
+                            ...(artKeyData.spotify.url?.length > 10 ? [{ label: featureDefs.find(f => f.key === 'spotify')?.label || '🎵 Share Your Playlist' }] : []),
+                            ...(artKeyData.features.show_guestbook ? [{ label: featureDefs.find(f => f.key === 'guestbook')?.label || '📖 Guestbook' }] : []),
+                            ...(artKeyData.features.enable_gallery ? [{ label: featureDefs.find(f => f.key === 'gallery')?.label || '📸 Image Gallery' }] : []),
+                            ...(artKeyData.features.enable_video ? [{ label: featureDefs.find(f => f.key === 'video')?.label || '🎥 Video Gallery' }] : []),
                           ];
                           const useTwoColumns = allButtons.length > 6;
                           const maxChars = 40; // Max characters per button text
