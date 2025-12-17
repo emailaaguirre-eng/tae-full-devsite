@@ -344,13 +344,15 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   ];
 
   const featureDefsDefault = [
-    { key: 'custom_links', label: '🔗 Share Your Interests', field: 'enable_custom_links' },
+    { key: 'custom_links', label: '🔗 Share A Link', field: 'enable_custom_links' },
     { key: 'spotify', label: '🎵 Share Your Playlist', field: 'enable_spotify' },
     { key: 'gallery', label: '📸 Image Gallery', field: 'enable_gallery' },
     { key: 'guestbook', label: '📖 Guestbook', field: 'show_guestbook' },
     { key: 'video', label: '🎥 Video Gallery', field: 'enable_video' },
   ];
   const [featureDefs, setFeatureDefs] = useState(featureDefsDefault);
+  const [editingFeatureIndex, setEditingFeatureIndex] = useState<number | null>(null);
+  const [editFeatureLabel, setEditFeatureLabel] = useState('');
   const [draggedFeature, setDraggedFeature] = useState<number | null>(null);
   const [draggedLink, setDraggedLink] = useState<number | null>(null);
 
@@ -1187,28 +1189,95 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
                 <div className="space-y-2">
                   {featureDefs.map((f, idx) => (
-                    <div
-                      key={f.key}
-                      draggable
-                      onDragStart={() => handleFeatureDragStart(idx)}
-                      onDragOver={(e) => handleFeatureDragOver(e, idx)}
-                      onDragEnd={handleFeatureDragEnd}
-                      className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-grab transition-all"
-                      style={{
-                        borderColor: artKeyData.features[f.field] ? COLOR_ACCENT : '#e2e2e0',
-                        background: artKeyData.features[f.field] ? COLOR_ALT : COLOR_PRIMARY,
-                        opacity: draggedFeature === idx ? 0.5 : 1,
-                      }}
-                      onClick={() => toggleFeature(f.field)}
-                    >
-                      <div className="text-gray-400">⋮⋮</div>
-                      <div
-                        className="w-5 h-5 rounded-full border-2 flex items-center justify-center"
-                        style={{ borderColor: artKeyData.features[f.field] ? COLOR_ACCENT : '#d0d0ce', background: artKeyData.features[f.field] ? COLOR_ACCENT : 'transparent' }}
-                      >
-                        {artKeyData.features[f.field] && <span className="text-white text-xs">✓</span>}
-                      </div>
-                      <span className="flex-1 text-sm font-medium" style={{ color: COLOR_ACCENT }}>{f.label}</span>
+                    <div key={f.key}>
+                      {editingFeatureIndex === idx ? (
+                        // Edit mode for feature label
+                        <div className="p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editFeatureLabel}
+                              onChange={(e) => setEditFeatureLabel(e.target.value)}
+                              className="flex-1 px-3 py-2 rounded-lg text-sm"
+                              style={{ border: '1px solid #d8d8d6' }}
+                              autoFocus
+                              placeholder="Enter button name"
+                            />
+                            <button
+                              onClick={() => {
+                                if (editFeatureLabel.trim()) {
+                                  const updated = [...featureDefs];
+                                  updated[idx] = { ...updated[idx], label: editFeatureLabel };
+                                  setFeatureDefs(updated);
+                                }
+                                setEditingFeatureIndex(null);
+                                setEditFeatureLabel('');
+                              }}
+                              className="px-3 py-2 rounded-lg text-sm font-medium"
+                              style={{ background: COLOR_ACCENT, color: COLOR_PRIMARY }}
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingFeatureIndex(null);
+                                setEditFeatureLabel('');
+                              }}
+                              className="px-3 py-2 rounded-lg text-sm font-medium"
+                              style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        // Display mode
+                        <div
+                          draggable
+                          onDragStart={() => handleFeatureDragStart(idx)}
+                          onDragOver={(e) => handleFeatureDragOver(e, idx)}
+                          onDragEnd={handleFeatureDragEnd}
+                          className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-grab transition-all"
+                          style={{
+                            borderColor: artKeyData.features[f.field] ? COLOR_ACCENT : '#e2e2e0',
+                            background: artKeyData.features[f.field] ? COLOR_ALT : COLOR_PRIMARY,
+                            opacity: draggedFeature === idx ? 0.5 : 1,
+                          }}
+                        >
+                          <div className="text-gray-400">⋮⋮</div>
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFeature(f.field);
+                            }}
+                            className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer"
+                            style={{ borderColor: artKeyData.features[f.field] ? COLOR_ACCENT : '#d0d0ce', background: artKeyData.features[f.field] ? COLOR_ACCENT : 'transparent' }}
+                          >
+                            {artKeyData.features[f.field] && <span className="text-white text-xs">✓</span>}
+                          </div>
+                          <span 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFeature(f.field);
+                            }}
+                            className="flex-1 text-sm font-medium cursor-pointer" 
+                            style={{ color: COLOR_ACCENT }}
+                          >
+                            {f.label}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingFeatureIndex(idx);
+                              setEditFeatureLabel(f.label);
+                            }}
+                            className="text-blue-500 hover:text-blue-700 p-2 text-base"
+                            title="Edit button name"
+                          >
+                            ✏️
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1217,7 +1286,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Step 4 Links & Buttons */}
             {designMode !== null && artKeyData.features.enable_custom_links && (
-              <Card title="Share Your Interests">
+              <Card title="Share A Link">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-start gap-2">
                   <span className="text-lg">💡</span>
                   <span className="text-xs text-blue-800">Click to toggle; drag to reorder buttons.</span>
