@@ -44,6 +44,19 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
   useEffect(() => {
     async function fetchData() {
       try {
+        // Try localStorage first for demo mode
+        if (typeof window !== 'undefined') {
+          const stored = localStorage.getItem(`artkey_${token}`);
+          if (stored) {
+            const savedData = JSON.parse(stored);
+            console.log('[ARTKEY PORTAL] Loaded from localStorage:', token);
+            setArtKeyData(savedData);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // Fallback to API
         const res = await fetch(`/api/artkey/${token}`);
         if (!res.ok) {
           throw new Error('Failed to load ArtKey');
