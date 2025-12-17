@@ -66,8 +66,10 @@ function getAdminUsers() {
 
 // GET handler for testing admin configuration
 export async function GET() {
+  console.log('[LOGIN API] GET request received');
   try {
     const adminUsers = getAdminUsers();
+    console.log('[LOGIN API] GET - Admin users found:', adminUsers.length);
     return NextResponse.json({
       success: true,
       message: 'Login API is accessible',
@@ -88,6 +90,7 @@ export async function GET() {
       }
     });
   } catch (err: any) {
+    console.error('[LOGIN API] GET Error:', err);
     return NextResponse.json(
       { error: err.message || 'Test failed' },
       { status: 500 }
@@ -96,11 +99,16 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  console.log('[LOGIN API] POST request received');
   try {
     const body = await request.json();
     const { username, password } = body;
     
+    console.log('[LOGIN API] Username received:', username);
+    console.log('[LOGIN API] Password length:', password?.length || 0);
+    
     if (!username || !password) {
+      console.log('[LOGIN API] Missing username or password');
       return NextResponse.json(
         { error: 'Username and password are required' },
         { status: 400 }
@@ -108,6 +116,8 @@ export async function POST(request: Request) {
     }
     
     const adminUsers = getAdminUsers();
+    console.log('[LOGIN API] Admin users found:', adminUsers.length);
+    console.log('[LOGIN API] Admin usernames:', adminUsers.map(a => a.username));
     
     // Check if credentials match any admin
     const admin = adminUsers.find(
@@ -116,6 +126,8 @@ export async function POST(request: Request) {
     
     if (admin) {
       const token = generateToken();
+      console.log('[LOGIN API] Login successful for:', admin.username);
+      console.log('[LOGIN API] Token generated, length:', token.length);
       
       // In production, store token in database or use sessions
       // For now, return token (client should store it)
@@ -127,13 +139,15 @@ export async function POST(request: Request) {
         username: admin.username,
       });
     } else {
+      console.log('[LOGIN API] Invalid credentials');
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
   } catch (err: any) {
-    console.error('Login API error:', err);
+    console.error('[LOGIN API] Error:', err);
+    console.error('[LOGIN API] Error stack:', err.stack);
     return NextResponse.json(
       { error: err.message || 'Login failed' },
       { status: 500 }

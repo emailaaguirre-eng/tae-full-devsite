@@ -21,14 +21,31 @@ export default function AdminLoginPage() {
 
     try {
       console.log('Sending request to /api/admin/login...');
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      let res;
+      try {
+        res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Request timed out. The server may be slow or the API route may not exist.');
+        }
+        throw fetchError;
+      }
 
       console.log('Response status:', res.status);
       console.log('Response ok:', res.ok);
+      console.log('Response headers:', Object.fromEntries(res.headers.entries()));
 
       // Check if response is ok before parsing
       if (!res.ok) {
