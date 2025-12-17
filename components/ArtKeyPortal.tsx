@@ -172,98 +172,99 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
   if (isMobile) {
     // Mobile: Fullscreen view
     return (
-      <div
-        className="min-h-screen w-full flex flex-col items-center text-center pt-6 pb-6 px-6"
-        style={getPreviewBackground()}
-      >
-        <h1
-          className="text-2xl md:text-3xl font-bold mb-3 break-words mt-16"
-          style={{
-            fontFamily: getFontFamily(artKeyData.theme.font || 'g:Playfair Display'),
-            color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
-            background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
-            backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
-            WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
-          }}
+      <>
+        <div
+          className="min-h-screen w-full flex flex-col items-center text-center pt-6 pb-6 px-6"
+          style={getPreviewBackground()}
         >
-          {artKeyData.title || 'Your Title Here'}
-        </h1>
+          <h1
+            className="text-2xl md:text-3xl font-bold mb-3 break-words mt-16"
+            style={{
+              fontFamily: getFontFamily(artKeyData.theme.font || 'g:Playfair Display'),
+              color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
+              background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
+              backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+              WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+            }}
+          >
+            {artKeyData.title || 'Your Title Here'}
+          </h1>
 
-        {/* Buttons */}
-        <div className="flex flex-col gap-2 mt-3 w-full max-w-sm">
-          {artKeyData.links?.slice(0, 10).map((link, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleLinkClick(link.url, link.label)}
-              className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
-              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
-            >
-              {link.label || `Link ${idx + 1}`}
-            </button>
-          ))}
-          {artKeyData.spotify?.url && artKeyData.spotify.url.length > 10 && (
-            <button
-              onClick={() => handleLinkClick(artKeyData.spotify.url)}
-              className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2 hover:opacity-90"
-              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
-            >
-              🎵 Playlist
-            </button>
-          )}
-          {artKeyData.features?.show_guestbook && (
-            <button
-              className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
-              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
-            >
-              📝 {artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}
-            </button>
-          )}
-          {artKeyData.features?.enable_featured_video && artKeyData.featured_video?.url && (
-            <button
-              onClick={() => handleLinkClick(artKeyData.featured_video.url)}
-              className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
-              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
-            >
-              🎬 {artKeyData.featured_video.button_label || 'Watch Video'}
-            </button>
-          )}
-          {artKeyData.features?.enable_gallery && (
-            <button
-              className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
-              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
-            >
-              🖼️ Image Gallery {artKeyData.uploadedImages?.length > 0 && `(${artKeyData.uploadedImages.length})`}
-            </button>
-          )}
-          {artKeyData.features?.enable_video && (
-            <button
-              className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
-              style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
-            >
-              🎥 Video Gallery {artKeyData.uploadedVideos?.length > 0 && `(${artKeyData.uploadedVideos.length})`}
-            </button>
+          {/* Buttons */}
+          <div className="flex flex-col gap-2 mt-3 w-full max-w-sm">
+            {artKeyData.links?.slice(0, 10).map((link, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleLinkClick(link.url, link.label)}
+                className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
+                style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
+              >
+                {link.label || `Link ${idx + 1}`}
+              </button>
+            ))}
+            {artKeyData.spotify?.url && artKeyData.spotify.url.length > 10 && (
+              <button
+                onClick={() => handleLinkClick(artKeyData.spotify.url)}
+                className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2 hover:opacity-90"
+                style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
+              >
+                🎵 Playlist
+              </button>
+            )}
+            {artKeyData.features?.show_guestbook && (
+              <button
+                className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
+                style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
+              >
+                📝 {artKeyData.features.gb_signing_status === 'closed' ? 'Guestbook' : 'Sign Guestbook'}
+              </button>
+            )}
+            {artKeyData.features?.enable_featured_video && artKeyData.featured_video?.url && (
+              <button
+                onClick={() => handleLinkClick(artKeyData.featured_video.url)}
+                className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
+                style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
+              >
+                🎬 {artKeyData.featured_video.button_label || 'Watch Video'}
+              </button>
+            )}
+            {artKeyData.features?.enable_gallery && (
+              <button
+                className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
+                style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
+              >
+                🖼️ Image Gallery {artKeyData.uploadedImages?.length > 0 && `(${artKeyData.uploadedImages.length})`}
+              </button>
+            )}
+            {artKeyData.features?.enable_video && (
+              <button
+                className="w-full py-3 px-4 rounded-full text-sm font-semibold transition-all shadow-md hover:opacity-90"
+                style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
+              >
+                🎥 Video Gallery {artKeyData.uploadedVideos?.length > 0 && `(${artKeyData.uploadedVideos.length})`}
+              </button>
+            )}
+          </div>
+
+          {artKeyData.uploadedImages && artKeyData.uploadedImages.length > 0 && (
+            <div className="grid grid-cols-4 gap-1 mt-3 w-full max-w-sm">
+              {artKeyData.uploadedImages.slice(0, 4).map((img, idx) => (
+                <img key={idx} src={img} alt="" className="w-full h-12 object-cover rounded-md border border-white/50 shadow-sm" />
+              ))}
+            </div>
           )}
         </div>
-
-        {artKeyData.uploadedImages && artKeyData.uploadedImages.length > 0 && (
-          <div className="grid grid-cols-4 gap-1 mt-3 w-full max-w-sm">
-            {artKeyData.uploadedImages.slice(0, 4).map((img, idx) => (
-              <img key={idx} src={img} alt="" className="w-full h-12 object-cover rounded-md border border-white/50 shadow-sm" />
-            ))}
-          </div>
+        
+        {/* PDF Viewer Modal */}
+        {pdfViewer && (
+          <PDFViewer
+            url={pdfViewer.url}
+            title={pdfViewer.title}
+            onClose={() => setPdfViewer(null)}
+          />
         )}
-      </div>
-      
-      {/* PDF Viewer Modal */}
-      {pdfViewer && (
-        <PDFViewer
-          url={pdfViewer.url}
-          title={pdfViewer.title}
-          onClose={() => setPdfViewer(null)}
-        />
-      )}
-    </div>
-  );
+      </>
+    );
   }
 
   // Desktop: Phone frame view

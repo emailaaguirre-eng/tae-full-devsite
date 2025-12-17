@@ -1327,7 +1327,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                           </div>
                         )}
                       </div>
-                    )})}
+                    ))}
                   </div>
                 )}
                 {customLinks.length === 0 && !artKeyData.featured_video && (
