@@ -14,18 +14,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const checkAuth = () => {
       const auth = isAdminAuthenticated();
+      const token = localStorage.getItem('admin_token');
+      console.log('AdminLayout: Checking auth', { auth, hasToken: !!token, pathname });
       setAuthenticated(auth);
       setLoading(false);
       
       // Only redirect if we're not already on the login page
       if (!auth && pathname !== '/manage/login') {
+        console.log('AdminLayout: Not authenticated, redirecting to login');
         // Use window.location for reliable redirect
         window.location.href = '/manage/login';
+      } else if (auth && pathname === '/manage/login') {
+        console.log('AdminLayout: Already authenticated, redirecting to dashboard');
+        window.location.href = '/manage/dashboard';
       }
     };
 
-    // Small delay to allow localStorage to be set after login
-    const timer = setTimeout(checkAuth, 50);
+    // Check immediately, then again after a short delay to catch token updates
+    checkAuth();
+    const timer = setTimeout(checkAuth, 100);
     return () => clearTimeout(timer);
   }, [pathname]);
 
@@ -34,6 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.push('/manage/login');
   };
 
+  // Show loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -42,10 +50,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
+  // If on login page and authenticated, redirect to dashboard
+  if (pathname === '/manage/login' && authenticated) {
+    console.log('AdminLayout: On login page but authenticated, redirecting');
+    window.location.href = '/manage/dashboard';
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // If not authenticated and not on login page, show nothing (will redirect)
   if (!authenticated && pathname !== '/manage/login') {
+    console.log('AdminLayout: Not authenticated, showing nothing (redirect in progress)');
     return null;
   }
 
+  // If on login page and not authenticated, show login form
   if (pathname === '/manage/login') {
     return <>{children}</>;
   }

@@ -58,13 +58,19 @@ export default function AdminLoginPage() {
         console.log('Verifying token storage...');
         const storedToken = localStorage.getItem('admin_token');
         console.log('Token verification:', storedToken ? 'SUCCESS' : 'FAILED');
+        console.log('Token length:', storedToken?.length);
         
-        // Small delay to ensure token is saved, then redirect
-        console.log('Redirecting to dashboard in 100ms...');
+        // Verify authentication check works
+        const isAuth = localStorage.getItem('admin_token') !== null;
+        console.log('isAdminAuthenticated check:', isAuth);
+        
+        // Longer delay to ensure everything is set, then redirect
+        console.log('Redirecting to dashboard in 200ms...');
         setTimeout(() => {
-          console.log('Redirecting now...');
+          console.log('Redirecting now to /manage/dashboard...');
+          // Force a full page reload to ensure AdminLayout picks up the token
           window.location.href = '/manage/dashboard';
-        }, 100);
+        }, 200);
       } else {
         console.error('No token in response:', data);
         setError(data.error || 'Login failed. No token received.');
