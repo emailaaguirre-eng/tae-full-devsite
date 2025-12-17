@@ -577,18 +577,36 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   };
   const handleFeatureDragEnd = () => setDraggedFeature(null);
 
-  // Drag reorder for links
+  // Drag reorder for links (including featured video)
   const handleLinkDragStart = (index: number) => setDraggedLink(index);
   const handleLinkDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     if (draggedLink === null || draggedLink === index) return;
-    const newLinks = [...customLinks];
-    const draggedItem = newLinks[draggedLink];
-    newLinks.splice(draggedLink, 1);
-    newLinks.splice(index, 0, draggedItem);
-    setCustomLinks(newLinks);
-    setArtKeyData((prev) => ({ ...prev, links: newLinks }));
-    setDraggedLink(index);
+    
+    // Create combined list for reordering
+    const combinedList = [...customLinks];
+    const hasFeatured = artKeyData.featured_video !== null;
+    const featuredIndex = hasFeatured ? combinedList.length : -1;
+    
+    // Determine if we're dragging featured video or a regular link
+    const isDraggingFeatured = hasFeatured && draggedLink === featuredIndex;
+    const isDroppingOnFeatured = hasFeatured && index === featuredIndex;
+    
+    if (isDraggingFeatured) {
+      // Can't reorder featured video within links - it stays at the end
+      return;
+    }
+    
+    // Reorder regular links
+    if (draggedLink < combinedList.length && index < combinedList.length) {
+      const newLinks = [...customLinks];
+      const draggedItem = newLinks[draggedLink];
+      newLinks.splice(draggedLink, 1);
+      newLinks.splice(index, 0, draggedItem);
+      setCustomLinks(newLinks);
+      setArtKeyData((prev) => ({ ...prev, links: newLinks }));
+      setDraggedLink(index);
+    }
   };
   const handleLinkDragEnd = () => setDraggedLink(null);
 
@@ -1315,85 +1333,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                 {customLinks.length === 0 && !artKeyData.featured_video && (
                   <div className="text-center py-4 text-sm text-gray-500">
                     No buttons yet. Add links or mark a video as featured.
-                  </div>
-                )}
-                      <div key={idx}>
-                        {editingLinkIndex === idx ? (
-                          // Edit mode
-                          <div className="p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
-                            <div className="space-y-2">
-                              <div>
-                                <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Button Name</label>
-                                <input
-                                  type="text"
-                                  value={editLinkLabel}
-                                  onChange={(e) => setEditLinkLabel(e.target.value)}
-                                  className="w-full px-3 py-2 rounded-lg text-sm"
-                                  style={{ border: '1px solid #d8d8d6' }}
-                                  autoFocus
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>URL</label>
-                                <input
-                                  type="url"
-                                  value={editLinkUrl}
-                                  onChange={(e) => setEditLinkUrl(e.target.value)}
-                                  className="w-full px-3 py-2 rounded-lg text-sm"
-                                  style={{ border: '1px solid #d8d8d6' }}
-                                />
-                              </div>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={handleSaveEditLink}
-                                  className="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all"
-                                  style={{ background: COLOR_ACCENT, color: COLOR_PRIMARY }}
-                                >
-                                  ✓ Save
-                                </button>
-                                <button
-                                  onClick={handleCancelEditLink}
-                                  className="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all"
-                                  style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          // Display mode with drag
-                          <div
-                            draggable
-                            onDragStart={() => handleLinkDragStart(idx)}
-                            onDragOver={(e) => handleLinkDragOver(e, idx)}
-                            onDragEnd={handleLinkDragEnd}
-                            className="flex items-center gap-2 p-2 rounded-lg cursor-grab transition-all"
-                            style={{
-                              background: COLOR_ALT,
-                              opacity: draggedLink === idx ? 0.5 : 1,
-                            }}
-                          >
-                            <div className="text-gray-400">⋮⋮</div>
-                            <span className="text-sm flex-1" style={{ color: COLOR_ACCENT }}>{link.label}</span>
-                            <button
-                              onClick={() => handleEditLink(idx)}
-                              className="text-blue-500 hover:text-blue-700 text-sm p-1"
-                              title="Edit link"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={() => handleRemoveLink(idx)}
-                              className="text-red-500 hover:text-red-700 text-sm p-1"
-                              title="Remove link"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
                   </div>
                 )}
               </Card>
