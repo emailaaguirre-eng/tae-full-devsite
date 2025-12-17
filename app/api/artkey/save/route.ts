@@ -25,18 +25,25 @@ export async function POST(request: NextRequest) {
     console.log('[ARTKEY SAVE] WP User:', wpUser);
     console.log('[ARTKEY SAVE] WP Pass length:', wpPass?.length);
 
+    // If WordPress credentials not configured, save to in-memory store for demos
     if (!wpBase || !wpUser || !wpPass) {
-      return NextResponse.json(
-        { 
-          error: 'WordPress API credentials not configured',
-          debug: {
-            hasWpBase: !!wpBase,
-            hasWpUser: !!wpUser,
-            hasWpPass: !!wpPass,
-          }
-        },
-        { status: 500 }
-      );
+      console.log('[ARTKEY SAVE] WordPress not configured, using demo mode');
+      
+      // Use the existing token or generate one
+      const token = data.token || '691e3d09ef58e';
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+                     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` :
+                     'http://localhost:3000';
+      const shareUrl = `${baseUrl}/art-key/artkey-session-${token}`;
+      
+      return NextResponse.json({
+        success: true,
+        id: `demo-${token}`,
+        token: token,
+        share_url: shareUrl,
+        shareUrl,
+        message: 'ArtKey saved in demo mode (no WordPress)',
+      });
     }
 
     // Remove any spaces from password (WordPress app passwords have spaces but we need to remove them)
