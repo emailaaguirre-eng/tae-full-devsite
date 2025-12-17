@@ -1236,14 +1236,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                 </div>
                 {(customLinks.length > 0 || artKeyData.featured_video) && (
                   <div className="space-y-2 mb-4">
-                    {/* Combine links and featured video for unified drag-and-drop */}
-                    {[...customLinks, ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}`, url: artKeyData.featured_video.video_url, isFeatured: true }] : [])].map((item, idx) => {
-                      const isFeatured = (item as any).isFeatured;
-                      const linkIdx = isFeatured ? -1 : idx;
-                      
-                      return (
-                      <div key={isFeatured ? 'featured-video' : idx}>
-                        {editingLinkIndex === linkIdx && !isFeatured ? (
+                    {/* Render custom links */}
+                    {customLinks.map((link, linkIdx) => (
+                      <div key={linkIdx}>
+                        {editingLinkIndex === linkIdx ? (
                           // Edit mode for regular links
                           <div className="p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
                             <div className="space-y-2">
@@ -1290,69 +1286,76 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                           // Display mode with drag
                           <div
                             draggable
-                            onDragStart={() => handleLinkDragStart(idx)}
-                            onDragOver={(e) => handleLinkDragOver(e, idx)}
+                            onDragStart={() => handleLinkDragStart(linkIdx)}
+                            onDragOver={(e) => handleLinkDragOver(e, linkIdx)}
                             onDragEnd={handleLinkDragEnd}
                             className="flex items-center gap-2 p-2 rounded-lg cursor-grab transition-all"
                             style={{
                               background: COLOR_ALT,
-                              opacity: draggedLink === idx ? 0.5 : 1,
+                              opacity: draggedLink === linkIdx ? 0.5 : 1,
                             }}
                           >
                             <div className="text-gray-400">⋮⋮</div>
                             <span className="text-sm flex-1" style={{ color: COLOR_ACCENT }}>
-                              {item.label}
+                              {link.label}
                             </span>
-                            {isFeatured ? (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    const newLabel = prompt('Enter button label:', artKeyData.featured_video?.button_label || 'Watch Video');
-                                    if (newLabel !== null && artKeyData.featured_video) {
-                                      setArtKeyData((prev) => ({
-                                        ...prev,
-                                        featured_video: prev.featured_video ? { ...prev.featured_video, button_label: newLabel } : null,
-                                      }));
-                                    }
-                                  }}
-                                  className="text-blue-500 hover:text-blue-700 text-sm p-1"
-                                  title="Edit label"
-                                >
-                                  ✏️
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setArtKeyData((prev) => ({ ...prev, featured_video: null }));
-                                  }}
-                                  className="text-red-500 hover:text-red-700 text-sm p-1"
-                                  title="Remove featured video"
-                                >
-                                  ✕
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => handleEditLink(linkIdx)}
-                                  className="text-blue-500 hover:text-blue-700 text-sm p-1"
-                                  title="Edit link"
-                                >
-                                  ✏️
-                                </button>
-                                <button
-                                  onClick={() => handleRemoveLink(linkIdx)}
-                                  className="text-red-500 hover:text-red-700 text-sm p-1"
-                                  title="Remove link"
-                                >
-                                  ✕
-                                </button>
-                              </>
-                            )}
+                            <button
+                              onClick={() => handleEditLink(linkIdx)}
+                              className="text-blue-500 hover:text-blue-700 text-sm p-1"
+                              title="Edit link"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleRemoveLink(linkIdx)}
+                              className="text-red-500 hover:text-red-700 text-sm p-1"
+                              title="Remove link"
+                            >
+                              ✕
+                            </button>
                           </div>
                         )}
                       </div>
-                      )
-                    })}
+                    ))}
+                    
+                    {/* Render featured video button if exists */}
+                    {artKeyData.featured_video && (
+                      <div key="featured-video">
+                        <div
+                          className="flex items-center gap-2 p-2 rounded-lg transition-all"
+                          style={{ background: COLOR_ALT }}
+                        >
+                          <div className="text-gray-400">🎬</div>
+                          <span className="text-sm flex-1" style={{ color: COLOR_ACCENT }}>
+                            {artKeyData.featured_video.button_label || 'Watch Video'}
+                          </span>
+                          <button
+                            onClick={() => {
+                              const newLabel = prompt('Enter button label:', artKeyData.featured_video?.button_label || 'Watch Video');
+                              if (newLabel !== null && artKeyData.featured_video) {
+                                setArtKeyData((prev) => ({
+                                  ...prev,
+                                  featured_video: prev.featured_video ? { ...prev.featured_video, button_label: newLabel } : null,
+                                }));
+                              }
+                            }}
+                            className="text-blue-500 hover:text-blue-700 text-sm p-1"
+                            title="Edit label"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => {
+                              setArtKeyData((prev) => ({ ...prev, featured_video: null }));
+                            }}
+                            className="text-red-500 hover:text-red-700 text-sm p-1"
+                            title="Remove featured video"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </Card>
