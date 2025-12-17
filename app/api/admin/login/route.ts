@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import crypto from 'crypto';
 
+// Route segment config - ensure this route is dynamic and not cached
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Generate a simple token (in production, use JWT)
 function generateToken() {
   return crypto.randomBytes(32).toString('hex');
@@ -101,7 +105,20 @@ export async function GET() {
 export async function POST(request: Request) {
   console.log('[LOGIN API] POST request received');
   try {
-    const body = await request.json();
+    // Parse request body with timeout protection
+    let body;
+    try {
+      const bodyText = await request.text();
+      console.log('[LOGIN API] Request body received, length:', bodyText.length);
+      body = JSON.parse(bodyText);
+    } catch (parseError: any) {
+      console.error('[LOGIN API] Failed to parse request body:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid request format' },
+        { status: 400 }
+      );
+    }
+    
     const { username, password } = body;
     
     console.log('[LOGIN API] Username received:', username);
