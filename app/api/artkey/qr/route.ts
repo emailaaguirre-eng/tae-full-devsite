@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import QRCode from 'qrcode';
 import { Buffer } from 'buffer';
+import { getAppBaseUrl, getWpApiBase } from '@/lib/wp';
 
 /**
  * QR Code Generation API for ArtKeys
@@ -30,9 +31,7 @@ export async function GET(request: Request) {
     // If artKeyId provided, construct the share URL
     let qrUrl = url;
     if (artKeyId && !url) {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                     process.env.VERCEL_URL || 
-                     'http://localhost:3000';
+      const baseUrl = getAppBaseUrl();
       qrUrl = `${baseUrl}/artkey/${artKeyId}`;
     }
 
@@ -70,9 +69,7 @@ export async function POST(request: Request) {
     // If artKeyId provided, construct the share URL
     let qrUrl = url;
     if (artKeyId && !url) {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                     process.env.VERCEL_URL || 
-                     'http://localhost:3000';
+      const baseUrl = getAppBaseUrl();
       qrUrl = `${baseUrl}/artkey/${artKeyId}`;
     }
 
@@ -147,11 +144,7 @@ async function generateQRCode(
  * Upload QR code image to WordPress Media Library
  */
 async function uploadQRToWordPress(buffer: Buffer, originalUrl: string): Promise<string> {
-  const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_PUBLIC_WOOCOMMERCE_URL;
-  
-  if (!WP_URL) {
-    throw new Error('WordPress URL not configured');
-  }
+  const wpApiBase = getWpApiBase();
 
   const username = process.env.WORDPRESS_USERNAME;
   const appPassword = process.env.WORDPRESS_APP_PASSWORD;
@@ -170,8 +163,9 @@ async function uploadQRToWordPress(buffer: Buffer, originalUrl: string): Promise
   formData.append('file', blob, filename);
 
   // Upload to WordPress
-  const auth = Buffer.from(`${username}:${appPassword}`).toString('base64');
-  const response = await fetch(`${WP_URL}/wp-json/wp/v2/media`, {
+  const cleanPass = appPassword.replace(/\s+/g, '');
+  const auth = Buffer.from(`${username}:${cleanPass}`).toString('base64');
+  const response = await fetch(`${wpApiBase}/wp/v2/media`, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${auth}`,

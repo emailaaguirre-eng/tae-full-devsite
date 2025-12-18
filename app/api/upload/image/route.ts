@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getWpApiBase } from '@/lib/wp';
 
 /**
  * Image Upload API
@@ -79,11 +80,7 @@ export async function POST(request: Request) {
  * Upload to WordPress Media Library
  */
 async function uploadToWordPress(file: File) {
-  const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_PUBLIC_WOOCOMMERCE_URL;
-  
-  if (!WP_URL) {
-    throw new Error('WordPress URL not configured. Set NEXT_PUBLIC_WORDPRESS_URL');
-  }
+  const wpApiBase = getWpApiBase();
 
   // Get WordPress credentials (optional - for authenticated uploads)
   const username = process.env.WORDPRESS_USERNAME;
@@ -103,12 +100,13 @@ async function uploadToWordPress(file: File) {
   
   if (username && appPassword) {
     // Use Application Password authentication
-    const auth = Buffer.from(`${username}:${appPassword}`).toString('base64');
+    const cleanPass = appPassword.replace(/\s+/g, '');
+    const auth = Buffer.from(`${username}:${cleanPass}`).toString('base64');
     headers['Authorization'] = `Basic ${auth}`;
   }
 
   // Upload to WordPress
-  const response = await fetch(`${WP_URL}/wp-json/wp/v2/media`, {
+  const response = await fetch(`${wpApiBase}/wp/v2/media`, {
     method: 'POST',
     headers: headers,
     body: formData,

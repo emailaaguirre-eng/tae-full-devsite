@@ -17,8 +17,19 @@ export async function GET(request: Request) {
     }, { status: 400 });
   }
 
+  const normalizeWpSiteBase = (input: string) => {
+    const trimmed = input.trim().replace(/\/$/, '');
+    const idx = trimmed.indexOf('/wp-json');
+    return idx >= 0 ? trimmed.slice(0, idx) : trimmed;
+  };
+
+  const wpSiteBase = normalizeWpSiteBase(wpUrl);
+  const wpApiBase = `${wpSiteBase}/wp-json`;
+
   const results: any = {
     wordpressUrl: wpUrl,
+    wpSiteBase,
+    wpApiBase,
     timestamp: new Date().toISOString(),
     tests: {},
   };
@@ -55,14 +66,14 @@ export async function GET(request: Request) {
   // Test REST API Base
   results.tests.restApi = await testEndpoint(
     'REST API Base',
-    `${wpUrl}/wp-json`
+    `${wpApiBase}`
   );
 
   // Test Posts
   if (results.tests.restApi.success) {
     results.tests.posts = await testEndpoint(
       'Blog Posts',
-      `${wpUrl}/wp-json/wp/v2/posts?per_page=1`
+      `${wpApiBase}/wp/v2/posts?per_page=1`
     );
   }
 
@@ -70,7 +81,7 @@ export async function GET(request: Request) {
   if (results.tests.restApi.success) {
     results.tests.pages = await testEndpoint(
       'Pages',
-      `${wpUrl}/wp-json/wp/v2/pages?per_page=1`
+      `${wpApiBase}/wp/v2/pages?per_page=1`
     );
   }
 
@@ -78,7 +89,7 @@ export async function GET(request: Request) {
   if (results.tests.restApi.success) {
     results.tests.media = await testEndpoint(
       'Media Library',
-      `${wpUrl}/wp-json/wp/v2/media?per_page=1`
+      `${wpApiBase}/wp/v2/media?per_page=1`
     );
   }
 
@@ -86,7 +97,7 @@ export async function GET(request: Request) {
   if (results.tests.restApi.success) {
     results.tests.woocommerce = await testEndpoint(
       'WooCommerce Products',
-      `${wpUrl}/wp-json/wc/store/v1/products?per_page=1`
+      `${wpApiBase}/wc/store/v1/products?per_page=1`
     );
   }
 

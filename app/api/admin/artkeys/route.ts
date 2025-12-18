@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
+import { getWpApiBase } from "@/lib/wp";
 
 export async function GET() {
   try {
-    const wpBase = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_WORDPRESS_URL;
-    if (!wpBase) {
+    const wpApiBase = getWpApiBase();
+    if (!wpApiBase) {
       return NextResponse.json(
         { error: 'WP_API_BASE not configured' },
         { status: 500 }
       );
     }
-
-    const baseUrl = wpBase.replace(/\/$/, '');
     
     // Fetch all artkey posts from WordPress
-    const res = await fetch(`${baseUrl}/wp-json/wp/v2/artkey?per_page=100`, {
+    const res = await fetch(`${wpApiBase}/wp/v2/artkey?per_page=100`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

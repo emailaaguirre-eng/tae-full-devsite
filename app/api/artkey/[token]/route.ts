@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { artKeyStore } from "@/lib/artKeyStore";
+import { getWpApiBase, getWpSiteBase } from "@/lib/wp";
 
 export async function GET(_: Request, { params }: { params: { token: string } }) {
   try {
@@ -37,24 +38,19 @@ export async function GET(_: Request, { params }: { params: { token: string } })
       token = token.replace('session-', '');
     }
     
-    // Query WordPress REST API directly
-    const wpBase = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_WORDPRESS_URL;
-    if (!wpBase) {
-      throw new Error('WordPress URL not configured. Set WP_API_BASE, NEXT_PUBLIC_WORDPRESS_URL, or NEXT_WORDPRESS_URL to your WordPress URL (e.g., https://theartfulexperience.com)');
-    }
-    
-    const baseUrl = wpBase.replace(/\/$/, '');
+    const wpSiteBase = getWpSiteBase();
+    const wpApiBase = getWpApiBase();
     
     // Try multiple endpoint patterns
     const endpoints = [
       // Custom endpoint (if exists)
-      `${baseUrl}/wp-json/artkey/v1/get/${token}`,
+      `${wpApiBase}/artkey/v1/get/${token}`,
       // Try with full token format
-      `${baseUrl}/wp-json/artkey/v1/get/artkey-session-${token}`,
+      `${wpApiBase}/artkey/v1/get/artkey-session-${token}`,
       // Alternative custom endpoint pattern
-      `${baseUrl}/wp-json/wp/v2/artkey/get/${token}`,
+      `${wpApiBase}/wp/v2/artkey/get/${token}`,
       // Direct post type with token in path (if supported)
-      `${baseUrl}/wp-json/wp/v2/artkey/${token}`,
+      `${wpApiBase}/wp/v2/artkey/${token}`,
     ];
     
     let res: Response | null = null;
@@ -83,7 +79,7 @@ export async function GET(_: Request, { params }: { params: { token: string } })
     if (!res || !res.ok) {
       // Try fetching all artkey posts (limited to 100 for performance)
       // Note: This is not ideal for production - consider adding a custom endpoint
-      const allPostsUrl = `${baseUrl}/wp-json/wp/v2/artkey?per_page=100`;
+      const allPostsUrl = `${wpApiBase}/wp/v2/artkey?per_page=100`;
       res = await fetch(allPostsUrl, {
         method: 'GET',
         headers: {
@@ -131,7 +127,8 @@ export async function GET(_: Request, { params }: { params: { token: string } })
         { 
           error: 'ArtKey not found',
           details: `Token: ${token}. Tried multiple endpoints. Last error: ${lastError}`,
-          suggestion: 'Ensure the WordPress REST API endpoint is accessible and the token exists.'
+          suggestion: 'Ensure the WordPress REST API endpoint is accessible and the token exists.',
+          wpSiteBase,
         },
         {
           status: 404,

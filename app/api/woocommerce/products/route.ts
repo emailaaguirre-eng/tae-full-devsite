@@ -94,7 +94,14 @@ export async function POST(request: Request) {
 
     const authString = Buffer.from(`${WC_KEY}:${WC_SECRET}`).toString('base64');
 
-    const response = await fetch(`${WC_URL}/wp-json/wc/v3/products`, {
+    const normalizeWpSiteBase = (input: string) => {
+      const trimmed = input.trim().replace(/\/$/, '');
+      const idx = trimmed.indexOf('/wp-json');
+      return idx >= 0 ? trimmed.slice(0, idx) : trimmed;
+    };
+    const wcApiBase = `${normalizeWpSiteBase(WC_URL)}/wp-json`;
+
+    const response = await fetch(`${wcApiBase}/wc/v3/products`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${authString}`,

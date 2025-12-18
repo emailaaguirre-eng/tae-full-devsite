@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getWpApiBase } from '@/lib/wp';
 
 /**
  * ArtKey Get API
@@ -10,17 +11,10 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const wpBase = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_WORDPRESS_URL;
-
-    if (!wpBase) {
-      return NextResponse.json(
-        { error: 'WordPress API not configured' },
-        { status: 500 }
-      );
-    }
+    const wpApiBase = getWpApiBase();
 
     // Fetch from WordPress REST API
-    const wpResponse = await fetch(`${wpBase}/wp-json/artkey/v1/get/${id}`, {
+    const wpResponse = await fetch(`${wpApiBase}/artkey/v1/get/${id}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

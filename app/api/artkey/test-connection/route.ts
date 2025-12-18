@@ -1,28 +1,34 @@
 import { NextResponse } from "next/server";
+import { getWpApiBase, getWpSiteBase } from "@/lib/wp";
 
 // Test endpoint to check WordPress REST API connectivity
 export async function GET() {
   try {
-                const wpBase = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_WORDPRESS_URL;
-                if (!wpBase) {
-                  return NextResponse.json({
-                    error: 'WordPress URL not configured',
-                    env: {
-                      WP_API_BASE: process.env.WP_API_BASE,
-                      NEXT_PUBLIC_WORDPRESS_URL: process.env.NEXT_PUBLIC_WORDPRESS_URL,
-                      NEXT_WORDPRESS_URL: process.env.NEXT_WORDPRESS_URL,
-                    }
-                  }, { status: 500 });
-                }
-    
-    const baseUrl = wpBase.replace(/\/$/, '');
+    let wpSiteBase: string;
+    let wpApiBase: string;
+    try {
+      wpSiteBase = getWpSiteBase();
+      wpApiBase = getWpApiBase();
+    } catch (e: any) {
+      return NextResponse.json(
+        {
+          error: e?.message || "WordPress URL not configured",
+          env: {
+            WP_API_BASE: process.env.WP_API_BASE,
+            NEXT_PUBLIC_WORDPRESS_URL: process.env.NEXT_PUBLIC_WORDPRESS_URL,
+            NEXT_WORDPRESS_URL: process.env.NEXT_WORDPRESS_URL,
+          },
+        },
+        { status: 500 }
+      );
+    }
     
     // Test basic WordPress REST API
     const testEndpoints = [
-      `${baseUrl}/wp-json/`,
-      `${baseUrl}/wp-json/wp/v2/`,
-      `${baseUrl}/wp-json/wp/v2/artkey`,
-      `${baseUrl}/wp-json/artkey/v1/get/691e3d09ef58e`,
+      `${wpSiteBase.replace(/\/$/, '')}/wp-json/`,
+      `${wpApiBase}/wp/v2/`,
+      `${wpApiBase}/wp/v2/artkey`,
+      `${wpApiBase}/artkey/v1/get/691e3d09ef58e`,
     ];
     
     const results: Record<string, any> = {};
@@ -47,8 +53,8 @@ export async function GET() {
     }
     
     return NextResponse.json({
-      wpBase,
-      baseUrl,
+      wpSiteBase,
+      wpApiBase,
       endpoints: results,
     });
   } catch (err: any) {

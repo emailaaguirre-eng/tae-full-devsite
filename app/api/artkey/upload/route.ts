@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getWpApiBase } from '@/lib/wp';
 
 /**
  * ArtKey Media Upload API
@@ -17,11 +18,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Forward to WordPress REST API
-    const wpBase = process.env.WP_API_BASE || process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_WORDPRESS_URL;
+    const wpApiBase = getWpApiBase();
     const wpUser = process.env.WP_APP_USER;
     const wpPass = process.env.WP_APP_PASS;
 
-    if (!wpBase || !wpUser || !wpPass) {
+    if (!wpUser || !wpPass) {
       return NextResponse.json(
         { error: 'WordPress API credentials not configured' },
         { status: 500 }
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     const uploadFormData = new FormData();
     uploadFormData.append('file', new Blob([buffer]), file.name);
 
-    const wpResponse = await fetch(`${wpBase}/wp-json/artkey/v1/upload`, {
+    const wpResponse = await fetch(`${wpApiBase}/artkey/v1/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,

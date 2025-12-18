@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
+import { getAppBaseUrl, getWpApiBase, getWpSiteBase } from '@/lib/wp';
 
 /**
  * ArtKey Save API
@@ -46,9 +48,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const wpSiteBase = getWpSiteBase();
+    const wpApiBase = getWpApiBase();
+
     // Remove any spaces from password (WordPress app passwords have spaces but we need to remove them)
     const cleanPass = wpPass.replace(/\s+/g, '');
     const auth = Buffer.from(`${wpUser}:${cleanPass}`).toString('base64');
+
+    const ensureToken = (incoming: any) => {
+      const t = incoming?.token;
+      if (typeof t === 'string' && t.length >= 8) return t;
+      return crypto.randomBytes(16).toString('hex'); // 32-char hex
+    };
 
     // Check if product requires QR code (only for cards, invitations, postcards)
     let requiresQR = false;
@@ -57,7 +68,7 @@ export async function POST(request: NextRequest) {
     if (product_id) {
       try {
         // Fetch product info to check if it requires QR
-        const productRes = await fetch(`${wpBase}/wp-json/wc/v3/products/${product_id}`, {
+        const productRes = await fetch(`${wpApiBase}/wc/v3/products/${product_id}`, {
           method: 'GET',
           headers: {
             'Authorization': `Basic ${auth}`,
@@ -86,46 +97,131 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Forward to WordPress REST API
-    const wpResponse = await fetch(`${wpBase}/wp-json/artkey/v1/save`, {
+    const token = ensureToken(data);
+    const dataWithToken = { ...data, token, product_id };
+
+    // Helper: fallback save via core WP REST (avoids custom namespace blocks)
+    const saveViaWpV2 = async () => {
+      // Try to find existing ArtKey post by token (requires auth since CPT is non-public)
+      let existingId: number | null = null;
+      try {
+        const listRes = await fetch(`${wpApiBase}/wp/v2/artkey?per_page=100&status=publish`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Basic ${auth}`,
+          },
+        });
+        if (listRes.ok) {
+          const posts = await listRes.json();
+          for (const p of posts) {
+            const postToken = p?.meta?._artkey_token;
+            if (postToken === token) {
+              existingId = p.id;
+              break;
+            }
+          }
+        }
+      } catch {
+        // ignore lookup failures; we'll create a new post
+      }
+
+      const endpoint = existingId
+        ? `${wpApiBase}/wp/v2/artkey/${existingId}`
+        : `${wpApiBase}/wp/v2/artkey`;
+
+      const saveRes = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${auth}`,
+        },
+        body: JSON.stringify({
+          status: 'publish',
+          title: `ArtKey ${String(token).slice(0, 8)}`,
+          meta: {
+            _artkey_token: token,
+            _artkey_json: JSON.stringify(dataWithToken),
+            _artkey_template: data?.theme?.template || '',
+          },
+        }),
+      });
+
+      if (!saveRes.ok) {
+        const errorText = await saveRes.text().catch(() => '');
+        return {
+          ok: false,
+          status: saveRes.status,
+          errorText,
+          url: endpoint,
+        } as const;
+      }
+
+      const saved = await saveRes.json();
+      return { ok: true, id: saved.id, token } as const;
+    };
+
+    // 1) Try custom endpoint (if available)
+    let result: any = null;
+    const customRes = await fetch(`${wpApiBase}/artkey/v1/save`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Basic ${auth}`,
       },
       body: JSON.stringify({
-        data: { ...data, product_id },
+        data: dataWithToken,
         product_id,
-        requires_qr: requiresQR, // Only true for cards/invitations/postcards
+        requires_qr: requiresQR,
       }),
     });
 
-    if (!wpResponse.ok) {
-      const errorText = await wpResponse.text();
-      console.error('[ARTKEY SAVE] WordPress error response:', errorText);
-      let error;
+    if (customRes.ok) {
+      result = await customRes.json();
+    } else {
+      const errorText = await customRes.text().catch(() => '');
+      let parsed: any = null;
       try {
-        error = JSON.parse(errorText);
+        parsed = JSON.parse(errorText);
       } catch {
-        error = { message: errorText || 'Save failed' };
+        parsed = null;
       }
-      return NextResponse.json(
-        { 
-          error: error.message || 'Save failed',
-          details: error,
-          status: wpResponse.status,
-          url: `${wpBase}/wp-json/artkey/v1/save`
-        },
-        { status: wpResponse.status }
-      );
-    }
 
-    const result = await wpResponse.json();
+      const isNoRoute =
+        customRes.status === 404 &&
+        (parsed?.code === 'rest_no_route' || errorText.includes('rest_no_route'));
+
+      if (isNoRoute) {
+        console.warn('[ARTKEY SAVE] Custom endpoint not available, falling back to wp/v2');
+        const fallback = await saveViaWpV2();
+        if (!fallback.ok) {
+          return NextResponse.json(
+            {
+              error: 'Save failed (fallback wp/v2 also failed)',
+              status: fallback.status,
+              details: fallback.errorText,
+              url: fallback.url,
+            },
+            { status: fallback.status }
+          );
+        }
+        result = { id: fallback.id, token: fallback.token };
+      } else {
+        console.error('[ARTKEY SAVE] WordPress error response:', errorText);
+        return NextResponse.json(
+          {
+            error: parsed?.message || 'Save failed',
+            details: parsed || { message: errorText || 'Save failed' },
+            status: customRes.status,
+            url: `${wpApiBase}/artkey/v1/save`,
+          },
+          { status: customRes.status }
+        );
+      }
+    }
     
     // Build share URL - unique URL for each ArtKey
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                   process.env.VERCEL_URL || 
-                   'http://localhost:3000';
+    const baseUrl = getAppBaseUrl();
     const shareUrl = `${baseUrl}/art-key/${result.token}`;
 
     // Only generate QR code if product requires it (cards/invitations/postcards)
@@ -142,7 +238,7 @@ export async function POST(request: NextRequest) {
           
           // Update ArtKey with QR code URL in WordPress
           if (qrCodeUrl && result.id) {
-            await fetch(`${wpBase}/wp-json/wp/v2/artkey/${result.id}`, {
+            await fetch(`${wpApiBase}/wp/v2/artkey/${result.id}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
