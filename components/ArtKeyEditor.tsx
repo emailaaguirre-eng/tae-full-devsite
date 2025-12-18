@@ -9,6 +9,7 @@
  */
 import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useCart } from '@/contexts/CartContext';
 
 // Palette
 const COLOR_PRIMARY = '#FFFFFF';
@@ -67,6 +68,7 @@ interface ArtKeyData {
 function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { addToCart } = useCart();
   const productId = searchParams.get('product_id');
   const fromCustomize = searchParams.get('from_customize') === 'true';
   const [isAdmin, setIsAdmin] = useState(false);
@@ -194,6 +196,17 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           setCustomLinks(savedData.links || []);
           if (savedData.featureDefs) {
             setFeatureDefs(savedData.featureDefs);
+          } else {
+            // Rebuild featureDefs from customLinks if not saved
+            const baseFeatures = [...featureDefsDefault];
+            const linkFeatures = (savedData.links || []).map((link: Link, idx: number) => ({
+              key: `custom_link_${idx}_${Date.now()}`,
+              label: link.label,
+              field: `custom_link_${idx}`,
+              type: 'custom_link' as const,
+              linkData: link,
+            }));
+            setFeatureDefs([...baseFeatures, ...linkFeatures]);
           }
           if (savedData.customizations?.skeleton_key) {
             setSkeletonKey(savedData.customizations.skeleton_key);
@@ -212,6 +225,16 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       if (data?.data) {
         setArtKeyData(data.data);
         setCustomLinks(data.data.links || []);
+        // Rebuild featureDefs from customLinks
+        const baseFeatures = [...featureDefsDefault];
+        const linkFeatures = (data.data.links || []).map((link: Link, idx: number) => ({
+          key: `custom_link_${idx}_${Date.now()}`,
+          label: link.label,
+          field: `custom_link_${idx}`,
+          type: 'custom_link' as const,
+          linkData: link,
+        }));
+        setFeatureDefs([...baseFeatures, ...linkFeatures]);
         if (data.data.customizations?.skeleton_key) {
           setSkeletonKey(data.data.customizations.skeleton_key);
         }
@@ -365,13 +388,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   ];
 
   const featureDefsDefault = [
-    { key: 'custom_links', label: '🔗 Share A Link', field: 'enable_custom_links' },
-    { key: 'spotify', label: '🎵 Share Your Playlist', field: 'enable_spotify' },
-    { key: 'gallery', label: '📸 Image Gallery', field: 'enable_gallery' },
-    { key: 'guestbook', label: '📖 Guestbook', field: 'show_guestbook' },
-    { key: 'video', label: '🎥 Video Gallery', field: 'enable_video' },
+    { key: 'custom_links', label: '🔗 Share A Link', field: 'enable_custom_links', type: 'feature' },
+    { key: 'spotify', label: '🎵 Share Your Playlist', field: 'enable_spotify', type: 'feature' },
+    { key: 'gallery', label: '📸 Image Gallery', field: 'enable_gallery', type: 'feature' },
+    { key: 'guestbook', label: '📖 Guestbook', field: 'show_guestbook', type: 'feature' },
+    { key: 'video', label: '🎥 Video Gallery', field: 'enable_video', type: 'feature' },
   ];
-  const [featureDefs, setFeatureDefs] = useState(featureDefsDefault);
+  const [featureDefs, setFeatureDefs] = useState<Array<typeof featureDefsDefault[0] & { type?: 'feature' | 'custom_link'; linkData?: Link }>>(featureDefsDefault);
   const [editingFeatureIndex, setEditingFeatureIndex] = useState<number | null>(null);
   const [editFeatureLabel, setEditFeatureLabel] = useState('');
   const [draggedFeature, setDraggedFeature] = useState<number | null>(null);
@@ -494,11 +517,15 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         } : {}),
       };
 
+      // Rebuild customLinks from featureDefs custom_link entries
+      const customLinkEntries = featureDefs.filter(f => f.type === 'custom_link' && f.linkData);
+      const rebuiltCustomLinks = customLinkEntries.map(f => f.linkData!);
+      
       const dataToSave = {
         ...artKeyData,
-        links: customLinks,
+        links: rebuiltCustomLinks.length > 0 ? rebuiltCustomLinks : customLinks,
         customizations,
-        featureDefs, // Save custom feature labels
+        featureDefs, // Save feature definitions including custom links
         token: artkeyId,
       };
 
@@ -536,6 +563,28 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       
       const result = await res.json();
       alert(`✅ ArtKey saved! ${result.share_url ? `\nURL: ${result.share_url}` : ''}`);
+      
+      // If coming from customize page and redirecting to shop, add item to cart
+      if (redirectToShop && customizationData && productId) {
+        const cartItem = {
+          id: `${productId}-${artkeyId || Date.now()}`,
+          name: customizationData.productName || 'Custom Product',
+          price: customizationData.totalPrice || customizationData.basePrice || 0,
+          quantity: customizationData.customizations?.quantity || 1,
+          imageUrl: customizationData.designData?.imageDataUrl,
+          customization: {
+            size: customizationData.customizations?.size,
+            material: customizationData.customizations?.material,
+            frame: customizationData.customizations?.frame,
+            frameColor: customizationData.customizations?.frameColor,
+            uploadedImage: customizationData.designData?.imageDataUrl,
+            artkeyId: artkeyId || result.token,
+            artkeyUrl: result.share_url,
+          },
+        };
+        addToCart(cartItem);
+      }
+      
       if (redirectToShop) {
         router.push('/shop');
       }
@@ -557,9 +606,22 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
   const handleAddLink = () => {
     if (!newLinkLabel || !newLinkUrl) return;
-    const updated = [...customLinks, { label: newLinkLabel, url: newLinkUrl }];
+    const newLink: Link = { label: newLinkLabel, url: newLinkUrl };
+    const updated = [...customLinks, newLink];
     setCustomLinks(updated);
     setArtKeyData((prev) => ({ ...prev, links: updated }));
+    
+    // Add as a featureDef entry so it can be edited and rearranged
+    const linkId = `custom_link_${Date.now()}`;
+    const newFeatureDef = {
+      key: linkId,
+      label: newLinkLabel,
+      field: linkId,
+      type: 'custom_link' as const,
+      linkData: newLink,
+    };
+    setFeatureDefs((prev) => [...prev, newFeatureDef]);
+    
     setNewLinkLabel('');
     setNewLinkUrl('https://www.');
   };
@@ -1239,98 +1301,178 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                 </div>
 
                 <div className="space-y-2">
-                  {featureDefs.map((f, idx) => (
-                    <div key={f.key}>
-                      {editingFeatureIndex === idx ? (
-                        // Edit mode for feature label
-                        <div className="p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={editFeatureLabel}
-                              onChange={(e) => setEditFeatureLabel(e.target.value)}
-                              className="flex-1 px-3 py-2 rounded-lg text-sm"
-                              style={{ border: '1px solid #d8d8d6' }}
-                              autoFocus
-                              placeholder="Enter button name"
-                            />
-                            <button
-                              onClick={() => {
-                                if (editFeatureLabel.trim()) {
-                                  const updated = [...featureDefs];
-                                  updated[idx] = { ...updated[idx], label: editFeatureLabel };
-                                  setFeatureDefs(updated);
-                                }
-                                setEditingFeatureIndex(null);
-                                setEditFeatureLabel('');
-                              }}
-                              className="px-3 py-2 rounded-lg text-sm font-medium"
-                              style={{ background: COLOR_ACCENT, color: COLOR_PRIMARY }}
-                            >
-                              ✓
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingFeatureIndex(null);
-                                setEditFeatureLabel('');
-                              }}
-                              className="px-3 py-2 rounded-lg text-sm font-medium"
-                              style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
-                            >
-                              ✕
-                            </button>
+                  {featureDefs.map((f, idx) => {
+                    const isCustomLink = f.type === 'custom_link';
+                    return (
+                      <div key={f.key}>
+                        {editingFeatureIndex === idx ? (
+                          // Edit mode
+                          <div className="p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                value={editFeatureLabel}
+                                onChange={(e) => setEditFeatureLabel(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg text-sm"
+                                style={{ border: '1px solid #d8d8d6' }}
+                                autoFocus
+                                placeholder="Enter button name"
+                              />
+                              {isCustomLink && (
+                                <input
+                                  type="url"
+                                  value={editLinkUrl}
+                                  onChange={(e) => setEditLinkUrl(e.target.value)}
+                                  className="w-full px-3 py-2 rounded-lg text-sm"
+                                  style={{ border: '1px solid #d8d8d6' }}
+                                  placeholder="https://..."
+                                />
+                              )}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    if (editFeatureLabel.trim()) {
+                                      const updated = [...featureDefs];
+                                      if (isCustomLink) {
+                                        // Update custom link
+                                        const linkData = { label: editFeatureLabel, url: editLinkUrl };
+                                        updated[idx] = { ...updated[idx], label: editFeatureLabel, linkData };
+                                        // Update customLinks array - find by matching the old linkData
+                                        const oldLinkData = f.linkData;
+                                        if (oldLinkData) {
+                                          const linkIndex = customLinks.findIndex(l => l.url === oldLinkData.url && l.label === oldLinkData.label);
+                                          if (linkIndex >= 0) {
+                                            const newCustomLinks = [...customLinks];
+                                            newCustomLinks[linkIndex] = linkData;
+                                            setCustomLinks(newCustomLinks);
+                                            setArtKeyData((prev) => ({ ...prev, links: newCustomLinks }));
+                                          }
+                                        }
+                                      } else {
+                                        updated[idx] = { ...updated[idx], label: editFeatureLabel };
+                                      }
+                                      setFeatureDefs(updated);
+                                    }
+                                    setEditingFeatureIndex(null);
+                                    setEditFeatureLabel('');
+                                    setEditLinkUrl('');
+                                  }}
+                                  className="px-3 py-2 rounded-lg text-sm font-medium"
+                                  style={{ background: COLOR_ACCENT, color: COLOR_PRIMARY }}
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingFeatureIndex(null);
+                                    setEditFeatureLabel('');
+                                    setEditLinkUrl('');
+                                  }}
+                                  className="px-3 py-2 rounded-lg text-sm font-medium"
+                                  style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                                >
+                                  ✕
+                                </button>
+                                {isCustomLink && (
+                                  <button
+                                    onClick={() => {
+                                      // Remove custom link
+                                      const updated = featureDefs.filter((_, i) => i !== idx);
+                                      setFeatureDefs(updated);
+                                      const linkData = f.linkData;
+                                      if (linkData) {
+                                        const newCustomLinks = customLinks.filter(l => l.url !== linkData.url);
+                                        setCustomLinks(newCustomLinks);
+                                        setArtKeyData((prev) => ({ ...prev, links: newCustomLinks }));
+                                      }
+                                      setEditingFeatureIndex(null);
+                                      setEditFeatureLabel('');
+                                      setEditLinkUrl('');
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-sm font-medium"
+                                    style={{ background: '#ef4444', color: COLOR_PRIMARY }}
+                                  >
+                                    🗑️ Delete
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        // Display mode
-                        <div
-                          draggable
-                          onDragStart={() => handleFeatureDragStart(idx)}
-                          onDragOver={(e) => handleFeatureDragOver(e, idx)}
-                          onDragEnd={handleFeatureDragEnd}
-                          className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-grab transition-all"
-                          style={{
-                            borderColor: artKeyData.features[f.field] ? COLOR_ACCENT : '#e2e2e0',
-                            background: artKeyData.features[f.field] ? COLOR_ALT : COLOR_PRIMARY,
-                            opacity: draggedFeature === idx ? 0.5 : 1,
-                          }}
-                        >
-                          <div className="text-gray-400">⋮⋮</div>
+                        ) : (
+                          // Display mode
                           <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFeature(f.field);
+                            draggable
+                            onDragStart={() => handleFeatureDragStart(idx)}
+                            onDragOver={(e) => handleFeatureDragOver(e, idx)}
+                            onDragEnd={handleFeatureDragEnd}
+                            className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-grab transition-all"
+                            style={{
+                              borderColor: (isCustomLink || artKeyData.features[f.field]) ? COLOR_ACCENT : '#e2e2e0',
+                              background: (isCustomLink || artKeyData.features[f.field]) ? COLOR_ALT : COLOR_PRIMARY,
+                              opacity: draggedFeature === idx ? 0.5 : 1,
                             }}
-                            className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer"
-                            style={{ borderColor: artKeyData.features[f.field] ? COLOR_ACCENT : '#d0d0ce', background: artKeyData.features[f.field] ? COLOR_ACCENT : 'transparent' }}
                           >
-                            {artKeyData.features[f.field] && <span className="text-white text-xs">✓</span>}
+                            <div className="text-gray-400">⋮⋮</div>
+                            {!isCustomLink && (
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFeature(f.field);
+                                }}
+                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer"
+                                style={{ borderColor: artKeyData.features[f.field] ? COLOR_ACCENT : '#d0d0ce', background: artKeyData.features[f.field] ? COLOR_ACCENT : 'transparent' }}
+                              >
+                                {artKeyData.features[f.field] && <span className="text-white text-xs">✓</span>}
+                              </div>
+                            )}
+                            {isCustomLink && (
+                              <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: COLOR_ACCENT, background: COLOR_ACCENT }}>
+                                <span className="text-white text-xs">🔗</span>
+                              </div>
+                            )}
+                            <span 
+                              onClick={(e) => {
+                                if (!isCustomLink) {
+                                  e.stopPropagation();
+                                  toggleFeature(f.field);
+                                }
+                              }}
+                              className="flex-1 text-sm font-medium cursor-pointer" 
+                              style={{ color: COLOR_ACCENT }}
+                            >
+                              {f.label}
+                            </span>
+                            {isCustomLink && f.linkData && (
+                              <a
+                                href={f.linkData.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs text-blue-500 hover:text-blue-700"
+                                title={f.linkData.url}
+                              >
+                                🔗
+                              </a>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingFeatureIndex(idx);
+                                setEditFeatureLabel(f.label);
+                                if (isCustomLink && f.linkData) {
+                                  setEditLinkUrl(f.linkData.url);
+                                }
+                              }}
+                              className="text-blue-500 hover:text-blue-700 p-2 text-base"
+                              title="Edit button"
+                            >
+                              ✏️
+                            </button>
                           </div>
-                          <span 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFeature(f.field);
-                            }}
-                            className="flex-1 text-sm font-medium cursor-pointer" 
-                            style={{ color: COLOR_ACCENT }}
-                          >
-                            {f.label}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingFeatureIndex(idx);
-                              setEditFeatureLabel(f.label);
-                            }}
-                            className="text-blue-500 hover:text-blue-700 p-2 text-base"
-                            title="Edit button name"
-                          >
-                            ✏️
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </Card>
             )}

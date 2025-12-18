@@ -100,14 +100,14 @@ export default function Gallery() {
                   {artist.name}
                 </h3>
                 <div className="mb-3">
-                  <span className="text-xs uppercase tracking-wide text-brand-medium font-semibold">
+                  <span className="text-xs uppercase tracking-wide text-brand-dark font-semibold">
                     {artist.title}
                   </span>
                 </div>
                 <p className="text-brand-darkest mb-4 line-clamp-3">
                   {artist.bio}
                 </p>
-                <div className="text-brand-medium font-semibold group-hover:text-brand-dark transition-colors">
+                <div className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors">
                   Learn More & See {artist.name.split(' ')[0]}&apos;s Work →
                 </div>
               </div>

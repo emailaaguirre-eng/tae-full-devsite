@@ -214,18 +214,18 @@ function CustomizeContent() {
           
           {/* Step Indicator */}
           <div className="flex items-center justify-center mt-6 gap-2">
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 1 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-500'}`}>
-              <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">1</span>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 1 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
+              <span className={`w-6 h-6 rounded-full ${currentStep >= 1 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>1</span>
               <span className="hidden sm:inline">Design Editor</span>
             </div>
             <div className="w-8 h-0.5 bg-gray-300"></div>
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 2 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-500'}`}>
-              <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">2</span>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 2 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
+              <span className={`w-6 h-6 rounded-full ${currentStep >= 2 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>2</span>
               <span className="hidden sm:inline">Product Options</span>
             </div>
             <div className="w-8 h-0.5 bg-gray-300"></div>
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 3 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-500'}`}>
-              <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">3</span>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 3 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
+              <span className={`w-6 h-6 rounded-full ${currentStep >= 3 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>3</span>
               <span className="hidden sm:inline">ArtKey</span>
             </div>
           </div>
@@ -332,7 +332,7 @@ function CustomizeContent() {
                       <div className="font-bold text-lg text-brand-darkest mb-1">
                         {size.name}&quot;
                       </div>
-                      <div className="text-brand-medium font-semibold">
+                      <div className={`font-semibold ${selectedSize === size.name ? "text-brand-darkest" : "text-brand-medium"}`}>
                         ${size.price}
                       </div>
                     </button>
@@ -359,7 +359,7 @@ function CustomizeContent() {
                       <div className="font-bold text-lg text-brand-darkest mb-1">
                         {material.name}
                       </div>
-                      <div className="text-brand-medium font-semibold">
+                      <div className={`font-semibold ${selectedMaterial === material.name ? "text-brand-darkest" : "text-brand-medium"}`}>
                         {material.price === 0 ? "Included" : `+$${material.price.toFixed(2)}`}
                       </div>
                     </button>
@@ -522,10 +522,10 @@ function CustomizeContent() {
                 <span>Quantity:</span>
                 <span className="font-semibold">{quantity}</span>
               </div>
-              <div className="border-t border-brand-light pt-3 mt-4">
+              <div className="border-t border-white/20 pt-3 mt-4">
                 <div className="flex justify-between text-2xl font-bold">
                   <span>Total:</span>
-                  <span className="text-brand-light">${calculateTotal()}</span>
+                  <span className="text-white">${calculateTotal()}</span>
                 </div>
               </div>
             </div>
