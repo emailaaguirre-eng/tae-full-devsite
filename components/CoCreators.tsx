@@ -152,80 +152,17 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
                       })}
                     </div>
                   )}
-                  <a
-                    href={`#${cocreator.slug}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const element = document.getElementById(cocreator.slug);
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }
-                    }}
+                  <Link
+                    href={`/cocreators/${cocreator.slug}`}
                     className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors inline-block cursor-pointer"
                   >
                     Learn More About {cocreator.name.split(' ')[0]} →
-                  </a>
+                  </Link>
                 </div>
               </div>
             ))}
           </div>
           
-          {/* Expanded Details for Each CoCreator */}
-          {typedCocreators.map((cocreator) => (
-            <div
-              key={`detail-${cocreator.slug}`}
-              id={cocreator.slug}
-              className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-8"
-            >
-              {/* Mountain Image - shown when clicking Learn More */}
-              {cocreator.mountainImage && (
-                <div className="relative w-full h-[600px] md:h-[700px] mb-8 rounded-2xl overflow-hidden bg-brand-lightest">
-                  <Image
-                    src={cocreator.mountainImage}
-                    alt={`${cocreator.name} standing on a mountain`}
-                    fill
-                    className="object-contain"
-                    style={{ objectPosition: 'center top' }}
-                    unoptimized={cocreator.mountainImage.startsWith('http')}
-                  />
-                </div>
-              )}
-              
-              <h3 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-4 font-playfair">
-                {cocreator.name}
-              </h3>
-              <div className="mb-6">
-                <span className="text-sm uppercase tracking-wide text-brand-medium font-semibold">
-                  {cocreator.title}
-                </span>
-              </div>
-              
-              {/* Complete Bio */}
-              {cocreator.bio && (
-                <div className="mb-6">
-                  {cocreator.bio.split('\n\n').map((part, idx) => (
-                    <p key={idx} className="text-lg text-brand-darkest leading-relaxed mb-4">
-                      {part}
-                    </p>
-                  ))}
-                </div>
-              )}
-              
-              {/* Learn More About section */}
-              {cocreator.description && (
-                <div className="mb-8">
-                  <h4 className="text-2xl font-bold text-brand-darkest mb-4 font-playfair">
-                    {cocreator.description.split('\n\n')[0]}
-                  </h4>
-                  {cocreator.description.split('\n\n').slice(1).map((part, idx) => (
-                    <p key={idx} className="text-base text-brand-darkest leading-relaxed mb-4 whitespace-pre-line">
-                      {part}
-                    </p>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
           
           {/* Coming Soon Message */}
           <div className="mt-12 text-center">
