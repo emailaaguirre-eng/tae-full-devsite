@@ -28,10 +28,11 @@ interface CoCreatorPageProps {
 }
 
 export default function CoCreatorPage({ params }: CoCreatorPageProps) {
-  const { slug } = use(params);
+  const resolvedParams = use(params);
+  const slug = resolvedParams?.slug;
   const { cocreators } = cocreatorsData;
   const typedCocreators = cocreators as CoCreator[];
-  const cocreator = typedCocreators.find((c) => c.slug === slug);
+  const cocreator = slug ? typedCocreators.find((c) => c.slug === slug) : undefined;
 
   // Fetch products from WooCommerce for this co-creator (for future use)
   const [wooProducts, setWooProducts] = useState<Array<{

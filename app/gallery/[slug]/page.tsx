@@ -28,10 +28,11 @@ interface ArtistPageProps {
 }
 
 export default function ArtistPage({ params }: ArtistPageProps) {
-  const { slug } = use(params);
+  const resolvedParams = use(params);
+  const slug = resolvedParams?.slug;
   const { artists } = galleryData;
   const typedArtists = artists as Artist[];
-  const artist = typedArtists.find((a) => a.slug === slug);
+  const artist = slug ? typedArtists.find((a) => a.slug === slug) : undefined;
 
   // Fetch products from WooCommerce for this artist
   // Hooks must be called before any conditional returns
@@ -43,6 +44,7 @@ export default function ArtistPage({ params }: ArtistPageProps) {
     permalink?: string;
   }>>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string; title?: string } | null>(null);
 
   useEffect(() => {
     if (!artist) {
@@ -71,6 +73,17 @@ export default function ArtistPage({ params }: ArtistPageProps) {
     };
     fetchProducts();
   }, [artist]);
+
+  // Handle escape key to close expanded image
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && expandedImage) {
+        setExpandedImage(null);
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [expandedImage]);
 
   if (!artist) {
     return (
