@@ -84,8 +84,8 @@ export default function CoCreators() {
                   </Link>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
           
           {/* Expanded Details for Each CoCreator */}
           {typedCocreators.map((cocreator) => (
