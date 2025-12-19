@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { use, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import cocreatorsData from "@/content/cocreators.json";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -24,12 +24,24 @@ interface CoCreator {
 }
 
 interface CoCreatorPageProps {
-  params: Promise<{ slug: string }>;
+  params: { slug: string } | Promise<{ slug: string }>;
 }
 
 export default function CoCreatorPage({ params }: CoCreatorPageProps) {
-  const resolvedParams = use(params);
-  const slug = resolvedParams?.slug;
+  // Handle both Promise and direct params for Next.js 14 compatibility
+  const [slug, setSlug] = useState<string | undefined>(undefined);
+  
+  useEffect(() => {
+    const getSlug = async () => {
+      if (params instanceof Promise) {
+        const resolved = await params;
+        setSlug(resolved.slug);
+      } else {
+        setSlug(params.slug);
+      }
+    };
+    getSlug();
+  }, [params]);
   const { cocreators } = cocreatorsData;
   const typedCocreators = cocreators as CoCreator[];
   const cocreator = slug ? typedCocreators.find((c) => c.slug === slug) : undefined;
