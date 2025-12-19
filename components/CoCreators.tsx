@@ -152,12 +152,19 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
                       })}
                     </div>
                   )}
-                  <Link
+                  <a
                     href={`#${cocreator.slug}`}
-                    className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors inline-block"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const element = document.getElementById(cocreator.slug);
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }}
+                    className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors inline-block cursor-pointer"
                   >
                     Learn More About {cocreator.name.split(' ')[0]} →
-                  </Link>
+                  </a>
                 </div>
               </div>
             ))}
