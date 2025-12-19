@@ -123,12 +123,19 @@ export default function Gallery() {
                 <p className="text-brand-darkest mb-4 line-clamp-3">
                   {artist.bio}
                 </p>
-                <Link
+                <a
                   href={`#${artist.slug}`}
-                  className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors inline-block"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const element = document.getElementById(artist.slug);
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                  className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors inline-block cursor-pointer"
                 >
                   Learn More →
-                </Link>
+                </a>
               </div>
             </div>
           ))}
@@ -141,18 +148,30 @@ export default function Gallery() {
             id={artist.slug}
             className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-8"
           >
-            {/* Bio Image if available */}
-            {artist.bioImage && (
-              <div className="relative w-full h-96 md:h-[500px] mb-8 rounded-2xl overflow-hidden">
+            {/* Image: Portfolio image for Deanna, bioImage for Bryant */}
+            {(artist.portfolio && artist.portfolio.length > 0) ? (
+              <div className="relative w-full h-96 md:h-[500px] mb-8 rounded-2xl overflow-hidden bg-brand-lightest">
+                <Image
+                  src={artist.portfolio[0].image}
+                  alt={artist.portfolio[0].title || `${artist.name} portfolio`}
+                  fill
+                  className="object-contain"
+                  style={{ objectPosition: 'center' }}
+                  unoptimized={artist.portfolio[0].image.includes('theartfulexperience.com')}
+                />
+              </div>
+            ) : artist.bioImage ? (
+              <div className="relative w-full h-96 md:h-[500px] mb-8 rounded-2xl overflow-hidden bg-brand-lightest">
                 <Image
                   src={artist.bioImage}
                   alt={`${artist.name} bio image`}
                   fill
-                  className="object-cover"
+                  className="object-contain"
+                  style={{ objectPosition: 'center top' }}
                   unoptimized={artist.bioImage.includes('theartfulexperience.com')}
                 />
               </div>
-            )}
+            ) : null}
             
             <h3 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-4 font-playfair">
               {artist.name}
