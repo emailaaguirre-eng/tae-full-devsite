@@ -24,6 +24,7 @@ interface Artist {
   name: string;
   title: string;
   image: string;
+  bioImage?: string;
   bio: string;
   description?: string;
   slug: string;

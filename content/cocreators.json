@@ -1,17 +1,29 @@
 {
   "title": "CoCreators",
   "subtitle": "Meet the talented artists and creators who make The Artful Experience possible",
+  "featuredCoCreator": {
+    "name": "Kimber Cross",
+    "title": "ADAPTIVE ALPINE CLIMBER | ATHLETE | EDUCATOR",
+    "image": "/images/kimber.jpg",
+    "bio": "We're deeply honored to welcome Kimber as The Artful Experience's first co-creator, with an art collaboration launching in the New Year, followed by talks and immersive events. Her story is living proof that limits are meant to be rewritten—and we're just getting started together.",
+    "description": "Kimber Cross is an adaptive alpine and ice climber based in Tacoma, Washington, whose life and work embody her mantra: can't. will. did. Born with one hand, Kimber has become a trailblazer in the outdoor world—summiting Mount Rainier six times, completing the historic Kautz Route with a prosthetic ice tool, and now training for classic objectives in Alaska's wild ranges. A former The North Face Athlete Development Program member, climb leader with The Mountaineers, and National Board-Certified teacher, Kimber bridges grit, education, and inclusion with rare clarity.",
+    "buttonText": "Learn More About Kimber →",
+    "slug": "kimber-cross"
+  },
   "cocreators": [
     {
-      "id": "kimber",
       "name": "Kimber Cross",
+      "title": "ADAPTIVE ALPINE CLIMBER | ATHLETE | EDUCATOR",
       "image": "/images/kimber.jpg",
-      "modalImage": "/images/kimber-modal.jpg",
       "bio": "We're deeply honored to welcome Kimber as The Artful Experience's first co-creator, with an art collaboration launching in the New Year, followed by talks and immersive events. Her story is living proof that limits are meant to be rewritten—and we're just getting started together.",
-      "extendedBio": "Kimber Cross is an adaptive alpine and ice climber based in Tacoma, Washington, whose life and work embody her mantra: can't. will. did. Born with one hand, Kimber has become a trailblazer in the outdoor world—summiting Mount Rainier six times, completing the historic Kautz Route with a prosthetic ice tool, and now training for classic objectives in Alaska's wild ranges. A former The North Face Athlete Development Program member, climb leader with The Mountaineers, and National Board-Certified teacher, Kimber bridges grit, education, and inclusion with rare clarity.",
-      "link": "#"
+      "description": "Kimber Cross is an adaptive alpine and ice climber based in Tacoma, Washington, whose life and work embody her mantra: can't. will. did. Born with one hand, Kimber has become a trailblazer in the outdoor world—summiting Mount Rainier six times, completing the historic Kautz Route with a prosthetic ice tool, and now training for classic objectives in Alaska's wild ranges. A former The North Face Athlete Development Program member, climb leader with The Mountaineers, and National Board-Certified teacher, Kimber bridges grit, education, and inclusion with rare clarity.",
+      "slug": "kimber-cross"
     }
   ],
+  "comingSoon": {
+    "title": "More CoCreators Coming Soon",
+    "description": "We're continuously adding new talented creators to our community. Check back soon!"
+  },
   "cta": {
     "title": "Interested in Becoming a CoCreator?",
     "description": "Join our community of talented artists and creators",

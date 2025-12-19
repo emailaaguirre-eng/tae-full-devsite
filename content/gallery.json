@@ -26,6 +26,16 @@
           "price": null
         }
       ]
+    },
+    {
+      "name": "Bryant Colman",
+      "title": "PHOTOGRAPHER | EXPLORER | FOUNDER",
+      "image": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/FullSizeRender-1-scaled.jpeg",
+      "bioImage": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/IMG_7860-e1766120616753.png",
+      "bio": "Drawn to the intersection of architecture, art, and place. Travel has been a central teacher—from the geographic South Pole to the Highlands of Iceland, across the Inca Trail and the Camino de Santiago.",
+      "description": "I have always been drawn to the intersection of architecture, art, and place. Travel has been a central teacher in my life—taking me from the geographic South Pole to the Highlands of Iceland, across the Inca Trail and the Camino de Santiago, and to the summit of Mount Kilimanjaro. I've spent time alpine climbing in the Canadian Rockies and on glaciated peaks like Rainier and Baker in the Cascade range, experiences that continue to shape how I see challenge, beauty, and perspective.\n\nI'm equally inspired by human-made environments: the quiet elegance of Mexican haciendas, the layered history of Paris, and the bold urban energy of cities like Rio de Janeiro, Istanbul, London and Moscow. Some of my most meaningful moments have come through adventure—kayaking in the Sea of Cortez during whale migration, long treks, and journeys that reward curiosity.\n\nAt the core of it all is a love of creating and being part of a thoughtful, creative community—people who value craftsmanship, ideas, and experiences that endure, from which emerged - The Artful Experience.",
+      "slug": "bryant-colman",
+      "portfolio": []
     }
   ],
   "comingSoon": {
