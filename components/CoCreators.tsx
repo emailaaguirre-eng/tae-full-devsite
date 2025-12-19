@@ -142,20 +142,19 @@ export default function CoCreators() {
               )}
             </div>
           ))}
-        </div>
-
-        {/* Coming Soon Message */}
-        <div className="mt-12 text-center">
-          <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
-            <h3 className="text-2xl font-bold text-brand-dark mb-4 font-playfair">
-              {comingSoon.title}
-            </h3>
-            <p className="text-brand-darkest mb-6">
-              {comingSoon.description}
-            </p>
+          
+          {/* Coming Soon Message */}
+          <div className="mt-12 text-center">
+            <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
+              <h3 className="text-2xl font-bold text-brand-dark mb-4 font-playfair">
+                {comingSoon.title}
+              </h3>
+              <p className="text-brand-darkest mb-6">
+                {comingSoon.description}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
     </section>
   );
 }
