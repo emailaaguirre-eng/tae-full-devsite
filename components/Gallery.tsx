@@ -64,6 +64,22 @@ export default function Gallery() {
     fetchProducts();
   }, []);
 
+  // Scroll to anchor when page loads with hash
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash) {
+        // Wait for content to render, then scroll
+        setTimeout(() => {
+          const element = document.querySelector(hash);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
+      }
+    }
+  }, []);
+
   const typedArtists = artists as Artist[];
 
   return (
@@ -108,7 +124,7 @@ export default function Gallery() {
                   {artist.bio}
                 </p>
                 <Link
-                  href={`/gallery/${artist.slug}`}
+                  href={`#${artist.slug}`}
                   className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors inline-block"
                 >
                   Learn More →
@@ -117,6 +133,55 @@ export default function Gallery() {
             </div>
           ))}
         </div>
+
+        {/* Expanded Details for Each Artist */}
+        {typedArtists.map((artist) => (
+          <div
+            key={`detail-${artist.slug}`}
+            id={artist.slug}
+            className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-8"
+          >
+            {/* Bio Image if available */}
+            {artist.bioImage && (
+              <div className="relative w-full h-96 md:h-[500px] mb-8 rounded-2xl overflow-hidden">
+                <Image
+                  src={artist.bioImage}
+                  alt={`${artist.name} bio image`}
+                  fill
+                  className="object-cover"
+                  unoptimized={artist.bioImage.includes('theartfulexperience.com')}
+                />
+              </div>
+            )}
+            
+            <h3 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-4 font-playfair">
+              {artist.name}
+            </h3>
+            <div className="mb-6">
+              <span className="text-sm uppercase tracking-wide text-brand-medium font-semibold">
+                {artist.title}
+              </span>
+            </div>
+            
+            {/* Bio */}
+            {artist.bio && (
+              <div className="mb-8">
+                <p className="text-lg text-brand-darkest leading-relaxed mb-4">
+                  {artist.bio}
+                </p>
+              </div>
+            )}
+            
+            {/* Full Description */}
+            {artist.description && (
+              <div className="mt-8 pt-8 border-t border-brand-light">
+                <p className="text-base text-brand-darkest leading-relaxed mb-4 whitespace-pre-line">
+                  {artist.description}
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
 
         {/* Coming Soon Message */}
         <div className="mt-12 text-center">
