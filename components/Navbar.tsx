@@ -43,16 +43,17 @@ export default function Navbar() {
               </Link>
 
               <Link
-                href="/about"
-                className="text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-sm font-medium font-playfair"
-              >
-                About Us
-              </Link>
-              <Link
                 href="/cocreators"
                 className="text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-sm font-medium font-playfair"
               >
                 CoCreators
+              </Link>
+
+              <Link
+                href="/about"
+                className="text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-sm font-medium font-playfair"
+              >
+                About Us
               </Link>
               <Link
                 href="/contact"
@@ -128,18 +129,18 @@ export default function Navbar() {
               TheAE Gallery
             </Link>
             <Link
-              href="/about"
-              className="block text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-base font-medium font-playfair"
-              onClick={() => setIsOpen(false)}
-            >
-              About Us
-            </Link>
-            <Link
               href="/cocreators"
               className="block text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-base font-medium font-playfair"
               onClick={() => setIsOpen(false)}
             >
               CoCreators
+            </Link>
+            <Link
+              href="/about"
+              className="block text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-base font-medium font-playfair"
+              onClick={() => setIsOpen(false)}
+            >
+              About Us
             </Link>
             <Link
               href="/contact"
