@@ -98,7 +98,7 @@ export default function Hero() {
               </div>
               <div className="text-center">
                 <a
-                  href="#contact"
+                  href="mailto:info@theartfulexperience.com"
                   className="inline-block bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg"
                 >
                   Sign up for updates
