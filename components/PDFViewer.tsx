@@ -49,7 +49,7 @@ export default function PDFViewer({ url, onClose, title }: PDFViewerProps) {
         }
       }}
     >
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl h-full max-h-[95vh] sm:max-h-[90vh] flex flex-col">
+      <div className="bg-brand-lightest rounded-lg shadow-2xl w-full max-w-6xl h-full max-h-[95vh] sm:max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">

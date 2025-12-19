@@ -107,6 +107,12 @@ export default function Gallery() {
                 <p className="text-brand-darkest mb-4 line-clamp-3">
                   {artist.bio}
                 </p>
+                <Link
+                  href={`/gallery/${artist.slug}`}
+                  className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors inline-block"
+                >
+                  Learn More →
+                </Link>
               </div>
             </div>
           ))}

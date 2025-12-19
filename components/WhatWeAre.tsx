@@ -84,7 +84,7 @@ export default function WhatWeAre() {
 
         {/* How It Works - Card Based */}
         <div className="mb-16">
-          <div className="rounded-2xl shadow-lg p-8 md:p-12" style={{ backgroundColor: '#ecece9' }}>
+          <div className="rounded-2xl shadow-lg p-8 md:p-12" style={{ backgroundColor: '#ffffff' }}>
             <div className="text-center mb-12">
               <h3 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
                 How It Works
