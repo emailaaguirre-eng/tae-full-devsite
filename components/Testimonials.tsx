@@ -41,11 +41,11 @@ export default function Testimonials() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
-            What Our Clients & Friends Say
+            What our Clients & Friends Say
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
           <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
-            Real stories from people who have experienced the magic of personalized art
+            Real stories from people who have experienced the magic of The Artful Experience
           </p>
         </div>
 

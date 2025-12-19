@@ -82,9 +82,8 @@ export default function Gallery() {
         {/* Artists Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
           {typedArtists.map((artist) => (
-            <Link
+            <div
               key={artist.slug}
-              href={`/gallery/${artist.slug}`}
               className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all group"
             >
               <div className="relative h-64 w-full bg-gradient-to-br from-brand-light to-brand-medium overflow-hidden">
@@ -108,11 +107,8 @@ export default function Gallery() {
                 <p className="text-brand-darkest mb-4 line-clamp-3">
                   {artist.bio}
                 </p>
-                <div className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors">
-                  Learn More & See {artist.name.split(' ')[0]}&apos;s Work →
-                </div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
 

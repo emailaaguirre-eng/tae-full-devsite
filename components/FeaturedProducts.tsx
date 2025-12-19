@@ -235,7 +235,7 @@ export default function FeaturedProducts({ title = "Products" }: FeaturedProduct
       {
         name: "Thank You Cards",
         price: "$14.99",
-        image: "💌",
+        image: "🖼️",
         rating: 5,
         reviews: 2341,
         description: "Express gratitude with personalized photo thank you cards"
@@ -446,7 +446,7 @@ export default function FeaturedProducts({ title = "Products" }: FeaturedProduct
                 : "bg-brand-lightest text-brand-darkest hover:bg-brand-light"   
             }`}
           >
-            💌 Cards &amp; Invitations
+            Cards &amp; Invitations
           </button>
           <button
             onClick={() => setActiveTab("new")}

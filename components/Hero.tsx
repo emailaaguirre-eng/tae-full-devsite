@@ -66,21 +66,45 @@ export default function Hero() {
             The Artful Experience
           </h1>
           <div className="mt-6 max-w-3xl mx-auto">
-            <p className="text-lg md:text-xl text-brand-darkest leading-relaxed mb-4">
-              We&apos;re Building Something Special!
-            </p>
-            <p className="text-base md:text-lg text-brand-dark leading-relaxed mb-4">
-              Welcome to our site. We are currently working hard to finalize our full experience, launching officially in January 2026.
-            </p>
-            <p className="text-sm md:text-base text-brand-dark leading-relaxed">
-              In the meantime, feel free to look around! To stay in the loop, join our email list for updates on our launch. (Don&apos;t worry, we promise to keep your inbox spam-free).
-            </p>
-            <a
-              href="#contact"
-              className="inline-block mt-6 bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg"
-            >
-              Sign up for updates
-            </a>
+            <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
+              <h2 className="text-2xl md:text-3xl font-bold text-brand-darkest mb-6 font-playfair text-center">
+                We&apos;re Building Something Special
+              </h2>
+              <div className="text-lg text-brand-darkest max-w-2xl mx-auto mb-6 text-center space-y-4">
+                <p>
+                  We&apos;re creating a new destination for holiday cards, wedding announcements, promotions, birthdays, graduations, new-arrival reveals—or simply upload a favorite image or artwork from our gallery.
+                </p>
+                <p>
+                  With our proprietary ArtKey™ technology, every card and image comes to life.
+                </p>
+                <p>
+                  Add your own videos, messages, music, e-gift cards, and more—beautifully embedded into each piece.
+                </p>
+                <p>
+                  What starts as a visual becomes an experience.
+                </p>
+                <p>
+                  A gift like no other—one that lives on, long after it&apos;s received.
+                </p>
+                <p>
+                  We are currently working hard to finalize our full experience, launching officially in January of 2026!
+                </p>
+                <p>
+                  In the meantime, feel free to look around! To stay in the loop, feel free to join our email list for updates on our launch!
+                </p>
+                <p className="text-sm">
+                  (Don&apos;t worry, we promise to keep your inbox spam-free.)
+                </p>
+              </div>
+              <div className="text-center">
+                <a
+                  href="#contact"
+                  className="inline-block bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg"
+                >
+                  Sign up for updates
+                </a>
+              </div>
+            </div>
           </div>
         </div>
         

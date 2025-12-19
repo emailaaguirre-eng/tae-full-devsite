@@ -22,7 +22,6 @@ export default function CardsSection() {
         </div>
 
         <div className="text-center mb-12">
-          <div className="text-6xl mb-4">💌</div>
           <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
             Cards, Invitations & Announcements
           </h2>
