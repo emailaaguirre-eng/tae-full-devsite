@@ -11,6 +11,7 @@ interface Artist {
   name: string;
   title: string;
   image: string;
+  bioImage?: string;
   bio: string;
   description?: string;
   slug: string;
@@ -113,10 +114,11 @@ export default function ArtistPage({ params }: ArtistPageProps) {
                   fill
                   className="object-contain"
                   style={{ objectPosition: 'top center' }}
+                  unoptimized={artist.image.includes('theartfulexperience.com')}
                 />
               </div>
               
-              {/* Artist Bio */}
+              {/* Artist Name and Title */}
               <div className="p-8 md:p-12 flex flex-col justify-center">
                 <h1 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-4 font-playfair">
                   {artist.name}
@@ -126,22 +128,77 @@ export default function ArtistPage({ params }: ArtistPageProps) {
                     {artist.title}
                   </span>
                 </div>
-                <p className="text-lg text-brand-darkest leading-relaxed mb-4">
-                  {artist.bio}
-                </p>
-                {artist.description && (
-                  <p className="text-base text-brand-dark leading-relaxed">
-                    {artist.description}
-                  </p>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Portfolio/Gallery Section */}
-          <div className="mb-12">
+          {/* Full Bio Section */}
+          <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-6 font-playfair">
+              About {artist.name.split(' ')[0]}
+            </h2>
+            <div className="space-y-4">
+              <p className="text-lg text-brand-darkest leading-relaxed">
+                {artist.bio}
+              </p>
+              {artist.description && (
+                <div className="mt-6 pt-6 border-t border-brand-light">
+                  <p className="text-base text-brand-darkest leading-relaxed whitespace-pre-line">
+                    {artist.description}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Portfolio Section */}
+          {artist.portfolio && artist.portfolio.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
+                Portfolio
+              </h2>
+              <div className="grid md:grid-cols-2 gap-6">
+                {artist.portfolio.map((item, idx) => (
+                  <div key={idx} className="relative w-full h-96 rounded-2xl overflow-hidden bg-brand-lightest shadow-md hover:shadow-xl transition-shadow">
+                    <Image
+                      src={item.image}
+                      alt={item.title || `${artist.name} portfolio ${idx + 1}`}
+                      fill
+                      className="object-contain"
+                      style={{ objectPosition: 'center' }}
+                      unoptimized={item.image.includes('theartfulexperience.com')}
+                    />
+                    {item.title && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-4">
+                        <p className="font-semibold text-lg">{item.title}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bio Image for Bryant */}
+          {artist.bioImage && (
+            <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
+              <div className="relative w-full h-[600px] md:h-[700px] rounded-2xl overflow-hidden bg-brand-lightest">
+                <Image
+                  src={artist.bioImage}
+                  alt={`${artist.name} bio image`}
+                  fill
+                  className="object-contain"
+                  style={{ objectPosition: 'center top' }}
+                  unoptimized={artist.bioImage.includes('theartfulexperience.com')}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Available Artwork Section */}
+          <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
-              Portfolio & Gallery
+              Available Artwork
             </h2>
             
             {loading ? (
@@ -157,41 +214,33 @@ export default function ArtistPage({ params }: ArtistPageProps) {
                   const price = product.price || '0.00';
                   
                   return (
-                    <div key={product.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all group">
-                      <div className="relative aspect-square overflow-hidden bg-gray-50">
+                    <div key={product.id} className="bg-brand-lightest rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 border border-brand-light">
+                      <div className="relative h-48 w-full bg-gradient-to-br from-brand-light to-brand-medium">
                         <Image
                           src={productImage}
                           alt={product.name}
                           fill
-                          className="object-contain group-hover:scale-110 transition-transform duration-500"
-                          style={{ objectPosition: 'center' }}
+                          className="object-contain"
+                          unoptimized={productImage.includes('theartfulexperience.com')}
                         />
                       </div>
-                      <div className="p-6">
-                        <h3 className="text-xl font-bold text-brand-darkest mb-2">
-                          {product.name}
-                        </h3>
-                        <div className="flex items-center gap-2 mb-4">
-                          <span className="text-lg font-bold text-brand-medium">
-                            ${price}
-                          </span>
-                        </div>
-                        <a 
-                          href={product.permalink || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block w-full bg-brand-medium text-white px-6 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all text-center"
+                      <div className="p-5">
+                        <h3 className="font-bold text-brand-darkest mb-2 font-playfair">{product.name}</h3>
+                        <p className="text-brand-dark font-semibold mb-3">${price}</p>
+                        <Link
+                          href={`/customize?product_id=${product.id}&product_name=${encodeURIComponent(product.name)}&price=${product.price}`}
+                          className="inline-block bg-brand-medium text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-brand-dark transition-all shadow-md hover:shadow-lg"
                         >
-                          {product.permalink ? 'View Details' : 'Portfolio Piece'}
-                        </a>
+                          Customize →
+                        </Link>
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="text-center py-12 bg-white rounded-2xl">
-                <p className="text-brand-dark">Portfolio pieces coming soon.</p>
+              <div className="text-center py-12 bg-brand-lightest rounded-2xl">
+                <p className="text-brand-dark">Available artwork coming soon.</p>
               </div>
             )}
           </div>
