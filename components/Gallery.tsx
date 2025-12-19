@@ -159,12 +159,12 @@ export default function Gallery() {
             >
               {/* Image: Portfolio image for Deanna, bioImage for Bryant */}
               {artist.slug === 'deanna-lankin' && artist.portfolio && artist.portfolio.length > 0 ? (
-                // Deanna: Show all portfolio images
+                // Deanna: Show all portfolio images in a beautiful grid
                 <div className="mb-8">
                   <h4 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair">Portfolio</h4>
                   <div className="grid md:grid-cols-2 gap-6">
                     {artist.portfolio.map((item, idx) => (
-                      <div key={idx} className="relative w-full h-96 rounded-2xl overflow-hidden bg-brand-lightest">
+                      <div key={idx} className="relative w-full h-96 rounded-2xl overflow-hidden bg-brand-lightest shadow-md hover:shadow-xl transition-shadow">
                         <Image
                           src={item.image}
                           alt={item.title || `${artist.name} portfolio ${idx + 1}`}
@@ -174,8 +174,8 @@ export default function Gallery() {
                           unoptimized={item.image.includes('theartfulexperience.com')}
                         />
                         {item.title && (
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-4">
-                            <p className="font-semibold">{item.title}</p>
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-4">
+                            <p className="font-semibold text-lg">{item.title}</p>
                           </div>
                         )}
                       </div>
@@ -183,8 +183,8 @@ export default function Gallery() {
                   </div>
                 </div>
               ) : artist.bioImage ? (
-                // Bryant: Show bioImage (yellow jacket mountain image)
-                <div className="relative w-full h-[600px] md:h-[700px] mb-8 rounded-2xl overflow-hidden bg-brand-lightest">
+                // Bryant: Show bioImage (yellow jacket mountain image) - full image without head cut off
+                <div className="relative w-full h-[600px] md:h-[700px] mb-8 rounded-2xl overflow-hidden bg-brand-lightest shadow-md">
                   <Image
                     src={artist.bioImage}
                     alt={`${artist.name} bio image`}
@@ -234,7 +234,7 @@ export default function Gallery() {
                         : null;
                       
                       return (
-                        <div key={product.id} className="bg-brand-lightest rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-all">
+                        <div key={product.id} className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 border border-brand-light">
                           {productImage && (
                             <div className="relative h-48 w-full bg-gradient-to-br from-brand-light to-brand-medium">
                               <Image
@@ -246,12 +246,12 @@ export default function Gallery() {
                               />
                             </div>
                           )}
-                          <div className="p-4">
-                            <h5 className="font-bold text-brand-darkest mb-2">{product.name}</h5>
-                            <p className="text-brand-dark font-semibold">{product.price}</p>
+                          <div className="p-5">
+                            <h5 className="font-bold text-brand-darkest mb-2 font-playfair">{product.name}</h5>
+                            <p className="text-brand-dark font-semibold mb-3">{product.price}</p>
                             <Link
                               href={`/customize?product_id=${product.id}&product_name=${encodeURIComponent(product.name)}&price=${product.price}`}
-                              className="mt-3 inline-block bg-brand-medium text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-brand-dark transition-all"
+                              className="inline-block bg-brand-medium text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-brand-dark transition-all shadow-md hover:shadow-lg"
                             >
                               Customize →
                             </Link>

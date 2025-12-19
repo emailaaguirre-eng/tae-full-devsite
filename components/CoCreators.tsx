@@ -172,12 +172,13 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
             >
               {/* Mountain Image - shown when clicking Learn More */}
               {cocreator.mountainImage && (
-                <div className="relative w-full h-96 md:h-[500px] mb-8 rounded-2xl overflow-hidden">
+                <div className="relative w-full h-[600px] md:h-[700px] mb-8 rounded-2xl overflow-hidden bg-brand-lightest">
                   <Image
                     src={cocreator.mountainImage}
                     alt={`${cocreator.name} standing on a mountain`}
                     fill
-                    className="object-cover"
+                    className="object-contain"
+                    style={{ objectPosition: 'center top' }}
                     unoptimized={cocreator.mountainImage.startsWith('http')}
                   />
                 </div>
@@ -192,9 +193,9 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
                 </span>
               </div>
               
-              {/* First part of bio */}
+              {/* Complete Bio */}
               {cocreator.bio && (
-                <div className="mb-8">
+                <div className="mb-6">
                   {cocreator.bio.split('\n\n').map((part, idx) => (
                     <p key={idx} className="text-lg text-brand-darkest leading-relaxed mb-4">
                       {part}
@@ -205,12 +206,12 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
               
               {/* Learn More About section */}
               {cocreator.description && (
-                <div className="mt-8 pt-8 border-t border-brand-light">
+                <div className="mb-8">
                   <h4 className="text-2xl font-bold text-brand-darkest mb-4 font-playfair">
                     {cocreator.description.split('\n\n')[0]}
                   </h4>
                   {cocreator.description.split('\n\n').slice(1).map((part, idx) => (
-                    <p key={idx} className="text-base text-brand-darkest leading-relaxed mb-4">
+                    <p key={idx} className="text-base text-brand-darkest leading-relaxed mb-4 whitespace-pre-line">
                       {part}
                     </p>
                   ))}
