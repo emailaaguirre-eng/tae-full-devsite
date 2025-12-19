@@ -2,12 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import cocreatorsData from "@/content/cocreators.json";
+import galleryData from "@/content/gallery.json";
 
 export default function FeaturedArtist() {
-  const { cocreators } = cocreatorsData;
-  const kimber = cocreators[0]; // Kimber Cross is the first co-creator
-  const kimberImage = "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/BeCasso_2025-scaled.jpeg";
+  const { featuredArtist } = galleryData;
 
   return (
     <section className="py-20" style={{ backgroundColor: '#ffffff' }}>
@@ -24,33 +22,36 @@ export default function FeaturedArtist() {
             {/* Artist Profile Picture */}
             <div className="relative min-h-[400px] md:min-h-[500px] w-full">
               <Image
-                src={kimberImage}
-                alt={kimber.name}
+                src={featuredArtist.image}
+                alt={featuredArtist.name}
                 fill
                 className="object-contain"
                 style={{ objectPosition: 'top center' }}
-                unoptimized
+                unoptimized={featuredArtist.image.includes('theartfulexperience.com')}
               />
             </div>
             
             {/* Artist Bio */}
             <div className="p-8 md:p-12 flex flex-col justify-center">
               <h3 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-4 font-playfair">
-                {kimber.name}
+                {featuredArtist.name}
               </h3>
               <div className="mb-4">
                 <span className="text-sm uppercase tracking-wide text-brand-medium font-semibold">
-                  {kimber.title}
+                  {featuredArtist.title}
                 </span>
               </div>
-              <p className="text-lg text-brand-darkest leading-relaxed mb-6">
-                Meet Kimber Cross The Artful Experience&apos;s first co-creator.
+              <p className="text-lg text-brand-darkest leading-relaxed mb-4">
+                {featuredArtist.bio}
+              </p>
+              <p className="text-base text-brand-dark leading-relaxed mb-6">
+                {featuredArtist.description}
               </p>
               <Link
-                href="/cocreators#kimber-cross"
+                href={`/gallery#${featuredArtist.slug}`}
                 className="bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg w-fit text-center"
               >
-                Learn More About Kimber →
+                {featuredArtist.buttonText}
               </Link>
             </div>
           </div>
