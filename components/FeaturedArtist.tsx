@@ -48,7 +48,7 @@ export default function FeaturedArtist() {
                 {featuredArtist.description}
               </p>
               <Link
-                href={`/gallery#${featuredArtist.slug}`}
+                href={`/gallery/${featuredArtist.slug}`}
                 className="bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg w-fit text-center"
               >
                 {featuredArtist.buttonText}

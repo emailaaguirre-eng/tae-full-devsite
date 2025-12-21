@@ -68,37 +68,22 @@ export default function Hero() {
           <div className="mt-6 max-w-3xl mx-auto">
             <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
               <h2 className="text-2xl md:text-3xl font-bold text-brand-darkest mb-6 font-playfair text-center">
-                We&apos;re Building Something Special
+                A destination where art, photography (even from a phone), holiday cards, personal images, wedding announcements, birthdays, graduations, and new-arrival reveals come to life through our ArtKey™ technology.
               </h2>
               <div className="text-lg text-brand-darkest max-w-2xl mx-auto mb-6 text-center space-y-4">
                 <p>
-                  We&apos;re creating a new destination for holiday cards, wedding announcements, promotions, birthdays, graduations, new-arrival reveals—or simply upload a favorite image or artwork from our gallery.
+                  Our proprietary ArtKey™ transforms any painting, image, or card into an interactive experience. Easily upload a personal video, curated playlist, heartfelt message, or e-gift card—turning each creation into a living gift that evolves and endures.
                 </p>
                 <p>
-                  With our proprietary ArtKey™ technology, every card and image comes to life.
+                  Each piece of art, card, or image can now come to life! It is a story, a memory, and an experience—designed to be revisited and never forgotten.
                 </p>
                 <p>
-                  Add your own videos, messages, music, e-gift cards, and more—beautifully embedded into each piece.
-                </p>
-                <p>
-                  What starts as a visual becomes an experience.
-                </p>
-                <p>
-                  A gift like no other—one that lives on, long after it&apos;s received.
-                </p>
-                <p>
-                  We are currently working hard to finalize our full experience, launching officially in January of 2026!
-                </p>
-                <p>
-                  In the meantime, feel free to look around! To stay in the loop, feel free to join our email list for updates on our launch!
-                </p>
-                <p className="text-sm">
-                  (Don&apos;t worry, we promise to keep your inbox spam-free.)
+                  We invite you to explore our website and look forward to our official launch in late January 2026.
                 </p>
               </div>
               <div className="text-center">
                 <a
-                  href="mailto:info@theartfulexperience.com"
+                  href="mailto:info@theartfulexperience.com?subject=Sign%20Up%20for%20Updates"
                   className="inline-block bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg"
                 >
                   Sign up for updates

@@ -83,7 +83,7 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
                   We welcome Kimber as The Artful Experience&apos;s first co-creator, with an art collaboration launching in the New Year.
                 </p>
                 <Link
-                  href="/cocreators#kimber-cross"
+                  href="/cocreators/kimber-cross"
                   className="bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg w-fit text-center"
                 >
                   Learn More About Kimber →
