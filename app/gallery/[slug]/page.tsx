@@ -220,15 +220,15 @@ export default function ArtistPage({ params }: ArtistPageProps) {
             </div>
           )}
 
-          {/* Available Artwork Section */}
+          {/* Available Artwork/Photography Section */}
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
-              Available Artwork
+              {artist.slug === 'bryant-colman' ? 'Available Photography' : 'Available Artwork'}
             </h2>
             
             {loading ? (
               <div className="text-center py-12">
-                <p className="text-brand-dark">Loading artwork...</p>
+                <p className="text-brand-dark">Loading {artist.slug === 'bryant-colman' ? 'photography' : 'artwork'}...</p>
               </div>
             ) : wooProducts.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -265,7 +265,11 @@ export default function ArtistPage({ params }: ArtistPageProps) {
               </div>
             ) : (
               <div className="text-center py-12 bg-brand-lightest rounded-2xl">
-                <p className="text-brand-dark">Available artwork coming soon.</p>
+                <p className="text-brand-dark">
+                  {artist.slug === 'bryant-colman' 
+                    ? 'Available photography coming soon.' 
+                    : 'Available artwork coming soon.'}
+                </p>
               </div>
             )}
           </div>
