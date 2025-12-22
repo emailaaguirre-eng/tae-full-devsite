@@ -68,9 +68,12 @@ export default function Hero() {
           <div className="mt-6 max-w-3xl mx-auto">
             <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
               <h2 className="text-2xl md:text-3xl font-bold text-brand-darkest mb-6 font-playfair text-center">
-                A destination where art, photography (even from a phone), holiday cards, personal images, wedding announcements, birthdays, graduations, and new-arrival reveals come to life through our ArtKey™ technology.
+                We&apos;re Building Something Special
               </h2>
               <div className="text-lg text-brand-darkest max-w-2xl mx-auto mb-6 text-center space-y-4">
+                <p>
+                  A destination where art, photography (even from a phone), holiday cards, personal images, wedding announcements, birthdays, graduations, and new-arrival reveals come to life through our ArtKey™ technology.
+                </p>
                 <p>
                   Our proprietary ArtKey™ transforms any painting, image, or card into an interactive experience. Easily upload a personal video, curated playlist, heartfelt message, or e-gift card—turning each creation into a living gift that evolves and endures.
                 </p>
