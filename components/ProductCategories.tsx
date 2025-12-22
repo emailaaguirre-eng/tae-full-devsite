@@ -8,7 +8,7 @@ export default function ProductCategories() {
         "Choose size: art prints, postcards, book covers",
         "Paper, canvas, or framed options",
         "Layer video, music, e-gift certificates",
-        "Time-released messages via ArtKey"
+        "Time-released messages via ArtKey™"
       ],
       color: "from-brand-light to-brand-medium"
     },
@@ -19,7 +19,7 @@ export default function ProductCategories() {
       items: [
         "Artist narratives and inspiration included",
         "Option to add your own media to the piece",
-        "Discreet ArtKey/QR for your story",
+        "Discreet ArtKey™/QR for your story",
         "Ready-to-gift prints and paintings"
       ],
       color: "from-brand-light to-brand-medium"
@@ -47,7 +47,7 @@ export default function ProductCategories() {
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
           <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
-            Start with your own image or choose from our library, then layer music, video, or messages with the ArtKey.
+            Start with your own image or choose from our library, then layer music, video, or messages with the ArtKey™.
           </p>
         </div>
 

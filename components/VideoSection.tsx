@@ -20,10 +20,10 @@ export default function VideoSection() {
               Give a gift that will never be forgotten, even if that gift is for you.
             </p>
             <p>
-              Discover our ArtKey technology that allows you to upload videos, music, and time-released gift certificates that are embedded in the art.
+              Discover our ArtKey™ technology that allows you to upload videos, music, and time-released gift certificates that are embedded in the art.
             </p>
             <p>
-              When the giftee scans the ArtKey/QR Code, they will be surprised by the unique message, video, song, or e-gift card you have uploaded for them.
+              When the giftee scans the ArtKey™/QR Code, they will be surprised by the unique message, video, song, or e-gift card you have uploaded for them.
             </p>
           </div>
         </div>
@@ -39,7 +39,7 @@ export default function VideoSection() {
               {/* Phone Screen */}
               <div className="bg-white rounded-[2.5rem] overflow-hidden pt-10 pb-6 px-5 min-h-[500px] relative">
                 <h3 className="text-2xl font-bold text-brand-darkest mb-6 text-center font-playfair">
-                  ArtKey Portal
+                  ArtKey™ Portal
                 </h3>
                 
                 {/* Portal Buttons */}

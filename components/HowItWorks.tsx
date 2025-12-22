@@ -139,10 +139,10 @@ export default function HowItWorks() {
                 4
               </div>
               <h4 className="text-xl font-bold text-brand-darkest mb-2">
-                Interact with the ArtKey
+                Interact with the ArtKey™
               </h4>
               <p className="text-brand-darkest">
-                Find the perfect place for your art, then bring it to life with the ArtKey. Hold. Connect. Experience. Place your phone near the signature and hold it for a moment. Your personalized content opens, and your experience comes to life.
+                Find the perfect place for your art, then bring it to life with the ArtKey™. Hold. Connect. Experience. Place your phone near the signature and hold it for a moment. Your personalized content opens, and your experience comes to life.
               </p>
             </div>
           </div>

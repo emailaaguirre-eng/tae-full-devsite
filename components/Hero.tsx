@@ -72,16 +72,22 @@ export default function Hero() {
               </h2>
               <div className="text-lg text-brand-darkest max-w-2xl mx-auto mb-6 text-center space-y-4">
                 <p>
-                  A destination where art, photography (even from a phone), holiday cards, personal images, wedding announcements, birthdays, graduations, and new-arrival reveals come to life through our ArtKey™ technology.
+                  A destination where art comes to life.
                 </p>
                 <p>
-                  Our proprietary ArtKey™ transforms any painting, image, or card into an interactive experience. Easily upload a personal video, curated playlist, heartfelt message, or e-gift card—turning each creation into a living gift that evolves and endures.
+                  From original paintings and photography (even from your iPhone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
                 </p>
                 <p>
-                  Each piece of art, card, or image can now come to life! It is a story, a memory, and an experience—designed to be revisited and never forgotten.
+                  Through our proprietary ArtKey™ technology, any artwork, image, or card becomes an interactive experience. Upload a personal video, curated playlist, heartfelt message, or e-gift card, and transform what you give into something that speaks, evolves, and endures.
                 </p>
                 <p>
-                  We invite you to explore our website and look forward to our official launch in late January 2026.
+                  Every piece becomes more than an object.
+                </p>
+                <p>
+                  It becomes a story. A memory. An experience that&apos;s meant to be returned to, not tucked away.
+                </p>
+                <p>
+                  We invite you to explore and look forward to our official launch in January 2026.
                 </p>
               </div>
               <div className="text-center">
@@ -115,7 +121,7 @@ export default function Hero() {
                     {i === 0 && line.includes('ArtKey') ? (
                       <>
                         {line.split('ArtKey')[0]}
-                        <span className="font-bold text-brand-darkest">ArtKey</span>
+                        <span className="font-bold text-brand-darkest">ArtKey™</span>
                         {line.split('ArtKey')[1]}
                       </>
                     ) : (
@@ -167,7 +173,7 @@ export default function Hero() {
                     Choose the photo that speaks to your heart&mdash;the one you&apos;d love to share as a gift. 
                     In the Design Editor, you can create beautiful collages by adding more photos, 
                     or enhance this single image with artistic touches. Remember, you&apos;ll also be able 
-                    to add photos to your ArtKey Portal, so select the image that truly captures 
+                    to add photos to your ArtKey™ Portal, so select the image that truly captures 
                     the moment you want to gift.
                   </p>
                 </div>
