@@ -63,15 +63,54 @@ export default function CoCreatorPage({ params }: CoCreatorPageProps) {
       return;
     }
 
-    // For future: fetch products related to this co-creator
+    // Fetch products related to this co-creator
     const fetchProducts = async () => {
       try {
         const response = await fetch('/api/products?limit=100');
         if (response.ok) {
           const data = await response.json();
-          // Filter products that might be related to this co-creator
-          // For now, empty array - will be populated when products are added
-          setWooProducts([]);
+          
+          // Filter products by co-creator association
+          // WooCommerce products should have a category, tag, or meta field matching the co-creator
+          const cocreatorNameLower = cocreator.name.toLowerCase();
+          const cocreatorSlugLower = cocreator.slug.toLowerCase();
+          
+          const filteredProducts = data.filter((product: any) => {
+            // Method 1: Check product categories
+            const categories = product.categories || [];
+            const categoryMatch = categories.some((cat: any) => {
+              if (typeof cat === 'object') {
+                return cat.slug?.toLowerCase() === cocreatorSlugLower || 
+                       cat.name?.toLowerCase() === cocreatorNameLower ||
+                       cat.name?.toLowerCase().includes(cocreatorNameLower.split(' ')[0]);
+              }
+              return false;
+            });
+            
+            // Method 2: Check product tags
+            const tags = product.tags || [];
+            const tagMatch = tags.some((tag: any) => {
+              if (typeof tag === 'object') {
+                return tag.slug?.toLowerCase() === cocreatorSlugLower || 
+                       tag.name?.toLowerCase() === cocreatorNameLower ||
+                       tag.name?.toLowerCase().includes(cocreatorNameLower.split(' ')[0]);
+              }
+              return false;
+            });
+            
+            // Method 3: Check custom meta fields
+            const metaData = product.meta_data || [];
+            const metaMatch = metaData.some((meta: any) => 
+              (meta.key === '_artist_slug' && String(meta.value).toLowerCase() === cocreatorSlugLower) ||
+              (meta.key === '_artist_name' && String(meta.value).toLowerCase() === cocreatorNameLower) ||
+              (meta.key === 'artist' && String(meta.value).toLowerCase() === cocreatorSlugLower) ||
+              (meta.key === '_cocreator_slug' && String(meta.value).toLowerCase() === cocreatorSlugLower)
+            );
+            
+            return categoryMatch || tagMatch || metaMatch;
+          });
+          
+          setWooProducts(filteredProducts);
         }
       } catch (error) {
         console.error('Error fetching products:', error);

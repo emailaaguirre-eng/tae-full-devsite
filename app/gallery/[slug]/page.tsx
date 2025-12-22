@@ -66,15 +66,58 @@ export default function ArtistPage({ params }: ArtistPageProps) {
 
     const fetchProducts = async () => {
       try {
+        // Fetch all products (we'll filter by artist association client-side)
         const response = await fetch('/api/products?limit=100');
         if (response.ok) {
           const data = await response.json();
-          // Filter products that might be related to this artist
-          // For Deanna Lankin, show "first light" and "facing the storm"
+          
+          // Filter products by artist association
+          // WooCommerce products should have a category, tag, or meta field matching the artist
+          const artistNameLower = artist.name.toLowerCase();
+          const artistSlugLower = artist.slug.toLowerCase();
+          
           const filteredProducts = data.filter((product: any) => {
-            const name = product.name.toLowerCase();
-            return name.includes('first light') || name.includes('facing the storm');
+            // Method 1: Check product categories (WooCommerce categories should match artist slug)
+            // Categories can be objects with id, name, slug, or just IDs
+            const categories = product.categories || [];
+            const categoryMatch = categories.some((cat: any) => {
+              if (typeof cat === 'object') {
+                return cat.slug?.toLowerCase() === artistSlugLower || 
+                       cat.name?.toLowerCase() === artistNameLower ||
+                       cat.name?.toLowerCase().includes(artistNameLower.split(' ')[0]); // First name match
+              }
+              return false;
+            });
+            
+            // Method 2: Check product tags
+            const tags = product.tags || [];
+            const tagMatch = tags.some((tag: any) => {
+              if (typeof tag === 'object') {
+                return tag.slug?.toLowerCase() === artistSlugLower || 
+                       tag.name?.toLowerCase() === artistNameLower ||
+                       tag.name?.toLowerCase().includes(artistNameLower.split(' ')[0]);
+              }
+              return false;
+            });
+            
+            // Method 3: Check custom meta fields (if you add _artist_slug or _artist_name meta in WooCommerce)
+            const metaData = product.meta_data || [];
+            const metaMatch = metaData.some((meta: any) => 
+              (meta.key === '_artist_slug' && String(meta.value).toLowerCase() === artistSlugLower) ||
+              (meta.key === '_artist_name' && String(meta.value).toLowerCase() === artistNameLower) ||
+              (meta.key === 'artist' && String(meta.value).toLowerCase() === artistSlugLower)
+            );
+            
+            // Method 4: Fallback - check product name (only for Deanna Lankin as temporary measure)
+            // Remove this once products are properly categorized in WooCommerce
+            const nameMatch = artist.slug === 'deanna-lankin' && (
+              product.name?.toLowerCase().includes('first light') || 
+              product.name?.toLowerCase().includes('facing the storm')
+            );
+            
+            return categoryMatch || tagMatch || metaMatch || nameMatch;
           });
+          
           setWooProducts(filteredProducts);
         }
       } catch (error) {
@@ -163,12 +206,14 @@ export default function ArtistPage({ params }: ArtistPageProps) {
               About {artist.name.split(' ')[0]}
             </h2>
             <div className="space-y-4">
-              <p className="text-lg text-brand-darkest leading-relaxed">
-                {artist.bio}
-              </p>
+              {artist.bio && (
+                <p className="text-lg text-brand-darkest leading-relaxed">
+                  {artist.bio}
+                </p>
+              )}
               {artist.description && (
-                <div className="mt-6 pt-6 border-t border-brand-light">
-                  <p className="text-base text-brand-darkest leading-relaxed whitespace-pre-line">
+                <div className={artist.bio ? "mt-6 pt-6 border-t border-brand-light" : ""}>
+                  <p className="text-lg text-brand-darkest leading-relaxed whitespace-pre-line">
                     {artist.description}
                   </p>
                 </div>
