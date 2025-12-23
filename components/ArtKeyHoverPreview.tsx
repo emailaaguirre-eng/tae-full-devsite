@@ -234,7 +234,7 @@ return (
           onMouseEnter={() => { if (timeoutRef.current) clearTimeout(timeoutRef.current); }}
           onMouseLeave={handleMouseLeave}
         >
-          <div className="rounded-2xl shadow-2xl border border-brand-light overflow-hidden" style={{ width: '420px', maxWidth: '90vw', backgroundColor: '#ffffff' }}>
+          <div className="rounded-2xl shadow-2xl border border-brand-light overflow-hidden" style={{ width: '420px', maxWidth: '90vw', backgroundColor: '#f3f3f3' }}>
             {/* Header with Product Info */}
             <div className="bg-gradient-to-r from-brand-medium to-brand-dark p-4 flex justify-between items-start">
               <div className="flex-1">
@@ -262,7 +262,7 @@ return (
               </button>
             </div>
 
-            <div className="p-5" style={{ backgroundColor: '#ffffff' }}>
+            <div className="p-5" style={{ backgroundColor: '#f3f3f3' }}>
               {/* Mini Phone Frame - Larger */}
               <div className="flex justify-center mb-5">
                 <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-[24px] p-2 shadow-xl relative" style={{ width: '240px' }}>
@@ -371,7 +371,7 @@ return (
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="w-full px-4 py-2.5 border border-brand-light rounded-lg text-sm focus:border-brand-medium focus:outline-none"
-                    style={{ backgroundColor: '#ffffff' }}
+                    style={{ backgroundColor: '#f3f3f3' }}
                     placeholder="Enter your title..."
                   />
                 </div>

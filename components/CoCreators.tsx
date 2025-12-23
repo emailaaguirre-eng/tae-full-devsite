@@ -1,145 +1,181 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect } from "react";
 import cocreatorsData from "@/content/cocreators.json";
 
 interface CoCreator {
-  id: string;
   name: string;
+  title: string;
   image: string;
-  modalImage?: string;
+  mountainImage?: string;
   bio: string;
-  extendedBio?: string;
-  link: string;
+  description?: string;
+  slug: string;
 }
 
-export default function CoCreators() {
-  const { title, subtitle, cocreators, cta } = cocreatorsData;
-  const [openModal, setOpenModal] = useState<string | null>(null);
+interface CoCreatorsProps {
+  simplified?: boolean;
+}
+
+export default function CoCreators({ simplified = false }: CoCreatorsProps) {
+  const { title, subtitle, cocreators, comingSoon, cta } = cocreatorsData;
   
   // Type assertion for cocreators
   const typedCocreators = cocreators as CoCreator[];
+  const kimber = typedCocreators[0]; // Kimber Cross
 
+  // Scroll to anchor when page loads with hash
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash) {
+        // Wait for content to render, then scroll
+        setTimeout(() => {
+          const element = document.querySelector(hash);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
+      }
+    }
+  }, []);
+
+  // Simplified view for home page
+  if (simplified) {
+    return (
+      <section id="cocreators" className="py-20" style={{ backgroundColor: '#ecece9' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
+              {title}
+            </h2>
+            <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
+          </div>
+
+          {/* Simplified: Just Kimber Cross */}
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+            <div className="grid md:grid-cols-2 gap-0">
+              {/* Kimber Image */}
+              <div className="relative min-h-[400px] md:min-h-[500px] w-full">
+                <Image
+                  src={kimber.image}
+                  alt={kimber.name}
+                  fill
+                  className="object-contain"
+                  style={{ objectPosition: 'top center' }}
+                  unoptimized={kimber.image.startsWith('http')}
+                />
+              </div>
+              
+              {/* Kimber Bio */}
+              <div className="p-8 md:p-12 flex flex-col justify-center">
+                <h3 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-4 font-playfair">
+                  {kimber.name}
+                </h3>
+                <div className="mb-4">
+                  <span className="text-sm uppercase tracking-wide text-brand-medium font-semibold">
+                    {kimber.title}
+                  </span>
+                </div>
+                <p className="text-lg text-brand-darkest leading-relaxed mb-6">
+                  We welcome Kimber as The Artful Experience&apos;s first co-creator, with an art collaboration launching in the New Year.
+                </p>
+                <Link
+                  href="/cocreators/kimber-cross"
+                  className="bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg w-fit text-center"
+                >
+                  Learn More About Kimber →
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Full view for CoCreators page
   return (
     <section id="cocreators" className="py-20" style={{ backgroundColor: '#ecece9' }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
-            {title}
-          </h2>
-          <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
-          <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
-            {subtitle}
-          </p>
-        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
+              {title}
+            </h2>
+            <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
+            <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
+              {subtitle}
+            </p>
+          </div>
 
-        <div className="max-w-6xl mx-auto">
-          {/* CoCreator profiles */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* CoCreators Grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
             {typedCocreators.map((cocreator) => (
-              <div key={cocreator.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all">
-                <div className="relative h-48 bg-gradient-to-br from-brand-light to-brand-medium overflow-hidden">
-                  {cocreator.image ? (
-                    <Image
-                      src={cocreator.image}
-                      alt={cocreator.name}
-                      fill
-                      className="object-contain"
-                      style={{ objectPosition: 'center' }}
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-brand-light to-brand-medium">
-                      <div className="text-7xl">👤</div>
-                    </div>
-                  )}
+              <div
+                key={cocreator.slug}
+                className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all group"
+              >
+                <div className="relative h-64 w-full bg-gradient-to-br from-brand-light to-brand-medium overflow-hidden">
+                  <Image
+                    src={cocreator.image}
+                    alt={cocreator.name}
+                    fill
+                    className="object-contain group-hover:scale-105 transition-transform duration-300"
+                    style={{ objectPosition: 'top center' }}
+                    unoptimized={cocreator.image.startsWith('http')}
+                  />
                 </div>
                 <div className="p-6">
-                  <h3 className="text-xl font-bold text-brand-darkest mb-2">
+                  <h3 className="text-2xl font-bold text-brand-darkest mb-2 font-playfair">
                     {cocreator.name}
                   </h3>
-                  <p className="text-brand-darkest mb-4 line-clamp-3">
-                    {cocreator.bio}
-                  </p>
-                  {cocreator.modalImage && (
-                    <button 
-                      onClick={() => setOpenModal(cocreator.id)}
-                      className="text-brand-medium font-semibold hover:text-brand-dark transition-colors"
-                    >
-                      Learn More →
-                    </button>
+                  <div className="mb-3">
+                    <span className="text-xs uppercase tracking-wide text-brand-dark font-semibold">
+                      {cocreator.title}
+                    </span>
+                  </div>
+                  {/* Parse bio to show first part (before \n\n) */}
+                  {cocreator.bio && (
+                    <div className="text-brand-darkest mb-4">
+                      {cocreator.bio.split('\n\n').map((part, idx) => {
+                        if (idx === 0) {
+                          // First part - show as preview
+                          return (
+                            <p key={idx} className="line-clamp-3">
+                              {part}
+                            </p>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
                   )}
+                  <Link
+                    href={`/cocreators/${cocreator.slug}`}
+                    className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors inline-block cursor-pointer"
+                  >
+                    Learn More About {cocreator.name.split(' ')[0]} →
+                  </Link>
                 </div>
               </div>
             ))}
           </div>
-
+          
+          
+          {/* Coming Soon Message */}
           <div className="mt-12 text-center">
             <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
-              <h3 className="text-2xl font-bold text-brand-dark mb-4">
-                {cta.title}
+              <h3 className="text-2xl font-bold text-brand-dark mb-4 font-playfair">
+                {comingSoon.title}
               </h3>
               <p className="text-brand-darkest mb-6">
-                {cta.description}
+                {comingSoon.description}
               </p>
-              <button className="bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg">
-                {cta.buttonText}
-              </button>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Modal for CoCreator details */}
-      {openModal && (() => {
-        const cocreator = typedCocreators.find(c => c.id === openModal);
-        if (!cocreator || !cocreator.modalImage) return null;
-        
-        return (
-          <div 
-            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
-            onClick={() => setOpenModal(null)}
-          >
-            <div 
-              className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="relative">
-                <button
-                  onClick={() => setOpenModal(null)}
-                  className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-                <div className="relative h-96 md:h-[500px] bg-gray-50">
-                  <Image
-                    src={cocreator.modalImage}
-                    alt={`${cocreator.name} - Additional image`}
-                    fill
-                    className="object-contain rounded-t-2xl"
-                    style={{ objectPosition: 'center' }}
-                  />
-                </div>
-                <div className="p-8">
-                  <h3 className="text-3xl font-bold text-brand-darkest mb-4">
-                    {cocreator.name}
-                  </h3>
-                  <p className="text-lg text-brand-darkest leading-relaxed">
-                    {cocreator.bio}
-                  </p>
-                  {cocreator.extendedBio && (
-                    <p className="text-base text-brand-dark leading-relaxed mt-4">
-                      {cocreator.extendedBio}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
     </section>
   );
 }

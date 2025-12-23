@@ -3,15 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import galleryData from "@/content/gallery.json";
+import cocreatorsData from "@/content/cocreators.json";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
-interface Artist {
+interface CoCreator {
   name: string;
   title: string;
   image: string;
-  bioImage?: string;
+  mountainImage?: string;
   bio: string;
   description?: string;
   slug: string;
@@ -23,11 +23,11 @@ interface Artist {
   }>;
 }
 
-interface ArtistPageProps {
+interface CoCreatorPageProps {
   params: { slug: string } | Promise<{ slug: string }>;
 }
 
-export default function ArtistPage({ params }: ArtistPageProps) {
+export default function CoCreatorPage({ params }: CoCreatorPageProps) {
   // Handle both Promise and direct params for Next.js 14 compatibility
   const [slug, setSlug] = useState<string | undefined>(undefined);
   
@@ -42,12 +42,11 @@ export default function ArtistPage({ params }: ArtistPageProps) {
     };
     getSlug();
   }, [params]);
-  const { artists } = galleryData;
-  const typedArtists = artists as Artist[];
-  const artist = slug ? typedArtists.find((a) => a.slug === slug) : undefined;
+  const { cocreators } = cocreatorsData;
+  const typedCocreators = cocreators as CoCreator[];
+  const cocreator = slug ? typedCocreators.find((c) => c.slug === slug) : undefined;
 
-  // Fetch products from WooCommerce for this artist
-  // Hooks must be called before any conditional returns
+  // Fetch products from WooCommerce for this co-creator (for future use)
   const [wooProducts, setWooProducts] = useState<Array<{
     id: number;
     name: string;
@@ -59,32 +58,31 @@ export default function ArtistPage({ params }: ArtistPageProps) {
   const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string; title?: string } | null>(null);
 
   useEffect(() => {
-    if (!artist) {
+    if (!cocreator) {
       setLoading(false);
       return;
     }
 
+    // Fetch products related to this co-creator
     const fetchProducts = async () => {
       try {
-        // Fetch all products (we'll filter by artist association client-side)
         const response = await fetch('/api/products?limit=100');
         if (response.ok) {
           const data = await response.json();
           
-          // Filter products by artist association
-          // WooCommerce products should have a category, tag, or meta field matching the artist
-          const artistNameLower = artist.name.toLowerCase();
-          const artistSlugLower = artist.slug.toLowerCase();
+          // Filter products by co-creator association
+          // WooCommerce products should have a category, tag, or meta field matching the co-creator
+          const cocreatorNameLower = cocreator.name.toLowerCase();
+          const cocreatorSlugLower = cocreator.slug.toLowerCase();
           
           const filteredProducts = data.filter((product: any) => {
-            // Method 1: Check product categories (WooCommerce categories should match artist slug)
-            // Categories can be objects with id, name, slug, or just IDs
+            // Method 1: Check product categories
             const categories = product.categories || [];
             const categoryMatch = categories.some((cat: any) => {
               if (typeof cat === 'object') {
-                return cat.slug?.toLowerCase() === artistSlugLower || 
-                       cat.name?.toLowerCase() === artistNameLower ||
-                       cat.name?.toLowerCase().includes(artistNameLower.split(' ')[0]); // First name match
+                return cat.slug?.toLowerCase() === cocreatorSlugLower || 
+                       cat.name?.toLowerCase() === cocreatorNameLower ||
+                       cat.name?.toLowerCase().includes(cocreatorNameLower.split(' ')[0]);
               }
               return false;
             });
@@ -93,29 +91,23 @@ export default function ArtistPage({ params }: ArtistPageProps) {
             const tags = product.tags || [];
             const tagMatch = tags.some((tag: any) => {
               if (typeof tag === 'object') {
-                return tag.slug?.toLowerCase() === artistSlugLower || 
-                       tag.name?.toLowerCase() === artistNameLower ||
-                       tag.name?.toLowerCase().includes(artistNameLower.split(' ')[0]);
+                return tag.slug?.toLowerCase() === cocreatorSlugLower || 
+                       tag.name?.toLowerCase() === cocreatorNameLower ||
+                       tag.name?.toLowerCase().includes(cocreatorNameLower.split(' ')[0]);
               }
               return false;
             });
             
-            // Method 3: Check custom meta fields (if you add _artist_slug or _artist_name meta in WooCommerce)
+            // Method 3: Check custom meta fields
             const metaData = product.meta_data || [];
             const metaMatch = metaData.some((meta: any) => 
-              (meta.key === '_artist_slug' && String(meta.value).toLowerCase() === artistSlugLower) ||
-              (meta.key === '_artist_name' && String(meta.value).toLowerCase() === artistNameLower) ||
-              (meta.key === 'artist' && String(meta.value).toLowerCase() === artistSlugLower)
+              (meta.key === '_artist_slug' && String(meta.value).toLowerCase() === cocreatorSlugLower) ||
+              (meta.key === '_artist_name' && String(meta.value).toLowerCase() === cocreatorNameLower) ||
+              (meta.key === 'artist' && String(meta.value).toLowerCase() === cocreatorSlugLower) ||
+              (meta.key === '_cocreator_slug' && String(meta.value).toLowerCase() === cocreatorSlugLower)
             );
             
-            // Method 4: Fallback - check product name (only for Deanna Lankin as temporary measure)
-            // Remove this once products are properly categorized in WooCommerce
-            const nameMatch = artist.slug === 'deanna-lankin' && (
-              product.name?.toLowerCase().includes('first light') || 
-              product.name?.toLowerCase().includes('facing the storm')
-            );
-            
-            return categoryMatch || tagMatch || metaMatch || nameMatch;
+            return categoryMatch || tagMatch || metaMatch;
           });
           
           setWooProducts(filteredProducts);
@@ -127,7 +119,7 @@ export default function ArtistPage({ params }: ArtistPageProps) {
       }
     };
     fetchProducts();
-  }, [artist]);
+  }, [cocreator]);
 
   // Handle escape key to close expanded image
   useEffect(() => {
@@ -140,20 +132,27 @@ export default function ArtistPage({ params }: ArtistPageProps) {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [expandedImage]);
 
-  if (!artist) {
+  if (!cocreator) {
     return (
       <main className="min-h-screen bg-brand-lightest">
         <Navbar />
         <div className="py-20 text-center">
-          <h1 className="text-4xl font-bold text-brand-dark mb-4">Artist Not Found</h1>
-          <Link href="/gallery" className="text-brand-medium hover:text-brand-dark">
-            ← Back to Gallery
+          <h1 className="text-4xl font-bold text-brand-dark mb-4">CoCreator Not Found</h1>
+          <Link href="/cocreators" className="text-brand-medium hover:text-brand-dark">
+            ← Back to CoCreators
           </Link>
         </div>
         <Footer />
       </main>
     );
   }
+
+  // Parse bio and description
+  const bioParts = cocreator.bio.split('\n\n');
+  const firstBioPart = bioParts[0] || '';
+  const descriptionParts = cocreator.description ? cocreator.description.split('\n\n') : [];
+  const descriptionTitle = descriptionParts[0] || '';
+  const descriptionContent = descriptionParts.slice(1).join('\n\n');
 
   return (
     <main className="min-h-screen bg-brand-lightest">
@@ -162,38 +161,38 @@ export default function ArtistPage({ params }: ArtistPageProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Back Link */}
           <Link
-            href="/gallery"
+            href="/cocreators"
             className="inline-flex items-center text-brand-dark hover:text-brand-darkest mb-8 transition-colors"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Gallery
+            Back to CoCreators
           </Link>
 
-          {/* Artist Header */}
+          {/* CoCreator Header */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-12">
             <div className="grid md:grid-cols-2 gap-0">
-              {/* Artist Profile Picture */}
+              {/* CoCreator Profile Picture */}
               <div className="relative min-h-[400px] md:min-h-[500px] w-full">
                 <Image
-                  src={artist.image}
-                  alt={artist.name}
+                  src={cocreator.image}
+                  alt={cocreator.name}
                   fill
                   className="object-contain"
                   style={{ objectPosition: 'top center' }}
-                  unoptimized={artist.image.includes('theartfulexperience.com')}
+                  unoptimized={cocreator.image.startsWith('http')}
                 />
               </div>
               
-              {/* Artist Name and Title */}
+              {/* CoCreator Name and Title */}
               <div className="p-8 md:p-12 flex flex-col justify-center">
                 <h1 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-4 font-playfair">
-                  {artist.name}
+                  {cocreator.name}
                 </h1>
                 <div className="mb-4">
                   <span className="text-sm uppercase tracking-wide text-brand-medium font-semibold">
-                    {artist.title}
+                    {cocreator.title}
                   </span>
                 </div>
               </div>
@@ -203,18 +202,21 @@ export default function ArtistPage({ params }: ArtistPageProps) {
           {/* Full Bio Section */}
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-6 font-playfair">
-              About {artist.name.split(' ')[0]}
+              About {cocreator.name.split(' ')[0]}
             </h2>
             <div className="space-y-4">
-              {artist.bio && (
-                <p className="text-lg text-brand-darkest leading-relaxed">
-                  {artist.bio}
-                </p>
-              )}
-              {artist.description && (
-                <div className={artist.bio ? "mt-6 pt-6 border-t border-brand-light" : ""}>
-                  <p className="text-lg text-brand-darkest leading-relaxed whitespace-pre-line">
-                    {artist.description}
+              <p className="text-lg text-brand-darkest leading-relaxed">
+                {firstBioPart}
+              </p>
+              {descriptionContent && (
+                <div className="mt-6 pt-6 border-t border-brand-light">
+                  {descriptionTitle && (
+                    <h3 className="text-2xl font-bold text-brand-darkest mb-4 font-playfair">
+                      {descriptionTitle}
+                    </h3>
+                  )}
+                  <p className="text-base text-brand-darkest leading-relaxed whitespace-pre-line">
+                    {descriptionContent}
                   </p>
                 </div>
               )}
@@ -222,65 +224,81 @@ export default function ArtistPage({ params }: ArtistPageProps) {
           </div>
 
           {/* Portfolio Section */}
-          {artist.portfolio && artist.portfolio.length > 0 && (
+          {cocreator.portfolio && cocreator.portfolio.length > 0 && (
             <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
                 Portfolio
               </h2>
               <div className="grid md:grid-cols-2 gap-6">
-                {artist.portfolio.map((item, idx) => (
-                  <div key={idx} className="relative w-full h-96 rounded-2xl overflow-hidden bg-brand-lightest shadow-md hover:shadow-xl transition-shadow">
+                {cocreator.portfolio.map((item, idx) => (
+                  <div 
+                    key={idx} 
+                    className="relative w-full h-96 rounded-2xl overflow-hidden bg-brand-lightest shadow-md hover:shadow-xl transition-all cursor-pointer group"
+                    onClick={() => setExpandedImage({ 
+                      src: item.image, 
+                      alt: item.title || `${cocreator.name} portfolio ${idx + 1}`,
+                      title: item.title 
+                    })}
+                  >
                     <Image
                       src={item.image}
-                      alt={item.title || `${artist.name} portfolio ${idx + 1}`}
+                      alt={item.title || `${cocreator.name} portfolio ${idx + 1}`}
                       fill
-                      className="object-contain"
+                      className="object-contain group-hover:scale-105 transition-transform duration-300"
                       style={{ objectPosition: 'center' }}
-                      unoptimized={item.image.includes('theartfulexperience.com')}
+                      unoptimized={item.image.startsWith('http')}
                     />
                     {item.title && (
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-4">
                         <p className="font-semibold text-lg">{item.title}</p>
                       </div>
                     )}
+                    {/* Click indicator */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
+                      <div className="bg-white/90 rounded-full p-3">
+                        <svg className="w-6 h-6 text-brand-darkest" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Bio Image for Bryant */}
-          {artist.bioImage && (
+          {/* Bio Image (mountainImage for Kimber) */}
+          {cocreator.mountainImage && (
             <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
               <div className="relative w-full h-[600px] md:h-[700px] rounded-2xl overflow-hidden bg-brand-lightest">
                 <Image
-                  src={artist.bioImage}
-                  alt={`${artist.name} bio image`}
+                  src={cocreator.mountainImage}
+                  alt={`${cocreator.name} bio image`}
                   fill
                   className="object-contain"
                   style={{ objectPosition: 'center top' }}
-                  unoptimized={artist.bioImage.includes('theartfulexperience.com')}
+                  unoptimized={cocreator.mountainImage.startsWith('http')}
                 />
               </div>
             </div>
           )}
 
-          {/* Available Artwork/Photography Section */}
+          {/* TheAE Collaboration / Available Artwork Section */}
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
-              {artist.slug === 'bryant-colman' ? 'Available Photography' : 'Available Artwork'}
+              {cocreator.slug === 'kimber-cross' ? 'TheAE Collaboration' : 'Available Artwork'}
             </h2>
             
             {loading ? (
               <div className="text-center py-12">
-                <p className="text-brand-dark">Loading {artist.slug === 'bryant-colman' ? 'photography' : 'artwork'}...</p>
+                <p className="text-brand-dark">Loading {cocreator.slug === 'kimber-cross' ? 'collaboration' : 'artwork'}...</p>
               </div>
             ) : wooProducts.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {wooProducts.map((product) => {
                   const productImage = product.images && product.images.length > 0 
                     ? product.images[0].src 
-                    : 'https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/IMG_8704-e1751264048493.jpg';
+                    : '';
                   const price = product.price || '0.00';
                   
                   return (
@@ -311,8 +329,8 @@ export default function ArtistPage({ params }: ArtistPageProps) {
             ) : (
               <div className="text-center py-12 bg-brand-lightest rounded-2xl">
                 <p className="text-brand-dark">
-                  {artist.slug === 'bryant-colman' 
-                    ? 'Available photography coming soon.' 
+                  {cocreator.slug === 'kimber-cross' 
+                    ? 'Collaboration artwork coming soon.' 
                     : 'Available artwork coming soon.'}
                 </p>
               </div>
@@ -320,7 +338,50 @@ export default function ArtistPage({ params }: ArtistPageProps) {
           </div>
         </div>
       </section>
+
+      {/* Expanded Image Modal */}
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center p-4"
+          onClick={() => setExpandedImage(null)}
+        >
+          <div className="relative max-w-7xl max-h-[95vh] w-full h-full flex flex-col">
+            {/* Close Button */}
+            <button
+              onClick={() => setExpandedImage(null)}
+              className="absolute top-4 right-4 z-10 bg-white/90 hover:bg-white rounded-full p-3 transition-colors shadow-lg"
+              aria-label="Close"
+            >
+              <svg className="w-6 h-6 text-brand-darkest" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            {/* Image Container */}
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="relative w-full h-full max-w-6xl">
+                <Image
+                  src={expandedImage.src}
+                  alt={expandedImage.alt}
+                  fill
+                  className="object-contain"
+                  unoptimized={expandedImage.src.startsWith('http')}
+                />
+              </div>
+            </div>
+            
+            {/* Title */}
+            {expandedImage.title && (
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white/90 rounded-lg px-6 py-3 shadow-lg">
+                <p className="text-lg font-semibold text-brand-darkest">{expandedImage.title}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <Footer />
     </main>
   );
 }
+

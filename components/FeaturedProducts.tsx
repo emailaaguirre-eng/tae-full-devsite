@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 // import ArtKeyHoverPreview from "./ArtKeyHoverPreview"; // Commented out - to be worked on later
 import Image from "next/image";
+import Link from "next/link";
 
 interface WooCommerceProduct {
   id: number;
@@ -235,7 +236,7 @@ export default function FeaturedProducts({ title = "Products" }: FeaturedProduct
       {
         name: "Thank You Cards",
         price: "$14.99",
-        image: "💌",
+        image: "🖼️",
         rating: 5,
         reviews: 2341,
         description: "Express gratitude with personalized photo thank you cards"
@@ -446,7 +447,7 @@ export default function FeaturedProducts({ title = "Products" }: FeaturedProduct
                 : "bg-brand-lightest text-brand-darkest hover:bg-brand-light"   
             }`}
           >
-            💌 Cards &amp; Invitations
+            Cards &amp; Invitations
           </button>
           <button
             onClick={() => setActiveTab("new")}
@@ -601,9 +602,12 @@ export default function FeaturedProducts({ title = "Products" }: FeaturedProduct
         )}
 
         <div className="text-center mt-12">
-          <button className="bg-brand-dark text-white px-10 py-4 rounded-full text-lg font-semibold hover:bg-brand-darkest transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+          <Link
+            href="/shop"
+            className="inline-block bg-brand-dark text-white px-10 py-4 rounded-full text-lg font-semibold hover:bg-brand-darkest transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+          >
             View All Products →
-          </button>
+          </Link>
         </div>
       </div>
     </section>

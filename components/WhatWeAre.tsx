@@ -8,69 +8,74 @@ export default function WhatWeAre() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Main Heading */}
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
-            What is The Artful Experience
-          </h2>
-          <div className="w-24 h-1 bg-brand-medium mx-auto mb-6"></div>
-          <div className="text-lg text-brand-darkest max-w-4xl mx-auto space-y-4 text-left">
-            <p>
-              The Artful Experience is more than a product—it&apos;s a gift that opens a world. Powered by ArtKey technology, every image becomes an interactive portal that grows, responds, and continues giving long after it&apos;s shared.
-            </p>
-            <p>
-              Imagine sending a wedding invitation that doesn&apos;t just announce a date—it tells your story. Your ArtKey invitation can include your photos, a short video of how you met, or a gallery of your favorite moments together. Guests can RSVP directly through the ArtKey portal, sign a digital guestbook with their best wishes, and even upload their own photos from the celebration.
-            </p>
-            <p>
-              What begins as an invitation becomes a living archive of your wedding—created by you and enriched by everyone you love.
-            </p>
-            <p>
-              And it&apos;s not just for weddings. Whether you&apos;re gifting a single image, a curated gallery, a heartfelt message, or time‑released surprises, The Artful Experience turns every memory into something personal, interactive, and unforgettable. Perfect for loved ones, clients, colleagues—anyone you want to honor with a gift that feels alive.
-            </p>
+          <div className="rounded-2xl shadow-lg p-8 md:p-12 bg-white">
+            <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
+              What is The Artful Experience
+            </h2>
+            <div className="w-24 h-1 bg-brand-medium mx-auto mb-6"></div>
+            <div className="text-lg text-brand-darkest max-w-4xl mx-auto space-y-4 text-left">
+              <p>
+                <strong>The Artful Experience</strong> is more than a product—it&apos;s a gift that opens a world. Powered by <strong>ArtKey™ technology</strong>, every card and image becomes an interactive portal that grows, responds, and continues giving long after it&apos;s shared.
+              </p>
+              <p>
+                Imagine sending a <strong>wedding invitation</strong> that doesn&apos;t just announce a date—it tells your story. With the ArtKey™, your invitation can include photos, a short video of how you met, or a curated gallery of favorite moments. Guests can RSVP directly through the ArtKey™ portal, sign the digital guestbook, share their well wishes, and upload photos from the celebration.
+              </p>
+              <p>
+                The same applies to holiday cards, baby reveals, graduation announcements, promotions, birthday cards, or any image or painting you would like to gift.
+              </p>
+              <p>
+                What begins as an announcement, holiday card, or image becomes a living archive —created by you and enriched by everyone you love.
+              </p>
+              <p>
+                There is more! Whether you&apos;re gifting a single image, a curated gallery, a heartfelt message, or time-released surprises, The Artful Experience transforms memories into something personal, interactive, and unforgettable. Perfect for loved ones, clients, colleagues—anyone you want to honor with a gift that truly feels alive.
+              </p>
+            </div>
           </div>
         </div>
 
         {/* ArtKey Technology */}
         <div className="mb-16">
-          <div className="rounded-2xl shadow-lg p-8 md:p-12" style={{ backgroundColor: '#ecece9' }}>
+          <div className="rounded-2xl shadow-lg p-8 md:p-12 bg-white">
             <div className="text-center mb-8">
               <div className="w-24 h-24 bg-brand-dark rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-5xl">🔑</span>
               </div>
               <h3 className="text-3xl font-bold text-brand-darkest mb-4 font-playfair">
-                Every Product Includes ArtKey Technology
+                Every Product Includes ArtKey™ Technology
               </h3>
               <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
-                The ArtKey works seamlessly with today&apos;s smartphones, turning every piece into an interactive experience. We print ArtKeys on cards, invitations, and announcements, and discreetly embed them into commissioned artwork and art prints. The beauty of the piece remains untouched while the technology stays elegantly hidden.
+                The ArtKey™ works seamlessly with today&apos;s smartphones, turning every piece into an interactive experience. We print ArtKeys™ on cards, invitations, and announcements, and discreetly embed them into commissioned artwork and art prints. The beauty of the piece remains untouched while the technology stays elegantly hidden.
               </p>
             </div>
             
             {/* ArtKey Features */}
             <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6 mt-10">
               <div className="text-center">
-                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm" style={{ backgroundColor: '#ecece9' }}>
                   <span className="text-3xl">📸</span>
                 </div>
                 <p className="text-brand-darkest font-semibold">Share Pictures</p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm" style={{ backgroundColor: '#ecece9' }}>
                   <span className="text-3xl">🎬</span>
                 </div>
                 <p className="text-brand-darkest font-semibold">Upload Videos</p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm" style={{ backgroundColor: '#ecece9' }}>
                   <span className="text-3xl">🎵</span>
                 </div>
                 <p className="text-brand-darkest font-semibold">Music Playlists</p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm" style={{ backgroundColor: '#ecece9' }}>
                   <span className="text-3xl">✍️</span>
                 </div>
                 <p className="text-brand-darkest font-semibold">Guestbook</p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm" style={{ backgroundColor: '#ecece9' }}>
                   <span className="text-3xl">💭</span>
                 </div>
                 <p className="text-brand-darkest font-semibold">Share Interests</p>
@@ -81,7 +86,7 @@ export default function WhatWeAre() {
 
         {/* How It Works - Card Based */}
         <div className="mb-16">
-          <div className="rounded-2xl shadow-lg p-8 md:p-12" style={{ backgroundColor: '#ecece9' }}>
+          <div className="rounded-2xl shadow-lg p-8 md:p-12" style={{ backgroundColor: '#ffffff' }}>
             <div className="text-center mb-12">
               <h3 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
                 How It Works
@@ -217,10 +222,10 @@ export default function WhatWeAre() {
                     4
                   </div>
                   <h4 className="text-xl font-bold text-brand-darkest mb-2">
-                    Interact with the ArtKey
+                    Interact with the ArtKey™
                   </h4>
                   <p className="text-brand-darkest">
-                    Find the perfect place for your art, then bring it to life with the ArtKey. Hold. Connect. Experience. Place your phone near the signature and hold it for a moment. Your personalized content opens, and your experience comes to life.
+                    Find the perfect place for your art, then bring it to life with the ArtKey™. Hold. Connect. Experience. Place your phone near the signature and hold it for a moment. Your personalized content opens, and your experience comes to life.
                   </p>
                 </div>
               </div>
@@ -249,7 +254,7 @@ export default function WhatWeAre() {
             </h3>
             <p className="text-xl max-w-2xl mx-auto opacity-90">
               We don&apos;t just sell art products—we create interactive experiences that bring your memories to life 
-              through the power of ArtKey technology. Every piece tells a story, and every story is accessible with a simple scan.
+              through the power of ArtKey™ technology. Every piece tells a story, and every story is accessible with a simple scan.
             </p>
           </div>
         </div>

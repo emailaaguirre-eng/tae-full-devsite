@@ -23,7 +23,7 @@ export default function Home() {
       <VideoSection />
       <GiftIdeas />
       <FeaturedArtist />
-      <CoCreators />
+      <CoCreators simplified={true} />
       <FeaturedProducts />
       <CollectorsSection />
       <Contact />

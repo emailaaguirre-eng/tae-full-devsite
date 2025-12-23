@@ -15,8 +15,8 @@
       "name": "Deanna Lankin",
       "title": "ARTIST | ASTROLOGY | THETA GUIDE",
       "image": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/IMG_8704-e1751264048493.jpg",
-      "bio": "World-renowned artist specializing in artful image enhancement and personalized art experiences.",
-      "description": "Deanna Lankin brings years of artistic expertise to transform your images into stunning works of art. Her unique approach combines traditional artistic techniques with modern digital tools to create personalized art experiences that resonate deeply with each client.",
+      "bio": "Deanna Lankin is a world-renowned artist based in the rugged beauty of Tofino, BC, in the heart of the Pacific Northwest. Her art is a profound exploration of the connection between nature and the human spirit, inspired by diverse landscapes such as Torres del Paine in Chile and Mexico City's iconic \"Angel de La Independencia,\" where she experienced a life-altering moment of inspiration. Her work belongs in private collections all over the world.",
+      "description": "Deanna is also a passionate teacher and speaker, leading inspiring talks, workshops, and retreats that weave together the healing power of art, astrology, and inner muse work. Her immersive experiences focus on personal growth, self-discovery, and fostering a deeper connection to both self and the environment. Through her work, Deanna empowers others to align with their highest potential, embrace their unique path, and thrive with intention and authenticity.",
       "slug": "deanna-lankin",
       "portfolio": [
         {
@@ -26,6 +26,16 @@
           "price": null
         }
       ]
+    },
+    {
+      "name": "Bryant Colman",
+      "title": "PHOTOGRAPHER | EXPLORER | FOUNDER",
+      "image": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/FullSizeRender-1-scaled.jpeg",
+      "bioImage": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/IMG_7860-e1766120616753.png",
+      "bio": "",
+      "description": "I'm equally inspired by human-made environments: the quiet elegance of Mexican haciendas, the layered history of Paris, and the bold urban energy of cities like Rio de Janeiro, Istanbul, London and Moscow. Some of my most meaningful moments have come through adventure—kayaking in the Sea of Cortez during whale migration, long treks, and journeys that reward curiosity.\n\nAt the core of it all is a love of creating and being part of a thoughtful, creative community—people who value craftsmanship, ideas, and experiences that endure, from which emerged - The Artful Experience.",
+      "slug": "bryant-colman",
+      "portfolio": []
     }
   ],
   "comingSoon": {

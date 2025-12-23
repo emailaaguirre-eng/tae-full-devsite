@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react";
 import galleryData from "@/content/gallery.json";
 
 interface WooCommerceProduct {
@@ -24,6 +23,7 @@ interface Artist {
   name: string;
   title: string;
   image: string;
+  bioImage?: string;
   bio: string;
   description?: string;
   slug: string;
@@ -37,31 +37,8 @@ interface Artist {
 
 export default function Gallery() {
   const { title, subtitle, artists, comingSoon } = galleryData;
-  const [wooProducts, setWooProducts] = useState<WooCommerceProduct[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  // Fetch products from WooCommerce API (only "first light" and "facing the storm")
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch('/api/products?limit=100');
-        if (response.ok) {
-          const data = await response.json();
-          // Filter to show only "first light" and "facing the storm"
-          const filteredProducts = data.filter((product: WooCommerceProduct) => {
-            const name = product.name.toLowerCase();
-            return name.includes('first light') || name.includes('facing the storm');
-          });
-          setWooProducts(filteredProducts);
-        }
-      } catch (error) {
-        console.error('Error fetching products:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, []);
+
 
   const typedArtists = artists as Artist[];
 
@@ -81,9 +58,8 @@ export default function Gallery() {
         {/* Artists Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
           {typedArtists.map((artist) => (
-            <Link
+            <div
               key={artist.slug}
-              href={`/gallery/${artist.slug}`}
               className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all group"
             >
               <div className="relative h-64 w-full bg-gradient-to-br from-brand-light to-brand-medium overflow-hidden">
@@ -107,13 +83,17 @@ export default function Gallery() {
                 <p className="text-brand-darkest mb-4 line-clamp-3">
                   {artist.bio}
                 </p>
-                <div className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors">
-                  Learn More & See {artist.name.split(' ')[0]}&apos;s Work →
-                </div>
+                <Link
+                  href={`/gallery/${artist.slug}`}
+                  className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors inline-block cursor-pointer"
+                >
+                  Learn More →
+                </Link>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
+
 
         {/* Coming Soon Message */}
         <div className="mt-12 text-center">

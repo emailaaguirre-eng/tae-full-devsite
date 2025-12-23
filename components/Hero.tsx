@@ -66,21 +66,39 @@ export default function Hero() {
             The Artful Experience
           </h1>
           <div className="mt-6 max-w-3xl mx-auto">
-            <p className="text-lg md:text-xl text-brand-darkest leading-relaxed mb-4">
-              We&apos;re Building Something Special!
-            </p>
-            <p className="text-base md:text-lg text-brand-dark leading-relaxed mb-4">
-              Welcome to our site. We are currently working hard to finalize our full experience, launching officially in January 2026.
-            </p>
-            <p className="text-sm md:text-base text-brand-dark leading-relaxed">
-              In the meantime, feel free to look around! To stay in the loop, join our email list for updates on our launch. (Don&apos;t worry, we promise to keep your inbox spam-free).
-            </p>
-            <a
-              href="#contact"
-              className="inline-block mt-6 bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg"
-            >
-              Sign up for updates
-            </a>
+            <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
+              <h2 className="text-2xl md:text-3xl font-bold text-brand-darkest mb-6 font-playfair text-center">
+                We&apos;re Building Something Special
+              </h2>
+              <div className="text-lg text-brand-darkest max-w-2xl mx-auto mb-6 text-center space-y-4">
+                <p>
+                  A destination where art comes to life.
+                </p>
+                <p>
+                  From original paintings and photography (even from your iPhone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
+                </p>
+                <p>
+                  Through our proprietary ArtKey™ technology, any artwork, image, or card becomes an interactive experience. Upload a personal video, curated playlist, heartfelt message, or e-gift card, and transform what you give into something that speaks, evolves, and endures.
+                </p>
+                <p>
+                  Every piece becomes more than an object.
+                </p>
+                <p>
+                  It becomes a story. A memory. An experience that&apos;s meant to be returned to, not tucked away.
+                </p>
+                <p>
+                  We invite you to explore and look forward to our official launch in January 2026.
+                </p>
+              </div>
+              <div className="text-center">
+                <a
+                  href="mailto:info@theartfulexperience.com?subject=Sign%20Up%20for%20Updates"
+                  className="inline-block bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg"
+                >
+                  Sign up for updates
+                </a>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -103,7 +121,7 @@ export default function Hero() {
                     {i === 0 && line.includes('ArtKey') ? (
                       <>
                         {line.split('ArtKey')[0]}
-                        <span className="font-bold text-brand-darkest">ArtKey</span>
+                        <span className="font-bold text-brand-darkest">ArtKey™</span>
                         {line.split('ArtKey')[1]}
                       </>
                     ) : (
@@ -155,7 +173,7 @@ export default function Hero() {
                     Choose the photo that speaks to your heart&mdash;the one you&apos;d love to share as a gift. 
                     In the Design Editor, you can create beautiful collages by adding more photos, 
                     or enhance this single image with artistic touches. Remember, you&apos;ll also be able 
-                    to add photos to your ArtKey Portal, so select the image that truly captures 
+                    to add photos to your ArtKey™ Portal, so select the image that truly captures 
                     the moment you want to gift.
                   </p>
                 </div>
