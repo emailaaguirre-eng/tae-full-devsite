@@ -459,15 +459,7 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">💌</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Cards</h3>
-                  <p className="text-brand-dark mb-3">Everyday greeting cards for notes and moments</p>
-                  <div className="text-xs text-brand-medium space-y-1">
-                    <p>• Birthday card</p>
-                    <p>• Thank you card</p>
-                    <p>• Holiday greeting card</p>
-                    <p>• Sympathy card</p>
-                    <p>• Thinking of you card</p>
-                    <p>• Congratulations card</p>
-                  </div>
+                  <p className="text-brand-dark">Everyday greeting cards for notes and moments</p>
                 </button>
                 
                 {/* Postcards */}
@@ -477,15 +469,7 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">📮</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Postcards</h3>
-                  <p className="text-brand-dark mb-3">Mail-ready postcards with a writable back</p>
-                  <div className="text-xs text-brand-medium space-y-1">
-                    <p>• Holiday postcard</p>
-                    <p>• Thank you postcard</p>
-                    <p>• Vacation/travel postcard</p>
-                    <p>• New home &quot;We moved&quot; postcard</p>
-                    <p>• Photo collage postcard</p>
-                    <p>• Promo postcard (small mailer)</p>
-                  </div>
+                  <p className="text-brand-dark">Mail-ready postcards with a writable back</p>
                 </button>
                 
                 {/* Invitations */}
@@ -495,15 +479,7 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">🎉</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Invitations</h3>
-                  <p className="text-brand-dark mb-3">Event invitations designed to gather your people</p>
-                  <div className="text-xs text-brand-medium space-y-1">
-                    <p>• Wedding invitation</p>
-                    <p>• Birthday party invitation</p>
-                    <p>• Baby shower invitation</p>
-                    <p>• Graduation party invitation</p>
-                    <p>• Corporate event invitation</p>
-                    <p>• Holiday party invitation</p>
-                  </div>
+                  <p className="text-brand-dark">Event invitations designed to gather your people</p>
                 </button>
                 
                 {/* Announcements */}
@@ -513,15 +489,7 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">📢</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Announcements</h3>
-                  <p className="text-brand-dark mb-3">Share life updates and milestone news beautifully</p>
-                  <div className="text-xs text-brand-medium space-y-1">
-                    <p>• Birth announcement</p>
-                    <p>• Graduation announcement</p>
-                    <p>• Engagement announcement</p>
-                    <p>• Wedding announcement</p>
-                    <p>• New home announcement</p>
-                    <p>• Memorial/celebration of life announcement</p>
-                  </div>
+                  <p className="text-brand-dark">Share life updates and milestone news beautifully</p>
                 </button>
                 
                 {/* Wall Art */}
@@ -531,31 +499,7 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">🖼️</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Wall Art</h3>
-                  <p className="text-brand-dark mb-3">Premium prints for your walls, framed or unframed</p>
-                  <div className="text-xs text-brand-medium space-y-1">
-                    <p>• Photo print (wall-ready)</p>
-                    <p>• Canvas print</p>
-                    <p>• Framed art print</p>
-                    <p>• Poster print</p>
-                    <p>• Metal print</p>
-                    <p>• Mounted print</p>
-                  </div>
-                </button>
-                
-                {/* Ideas */}
-                <button
-                  onClick={() => handleProductSelect("ideas")}
-                  className="p-8 rounded-2xl border-2 border-brand-light hover:border-brand-dark transition-all text-left hover:shadow-lg"
-                >
-                  <div className="text-5xl mb-4">💡</div>
-                  <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Ideas</h3>
-                  <p className="text-brand-dark mb-3">Get inspired with creative ideas and examples</p>
-                  <div className="text-xs text-brand-medium space-y-1">
-                    <p>• Browse design inspiration</p>
-                    <p>• View example projects</p>
-                    <p>• Explore creative possibilities</p>
-                    <p>• Get design tips and ideas</p>
-                  </div>
+                  <p className="text-brand-dark">Premium prints for your walls, framed or unframed</p>
                 </button>
               </div>
             </div>
