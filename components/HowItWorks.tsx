@@ -154,9 +154,9 @@ export default function HowItWorks() {
             href="/customize"
             className="inline-block bg-brand-medium text-white px-10 py-4 rounded-full text-lg font-semibold hover:bg-brand-dark transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
-            Start Creating Your Art
+            Start Creating Your Artful Experience
             <span className="block text-sm font-normal opacity-90">
-              Upload your image • Choose from our library • Select an artist gallery
+              Upload your image to get started
             </span>
           </a>
         </div>

@@ -196,30 +196,25 @@ export default function ArtistPage({ params }: ArtistPageProps) {
                     {artist.title}
                   </span>
                 </div>
+                {/* Description moved here from About section */}
+                {artist.description && (
+                  <div className="mt-6">
+                    <p className="text-lg text-brand-darkest leading-relaxed whitespace-pre-line">
+                      {artist.description}
+                    </p>
+                  </div>
+                )}
+                {artist.bio && (
+                  <div className="mt-6">
+                    <p className="text-lg text-brand-darkest leading-relaxed">
+                      {artist.bio}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Full Bio Section */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-6 font-playfair">
-              About {artist.name.split(' ')[0]}
-            </h2>
-            <div className="space-y-4">
-              {artist.bio && (
-                <p className="text-lg text-brand-darkest leading-relaxed">
-                  {artist.bio}
-                </p>
-              )}
-              {artist.description && (
-                <div className={artist.bio ? "mt-6 pt-6 border-t border-brand-light" : ""}>
-                  <p className="text-lg text-brand-darkest leading-relaxed whitespace-pre-line">
-                    {artist.description}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
 
           {/* Portfolio Section */}
           {artist.portfolio && artist.portfolio.length > 0 && (
@@ -265,15 +260,15 @@ export default function ArtistPage({ params }: ArtistPageProps) {
             </div>
           )}
 
-          {/* Available Artwork/Photography Section */}
+          {/* Available ArtWork/Photography Section */}
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
-              {artist.slug === 'bryant-colman' ? 'Available Photography' : 'Available Artwork'}
+              {artist.slug === 'bryant-colman' ? 'Available Photography' : 'Available ArtWork'}
             </h2>
             
             {loading ? (
               <div className="text-center py-12">
-                <p className="text-brand-dark">Loading {artist.slug === 'bryant-colman' ? 'photography' : 'artwork'}...</p>
+                <p className="text-brand-dark">Loading {artist.slug === 'bryant-colman' ? 'photography' : 'ArtWork'}...</p>
               </div>
             ) : wooProducts.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -313,7 +308,7 @@ export default function ArtistPage({ params }: ArtistPageProps) {
                 <p className="text-brand-dark">
                   {artist.slug === 'bryant-colman' 
                     ? 'Available photography coming soon.' 
-                    : 'Available artwork coming soon.'}
+                    : 'Available ArtWork coming soon.'}
                 </p>
               </div>
             )}
