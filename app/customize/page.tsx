@@ -111,30 +111,62 @@ function CustomizeContent() {
     handleContinueToArtKey();
   };
   
+  // Convert image to JPG format
+  const convertImageToJPG = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          // Create canvas to convert image
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          // Draw image to canvas
+          ctx.drawImage(img, 0, 0);
+          
+          // Convert to JPG (quality 0.92 for good balance)
+          const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          resolve(jpgDataUrl);
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Handle image upload
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     
     const fileArray = Array.from(files);
     const newImages: string[] = [];
-    let loadedCount = 0;
     
-    fileArray.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result as string;
-        newImages.push(dataUrl);
-        loadedCount++;
-        
-        if (loadedCount === fileArray.length) {
-          const allImages = [...uploadedImages, ...newImages];
-          setUploadedImages(allImages);
-          setInitialImages(allImages);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    try {
+      // Convert all images to JPG
+      const convertedImages = await Promise.all(
+        fileArray.map(file => convertImageToJPG(file))
+      );
+      
+      newImages.push(...convertedImages);
+      
+      const allImages = [...uploadedImages, ...newImages];
+      setUploadedImages(allImages);
+      setInitialImages(allImages);
+    } catch (error) {
+      console.error('Error converting images:', error);
+      alert('Failed to process some images. Please try again.');
+    }
   };
   
   const handleUploadComplete = () => {
@@ -397,10 +429,10 @@ function CustomizeContent() {
               <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-12 cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-all">
                 <div className="text-6xl mb-4">📤</div>
                 <span className="text-lg font-medium text-gray-700 mb-2">Click to upload or drag and drop</span>
-                <span className="text-sm text-gray-500">JPG, PNG, SVG, GIF, WebP</span>
+                <span className="text-sm text-gray-500">JPG/JPEG, PNG, BMP</span>
                 <input 
                   type="file" 
-                  accept="image/*" 
+                  accept=".jpg,.jpeg,.png,.bmp,image/jpeg,image/png,image/bmp" 
                   multiple 
                   onChange={handleImageUpload} 
                   className="hidden" 

@@ -32,13 +32,51 @@ export default function Hero() {
       });
   }, []);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Convert image to JPG format
+  const convertImageToJPG = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          // Create canvas to convert image
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          // Draw image to canvas
+          ctx.drawImage(img, 0, 0);
+          
+          // Convert to JPG (quality 0.92 for good balance)
+          const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          resolve(jpgDataUrl);
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      // Only allow one photo at this stage
-      const file = files[0];
-      const mediaUrl = URL.createObjectURL(file);
-      setSelectedImages([mediaUrl]); // Replace with single image
+      try {
+        // Only allow one photo at this stage, convert to JPG
+        const file = files[0];
+        const jpgDataUrl = await convertImageToJPG(file);
+        setSelectedImages([jpgDataUrl]); // Replace with single image
+      } catch (error) {
+        console.error('Error converting image:', error);
+        alert('Failed to process image. Please ensure it is in JPG, PNG, or BMP format.');
+      }
     }
   };
 
@@ -190,7 +228,7 @@ export default function Hero() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept=".jpg,.jpeg,.png,.bmp,image/jpeg,image/png,image/bmp"
                       onChange={handleImageSelect}
                       className="hidden"
                     />
