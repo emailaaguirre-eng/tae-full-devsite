@@ -522,55 +522,57 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
   // IMAGE HANDLING
   // =============================================================================
   
+  // Convert image to JPG format
+  const convertImageToJPG = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          // Create canvas to convert image
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          // Draw image to canvas
+          ctx.drawImage(img, 0, 0);
+          
+          // Convert to JPG (quality 0.92 for good balance)
+          const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          resolve(jpgDataUrl);
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+  
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     
-    for (const file of Array.from(files)) {
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    const fileArray = Array.from(files);
+    
+    try {
+      // Convert all images to JPG
+      const convertedImages = await Promise.all(
+        fileArray.map(file => convertImageToJPG(file))
+      );
       
-      // Handle PSD files - need server-side conversion
-      if (fileExtension === 'psd') {
-        try {
-          const formData = new FormData();
-          formData.append('psd', file);
-          
-          const response = await fetch('/api/convert-psd', {
-            method: 'POST',
-            body: formData,
-          });
-          
-          if (!response.ok) {
-            throw new Error('PSD conversion failed');
-          }
-          
-          const data = await response.json();
-          if (data.success && data.imageUrl) {
-            setUploadedImages(prev => [...prev, data.imageUrl]);
-          }
-        } catch (error) {
-          console.error('Error converting PSD:', error);
-          alert('Failed to convert PSD file. Please export as PNG or SVG from Photoshop.');
-        }
-      } 
-      // Handle SVG files - use FileReader
-      else if (fileExtension === 'svg') {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const dataUrl = event.target?.result as string;
-          setUploadedImages(prev => [...prev, dataUrl]);
-        };
-        reader.readAsDataURL(file);
-      }
-      // Handle other image formats (PNG, JPG, etc.)
-      else {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const dataUrl = event.target?.result as string;
-          setUploadedImages(prev => [...prev, dataUrl]);
-        };
-        reader.readAsDataURL(file);
-      }
+      convertedImages.forEach(jpgDataUrl => {
+        setUploadedImages(prev => [...prev, jpgDataUrl]);
+      });
+    } catch (error) {
+      console.error('Error converting images:', error);
+      alert('Failed to process some images. Please ensure they are in JPG, PNG, or BMP format.');
     }
   };
   
@@ -2097,8 +2099,8 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
               <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-all">
                 <Upload className="w-10 h-10 text-gray-400 mb-3" />
                 <span className="text-sm font-medium text-gray-600">Upload Images</span>
-                <span className="text-xs text-gray-400 mt-1">JPG, PNG, SVG, PSD, GIF, WebP</span>
-                <input type="file" accept="image/*,.psd,.svg" multiple onChange={handleImageUpload} className="hidden" />
+                <span className="text-xs text-gray-400 mt-1">JPG/JPEG, PNG, BMP (converted to JPG)</span>
+                <input type="file" accept=".jpg,.jpeg,.png,.bmp,image/jpeg,image/png,image/bmp" multiple onChange={handleImageUpload} className="hidden" />
               </label>
               
               {uploadedImages.length > 0 && (
