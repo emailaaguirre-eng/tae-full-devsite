@@ -53,6 +53,9 @@ export default function AboutUs() {
                 Give a gift that will never be forgotten, even if that gift is for you.
               </p>
               <p className="text-lg text-brand-darkest leading-relaxed">
+                From original paintings and photography (even photos from your phone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
+              </p>
+              <p className="text-lg text-brand-darkest leading-relaxed">
                 Discover our ArtKey technology that lets you upload videos, music, and time-released e-gift cards embedded in the art.
                 When the recipient scans the ArtKey or QR code, they unlock your message, video, song, or surprise.
               </p>

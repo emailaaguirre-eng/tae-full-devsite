@@ -13,14 +13,20 @@ export default function Testimonials() {
     {
       name: "Morgan",
       location: "Rio de Janeiro",
-      text: "Rio de Janeiro has a special place in my heart. When I visited Ipanema Beach in Rio, it captivated me and made me feel alive. I wanted to memorialize this special moment, so I uploaded my picture to TheAE. My image was artfully enhanced by world-renowned artist Deanna Lankin, and now I can relive that memory every time I see it. I also enjoyed the interactivity of the ArtKey, being able to preview Deanna's other works, suggested playlist and other fun things like the meditative ideas and images. It's an image that has been captured for a lifetime.",
+      text: "Rio de Janeiro has a special place in my heart. When I visited Ipanema Beach in Rio, it captivated me and made me feel alive. I wanted to memorialize this special moment, so I uploaded my picture to TheAE. My image was artfully enhanced by world-renowned artist Deanna Lankin, and now I can relive that memory every time I see it. I also enjoyed the interactivity of the ArtKey™, being able to preview Deanna's other works, suggested playlist and other fun things like the meditative ideas and images. It's an image that has been captured for a lifetime.",
       image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/3125EEFB-C70A-4CF7-8DB3-1F4DB841E4B9-scaled.jpeg"
     },
     {
       name: "Grant A",
       location: "Russ Lyon's Sotheby's International",
-      text: "I wanted memorable gifts for my real estate clients. The art was amazing and the ArtKeys let me deliver time-released messages and e-gift cards—perfect for VIPs. The customization options and the ability to add personalized content made each gift truly special.",
+      text: "I wanted memorable gifts for my real estate clients. The art was amazing and the ArtKeys™ let me deliver time-released messages and e-gift cards—perfect for VIPs. The customization options and the ability to add personalized content made each gift truly special.",
       image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/IMG_0814.jpeg"
+    },
+    {
+      name: "Dr. Shyla",
+      location: "",
+      text: "I wanted to send a special holiday card to my patients, but instead of a traditional card, I chose to share beautiful imagery that truly reflected my vision. I was thrilled to discover that I could also upload videos, personalized patient plans, and inspirational testimonials. What I didn't expect was just how impactful it would be. The response from my patients was incredible—meaningful, memorable, and genuinely useful. If you want to create a lasting impression, I highly recommend ordering your holiday cards, birthday greetings, or special-occasion announcements through The Artful Experience.",
+      image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/IMG_7692-scaled.jpeg"
     },
     {
       name: "Connie Upham",
@@ -34,6 +40,12 @@ export default function Testimonials() {
       text: "I wanted to capture a special moment of time with my daughter. I found the perfect picture of us on my iPhone, uploaded the image to TheAE site, and described the feeling that I was after. When I received the art in the mail, it was better than I had imagined. I now have something that symbolizes that special moment of time with my daughter that I will cherish forever.",
       image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/9A91E9CB-3917-4204-9C30-B36EAC1BD4E2.jpeg"
     },
+    {
+      name: "Bryant Colman",
+      location: "Founder - The Artful Experience",
+      text: "For the past twenty years, I have sent holiday cards as a way to stay connected with family, friends, and clients. Each year, I reflect on the moments that mattered most—sharing inspirational images, personal reflections, and a message of encouragement for the year ahead. This year, I used our platform to reimagine that tradition. Instead of a static card, I sent an interactive experience that included a personal video message, favorite destinations, hotels, restaurants, and artists I discovered throughout the year. I also included a guestbook, allowing old friends and new connections to leave messages and reconnect in meaningful ways. What began as a holiday greeting became a living, shared experience and a reminder of why The Artful Experience exists.",
+      image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/bctestimonialimage.png"
+    }
   ];
 
   return (
@@ -41,11 +53,11 @@ export default function Testimonials() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
-            What Our Clients & Friends Say
+            What our Clients & Friends Say
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
           <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
-            Real stories from people who have experienced the magic of personalized art
+            Real stories from people who have experienced the magic of The Artful Experience
           </p>
         </div>
 
