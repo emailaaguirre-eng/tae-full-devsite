@@ -6,8 +6,8 @@ import { useCart } from "@/contexts/CartContext";
 import dynamic from "next/dynamic";
 
 // Dynamic import to avoid SSR issues with Fabric.js
-const PersonalizationStudio = dynamic(
-  () => import("@/components/PersonalizationStudio"),
+const DesignEditor = dynamic(
+  () => import("@/components/DesignEditor"),
   { 
     ssr: false, 
     loading: () => (
@@ -53,7 +53,9 @@ function CustomizeContent() {
   const [initialImages, setInitialImages] = useState<string[]>(heroImages);
 
   // State for customization options
-  const [selectedSize, setSelectedSize] = useState<string | null>("8x10");
+  const [selectedSize, setSelectedSize] = useState<string | null>(
+    productType === "print" ? "8x10" : productType === "card" ? "5x7" : null
+  );
   const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null);
   const [isFramed, setIsFramed] = useState<boolean | null>(null);
   const [frameColor, setFrameColor] = useState<string | null>(null);
@@ -121,11 +123,29 @@ function CustomizeContent() {
     { name: "Silver", price: 6.00 },
   ];
 
-  const cardTypes = [
-    { name: "Holiday Cards", price: 19.99, gelatoUid: "cards_cl_dtc_prt_pt" },
-    { name: "Birthday Cards", price: 15.99, gelatoUid: "cards_cl_dtc_prt_pt" },
-    { name: "Thank You Cards", price: 14.99, gelatoUid: "cards_cl_dtc_prt_pt" },
+  const cardSizes = [
+    { name: "4x6", price: 12.99, gelatoUid: "cards_cl_dtc_prt_pt" },
+    { name: "5x7", price: 15.99, gelatoUid: "cards_cl_dtc_prt_pt" },
+    { name: "6x9", price: 19.99, gelatoUid: "cards_cl_dtc_prt_pt" },
   ];
+
+  const cardPaperTypes = [
+    { name: "Premium Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm coated silk" },
+    { name: "Matte Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm matte finish" },
+    { name: "Linen Cardstock", price: 2.00, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm textured linen" },
+    { name: "Recycled Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm eco-friendly" },
+  ];
+
+  const foilColors = [
+    { name: "Gold", price: 5.00 },
+    { name: "Silver", price: 5.00 },
+    { name: "Rose Gold", price: 6.00 },
+    { name: "Copper", price: 5.00 },
+  ];
+
+  const [selectedCardPaper, setSelectedCardPaper] = useState<string | null>(null);
+  const [hasFoil, setHasFoil] = useState<boolean | null>(null);
+  const [selectedFoilColor, setSelectedFoilColor] = useState<string | null>(null);
 
   const calculateTotal = () => {
     let total = basePrice;
@@ -144,7 +164,18 @@ function CustomizeContent() {
         if (frame) total += frame.price + 20; // Base frame cost
       }
     } else if (productType === "card") {
-      // Card pricing handled by card type selection
+      if (selectedSize) {
+        const size = cardSizes.find(s => s.name === selectedSize);
+        if (size) total = size.price;
+      }
+      if (selectedCardPaper) {
+        const paper = cardPaperTypes.find(p => p.name === selectedCardPaper);
+        if (paper) total += paper.price;
+      }
+      if (hasFoil && selectedFoilColor) {
+        const foil = foilColors.find(f => f.name === selectedFoilColor);
+        if (foil) total += foil.price;
+      }
     }
     
     return (total * quantity).toFixed(2);
@@ -195,7 +226,7 @@ function CustomizeContent() {
     if (productType === "print") {
       return selectedSize && selectedMaterial && isFramed !== null && (!isFramed || frameColor);
     } else if (productType === "card") {
-      return true; // Cards have simpler requirements
+      return selectedSize && selectedCardPaper && hasFoil !== null && (!hasFoil || selectedFoilColor);
     }
     return false;
   };
@@ -231,9 +262,9 @@ function CustomizeContent() {
           </div>
         </div>
 
-        {/* Personalization Studio Modal */}
+        {/* Design Editor Modal */}
         {showStudio && (
-          <PersonalizationStudio
+          <DesignEditor
             productType={productType as 'canvas' | 'print' | 'card' | 'poster' | 'photobook'}
             productSize={getStudioSize()}
             onComplete={handleDesignComplete}
@@ -444,26 +475,139 @@ function CustomizeContent() {
 
           {/* Card-specific options */}
           {productType === "card" && (
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
-                Choose Card Type
-              </h2>
-              <div className="grid md:grid-cols-3 gap-4">
-                {cardTypes.map((card) => (
-                  <button
-                    key={card.name}
-                    className="p-6 rounded-xl border-2 border-brand-light hover:border-brand-medium hover:shadow-lg transition-all text-center"
-                  >
-                    <div className="font-bold text-lg text-brand-darkest mb-2">
-                      {card.name}
-                    </div>
-                    <div className="text-brand-medium font-semibold">
-                      ${card.price}
-                    </div>
-                  </button>
-                ))}
+            <>
+              {/* Size Selection */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
+                  Choose Size
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {cardSizes.map((size) => (
+                    <button
+                      key={size.name}
+                      onClick={() => setSelectedSize(size.name)}
+                      className={`p-4 rounded-xl border-2 transition-all ${
+                        selectedSize === size.name
+                          ? "border-brand-dark bg-brand-light shadow-lg scale-105"
+                          : "border-brand-light hover:border-brand-medium"
+                      }`}
+                    >
+                      <div className="font-bold text-lg text-brand-darkest mb-1">
+                        {size.name}&quot;
+                      </div>
+                      <div className={`font-semibold ${selectedSize === size.name ? "text-brand-darkest" : "text-brand-medium"}`}>
+                        ${size.price}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+
+              {/* Paper Type Selection */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
+                  Choose Paper Type
+                </h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {cardPaperTypes.map((paper) => (
+                    <button
+                      key={paper.name}
+                      onClick={() => setSelectedCardPaper(paper.name)}
+                      className={`p-6 rounded-xl border-2 transition-all text-left ${
+                        selectedCardPaper === paper.name
+                          ? "border-brand-dark bg-brand-light shadow-lg scale-105"
+                          : "border-brand-light hover:border-brand-medium"
+                      }`}
+                    >
+                      <div className="font-bold text-lg text-brand-darkest mb-1">
+                        {paper.name}
+                      </div>
+                      <div className="text-sm text-brand-dark mb-2">
+                        {paper.description}
+                      </div>
+                      <div className={`font-semibold ${selectedCardPaper === paper.name ? "text-brand-darkest" : "text-brand-medium"}`}>
+                        {paper.price === 0 ? "Included" : `+$${paper.price.toFixed(2)}`}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Foil Selection */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
+                  Add Foil Accents?
+                </h2>
+                <div className="grid md:grid-cols-2 gap-6 mb-6">
+                  <button
+                    onClick={() => {
+                      setHasFoil(false);
+                      setSelectedFoilColor(null);
+                    }}
+                    className={`p-8 rounded-xl border-2 transition-all ${
+                      hasFoil === false
+                        ? "border-brand-dark bg-brand-light shadow-lg scale-105"
+                        : "border-brand-light hover:border-brand-medium"
+                    }`}
+                  >
+                    <div className="text-4xl mb-3">📄</div>
+                    <div className="font-bold text-xl text-brand-darkest mb-2">No Foil</div>
+                    <div className="text-brand-darkest">Standard printing</div>
+                  </button>
+                  <button
+                    onClick={() => setHasFoil(true)}
+                    className={`p-8 rounded-xl border-2 transition-all ${
+                      hasFoil === true
+                        ? "border-brand-dark bg-brand-light shadow-lg scale-105"
+                        : "border-brand-light hover:border-brand-medium"
+                    }`}
+                  >
+                    <div className="text-4xl mb-3">✨</div>
+                    <div className="font-bold text-xl text-brand-darkest mb-2">Add Foil</div>
+                    <div className="text-brand-darkest">Premium metallic accents</div>
+                  </button>
+                </div>
+
+                {hasFoil && (
+                  <div className="border-t-2 border-brand-light pt-6">
+                    <h3 className="font-bold text-lg text-brand-darkest mb-4 text-center">
+                      Choose Foil Color:
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {foilColors.map((foil) => (
+                        <button
+                          key={foil.name}
+                          onClick={() => setSelectedFoilColor(foil.name)}
+                          className={`p-6 rounded-xl border-2 transition-all ${
+                            selectedFoilColor === foil.name
+                              ? "border-brand-dark bg-brand-medium text-white shadow-lg scale-105"
+                              : "border-brand-light hover:border-brand-medium"
+                          }`}
+                        >
+                          <div
+                            className={`w-12 h-12 mx-auto mb-3 rounded-full border-2 ${
+                              foil.name === "Gold"
+                                ? "bg-yellow-400 border-yellow-500"
+                                : foil.name === "Silver"
+                                ? "bg-gray-300 border-gray-400"
+                                : foil.name === "Rose Gold"
+                                ? "bg-rose-300 border-rose-400"
+                                : "bg-orange-400 border-orange-500"
+                            }`}
+                          ></div>
+                          <div className={`font-bold ${selectedFoilColor === foil.name ? "text-white" : "text-brand-darkest"}`}>
+                            {foil.name}
+                          </div>
+                          <div className={`text-sm mt-2 ${selectedFoilColor === foil.name ? "text-white" : "text-brand-medium"}`}>
+                            {foil.price === 0 ? "+$0.00" : `+$${foil.price.toFixed(2)}`}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {/* Quantity */}
@@ -510,11 +654,25 @@ function CustomizeContent() {
                   <span className="font-semibold">{selectedMaterial}</span>
                 </div>
               )}
+              {selectedCardPaper && (
+                <div className="flex justify-between">
+                  <span>Paper:</span>
+                  <span className="font-semibold">{selectedCardPaper}</span>
+                </div>
+              )}
               {isFramed !== null && (
                 <div className="flex justify-between">
                   <span>Frame:</span>
                   <span className="font-semibold">
                     {isFramed ? `${frameColor || "Select color"}` : "Unframed"}
+                  </span>
+                </div>
+              )}
+              {hasFoil !== null && (
+                <div className="flex justify-between">
+                  <span>Foil:</span>
+                  <span className="font-semibold">
+                    {hasFoil ? `${selectedFoilColor || "Select color"}` : "No Foil"}
                   </span>
                 </div>
               )}

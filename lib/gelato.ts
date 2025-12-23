@@ -107,6 +107,57 @@ export async function getGelatoProducts() {
 }
 
 /**
+ * Get product details including pricing
+ */
+export async function getGelatoProductDetails(productUid: string) {
+  try {
+    const response = await fetch(`${GELATO_API_URL}/products/${productUid}`, {
+      headers: {
+        'X-API-KEY': GELATO_API_KEY || '',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch product details');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching product details:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get pricing for a product (may require quote endpoint)
+ */
+export async function getGelatoProductPrice(productUid: string, quantity: number = 1, country: string = 'US') {
+  try {
+    // Try to get price from product details first
+    const productDetails = await getGelatoProductDetails(productUid);
+    
+    // Gelato API may return pricing in different formats
+    // Check common pricing fields
+    if (productDetails.price) {
+      return productDetails.price;
+    }
+    
+    if (productDetails.pricing) {
+      return productDetails.pricing;
+    }
+    
+    // If no direct price, may need to use quote endpoint
+    // This is a placeholder - actual implementation depends on Gelato API structure
+    console.warn('Price not found in product details, may need to use quote endpoint');
+    return null;
+  } catch (error) {
+    console.error('Error fetching product price:', error);
+    return null;
+  }
+}
+
+/**
  * Upload image to Gelato
  */
 export async function uploadImageToGelato(imageFile: File | string) {

@@ -2,18 +2,40 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
   const { getItemCount } = useCart();
+
+  const handleHomeClick = (e: React.MouseEvent) => {
+    if (pathname === '/') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // Navigate to home page
+      e.preventDefault();
+      router.push('/');
+    }
+  };
+
+  const handleCartClick = () => {
+    router.push('/shop');
+  };
 
   return (
     <nav className="bg-white/95 backdrop-blur-md professional-shadow fixed w-full top-0 z-50 border-b border-brand-light/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex-shrink-0">
-            <a href="#home" className="text-xl md:text-2xl font-bold text-brand-dark font-playfair">
+            <a 
+              href="/" 
+              onClick={handleHomeClick} 
+              className="text-xl md:text-2xl font-bold text-brand-dark font-playfair cursor-pointer"
+            >
               TheAE
             </a>
           </div>
@@ -22,8 +44,9 @@ export default function Navbar() {
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-6">
               <a
-                href="#home"
-                className="text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-sm font-medium font-playfair"
+                href="/"
+                onClick={handleHomeClick}
+                className="text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-sm font-medium font-playfair cursor-pointer"
               >
                 Home
               </a>
@@ -61,7 +84,10 @@ export default function Navbar() {
               >
                 Contact Us
               </Link>
-              <button className="bg-green-600 text-white hover:bg-green-700 transition-colors px-6 py-2 rounded-full text-sm font-medium font-playfair flex items-center gap-2">
+              <button 
+                onClick={handleCartClick}
+                className="bg-green-600 text-white hover:bg-green-700 transition-colors px-6 py-2 rounded-full text-sm font-medium font-playfair flex items-center gap-2"
+              >
                 🛒 Cart ({getItemCount()})
               </button>
             </div>
@@ -69,8 +95,16 @@ export default function Navbar() {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center gap-3">
-            <button className="text-green-600 text-xl">
+            <button 
+              onClick={handleCartClick}
+              className="text-green-600 text-xl relative"
+            >
               🛒
+              {getItemCount() > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {getItemCount()}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setIsOpen(!isOpen)}
@@ -108,9 +142,12 @@ export default function Navbar() {
         <div className="md:hidden bg-white border-t border-brand-light">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             <a
-              href="#home"
-              className="block text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-base font-medium font-playfair"
-              onClick={() => setIsOpen(false)}
+              href="/"
+              onClick={(e) => {
+                setIsOpen(false);
+                handleHomeClick(e);
+              }}
+              className="block text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-base font-medium font-playfair cursor-pointer"
             >
               Home
             </a>
@@ -149,6 +186,15 @@ export default function Navbar() {
             >
               Contact Us
             </Link>
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                handleCartClick();
+              }}
+              className="block w-full text-left text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-base font-medium font-playfair"
+            >
+              🛒 Cart ({getItemCount()})
+            </button>
           </div>
         </div>
       )}

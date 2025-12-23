@@ -37,7 +37,7 @@ export default function GelatoEditor({ productUid, onDesignComplete, onClose }: 
       if (typeof window !== 'undefined' && (window as any).Gelato) {
         const Gelato = (window as any).Gelato;
         
-        // Initialize the Gelato Personalization Studio
+        // Initialize Gelato's Personalization Studio SDK
         const editor = new Gelato.Editor({
           apiKey: process.env.NEXT_PUBLIC_GELATO_API_KEY || '',
           container: editorRef.current,
