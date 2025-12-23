@@ -45,7 +45,7 @@ function CustomizeContent() {
   const heroImages = searchParams.get("images")?.split(',').filter(Boolean) || [];
   const heroMessage = searchParams.get("message") || "";
 
-  // Step tracking - NEW FLOW: 1=Product Selection, 2=Variants, 3=Design Editor, 4=ArtKey
+  // Step tracking - NEW FLOW: 1=Product Selection, 2=Options, 3=Design Editor, 4=ArtKey
   const [currentStep, setCurrentStep] = useState(initialProductType ? 2 : 1);
   
   // Product selection state
@@ -109,7 +109,7 @@ function CustomizeContent() {
   
   const handleProductSelect = (type: string) => {
     setSelectedProductType(type);
-    setCurrentStep(2); // Move to variants selection
+    setCurrentStep(2); // Move to options selection
   };
   
   const handleVariantsComplete = () => {
@@ -192,6 +192,15 @@ function CustomizeContent() {
         const foil = foilColors.find(f => f.name === selectedFoilColor);
         if (foil) total += foil.price;
       }
+    } else if (productType === "postcard") {
+      if (selectedSize) {
+        const size = cardSizes.find(s => s.name === selectedSize);
+        if (size) total = size.price;
+      }
+      if (selectedCardPaper) {
+        const paper = cardPaperTypes.find(p => p.name === selectedCardPaper);
+        if (paper) total += paper.price;
+      }
     }
     
     return (total * quantity).toFixed(2);
@@ -244,6 +253,9 @@ function CustomizeContent() {
       return selectedSize && selectedMaterial && isFramed !== null && (!isFramed || frameColor);
     } else if (productType === "card" || productType === "invitation" || productType === "announcement") {
       return selectedSize && selectedCardPaper && hasFoil !== null && (!hasFoil || selectedFoilColor);
+    } else if (productType === "postcard") {
+      // Postcards have simpler options - just size and paper type (no foil)
+      return selectedSize && selectedCardPaper;
     }
     return false;
   };
@@ -257,12 +269,12 @@ function CustomizeContent() {
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-brand-darkest mb-2 font-playfair">
                 {currentStep === 1 ? "Choose Your Product" : 
-                 currentStep === 2 ? `Customize Your ${productType === "card" ? "Card" : productType === "invitation" ? "Invitation" : productType === "announcement" ? "Announcement" : "Art Print"}` :
+                 currentStep === 2 ? `Customize Your ${productType === "card" ? "Card" : productType === "invitation" ? "Invitation" : productType === "announcement" ? "Announcement" : productType === "postcard" ? "Post Card" : "Art Print"}` :
                  currentStep === 3 ? "Design Your Product" :
-                 "Create Your ArtKey Portal"}
+                 "Create Your ArtKey™ Portal"}
               </h1>
               <p className="text-brand-dark">
-                Choose your product, customize it, design it, and add your ArtKey portal.
+                Choose your product, customize it, design it, and add your ArtKey™ portal.
               </p>
             </div>
             <div className="flex items-center gap-2 ml-4">
@@ -294,7 +306,7 @@ function CustomizeContent() {
             <div className="w-8 h-0.5 bg-gray-300"></div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 2 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
               <span className={`w-6 h-6 rounded-full ${currentStep >= 2 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>2</span>
-              <span className="hidden sm:inline">Variants</span>
+              <span className="hidden sm:inline">Options</span>
             </div>
             <div className="w-8 h-0.5 bg-gray-300"></div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 3 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
@@ -331,7 +343,7 @@ function CustomizeContent() {
               <h2 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair text-center">
                 Choose Your Product
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Cards */}
                 <button
                   onClick={() => handleProductSelect("card")}
@@ -339,7 +351,7 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">💌</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Cards</h3>
-                  <p className="text-brand-dark">Greeting cards, invitations, and announcements</p>
+                  <p className="text-brand-dark">Everyday notes for birthdays, thanks, and holidays</p>
                 </button>
                 
                 {/* Invitations */}
@@ -349,7 +361,7 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">🎉</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Invitations</h3>
-                  <p className="text-brand-dark">Event invitations with premium finishes</p>
+                  <p className="text-brand-dark">Event invites with RSVP-ready options and upgrades</p>
                 </button>
                 
                 {/* Announcements */}
@@ -359,7 +371,17 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">📢</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Announcements</h3>
-                  <p className="text-brand-dark">Birth announcements, graduations, and more</p>
+                  <p className="text-brand-dark">Share life updates like Weddings, Births, Graduations, and more.</p>
+                </button>
+                
+                {/* Post Cards */}
+                <button
+                  onClick={() => handleProductSelect("postcard")}
+                  className="p-8 rounded-2xl border-2 border-brand-light hover:border-brand-dark transition-all text-left hover:shadow-lg"
+                >
+                  <div className="text-5xl mb-4">📮</div>
+                  <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Post Cards</h3>
+                  <p className="text-brand-dark">Send a quick hello, ready to mail</p>
                 </button>
                 
                 {/* Art Prints */}
@@ -369,7 +391,7 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">🖼️</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Art Prints</h3>
-                  <p className="text-brand-dark">Wall art prints, framed or unframed</p>
+                  <p className="text-brand-dark">Prints for walls, framed or unframed, in premium materials.</p>
                 </button>
               </div>
             </div>
@@ -531,6 +553,68 @@ function CustomizeContent() {
                     </div>
                   </div>
                 )}
+              </div>
+            </>
+          )}
+
+          {/* Postcard-specific options */}
+          {productType === "postcard" && (
+            <>
+              {/* Size Selection */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
+                  Choose Size
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {cardSizes.map((size) => (
+                    <button
+                      key={size.name}
+                      onClick={() => setSelectedSize(size.name)}
+                      className={`p-4 rounded-xl border-2 transition-all ${
+                        selectedSize === size.name
+                          ? "border-brand-dark bg-brand-light shadow-lg scale-105"
+                          : "border-brand-light hover:border-brand-medium"
+                      }`}
+                    >
+                      <div className="font-bold text-lg text-brand-darkest mb-1">
+                        {size.name}&quot;
+                      </div>
+                      <div className={`font-semibold ${selectedSize === size.name ? "text-brand-darkest" : "text-brand-medium"}`}>
+                        ${size.price}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Paper Type Selection (simpler for postcards) */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
+                  Choose Paper Type
+                </h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {cardPaperTypes.map((paper) => (
+                    <button
+                      key={paper.name}
+                      onClick={() => setSelectedCardPaper(paper.name)}
+                      className={`p-6 rounded-xl border-2 transition-all text-left ${
+                        selectedCardPaper === paper.name
+                          ? "border-brand-dark bg-brand-light shadow-lg scale-105"
+                          : "border-brand-light hover:border-brand-medium"
+                      }`}
+                    >
+                      <div className="font-bold text-lg text-brand-darkest mb-1">
+                        {paper.name}
+                      </div>
+                      <div className="text-sm text-brand-dark mb-2">
+                        {paper.description}
+                      </div>
+                      <div className={`font-semibold ${selectedCardPaper === paper.name ? "text-brand-darkest" : "text-brand-medium"}`}>
+                        {paper.price === 0 ? "Included" : `+$${paper.price.toFixed(2)}`}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           )}
@@ -757,12 +841,12 @@ function CustomizeContent() {
                   onChange={(e) => setReuseExistingArtKey(e.target.checked)}
                   className="w-4 h-4"
                 />
-                Use existing ArtKey Portal ({existingArtKeyId}) for this product
+                Use existing ArtKey™ Portal ({existingArtKeyId}) for this product
               </label>
             )}
             {!existingArtKeyId && (
               <p className="text-sm text-white/80 mb-4">
-                A new ArtKey Portal ID will be generated automatically in the next step.
+                A new ArtKey™ Portal ID will be generated automatically in the next step.
               </p>
             )}
             <button
@@ -786,10 +870,10 @@ function CustomizeContent() {
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
-                Design Your {productType === "card" ? "Card" : productType === "invitation" ? "Invitation" : productType === "announcement" ? "Announcement" : "Art Print"}
+                Design Your Product
               </h2>
               <p className="text-brand-dark mb-4">
-                Upload your image and customize your design. You&apos;ll add your ArtKey portal in the next step.
+                Upload your image and customize your design. You&apos;ll add your ArtKey™ portal in the next step.
               </p>
               <div className="mt-4">
                 <button
