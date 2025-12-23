@@ -56,8 +56,8 @@ export default function AboutUs() {
                 From original paintings and photography (even photos from your phone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
               </p>
               <p className="text-lg text-brand-darkest leading-relaxed">
-                Discover our ArtKey technology that lets you upload videos, music, and time-released e-gift cards embedded in the art.
-                When the recipient scans the ArtKey or QR code, they unlock your message, video, song, or surprise.
+                Discover our ArtKey™ technology that lets you upload videos, music, and time-released e-gift cards embedded in the art.
+                When the recipient scans the ArtKey™ or QR code, they unlock your message, video, song, or surprise.
               </p>
               <p className="text-lg text-brand-darkest leading-relaxed">
                 Choose your path: upload your own image and personalize it, or select art from our gallery of internationally recognized artists.
@@ -66,23 +66,23 @@ export default function AboutUs() {
             </div>
           </div>
 
-          {/* What Are Art Keys */}
+          {/* What is an ArtKey™ */}
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-10 space-y-4">
-            <h3 className="text-3xl font-bold text-brand-darkest font-playfair">What Are Art Keys?</h3>
+            <h3 className="text-3xl font-bold text-brand-darkest font-playfair">What is an ArtKey™?</h3>
             <p className="text-lg text-brand-darkest leading-relaxed">
-              Each painting or print is embedded with an Art Key—a discreet digital touchpoint that unlocks a personalized experience.
-              By simply scanning near the artist’s signature, the artwork opens a hidden world of music, messages, videos, and exclusive surprises.
+              Each painting or print is embedded with an ArtKey™—a discreet digital touchpoint that unlocks a personalized experience.
+              By simply scanning near the artist's signature, the artwork opens a hidden world of music, messages, videos, and exclusive surprises.
             </p>
             <p className="text-lg text-brand-darkest leading-relaxed">
-              When you purchase our art or images as a gift, we give you control through our “upload center” to sync your desired content.
+              When you purchase our art or images as a gift, we give you control through our "upload center" to sync your desired content.
             </p>
             <p className="text-lg text-brand-darkest leading-relaxed">
               Recipients can then discover voice notes, heartfelt messages, behind-the-scenes stories, or even special videos from the artist or brand.
-              Some Art Keys are time-released, revealing their contents only on meaningful dates like birthdays, anniversaries, or other milestones.
+              Some ArtKey™ portals are time-released, revealing their contents only on meaningful dates like birthdays, anniversaries, or other milestones.
               Others unfold as living experiences—sharing evolving playlists, recipes, stories, or reflections over time.
             </p>
             <p className="text-lg text-brand-darkest leading-relaxed">
-              Art Keys transform a piece of art from something you admire into something that connects, surprises, and evolves. You get to decide!
+              ArtKey™ technology transforms a piece of art from something you admire into something that connects, surprises, and evolves. You get to decide!
             </p>
             <div>
               <h4 className="text-2xl font-bold text-brand-darkest font-playfair mb-2">Who this is for?</h4>
