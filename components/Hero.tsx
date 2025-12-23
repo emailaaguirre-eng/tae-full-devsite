@@ -72,10 +72,7 @@ export default function Hero() {
               </h2>
               <div className="text-lg text-brand-darkest max-w-2xl mx-auto mb-6 text-center space-y-4">
                 <p>
-                  A destination where art comes to life.
-                </p>
-                <p>
-                  From original paintings and photography (even from your iPhone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
+                  A destination where art comes to life. From original paintings and photography (even from your phone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
                 </p>
                 <p>
                   Through our proprietary ArtKey™ technology, any artwork, image, or card becomes an interactive experience. Upload a personal video, curated playlist, heartfelt message, or e-gift card, and transform what you give into something that speaks, evolves, and endures.

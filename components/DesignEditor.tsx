@@ -239,7 +239,12 @@ const frames: FrameOption[] = [
   { id: 'simple-gold', name: 'Elegant Gold', icon: <Square className="w-5 h-5 text-amber-500" />, style: '8px solid #d4af37' },
   { id: 'thin-black', name: 'Thin Black', icon: <Minus className="w-5 h-5" />, style: '2px solid #000000' },
   { id: 'double-black', name: 'Double Line', icon: <Rows3 className="w-5 h-5" />, style: '4px double #000000' },
-  { id: 'rounded', name: 'Rounded', icon: <CircleDot className="w-5 h-5" />, style: 'rounded' },
+  { id: 'rounded', name: 'Rounded Corners', icon: <CircleDot className="w-5 h-5" />, style: 'rounded' },
+  { id: 'rounded-square', name: 'Rounded Square', icon: <Square className="w-5 h-5" />, style: 'rounded-square' },
+  { id: 'rounded-rect', name: 'Rounded Rectangle', icon: <Square className="w-5 h-5" />, style: 'rounded-rect' },
+  { id: 'film-strip', name: 'Film Strip', icon: <Film className="w-5 h-5" />, style: 'film-strip' },
+  { id: 'decorative', name: 'Decorative', icon: <Sparkles className="w-5 h-5" />, style: 'decorative' },
+  { id: 'tabbed', name: 'Tabbed', icon: <Square className="w-5 h-5" />, style: 'tabbed' },
   { id: 'shadow', name: 'Shadow', icon: <Layers className="w-5 h-5" />, style: 'shadow' },
   { id: 'polaroid', name: 'Polaroid', icon: <Camera className="w-5 h-5" />, style: 'polaroid' },
   { id: 'vintage', name: 'Vintage', icon: <Film className="w-5 h-5" />, style: 'vintage' },
@@ -406,6 +411,20 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [aiStatus, setAiStatus] = useState('');
   
+  // Undo/Redo history
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const historyRef = useRef<{ history: string[]; index: number }>({ history: [], index: -1 });
+  
+  // Shape settings
+  const [shapeSettings, setShapeSettings] = useState({
+    fill: '#ffffff',
+    stroke: '#000000',
+    strokeWidth: 2,
+    rx: 0, // border radius for rectangles
+    ry: 0,
+  });
+  
   // Text settings
   const [textSettings, setTextSettings] = useState({
     fontFamily: 'Playfair Display',
@@ -416,6 +435,46 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
     shadow: false,
     outline: false,
   });
+  
+  // Foil settings (for cards, invitations, announcements)
+  const isFoilProduct = productType === 'card' || productType === 'invitation' || productType === 'announcement';
+  const [foilSettings, setFoilSettings] = useState({
+    color: 'gold' as 'gold' | 'silver' | 'rose-gold' | 'copper',
+  });
+  const [foilElements, setFoilElements] = useState<Set<string>>(new Set());
+  
+  // Apply foil to selected object
+  const applyFoilToSelected = () => {
+    if (!fabricRef.current || !selectedObject) return;
+    
+    const objId = (selectedObject as any).__fabricObjectId || Math.random().toString(36);
+    (selectedObject as any).__fabricObjectId = objId;
+    (selectedObject as any).foil = {
+      enabled: true,
+      color: foilSettings.color,
+    };
+    
+    // Add visual foil preview (overlay)
+    const foilColorMap = {
+      'gold': '#FFD700',
+      'silver': '#C0C0C0',
+      'rose-gold': '#E8B4B8',
+      'copper': '#B87333',
+    };
+    
+    // Update object appearance to show foil preview
+    selectedObject.set({
+      fill: foilColorMap[foilSettings.color],
+      opacity: 0.8,
+    });
+    
+    const newFoilElements = new Set(foilElements);
+    newFoilElements.add(objId);
+    setFoilElements(newFoilElements);
+    
+    fabricRef.current.renderAll();
+    saveState();
+  };
   
   // Calculate canvas dimensions (300 DPI for print quality)
   const DPI = 300;
@@ -627,6 +686,180 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
   // TEXT HANDLING
   // =============================================================================
   
+  // =============================================================================
+  // UNDO/REDO FUNCTIONALITY
+  // =============================================================================
+  
+  const saveState = () => {
+    if (!fabricRef.current) return;
+    const state = JSON.stringify(fabricRef.current.toJSON());
+    const newHistory = historyRef.current.history.slice(0, historyRef.current.index + 1);
+    newHistory.push(state);
+    // Limit history to 50 states
+    if (newHistory.length > 50) newHistory.shift();
+    historyRef.current = { history: newHistory, index: newHistory.length - 1 };
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  };
+  
+  const undo = () => {
+    if (!fabricRef.current || historyRef.current.index <= 0) return;
+    historyRef.current.index--;
+    const state = historyRef.current.history[historyRef.current.index];
+    fabricRef.current.loadFromJSON(state, () => {
+      fabricRef.current?.renderAll();
+      setHistoryIndex(historyRef.current.index);
+    });
+  };
+  
+  const redo = () => {
+    if (!fabricRef.current || historyRef.current.index >= historyRef.current.history.length - 1) return;
+    historyRef.current.index++;
+    const state = historyRef.current.history[historyRef.current.index];
+    fabricRef.current.loadFromJSON(state, () => {
+      fabricRef.current?.renderAll();
+      setHistoryIndex(historyRef.current.index);
+    });
+  };
+  
+  // Save state on canvas modifications
+  useEffect(() => {
+    if (!fabricRef.current) return;
+    const canvas = fabricRef.current;
+    
+    const handleModification = () => saveState();
+    
+    canvas.on('object:added', handleModification);
+    canvas.on('object:removed', handleModification);
+    canvas.on('object:modified', handleModification);
+    canvas.on('path:created', handleModification);
+    
+    // Save initial state
+    saveState();
+    
+    return () => {
+      canvas.off('object:added', handleModification);
+      canvas.off('object:removed', handleModification);
+      canvas.off('object:modified', handleModification);
+      canvas.off('path:created', handleModification);
+    };
+  }, [fabricRef.current]);
+  
+  // =============================================================================
+  // SHAPE FUNCTIONS
+  // =============================================================================
+  
+  const addShape = (type: 'rect' | 'circle' | 'triangle' | 'rounded-rect') => {
+    if (!fabricRef.current) return;
+    
+    const canvas = fabricRef.current;
+    const centerX = canvas.width! / 2;
+    const centerY = canvas.height! / 2;
+    const size = Math.min(canvas.width!, canvas.height!) * 0.2;
+    
+    let shape: fabric.Object;
+    
+    if (type === 'rect') {
+      shape = new fabric.Rect({
+        left: centerX,
+        top: centerY,
+        width: size,
+        height: size,
+        originX: 'center',
+        originY: 'center',
+        fill: shapeSettings.fill,
+        stroke: shapeSettings.stroke,
+        strokeWidth: shapeSettings.strokeWidth,
+      });
+    } else if (type === 'circle') {
+      shape = new fabric.Circle({
+        left: centerX,
+        top: centerY,
+        radius: size / 2,
+        originX: 'center',
+        originY: 'center',
+        fill: shapeSettings.fill,
+        stroke: shapeSettings.stroke,
+        strokeWidth: shapeSettings.strokeWidth,
+      });
+    } else if (type === 'triangle') {
+      const points = [
+        { x: 0, y: -size / 2 },
+        { x: size / 2, y: size / 2 },
+        { x: -size / 2, y: size / 2 },
+      ];
+      shape = new fabric.Polygon(points, {
+        left: centerX,
+        top: centerY,
+        originX: 'center',
+        originY: 'center',
+        fill: shapeSettings.fill,
+        stroke: shapeSettings.stroke,
+        strokeWidth: shapeSettings.strokeWidth,
+      });
+    } else { // rounded-rect
+      shape = new fabric.Rect({
+        left: centerX,
+        top: centerY,
+        width: size,
+        height: size,
+        originX: 'center',
+        originY: 'center',
+        rx: shapeSettings.rx || 20,
+        ry: shapeSettings.ry || 20,
+        fill: shapeSettings.fill,
+        stroke: shapeSettings.stroke,
+        strokeWidth: shapeSettings.strokeWidth,
+      });
+    }
+    
+    canvas.add(shape);
+    canvas.setActiveObject(shape);
+    canvas.renderAll();
+    saveState();
+  };
+  
+  const addTextToShape = () => {
+    if (!fabricRef.current) return;
+    const activeObj = fabricRef.current.getActiveObject();
+    if (!activeObj) {
+      // If no shape selected, just add text
+      addText();
+      return;
+    }
+    
+    // Add text inside the selected shape
+    const textObj = new fabric.IText('Your Text', {
+      left: activeObj.left! + (activeObj.width! * activeObj.scaleX!) / 2,
+      top: activeObj.top! + (activeObj.height! * activeObj.scaleY!) / 2,
+      originX: 'center',
+      originY: 'center',
+      fontFamily: textSettings.fontFamily,
+      fontSize: textSettings.fontSize,
+      fill: textSettings.fill,
+      fontWeight: textSettings.fontWeight as any,
+      fontStyle: textSettings.fontStyle as any,
+    });
+    
+    if (textSettings.shadow) {
+      textObj.set('shadow', new fabric.Shadow({
+        color: 'rgba(0,0,0,0.5)',
+        blur: 10,
+        offsetX: 5,
+        offsetY: 5,
+      }));
+    }
+    
+    if (textSettings.outline) {
+      textObj.set({ stroke: '#000000', strokeWidth: 2 });
+    }
+    
+    fabricRef.current.add(textObj);
+    fabricRef.current.setActiveObject(textObj);
+    fabricRef.current.renderAll();
+    saveState();
+  };
+  
   const addText = () => {
     if (!fabricRef.current) return;
     
@@ -658,6 +891,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
     fabricRef.current.add(textObj);
     fabricRef.current.setActiveObject(textObj);
     fabricRef.current.renderAll();
+    saveState();
   };
   
   // =============================================================================
@@ -1643,8 +1877,21 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
       <div className="w-80 bg-white border-r border-brand-light flex flex-col shadow-2xl">
         {/* Header */}
         <div className="p-5 border-b border-brand-light bg-gradient-to-r from-brand-dark to-brand-darkest">
-          <h2 className="text-xl font-bold text-white font-playfair tracking-wide">Design Editor</h2>
-          <p className="text-brand-light text-sm mt-1">{productSize.name}&quot; {productType}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white font-playfair tracking-wide">Design Editor</h2>
+              <p className="text-brand-light text-sm mt-1">
+                {productSize.name}&quot; {productType} • {productSize.width}&quot; × {productSize.height}&quot; @ 300 DPI
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
+              title="Close editor"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         
         {/* Tool Tabs - Professional Grid */}
@@ -1808,11 +2055,13 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
               {uploadedImages.length > 0 && (
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Your Images</h4>
+                  <p className="text-xs text-gray-600 mb-3">
+                    {isCollageMode && collageSlots.length > 0 
+                      ? "Click a slot below, then click an image to add it to that slot"
+                      : "Click an image to add it to the canvas"}
+                  </p>
                   {isCollageMode && collageSlots.length > 0 ? (
                     <div className="space-y-3">
-                      <p className="text-xs text-gray-600 mb-2">
-                        Click a slot below, then click an image to add it to that slot
-                      </p>
                       <div className="grid grid-cols-3 gap-2">
                         {uploadedImages.map((img, i) => (
                           <button 
@@ -1825,13 +2074,17 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
                                 addImageToCanvas(img);
                               }
                             }}
-                            className={`aspect-square rounded-lg overflow-hidden border-2 transition-all hover:shadow-md ${
+                            className={`aspect-square rounded-lg overflow-hidden border-2 transition-all hover:shadow-md relative group ${
                               !selectedSlot 
-                                ? 'border-gray-200 hover:border-gray-400'
+                                ? 'border-gray-200 hover:border-blue-400'
                                 : 'border-blue-300 hover:border-blue-500'
                             }`}
+                            title="Click to add to canvas"
                           >
                             <img src={img} alt={`Uploaded ${i + 1}`} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                              <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">Add to Canvas</span>
+                            </div>
                           </button>
                         ))}
                       </div>
@@ -1842,9 +2095,13 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
                         <button 
                           key={i} 
                           onClick={() => addImageToCanvas(img)} 
-                          className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-gray-400 transition-all hover:shadow-md"
+                          className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-all hover:shadow-md relative group cursor-pointer"
+                          title="Click to add to canvas"
                         >
                           <img src={img} alt={`Uploaded ${i + 1}`} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                            <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded">Add to Canvas</span>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -1864,6 +2121,67 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
                 <Type className="w-5 h-5" />
                 Add Text
               </button>
+              
+              {/* Foil Options (for cards, invitations, announcements) */}
+              {isFoilProduct && (
+                <div className="pt-4 border-t border-gray-200 space-y-4">
+                  <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Foil Accents
+                  </h4>
+                  <p className="text-xs text-gray-600">
+                    Select text or an element, then apply foil
+                  </p>
+                  
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-2 block">Foil Color</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { name: 'Gold', value: 'gold', color: '#FFD700' },
+                        { name: 'Silver', value: 'silver', color: '#C0C0C0' },
+                        { name: 'Rose Gold', value: 'rose-gold', color: '#E8B4B8' },
+                        { name: 'Copper', value: 'copper', color: '#B87333' },
+                      ].map(foil => (
+                        <button
+                          key={foil.value}
+                          onClick={() => setFoilSettings({ ...foilSettings, color: foil.value as any })}
+                          className={`p-3 rounded-lg border-2 transition-all flex items-center gap-2 ${
+                            foilSettings.color === foil.value
+                              ? 'border-gray-900 bg-gray-50'
+                              : 'border-gray-200 hover:border-gray-400'
+                          }`}
+                        >
+                          <div 
+                            className="w-6 h-6 rounded-full border-2 border-gray-300"
+                            style={{ backgroundColor: foil.color }}
+                          />
+                          <span className="text-xs font-medium">{foil.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={applyFoilToSelected}
+                    disabled={!selectedObject}
+                    className={`w-full py-2 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                      selectedObject
+                        ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-white hover:from-yellow-500 hover:to-yellow-700 shadow-md'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                    title={selectedObject ? 'Apply foil to selected element' : 'Select an element first'}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Apply Foil to Selected
+                  </button>
+                  
+                  {foilElements.size > 0 && (
+                    <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
+                      {foilElements.size} element{foilElements.size !== 1 ? 's' : ''} with foil
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Font Family</label>
@@ -1952,17 +2270,83 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
                 ))}
               </div>
               
-              <div className="grid grid-cols-4 gap-2 pt-2">
-                {stickers.filter(s => s.category === selectedStickerCategory).map(sticker => (
-                  <button
-                    key={sticker.id}
-                    className="aspect-square bg-gray-50 rounded-xl hover:bg-gray-100 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300"
-                    title={sticker.name}
-                  >
-                    {sticker.icon}
-                  </button>
-                ))}
-              </div>
+              {selectedStickerCategory === 'shapes' ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => addShape('rect')}
+                      className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300"
+                      title="Add Rectangle"
+                    >
+                      <Square className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={() => addShape('circle')}
+                      className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300"
+                      title="Add Circle"
+                    >
+                      <Circle className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={() => addShape('triangle')}
+                      className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300"
+                      title="Add Triangle"
+                    >
+                      <Triangle className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={() => addShape('rounded-rect')}
+                      className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300"
+                      title="Add Rounded Rectangle"
+                    >
+                      <CircleDot className="w-6 h-6" />
+                    </button>
+                  </div>
+                  <div className="space-y-3 pt-2 border-t border-gray-200">
+                    <label className="text-xs font-medium text-gray-700">Shape Fill Color</label>
+                    <input
+                      type="color"
+                      value={shapeSettings.fill}
+                      onChange={(e) => setShapeSettings(p => ({ ...p, fill: e.target.value }))}
+                      className="w-full h-10 rounded-lg cursor-pointer border border-gray-200"
+                    />
+                    <label className="text-xs font-medium text-gray-700">Border Color</label>
+                    <input
+                      type="color"
+                      value={shapeSettings.stroke}
+                      onChange={(e) => setShapeSettings(p => ({ ...p, stroke: e.target.value }))}
+                      className="w-full h-10 rounded-lg cursor-pointer border border-gray-200"
+                    />
+                    <label className="text-xs font-medium text-gray-700">Border Width: {shapeSettings.strokeWidth}px</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      value={shapeSettings.strokeWidth}
+                      onChange={(e) => setShapeSettings(p => ({ ...p, strokeWidth: parseInt(e.target.value) }))}
+                      className="w-full accent-gray-900"
+                    />
+                    <button
+                      onClick={addTextToShape}
+                      className="w-full py-2 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-all text-sm"
+                    >
+                      Add Text to Selected Shape
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-2 pt-2">
+                  {stickers.filter(s => s.category === selectedStickerCategory).map(sticker => (
+                    <button
+                      key={sticker.id}
+                      className="aspect-square bg-gray-50 rounded-xl hover:bg-gray-100 transition-all flex items-center justify-center text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300"
+                      title={sticker.name}
+                    >
+                      {sticker.icon}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           
@@ -2171,10 +2555,24 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
         {/* Toolbar */}
         <div className="bg-brand-dark px-4 py-3 flex items-center gap-4 border-b border-brand-medium">
           <div className="flex gap-1">
-            <button className="p-2.5 text-brand-light hover:text-white hover:bg-brand-medium rounded-lg transition-all" title="Undo">
+            <button 
+              onClick={undo}
+              disabled={historyRef.current.index <= 0}
+              className={`p-2.5 text-brand-light hover:text-white hover:bg-brand-medium rounded-lg transition-all ${
+                historyRef.current.index <= 0 ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              title="Undo"
+            >
               <Undo2 className="w-5 h-5" />
             </button>
-            <button className="p-2.5 text-brand-light hover:text-white hover:bg-brand-medium rounded-lg transition-all" title="Redo">
+            <button 
+              onClick={redo}
+              disabled={historyRef.current.index >= historyRef.current.history.length - 1}
+              className={`p-2.5 text-brand-light hover:text-white hover:bg-brand-medium rounded-lg transition-all ${
+                historyRef.current.index >= historyRef.current.history.length - 1 ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              title="Redo"
+            >
               <Redo2 className="w-5 h-5" />
             </button>
           </div>

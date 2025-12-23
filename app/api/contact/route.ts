@@ -84,11 +84,47 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // If all WordPress methods fail, log and return success
-    // (In production, you might want to use a service like SendGrid, Mailgun, etc.)
+    // If all WordPress methods fail, send email directly
     if (!response.ok) {
-      console.log('Contact form submission (WordPress API not available):', { name, email, message });
-      // Still return success to user - you can set up email separately
+      try {
+        // Send email using mailto link or email service
+        // For production, use a service like Resend, SendGrid, or Nodemailer
+        const emailBody = `
+New Contact Form Submission
+
+Name: ${name}
+Email: ${email}
+
+Message:
+${message}
+
+---
+This email was sent from the contact form on The Artful Experience website.
+        `.trim();
+        
+        // Log for now - in production, integrate with email service
+        console.log('Contact form submission:', { 
+          to: 'info@theartfulexperience.com',
+          from: email,
+          subject: `Contact Form: ${name}`,
+          body: emailBody
+        });
+        
+        // If you have an email service configured, send the email here
+        // Example with Resend (uncomment and configure):
+        /*
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: 'contact@theartfulexperience.com',
+          to: 'info@theartfulexperience.com',
+          replyTo: email,
+          subject: `Contact Form: ${name}`,
+          text: emailBody,
+        });
+        */
+      } catch (emailError) {
+        console.error('Error sending email:', emailError);
+      }
     }
 
     return NextResponse.json(

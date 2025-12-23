@@ -4,6 +4,8 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { X, ArrowLeft } from "lucide-react";
 
 // Dynamic import to avoid SSR issues with Fabric.js
 const DesignEditor = dynamic(
@@ -36,15 +38,19 @@ function CustomizeContent() {
   const { addToCart } = useCart();
 
   const productId = searchParams.get("product_id") || "";
-  const productType = searchParams.get("product_type") || "print";
+  const initialProductType = searchParams.get("product_type") || "";
   const productName = searchParams.get("product_name") || "Product";
   const basePrice = parseFloat(searchParams.get("price") || "0");
   const fromHero = searchParams.get("from_hero") === "true";
   const heroImages = searchParams.get("images")?.split(',').filter(Boolean) || [];
   const heroMessage = searchParams.get("message") || "";
 
-  // Step tracking
-  const [currentStep, setCurrentStep] = useState(1);
+  // Step tracking - NEW FLOW: 1=Product Selection, 2=Variants, 3=Design Editor, 4=ArtKey
+  const [currentStep, setCurrentStep] = useState(initialProductType ? 2 : 1);
+  
+  // Product selection state
+  const [selectedProductType, setSelectedProductType] = useState<string>(initialProductType || "");
+  const productType = selectedProductType || initialProductType || "print";
   
   // Design data from Gelato editor
   const [designData, setDesignData] = useState<DesignData | null>(null);
@@ -97,7 +103,17 @@ function CustomizeContent() {
   const handleDesignComplete = (data: DesignData) => {
     setDesignData(data);
     setShowStudio(false);
-    setCurrentStep(2); // Move to product options
+    // Automatically proceed to ArtKey Portal
+    handleContinueToArtKey();
+  };
+  
+  const handleProductSelect = (type: string) => {
+    setSelectedProductType(type);
+    setCurrentStep(2); // Move to variants selection
+  };
+  
+  const handleVariantsComplete = () => {
+    setCurrentStep(3); // Move to Design Editor
   };
 
   // Product-specific options
@@ -163,7 +179,7 @@ function CustomizeContent() {
         const frame = frameColors.find(f => f.name === frameColor);
         if (frame) total += frame.price + 20; // Base frame cost
       }
-    } else if (productType === "card") {
+    } else if (productType === "card" || productType === "invitation" || productType === "announcement") {
       if (selectedSize) {
         const size = cardSizes.find(s => s.name === selectedSize);
         if (size) total = size.price;
@@ -182,6 +198,7 @@ function CustomizeContent() {
   };
 
   const handleContinueToArtKey = () => {
+    // This is called from Design Editor completion (step 3 -> step 4)
     // Save customization to session/cart
     const customization = {
       productId,
@@ -225,7 +242,7 @@ function CustomizeContent() {
   const canProceed = () => {
     if (productType === "print") {
       return selectedSize && selectedMaterial && isFramed !== null && (!isFramed || frameColor);
-    } else if (productType === "card") {
+    } else if (productType === "card" || productType === "invitation" || productType === "announcement") {
       return selectedSize && selectedCardPaper && hasFoil !== null && (!hasFoil || selectedFoilColor);
     }
     return false;
@@ -236,27 +253,57 @@ function CustomizeContent() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-          <h1 className="text-3xl font-bold text-brand-darkest mb-2 font-playfair">
-            Customize Your {productName}
-          </h1>
-          <p className="text-brand-dark">
-            Start in the design editor, then pick options and finish in the ArtKey portal.
-          </p>
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-brand-darkest mb-2 font-playfair">
+                {currentStep === 1 ? "Choose Your Product" : 
+                 currentStep === 2 ? `Customize Your ${productType === "card" ? "Card" : productType === "invitation" ? "Invitation" : productType === "announcement" ? "Announcement" : "Art Print"}` :
+                 currentStep === 3 ? "Design Your Product" :
+                 "Create Your ArtKey Portal"}
+              </h1>
+              <p className="text-brand-dark">
+                Choose your product, customize it, design it, and add your ArtKey portal.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 ml-4">
+              {currentStep > 1 && (
+                <button
+                  onClick={() => setCurrentStep(currentStep - 1)}
+                  className="p-2 text-brand-dark hover:text-brand-darkest hover:bg-brand-lightest rounded-lg transition-colors"
+                  title="Go back"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+              )}
+              <Link
+                href="/"
+                className="p-2 text-brand-dark hover:text-brand-darkest hover:bg-brand-lightest rounded-lg transition-colors"
+                title="Back to homepage"
+              >
+                <X className="w-5 h-5" />
+              </Link>
+            </div>
+          </div>
           
           {/* Step Indicator */}
-          <div className="flex items-center justify-center mt-6 gap-2">
+          <div className="flex items-center justify-center mt-6 gap-2 flex-wrap">
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 1 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
               <span className={`w-6 h-6 rounded-full ${currentStep >= 1 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>1</span>
-              <span className="hidden sm:inline">Design Editor</span>
+              <span className="hidden sm:inline">Product</span>
             </div>
             <div className="w-8 h-0.5 bg-gray-300"></div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 2 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
               <span className={`w-6 h-6 rounded-full ${currentStep >= 2 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>2</span>
-              <span className="hidden sm:inline">Product Options</span>
+              <span className="hidden sm:inline">Variants</span>
             </div>
             <div className="w-8 h-0.5 bg-gray-300"></div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 3 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
               <span className={`w-6 h-6 rounded-full ${currentStep >= 3 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>3</span>
+              <span className="hidden sm:inline">Design</span>
+            </div>
+            <div className="w-8 h-0.5 bg-gray-300"></div>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 4 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
+              <span className={`w-6 h-6 rounded-full ${currentStep >= 4 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>4</span>
               <span className="hidden sm:inline">ArtKey</span>
             </div>
           </div>
@@ -277,44 +324,59 @@ function CustomizeContent() {
           />
         )}
 
-        {/* Step 1: Design editor opens first */}
+        {/* Step 1: Product Selection */}
         {currentStep === 1 && (
           <div className="space-y-6">
-            {/* If coming from hero with images, auto-open studio */}
-            {fromHero && initialImages.length > 0 && !showStudio && (
-              <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-                <p className="text-brand-dark mb-4">Opening design editor with your selected images...</p>
-                <button
-                  onClick={() => setShowStudio(true)}
-                  className="px-6 py-3 rounded-full font-semibold bg-brand-dark text-white hover:bg-brand-darkest transition-all shadow-md"
-                >
-                  Open Design Editor
-                </button>
-              </div>
-            )}
-            
-            {/* Design Editor Button */}
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
-                Design Your Product
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <h2 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair text-center">
+                Choose Your Product
               </h2>
-              <p className="text-brand-dark mb-4">
-                Start by opening the design editor to upload your image and create your design. 
-                You&apos;ll be able to choose size and other options in the next step.
-              </p>
-              <div className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Cards */}
                 <button
-                  onClick={() => setShowStudio(true)}
-                  className="px-8 py-4 rounded-full font-semibold bg-brand-dark text-white hover:bg-brand-darkest transition-all shadow-md text-lg"
+                  onClick={() => handleProductSelect("card")}
+                  className="p-8 rounded-2xl border-2 border-brand-light hover:border-brand-dark transition-all text-left hover:shadow-lg"
                 >
-                  {fromHero && initialImages.length > 0 ? 'Open Design Editor' : 'Open Design Editor'}
+                  <div className="text-5xl mb-4">💌</div>
+                  <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Cards</h3>
+                  <p className="text-brand-dark">Greeting cards, invitations, and announcements</p>
+                </button>
+                
+                {/* Invitations */}
+                <button
+                  onClick={() => handleProductSelect("invitation")}
+                  className="p-8 rounded-2xl border-2 border-brand-light hover:border-brand-dark transition-all text-left hover:shadow-lg"
+                >
+                  <div className="text-5xl mb-4">🎉</div>
+                  <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Invitations</h3>
+                  <p className="text-brand-dark">Event invitations with premium finishes</p>
+                </button>
+                
+                {/* Announcements */}
+                <button
+                  onClick={() => handleProductSelect("announcement")}
+                  className="p-8 rounded-2xl border-2 border-brand-light hover:border-brand-dark transition-all text-left hover:shadow-lg"
+                >
+                  <div className="text-5xl mb-4">📢</div>
+                  <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Announcements</h3>
+                  <p className="text-brand-dark">Birth announcements, graduations, and more</p>
+                </button>
+                
+                {/* Art Prints */}
+                <button
+                  onClick={() => handleProductSelect("print")}
+                  className="p-8 rounded-2xl border-2 border-brand-light hover:border-brand-dark transition-all text-left hover:shadow-lg"
+                >
+                  <div className="text-5xl mb-4">🖼️</div>
+                  <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Art Prints</h3>
+                  <p className="text-brand-dark">Wall art prints, framed or unframed</p>
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Step 2: Product Options */}
+        {/* Step 2: Product Variants */}
         {currentStep === 2 && (
           <div className="space-y-6">
             {/* Image Preview */}
@@ -473,8 +535,8 @@ function CustomizeContent() {
             </>
           )}
 
-          {/* Card-specific options */}
-          {productType === "card" && (
+          {/* Card/Invitation/Announcement-specific options */}
+          {(productType === "card" || productType === "invitation" || productType === "announcement") && (
             <>
               {/* Size Selection */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
@@ -704,7 +766,7 @@ function CustomizeContent() {
               </p>
             )}
             <button
-              onClick={handleContinueToArtKey}
+              onClick={handleVariantsComplete}
               disabled={!canProceed()}
               className={`w-full py-4 rounded-full font-bold text-lg transition-all shadow-lg ${
                 canProceed()
@@ -712,11 +774,36 @@ function CustomizeContent() {
                   : "bg-gray-400 text-gray-200 cursor-not-allowed"
               }`}
             >
-              🎨 Continue to ArtKey Editor
+              🎨 Continue to Design Editor
             </button>
           </div>
         </div>
         </div>
+        )}
+
+        {/* Step 3: Design Editor */}
+        {currentStep === 3 && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
+                Design Your {productType === "card" ? "Card" : productType === "invitation" ? "Invitation" : productType === "announcement" ? "Announcement" : "Art Print"}
+              </h2>
+              <p className="text-brand-dark mb-4">
+                Upload your image and customize your design. You&apos;ll add your ArtKey portal in the next step.
+              </p>
+              <div className="mt-4">
+                <button
+                  onClick={() => setShowStudio(true)}
+                  className="px-8 py-4 rounded-full font-semibold bg-brand-dark text-white hover:bg-brand-darkest transition-all shadow-md text-lg"
+                >
+                  Open Design Editor
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: ArtKey Portal (handled by handleContinueToArtKey) */}
         )}
       </div>
     </div>
