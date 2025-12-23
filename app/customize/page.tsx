@@ -45,8 +45,11 @@ function CustomizeContent() {
   const heroImages = searchParams.get("images")?.split(',').filter(Boolean) || [];
   const heroMessage = searchParams.get("message") || "";
 
-  // Step tracking - NEW FLOW: 1=Product Selection, 2=Options, 3=Design Editor, 4=ArtKey
-  const [currentStep, setCurrentStep] = useState(initialProductType ? 2 : 1);
+  // Step tracking - NEW FLOW: 1=Upload Image, 2=Product Selection, 3=Options, 4=Design Editor, 5=ArtKey™
+  const [currentStep, setCurrentStep] = useState(heroImages.length > 0 ? 2 : 1);
+  
+  // Uploaded images state
+  const [uploadedImages, setUploadedImages] = useState<string[]>(heroImages);
   
   // Product selection state
   const [selectedProductType, setSelectedProductType] = useState<string>(initialProductType || "");
@@ -55,7 +58,7 @@ function CustomizeContent() {
   // Design data from Gelato editor
   const [designData, setDesignData] = useState<DesignData | null>(null);
   
-  // Initial images from hero
+  // Initial images for design editor (from uploaded images)
   const [initialImages, setInitialImages] = useState<string[]>(heroImages);
 
   // State for customization options
@@ -103,17 +106,55 @@ function CustomizeContent() {
   const handleDesignComplete = (data: DesignData) => {
     setDesignData(data);
     setShowStudio(false);
-    // Automatically proceed to ArtKey Portal
+    // Automatically proceed to ArtKey Portal (Step 5)
+    setCurrentStep(5);
     handleContinueToArtKey();
   };
   
+  // Handle image upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const fileArray = Array.from(files);
+    const newImages: string[] = [];
+    let loadedCount = 0;
+    
+    fileArray.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        newImages.push(dataUrl);
+        loadedCount++;
+        
+        if (loadedCount === fileArray.length) {
+          const allImages = [...uploadedImages, ...newImages];
+          setUploadedImages(allImages);
+          setInitialImages(allImages);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+  
+  const handleUploadComplete = () => {
+    if (uploadedImages.length > 0) {
+      setCurrentStep(2); // Move to product selection
+    }
+  };
+  
   const handleProductSelect = (type: string) => {
+    if (type === "ideas") {
+      // For Ideas, redirect to gallery for inspiration
+      router.push('/gallery');
+      return;
+    }
     setSelectedProductType(type);
-    setCurrentStep(2); // Move to options selection
+    setCurrentStep(3); // Move to options selection
   };
   
   const handleVariantsComplete = () => {
-    setCurrentStep(3); // Move to Design Editor
+    setCurrentStep(4); // Move to Design Editor
   };
 
   // Product-specific options
@@ -268,17 +309,18 @@ function CustomizeContent() {
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-brand-darkest mb-2 font-playfair">
-                {currentStep === 1 ? "Choose Your Product" : 
-                 currentStep === 2 ? `Customize Your ${productType === "card" ? "Card" : productType === "invitation" ? "Invitation" : productType === "announcement" ? "Announcement" : productType === "postcard" ? "Post Card" : "Art Print"}` :
-                 currentStep === 3 ? "Design Your Product" :
+                {currentStep === 1 ? "Upload Your Image" : 
+                 currentStep === 2 ? "Choose Your Product" : 
+                 currentStep === 3 ? `Customize Your ${productType === "card" ? "Card" : productType === "invitation" ? "Invitation" : productType === "announcement" ? "Announcement" : productType === "postcard" ? "Postcard" : productType === "ideas" ? "Idea" : "Wall Art"}` :
+                 currentStep === 4 ? "Design Your Product" :
                  "Create Your ArtKey™ Portal"}
               </h1>
               <p className="text-brand-dark">
-                Choose your product, customize it, design it, and add your ArtKey™ portal.
+                Upload your image, choose your product, select options, design it, and add your ArtKey™ portal.
               </p>
             </div>
             <div className="flex items-center gap-2 ml-4">
-              {currentStep > 1 && (
+              {currentStep > 1 && currentStep < 5 && (
                 <button
                   onClick={() => setCurrentStep(currentStep - 1)}
                   className="p-2 text-brand-dark hover:text-brand-darkest hover:bg-brand-lightest rounded-lg transition-colors"
@@ -301,22 +343,27 @@ function CustomizeContent() {
           <div className="flex items-center justify-center mt-6 gap-2 flex-wrap">
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 1 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
               <span className={`w-6 h-6 rounded-full ${currentStep >= 1 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>1</span>
-              <span className="hidden sm:inline">Product</span>
+              <span className="hidden sm:inline">Upload</span>
             </div>
             <div className="w-8 h-0.5 bg-gray-300"></div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 2 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
               <span className={`w-6 h-6 rounded-full ${currentStep >= 2 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>2</span>
-              <span className="hidden sm:inline">Options</span>
+              <span className="hidden sm:inline">Product</span>
             </div>
             <div className="w-8 h-0.5 bg-gray-300"></div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 3 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
               <span className={`w-6 h-6 rounded-full ${currentStep >= 3 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>3</span>
-              <span className="hidden sm:inline">Design</span>
+              <span className="hidden sm:inline">Options</span>
             </div>
             <div className="w-8 h-0.5 bg-gray-300"></div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 4 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
               <span className={`w-6 h-6 rounded-full ${currentStep >= 4 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>4</span>
-              <span className="hidden sm:inline">ArtKey</span>
+              <span className="hidden sm:inline">Design</span>
+            </div>
+            <div className="w-8 h-0.5 bg-gray-300"></div>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 5 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
+              <span className={`w-6 h-6 rounded-full ${currentStep >= 5 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>5</span>
+              <span>ArtKey™</span>
             </div>
           </div>
         </div>
@@ -327,7 +374,7 @@ function CustomizeContent() {
             productType={productType as 'canvas' | 'print' | 'card' | 'poster' | 'photobook'}
             productSize={getStudioSize()}
             onComplete={handleDesignComplete}
-            initialImages={initialImages}
+            initialImages={uploadedImages}
             initialMessage={heroMessage}
             onClose={() => {
               console.log('Closing design editor');
@@ -336,8 +383,69 @@ function CustomizeContent() {
           />
         )}
 
-        {/* Step 1: Product Selection */}
+        {/* Step 1: Upload Image */}
         {currentStep === 1 && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <h2 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair text-center">
+                Upload Your Image
+              </h2>
+              <p className="text-brand-dark text-center mb-6">
+                Start by uploading the image you&apos;d like to use for your product
+              </p>
+              
+              <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-12 cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-all">
+                <div className="text-6xl mb-4">📤</div>
+                <span className="text-lg font-medium text-gray-700 mb-2">Click to upload or drag and drop</span>
+                <span className="text-sm text-gray-500">JPG, PNG, SVG, GIF, WebP</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  multiple 
+                  onChange={handleImageUpload} 
+                  className="hidden" 
+                />
+              </label>
+              
+              {uploadedImages.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-brand-darkest mb-4">Uploaded Images</h3>
+                  <div className="grid grid-cols-3 gap-4 mb-6">
+                    {uploadedImages.map((img, i) => (
+                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200">
+                        <img src={img} alt={`Uploaded ${i + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => {
+                            const newImages = uploadedImages.filter((_, idx) => idx !== i);
+                            setUploadedImages(newImages);
+                            setInitialImages(newImages);
+                          }}
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={handleUploadComplete}
+                    disabled={uploadedImages.length === 0}
+                    className={`w-full py-4 rounded-full font-bold text-lg transition-all shadow-lg ${
+                      uploadedImages.length > 0
+                        ? "bg-brand-medium text-white hover:bg-brand-light"
+                        : "bg-gray-400 text-gray-200 cursor-not-allowed"
+                    }`}
+                  >
+                    Continue to Product Selection
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Product Selection */}
+        {currentStep === 2 && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <h2 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair text-center">
@@ -351,7 +459,33 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">💌</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Cards</h3>
-                  <p className="text-brand-dark">Everyday notes for birthdays, thanks, and holidays</p>
+                  <p className="text-brand-dark mb-3">Everyday greeting cards for notes and moments</p>
+                  <div className="text-xs text-brand-medium space-y-1">
+                    <p>• Birthday card</p>
+                    <p>• Thank you card</p>
+                    <p>• Holiday greeting card</p>
+                    <p>• Sympathy card</p>
+                    <p>• Thinking of you card</p>
+                    <p>• Congratulations card</p>
+                  </div>
+                </button>
+                
+                {/* Postcards */}
+                <button
+                  onClick={() => handleProductSelect("postcard")}
+                  className="p-8 rounded-2xl border-2 border-brand-light hover:border-brand-dark transition-all text-left hover:shadow-lg"
+                >
+                  <div className="text-5xl mb-4">📮</div>
+                  <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Postcards</h3>
+                  <p className="text-brand-dark mb-3">Mail-ready postcards with a writable back</p>
+                  <div className="text-xs text-brand-medium space-y-1">
+                    <p>• Holiday postcard</p>
+                    <p>• Thank you postcard</p>
+                    <p>• Vacation/travel postcard</p>
+                    <p>• New home &quot;We moved&quot; postcard</p>
+                    <p>• Photo collage postcard</p>
+                    <p>• Promo postcard (small mailer)</p>
+                  </div>
                 </button>
                 
                 {/* Invitations */}
@@ -361,7 +495,15 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">🎉</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Invitations</h3>
-                  <p className="text-brand-dark">Event invites with RSVP-ready options and upgrades</p>
+                  <p className="text-brand-dark mb-3">Event invitations designed to gather your people</p>
+                  <div className="text-xs text-brand-medium space-y-1">
+                    <p>• Wedding invitation</p>
+                    <p>• Birthday party invitation</p>
+                    <p>• Baby shower invitation</p>
+                    <p>• Graduation party invitation</p>
+                    <p>• Corporate event invitation</p>
+                    <p>• Holiday party invitation</p>
+                  </div>
                 </button>
                 
                 {/* Announcements */}
@@ -371,35 +513,57 @@ function CustomizeContent() {
                 >
                   <div className="text-5xl mb-4">📢</div>
                   <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Announcements</h3>
-                  <p className="text-brand-dark">Share life updates like Weddings, Births, Graduations, and more.</p>
+                  <p className="text-brand-dark mb-3">Share life updates and milestone news beautifully</p>
+                  <div className="text-xs text-brand-medium space-y-1">
+                    <p>• Birth announcement</p>
+                    <p>• Graduation announcement</p>
+                    <p>• Engagement announcement</p>
+                    <p>• Wedding announcement</p>
+                    <p>• New home announcement</p>
+                    <p>• Memorial/celebration of life announcement</p>
+                  </div>
                 </button>
                 
-                {/* Post Cards */}
-                <button
-                  onClick={() => handleProductSelect("postcard")}
-                  className="p-8 rounded-2xl border-2 border-brand-light hover:border-brand-dark transition-all text-left hover:shadow-lg"
-                >
-                  <div className="text-5xl mb-4">📮</div>
-                  <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Post Cards</h3>
-                  <p className="text-brand-dark">Send a quick hello, ready to mail</p>
-                </button>
-                
-                {/* Art Prints */}
+                {/* Wall Art */}
                 <button
                   onClick={() => handleProductSelect("print")}
                   className="p-8 rounded-2xl border-2 border-brand-light hover:border-brand-dark transition-all text-left hover:shadow-lg"
                 >
                   <div className="text-5xl mb-4">🖼️</div>
-                  <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Art Prints</h3>
-                  <p className="text-brand-dark">Prints for walls, framed or unframed, in premium materials.</p>
+                  <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Wall Art</h3>
+                  <p className="text-brand-dark mb-3">Premium prints for your walls, framed or unframed</p>
+                  <div className="text-xs text-brand-medium space-y-1">
+                    <p>• Photo print (wall-ready)</p>
+                    <p>• Canvas print</p>
+                    <p>• Framed art print</p>
+                    <p>• Poster print</p>
+                    <p>• Metal print</p>
+                    <p>• Mounted print</p>
+                  </div>
+                </button>
+                
+                {/* Ideas */}
+                <button
+                  onClick={() => handleProductSelect("ideas")}
+                  className="p-8 rounded-2xl border-2 border-brand-light hover:border-brand-dark transition-all text-left hover:shadow-lg"
+                >
+                  <div className="text-5xl mb-4">💡</div>
+                  <h3 className="text-xl font-bold text-brand-darkest mb-2 font-playfair">Ideas</h3>
+                  <p className="text-brand-dark mb-3">Get inspired with creative ideas and examples</p>
+                  <div className="text-xs text-brand-medium space-y-1">
+                    <p>• Browse design inspiration</p>
+                    <p>• View example projects</p>
+                    <p>• Explore creative possibilities</p>
+                    <p>• Get design tips and ideas</p>
+                  </div>
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Step 2: Product Variants */}
-        {currentStep === 2 && (
+        {/* Step 3: Product Options */}
+        {currentStep === 3 && (
           <div className="space-y-6">
             {/* Image Preview */}
             {designData?.imageDataUrl && (
@@ -865,20 +1029,35 @@ function CustomizeContent() {
         </div>
         )}
 
-        {/* Step 3: Design Editor */}
-        {currentStep === 3 && (
+        {/* Step 4: Design Editor */}
+        {currentStep === 4 && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
                 Design Your Product
               </h2>
               <p className="text-brand-dark mb-4">
-                Upload your image and customize your design. You&apos;ll add your ArtKey™ portal in the next step.
+                Customize your design with the image you uploaded. You&apos;ll add your ArtKey™ portal in the next step.
               </p>
+              {uploadedImages.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm text-brand-dark mb-2">Your uploaded images:</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {uploadedImages.map((img, i) => (
+                      <img key={i} src={img} alt={`Uploaded ${i + 1}`} className="aspect-square rounded-lg object-cover border-2 border-gray-200" />
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="mt-4">
                 <button
                   onClick={() => setShowStudio(true)}
-                  className="px-8 py-4 rounded-full font-semibold bg-brand-dark text-white hover:bg-brand-darkest transition-all shadow-md text-lg"
+                  disabled={uploadedImages.length === 0}
+                  className={`px-8 py-4 rounded-full font-semibold transition-all shadow-md text-lg ${
+                    uploadedImages.length > 0
+                      ? "bg-brand-dark text-white hover:bg-brand-darkest"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
                 >
                   Open Design Editor
                 </button>
@@ -887,7 +1066,7 @@ function CustomizeContent() {
           </div>
         )}
 
-        {/* Step 4: ArtKey Portal (handled by handleContinueToArtKey) */}
+        {/* Step 5: ArtKey™ Portal (handled by handleContinueToArtKey) */}
         )}
       </div>
     </div>

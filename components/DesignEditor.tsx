@@ -478,9 +478,22 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
   
   // Calculate canvas dimensions (300 DPI for print quality)
   const DPI = 300;
-  const canvasWidth = productSize.width * DPI;
+  
+  // For cards/invitations/announcements, calculate unfolded dimensions (folded size * 2 width for front+back)
+  // Canvas represents the full unfolded/flat design area
+  const canvasWidth = isFoldedProduct 
+    ? (productSize.width * 2 * DPI) // Unfolded width (front + back side by side)
+    : (productSize.width * DPI);
   const canvasHeight = productSize.height * DPI;
   const displayScale = 0.15;
+  
+  // Multi-surface state for cards (front, back, inside)
+  const [activeSurface, setActiveSurface] = useState<'front' | 'back' | 'inside'>('front');
+  const [surfaceDesigns, setSurfaceDesigns] = useState<{
+    front: fabric.Object[];
+    back: fabric.Object[];
+    inside: fabric.Object[];
+  }>({ front: [], back: [], inside: [] });
   
   // =============================================================================
   // INITIALIZE CANVAS
@@ -562,10 +575,27 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
   };
   
   const addImageToCanvas = async (imageUrl: string) => {
-    if (!fabricRef.current) return;
+    if (!fabricRef.current) {
+      console.error('Canvas not initialized');
+      return;
+    }
     
     try {
       const canvas = fabricRef.current!;
+      
+      // For folded products, position image based on active surface
+      let imageLeft = canvas.width! / 2;
+      if (isFoldedProduct) {
+        const surfaceWidth = canvas.width! / 2; // Each surface is half the canvas width
+        if (activeSurface === 'front') {
+          imageLeft = surfaceWidth / 2; // Left half (front)
+        } else if (activeSurface === 'back') {
+          imageLeft = surfaceWidth + (surfaceWidth / 2); // Right half (back)
+        } else {
+          // Inside - can span both or be centered
+          imageLeft = canvas.width! / 2;
+        }
+      }
       
       // Check if it's an SVG file
       const isSVG = imageUrl.startsWith('data:image/svg+xml') || imageUrl.endsWith('.svg') || imageUrl.includes('<svg');
@@ -579,22 +609,24 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
               fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' })
                 .then(img => {
                   const scale = Math.min(
-                    (canvas.width! * 0.5) / (img.width || 100),
-                    (canvas.height! * 0.5) / (img.height || 100)
+                    (canvas.width! * 0.4) / (img.width || 100),
+                    (canvas.height! * 0.4) / (img.height || 100)
                   );
                   
                   img.set({
-                    left: canvas.width! / 2,
+                    left: imageLeft,
                     top: canvas.height! / 2,
                     originX: 'center',
                     originY: 'center',
                     scaleX: scale,
                     scaleY: scale,
+                    data: { surface: activeSurface }, // Tag with surface for folded products
                   });
                   
                   canvas.add(img);
                   canvas.setActiveObject(img);
                   canvas.renderAll();
+                  saveState();
                   resolve();
                 })
                 .catch(reject);
@@ -603,44 +635,48 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
             
             // Create a group from SVG objects
             const svgGroup = new fabric.Group(objects, {
-              left: canvas.width! / 2,
+              left: imageLeft,
               top: canvas.height! / 2,
               originX: 'center',
               originY: 'center',
+              data: { surface: activeSurface },
             });
             
             // Scale to fit canvas
             const scale = Math.min(
-              (canvas.width! * 0.5) / (svgGroup.width || 100),
-              (canvas.height! * 0.5) / (svgGroup.height || 100)
+              (canvas.width! * 0.4) / (svgGroup.width || 100),
+              (canvas.height! * 0.4) / (svgGroup.height || 100)
             );
             
             svgGroup.scale(scale);
             canvas.add(svgGroup);
             canvas.setActiveObject(svgGroup);
             canvas.renderAll();
+            saveState();
             resolve();
           }, (error) => {
             // Fallback to regular image loading
             fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' })
               .then(img => {
                 const scale = Math.min(
-                  (canvas.width! * 0.5) / (img.width || 100),
-                  (canvas.height! * 0.5) / (img.height || 100)
+                  (canvas.width! * 0.4) / (img.width || 100),
+                  (canvas.height! * 0.4) / (img.height || 100)
                 );
                 
                 img.set({
-                  left: canvas.width! / 2,
+                  left: imageLeft,
                   top: canvas.height! / 2,
                   originX: 'center',
                   originY: 'center',
                   scaleX: scale,
                   scaleY: scale,
+                  data: { surface: activeSurface },
                 });
                 
                 canvas.add(img);
                 canvas.setActiveObject(img);
                 canvas.renderAll();
+                saveState();
                 resolve();
               })
               .catch(reject);
@@ -650,22 +686,24 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
         // Regular image (PNG, JPG, etc.)
         const img = await fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' });
         const scale = Math.min(
-          (canvas.width! * 0.5) / (img.width || 100),
-          (canvas.height! * 0.5) / (img.height || 100)
+          (canvas.width! * 0.4) / (img.width || 100),
+          (canvas.height! * 0.4) / (img.height || 100)
         );
         
         img.set({
-          left: canvas.width! / 2,
+          left: imageLeft,
           top: canvas.height! / 2,
           originX: 'center',
           originY: 'center',
           scaleX: scale,
           scaleY: scale,
+          data: { surface: activeSurface }, // Tag with surface for folded products
         });
         
         canvas.add(img);
         canvas.setActiveObject(img);
         canvas.renderAll();
+        saveState();
       }
     } catch (error) {
       console.error('Error loading image:', error);
@@ -675,12 +713,23 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
   
   // Load initial images when component mounts and canvas is ready
   useEffect(() => {
-    if (initialImages.length > 0 && fabricRef.current && uploadedImages.length === 0) {
-      // Auto-add first image to canvas if provided
-      addImageToCanvas(initialImages[0]);
+    if (initialImages.length > 0 && fabricRef.current) {
+      // Sync uploadedImages with initialImages
+      if (uploadedImages.length !== initialImages.length || 
+          uploadedImages.some((img, idx) => img !== initialImages[idx])) {
+        setUploadedImages([...initialImages]);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialImages.length, uploadedImages.length]);
+  }, [initialImages]);
+  
+  // Ensure canvas is ready before adding images
+  useEffect(() => {
+    if (fabricRef.current && uploadedImages.length > 0) {
+      // Canvas is ready and images are available
+      console.log('Canvas ready with', uploadedImages.length, 'images available');
+    }
+  }, [fabricRef.current, uploadedImages.length]);
   
   // =============================================================================
   // TEXT HANDLING
@@ -2612,10 +2661,67 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
           </button>
         </div>
         
-        {/* Canvas Container */}
-        <div className="flex-1 flex items-center justify-center p-8 overflow-auto bg-white">
-          <div style={{ transform: `scale(${zoom})`, transformOrigin: 'center', filter: selectedFilter.css }}>
-            <canvas ref={canvasRef} className="shadow-2xl rounded-lg bg-white" />
+        {/* Canvas Container - This is the workspace representing the print area */}
+        <div className="flex-1 flex flex-col items-center justify-center p-8 overflow-auto bg-gray-100">
+          {/* Surface Tabs for Folded Products */}
+          {isFoldedProduct && (
+            <div className="mb-4 flex gap-2 bg-white rounded-lg p-1 shadow-md">
+              <button
+                onClick={() => setActiveSurface('front')}
+                className={`px-4 py-2 rounded-md font-medium transition-all ${
+                  activeSurface === 'front'
+                    ? 'bg-brand-dark text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Front
+              </button>
+              <button
+                onClick={() => setActiveSurface('back')}
+                className={`px-4 py-2 rounded-md font-medium transition-all ${
+                  activeSurface === 'back'
+                    ? 'bg-brand-dark text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Back
+              </button>
+              <button
+                onClick={() => setActiveSurface('inside')}
+                className={`px-4 py-2 rounded-md font-medium transition-all ${
+                  activeSurface === 'inside'
+                    ? 'bg-brand-dark text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Inside
+              </button>
+            </div>
+          )}
+          
+          {/* Canvas Workspace - Represents the print area */}
+          <div className="bg-white p-4 rounded-lg shadow-2xl">
+            <div className="text-xs text-gray-500 mb-2 text-center">
+              {isFoldedProduct 
+                ? `Unfolded design area (${productSize.width * 2}" × ${productSize.height}") - ${activeSurface} surface`
+                : `Print area (${productSize.width}" × ${productSize.height}")`}
+            </div>
+            <div style={{ transform: `scale(${zoom})`, transformOrigin: 'center', filter: selectedFilter.css }}>
+              {isFoldedProduct && (
+                <div className="relative" style={{ width: canvasWidth * displayScale, height: canvasHeight * displayScale }}>
+                  {/* Fold line indicator */}
+                  <div 
+                    className="absolute top-0 bottom-0 border-l-2 border-dashed border-blue-400 opacity-50 pointer-events-none"
+                    style={{ left: `${50}%` }}
+                    title="Fold line"
+                  />
+                  {/* Surface labels */}
+                  <div className="absolute top-2 left-2 text-xs text-gray-400 pointer-events-none">Front</div>
+                  <div className="absolute top-2 right-2 text-xs text-gray-400 pointer-events-none">Back</div>
+                </div>
+              )}
+              <canvas ref={canvasRef} className="shadow-lg rounded-lg bg-white" />
+            </div>
           </div>
         </div>
         
