@@ -14,6 +14,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalArtKeys: 0,
     totalDemos: 0,
+    totalProducts: 0,
     loading: true,
   });
 
@@ -34,6 +35,7 @@ export default function AdminDashboard() {
         setStats({
           totalArtKeys: data.totalArtKeys || 0,
           totalDemos: data.totalDemos || 0,
+          totalProducts: data.totalProducts || 0,
           loading: false,
         });
       })
@@ -69,7 +71,7 @@ export default function AdminDashboard() {
       <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Total ArtKeys</h3>
           <p className="text-3xl font-bold text-gray-900">
@@ -81,6 +83,16 @@ export default function AdminDashboard() {
           <h3 className="text-sm font-medium text-gray-500 mb-2">Active Demos</h3>
           <p className="text-3xl font-bold text-gray-900">
             {stats.loading ? '...' : stats.totalDemos}
+          </p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">WooCommerce Products</h3>
+          <p className="text-3xl font-bold text-gray-900">
+            {stats.loading ? '...' : stats.totalProducts}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Published products synced
           </p>
         </div>
 

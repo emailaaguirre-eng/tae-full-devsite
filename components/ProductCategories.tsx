@@ -6,11 +6,11 @@ export default function ProductCategories() {
   const router = useRouter();
 
   const handleShopNow = () => {
-    router.push('/shop');
+    router.push('/customize');
   };
 
   const handleStartCreating = () => {
-    router.push('/shop');
+    router.push('/customize');
   };
   const categories = [
     {

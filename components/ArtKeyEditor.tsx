@@ -553,7 +553,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         if (err.message?.includes('demo mode')) {
           alert('✅ Demo saved successfully!');
           if (redirectToShop) {
-            router.push('/shop');
+            router.push('/customize');
           }
           return;
         }
@@ -586,7 +586,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       }
       
       if (redirectToShop) {
-        router.push('/shop');
+        router.push('/customize');
       }
     } catch (err) {
       console.error('Save failed', err);

@@ -23,7 +23,7 @@ export default function Navbar() {
   };
 
   const handleCartClick = () => {
-    router.push('/shop');
+    router.push('/customize');
   };
 
   return (
@@ -52,7 +52,7 @@ export default function Navbar() {
               </a>
               
               <Link
-                href="/shop"
+                href="/customize"
                 className="text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-sm font-medium font-playfair"
               >
                 Shop
@@ -152,7 +152,7 @@ export default function Navbar() {
               Home
             </a>
             <Link
-              href="/shop"
+              href="/customize"
               className="block text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-base font-medium font-playfair"
               onClick={() => setIsOpen(false)}
             >
