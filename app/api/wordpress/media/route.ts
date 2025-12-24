@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getAllMedia, getMedia, getImageUrl, getImageSizes } from '@/lib/wordpress';
 
+// Mark this route as dynamic
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/wordpress/media
  * Fetch WordPress media/images

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getOrder, updateOrderStatus, addOrderNote, updateOrderMeta } from '@/lib/woocommerce';
 
+// Mark this route as dynamic
+export const dynamic = 'force-dynamic';
+
 /**
  * Get order by ID
  * GET /api/woocommerce/orders?id=123
