@@ -262,6 +262,11 @@ export function getFeaturedImage(post: any) {
  */
 export async function searchContent(query: string) {
   try {
+    if (!WP_URL) {
+      console.warn('WordPress URL not configured, returning empty search results');
+      return [];
+    }
+    
     const response = await fetch(
       `${WP_URL}/wp-json/wp/v2/search?search=${encodeURIComponent(query)}&per_page=10`,
       {
