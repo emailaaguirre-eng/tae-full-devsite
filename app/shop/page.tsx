@@ -60,7 +60,7 @@ function ShopContent() {
   const [selectedProductType, setSelectedProductType] = useState<string>(initialProductType || "");
   const productType = selectedProductType || initialProductType || "print";
   
-  // Design data from Gelato editor
+  // Design data from design editor
   const [designData, setDesignData] = useState<DesignData | null>(null);
   
   // Initial images for design editor (from uploaded images)
@@ -335,7 +335,7 @@ function ShopContent() {
     const params = new URLSearchParams({
       product_id: productId,
       product_type: productType,
-      from_customize: "true",
+      from_shop: "true",
       artkey_id: artKeyId,
     });
     router.push(`/art-key/editor?${params}`);
@@ -1117,7 +1117,6 @@ function ShopContent() {
         )}
 
         {/* Step 5: ArtKey™ Portal (handled by handleContinueToArtKey) */}
-        )}
         </div>
       </div>
       <Footer />
