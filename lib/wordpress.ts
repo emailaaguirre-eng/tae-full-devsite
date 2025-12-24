@@ -442,6 +442,17 @@ export async function getWooCommerceProduct(idOrSlug: string | number) {
  */
 export async function getHeroContent() {
   try {
+    // Check if WP_URL is configured
+    if (!WP_URL) {
+      console.warn('WordPress URL not configured, returning default hero content');
+      return {
+        headline1: 'Every image has a story.',
+        headline2: 'Embedded within is a treasure.',
+        subtitle: 'Where fine art, prints & images\nmeet your personal expression.',
+        description: 'Upload an image or browse our gallery.',
+      };
+    }
+    
     // Try to fetch from a WordPress page called "Home Settings"
     const page = await getPage('home-settings');
     
