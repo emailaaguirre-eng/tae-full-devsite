@@ -15,6 +15,11 @@ const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_PUBLIC_
  */
 export async function getPosts(limit = 10, category?: string | number) {
   try {
+    if (!WP_URL) {
+      console.warn('WordPress URL not configured, returning empty posts array');
+      return [];
+    }
+    
     let url = `${WP_URL}/wp-json/wp/v2/posts?_embed&per_page=${limit}`;
     
     if (category) {
@@ -41,6 +46,11 @@ export async function getPosts(limit = 10, category?: string | number) {
  */
 export async function getPost(slug: string) {
   try {
+    if (!WP_URL) {
+      console.warn('WordPress URL not configured, returning null');
+      return null;
+    }
+    
     const response = await fetch(
       `${WP_URL}/wp-json/wp/v2/posts?slug=${slug}&_embed`,
       {
@@ -65,6 +75,11 @@ export async function getPost(slug: string) {
  */
 export async function getPages() {
   try {
+    if (!WP_URL) {
+      console.warn('WordPress URL not configured, returning empty pages array');
+      return [];
+    }
+    
     const response = await fetch(
       `${WP_URL}/wp-json/wp/v2/pages?_embed`,
       {
