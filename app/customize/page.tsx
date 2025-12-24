@@ -944,7 +944,7 @@ function CustomizeContent() {
           </div>
         </div>
         </div>
-        {/* Step 4: Design Editor */}
+                )}`n`n        {/* Step 4: Design Editor */}
         {currentStep === 4 && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-6">
@@ -978,7 +978,9 @@ function CustomizeContent() {
               </div>
             </div>
           </div>
-        {/* Step 5: ArtKey™ Portal (handled by handleContinueToArtKey) */}
+        )}
+
+        {/* Step 5: ArtKeyT Portal (handled by handleContinueToArtKey) */}
       </div>
     </div>
   );
