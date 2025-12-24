@@ -70,7 +70,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const router = useRouter();
   const { addToCart } = useCart();
   const productId = searchParams.get('product_id');
-  const fromCustomize = searchParams.get('from_customize') === 'true';
+  const fromShop = searchParams.get('from_shop') === 'true' || searchParams.get('from_customize') === 'true'; // Support both for backward compatibility
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Check if user is logged in as admin
@@ -154,11 +154,11 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
   // Load customization data if coming from design editor
   useEffect(() => {
-    if (fromCustomize && typeof window !== 'undefined') {
+    if (fromShop && typeof window !== 'undefined') {
       const stored = sessionStorage.getItem('productCustomization');
       if (stored) setCustomizationData(JSON.parse(stored));
     }
-  }, [fromCustomize]);
+  }, [fromShop]);
 
   // Load product info to check if QR code is needed
   useEffect(() => {
