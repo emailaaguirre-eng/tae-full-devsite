@@ -402,6 +402,10 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
   const [selectedObject, setSelectedObject] = useState<fabric.Object | null>(null);
   const [zoom, setZoom] = useState(1);
   const [backgroundColor, setBackgroundColor] = useState('#ffffff');
+  // Initialize orientation based on product dimensions
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(
+    productSize.width > productSize.height ? 'landscape' : 'portrait'
+  );
   const [selectedFrame, setSelectedFrame] = useState<FrameOption>(frames[0]);
   const [selectedFilter, setSelectedFilter] = useState(advancedFilters[0]);
   const [selectedMood, setSelectedMood] = useState<MoodTheme | null>(null);
@@ -479,12 +483,16 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
   // Calculate canvas dimensions (300 DPI for print quality)
   const DPI = 300;
   
+  // Determine actual dimensions based on orientation
+  const actualWidth = orientation === 'landscape' ? Math.max(productSize.width, productSize.height) : Math.min(productSize.width, productSize.height);
+  const actualHeight = orientation === 'landscape' ? Math.min(productSize.width, productSize.height) : Math.max(productSize.width, productSize.height);
+  
   // For cards/invitations/announcements, calculate unfolded dimensions (folded size * 2 width for front+back)
   // Canvas represents the full unfolded/flat design area
   const canvasWidth = isFoldedProduct 
-    ? (productSize.width * 2 * DPI) // Unfolded width (front + back side by side)
-    : (productSize.width * DPI);
-  const canvasHeight = productSize.height * DPI;
+    ? (actualWidth * 2 * DPI) // Unfolded width (front + back side by side)
+    : (actualWidth * DPI);
+  const canvasHeight = actualHeight * DPI;
   const displayScale = 0.15;
   
   // Multi-surface state for cards (front, back, inside)
@@ -516,7 +524,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
     canvas.on('selection:cleared', () => setSelectedObject(null));
     
     return () => { canvas.dispose(); };
-  }, [canvasWidth, canvasHeight, backgroundColor]);
+  }, [canvasWidth, canvasHeight, backgroundColor, orientation]);
   
   // =============================================================================
   // IMAGE HANDLING
@@ -2651,6 +2659,62 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
             </button>
           </div>
           
+          <div className="w-px h-6 bg-brand-medium" />
+          
+          {/* Orientation Selector */}
+          <div className="flex items-center gap-2 bg-brand-medium/30 rounded-lg p-1">
+            <button
+              onClick={() => {
+                const newOrientation = 'portrait';
+                setOrientation(newOrientation);
+                // Reinitialize canvas with new dimensions
+                if (fabricRef.current) {
+                  const portraitWidth = Math.min(productSize.width, productSize.height) * DPI * displayScale;
+                  const portraitHeight = Math.max(productSize.width, productSize.height) * DPI * displayScale;
+                  const currentObjects = fabricRef.current.getObjects();
+                  fabricRef.current.setDimensions({ width: portraitWidth, height: portraitHeight });
+                  // Restore objects
+                  currentObjects.forEach(obj => fabricRef.current?.add(obj));
+                  fabricRef.current.renderAll();
+                  saveState();
+                }
+              }}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                orientation === 'portrait'
+                  ? 'bg-white text-brand-darkest shadow-md'
+                  : 'text-brand-light hover:text-white'
+              }`}
+              title="Portrait"
+            >
+              Portrait
+            </button>
+            <button
+              onClick={() => {
+                const newOrientation = 'landscape';
+                setOrientation(newOrientation);
+                // Reinitialize canvas with new dimensions
+                if (fabricRef.current) {
+                  const landscapeWidth = Math.max(productSize.width, productSize.height) * DPI * displayScale;
+                  const landscapeHeight = Math.min(productSize.width, productSize.height) * DPI * displayScale;
+                  const currentObjects = fabricRef.current.getObjects();
+                  fabricRef.current.setDimensions({ width: landscapeWidth, height: landscapeHeight });
+                  // Restore objects
+                  currentObjects.forEach(obj => fabricRef.current?.add(obj));
+                  fabricRef.current.renderAll();
+                  saveState();
+                }
+              }}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-all ${
+                orientation === 'landscape'
+                  ? 'bg-white text-brand-darkest shadow-md'
+                  : 'text-brand-light hover:text-white'
+              }`}
+              title="Landscape"
+            >
+              Landscape
+            </button>
+          </div>
+          
           <div className="flex-1" />
           
           <button onClick={onClose} className="px-4 py-2 text-brand-light hover:text-white transition-all flex items-center gap-2">
@@ -2705,8 +2769,8 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
           <div className="bg-white p-4 rounded-lg shadow-2xl">
             <div className="text-xs text-gray-500 mb-2 text-center">
               {isFoldedProduct 
-                ? `Unfolded design area (${productSize.width * 2}" × ${productSize.height}") - ${activeSurface} surface`
-                : `Print area (${productSize.width}" × ${productSize.height}")`}
+                ? `Unfolded design area (${actualWidth * 2}" × ${actualHeight}") - ${activeSurface} surface`
+                : `Print area (${actualWidth}" × ${actualHeight}") - ${orientation}`}
             </div>
             <div style={{ transform: `scale(${zoom})`, transformOrigin: 'center', filter: selectedFilter.css }}>
               {isFoldedProduct && (
@@ -2728,17 +2792,13 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
         </div>
         
         {/* Footer */}
-        <div className="bg-brand-dark px-4 py-3 flex items-center justify-between text-sm border-t border-brand-medium">
+        <div className="bg-brand-dark px-4 py-3 flex items-center justify-center text-sm border-t border-brand-medium">
           <div className="flex items-center gap-4 text-brand-light">
-            <span>{productSize.width}&quot; × {productSize.height}&quot;</span>
+            <span>{actualWidth}&quot; × {actualHeight}&quot; ({orientation})</span>
             <span className="w-px h-4 bg-brand-medium" />
             <span>{canvasWidth} × {canvasHeight}px</span>
             <span className="w-px h-4 bg-brand-medium" />
             <span>300 DPI</span>
-          </div>
-          <div className="flex items-center gap-2 text-green-400">
-            <Check className="w-4 h-4" />
-            <span className="font-medium">Gelato Ready</span>
           </div>
         </div>
       </div>
