@@ -299,7 +299,7 @@ export async function getCustomPosts(postType: string, limit = 10) {
 /**
  * Fetch WooCommerce products
  * Uses the public Store API (wc/store/v1) which doesn't require authentication
- * @param limit - Number of products to fetch (default: 20)
+ * @param limit - Number of products to fetch (default: 20, use 0 or -1 to fetch all)
  * @param category - Optional category ID or slug
  * @param featured - Fetch only featured products
  */
@@ -312,63 +312,106 @@ export async function getWooCommerceProducts(limit = 20, category?: string | num
     const consumerKey = process.env.WOOCOMMERCE_CONSUMER_KEY;
     const consumerSecret = process.env.WOOCOMMERCE_CONSUMER_SECRET;
     
-    let url = '';
-    let headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+    // If limit is 0 or -1, fetch all products using pagination
+    const fetchAll = limit === 0 || limit === -1;
+    const perPage = fetchAll ? 100 : Math.min(limit, 100); // WooCommerce max is 100 per page
     
-    if (consumerKey && consumerSecret) {
-      // Use REST API v3 with authentication (full product data)
-      url = `${WP_URL}/wp-json/wc/v3/products?per_page=${limit}&status=publish`;
-      if (category) {
-        url += `&category=${category}`;
-      }
-      if (featured) {
-        url += `&featured=true`;
-      }
+    let allProducts: any[] = [];
+    let page = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+      let url = '';
+      let headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
       
-      // Basic auth for WooCommerce REST API
-      const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
-      headers['Authorization'] = `Basic ${auth}`;
-    } else {
-      // Fall back to public Store API (limited data but no auth required)
-      url = `${WP_URL}/wp-json/wc/store/v1/products?per_page=${limit}`;
-      if (category) {
-        url += `&category=${category}`;
-      }
-    }
-
-    const response = await fetch(url, {
-      next: { revalidate: 3600 }, // Cache for 1 hour
-      headers,
-    });
-
-    if (!response.ok) {
-      console.error('WooCommerce API error:', response.status, response.statusText);
-      // If REST API fails and we haven't tried Store API, try that
       if (consumerKey && consumerSecret) {
-        const storeUrl = `${WP_URL}/wp-json/wc/store/v1/products?per_page=${limit}`;
-        const storeResponse = await fetch(storeUrl, {
-          next: { revalidate: 3600 },
-          headers: { 'Content-Type': 'application/json' },
-        });
+        // Use REST API v3 with authentication (full product data)
+        url = `${WP_URL}/wp-json/wc/v3/products?per_page=${perPage}&page=${page}&status=publish`;
+        if (category) {
+          url += `&category=${category}`;
+        }
+        if (featured) {
+          url += `&featured=true`;
+        }
         
-        if (storeResponse.ok) {
-          return await storeResponse.json();
+        // Basic auth for WooCommerce REST API
+        const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
+        headers['Authorization'] = `Basic ${auth}`;
+      } else {
+        // Fall back to public Store API (limited data but no auth required)
+        url = `${WP_URL}/wp-json/wc/store/v1/products?per_page=${perPage}&page=${page}`;
+        if (category) {
+          url += `&category=${category}`;
         }
       }
-      
-      throw new Error('Failed to fetch products');
-    }
 
-    const data = await response.json();
-    
-    // Filter featured products if requested (for Store API)
-    if (featured && Array.isArray(data) && !consumerKey) {
-      return data.filter((product: any) => product.featured === true);
+      const response = await fetch(url, {
+        next: { revalidate: 3600 }, // Cache for 1 hour
+        headers,
+      });
+
+      if (!response.ok) {
+        console.error('WooCommerce API error:', response.status, response.statusText);
+        // If REST API fails and we haven't tried Store API, try that
+        if (consumerKey && consumerSecret && page === 1) {
+          const storeUrl = `${WP_URL}/wp-json/wc/store/v1/products?per_page=${perPage}&page=${page}`;
+          const storeResponse = await fetch(storeUrl, {
+            next: { revalidate: 3600 },
+            headers: { 'Content-Type': 'application/json' },
+          });
+          
+          if (storeResponse.ok) {
+            const storeData = await storeResponse.json();
+            // Filter featured products if requested (for Store API)
+            if (featured && Array.isArray(storeData)) {
+              return storeData.filter((product: any) => product.featured === true);
+            }
+            return storeData;
+          }
+        }
+        
+        // If we've already fetched some products, return what we have
+        if (allProducts.length > 0) {
+          break;
+        }
+        
+        throw new Error('Failed to fetch products');
+      }
+
+      const data = await response.json();
+      
+      if (!Array.isArray(data) || data.length === 0) {
+        hasMore = false;
+      } else {
+        allProducts = [...allProducts, ...data];
+        
+        // Check if we've fetched all products
+        const totalPages = response.headers.get('X-WP-TotalPages');
+        if (totalPages) {
+          const totalPagesNum = parseInt(totalPages, 10);
+          hasMore = page < totalPagesNum;
+        } else {
+          // If no pagination header, check if we got fewer products than requested
+          hasMore = data.length === perPage;
+        }
+        
+        // If not fetching all, stop after first page
+        if (!fetchAll) {
+          hasMore = false;
+        }
+        
+        page++;
+      }
     }
     
-    return data;
+    // Filter featured products if requested (for Store API when not using auth)
+    if (featured && Array.isArray(allProducts) && !consumerKey) {
+      return allProducts.filter((product: any) => product.featured === true);
+    }
+    
+    return allProducts;
   } catch (error) {
     console.error('Error fetching WooCommerce products:', error);
     return [];

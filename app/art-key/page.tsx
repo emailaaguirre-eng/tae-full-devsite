@@ -17,7 +17,7 @@ export default function ArtKeyPage() {
           </p>
           <div className="mt-6">
             <Link 
-              href="/shop" 
+              href="/customize" 
               className="inline-block px-6 py-3 bg-brand-dark text-white rounded-lg hover:bg-brand-darkest transition-colors"
             >
               Shop ArtKey Products

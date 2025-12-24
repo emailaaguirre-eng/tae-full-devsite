@@ -239,7 +239,7 @@ export default function Hero() {
                             images: selectedImages.join(','),
                             from_hero: 'true',
                           });
-                          window.location.href = `/shop?${params}`;
+                          window.location.href = `/customize?${params}`;
                         }}
                         className="w-full bg-brand-dark text-white px-4 py-3 rounded-xl font-medium hover:bg-brand-darkest transition-colors flex items-center justify-center gap-2 shadow-md"
                       >

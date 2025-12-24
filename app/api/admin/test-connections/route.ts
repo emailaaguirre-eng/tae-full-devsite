@@ -99,12 +99,33 @@ export async function GET(request: Request) {
   if (service === 'all' || service === 'woocommerce') {
     try {
       const wcResult = await testWooCommerce();
+      
+      // Get product count if connection is successful
+      let productCount = 0;
+      if (wcResult.success) {
+        try {
+          const { getWooCommerceProducts } = await import('@/lib/wordpress');
+          const products = await getWooCommerceProducts(0); // Fetch all products
+          if (Array.isArray(products)) {
+            productCount = products.length;
+          }
+        } catch (productError) {
+          console.error('Error fetching product count:', productError);
+        }
+      }
+      
       results.woocommerce = {
         ...wcResult,
         configured: !!(process.env.WOOCOMMERCE_CONSUMER_KEY && 
                       process.env.WOOCOMMERCE_CONSUMER_SECRET &&
                       (process.env.NEXT_PUBLIC_WOOCOMMERCE_URL || process.env.NEXT_PUBLIC_WORDPRESS_URL)),
+        productCount: productCount > 0 ? productCount : undefined,
       };
+      
+      // Enhance message with product count if available
+      if (wcResult.success && productCount > 0) {
+        results.woocommerce.message = `${wcResult.message} Found ${productCount} published product${productCount !== 1 ? 's' : ''}.`;
+      }
     } catch (error) {
       results.woocommerce = {
         success: false,
