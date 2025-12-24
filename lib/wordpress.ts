@@ -6,7 +6,7 @@
  * from your WordPress site into Next.js
  */
 
-const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_PUBLIC_WOOCOMMERCE_URL;
+const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_PUBLIC_WOOCOMMERCE_URL || 'https://theartfulexperience.com';
 
 /**
  * Fetch WordPress posts (blog posts)
@@ -88,6 +88,12 @@ export async function getPages() {
  */
 export async function getPage(slug: string) {
   try {
+    // Ensure WP_URL is defined
+    if (!WP_URL) {
+      console.warn('WordPress URL not configured, skipping page fetch');
+      return null;
+    }
+    
     const response = await fetch(
       `${WP_URL}/wp-json/wp/v2/pages?slug=${slug}&_embed`,
       {
