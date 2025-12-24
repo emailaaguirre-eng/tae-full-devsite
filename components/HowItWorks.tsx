@@ -151,7 +151,7 @@ export default function HowItWorks() {
         {/* CTA */}
         <div className="text-center mt-16">
           <a
-            href="/customize"
+            href="/shop"
             className="inline-block bg-brand-medium text-white px-10 py-4 rounded-full text-lg font-semibold hover:bg-brand-dark transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
             Upload your image to get started

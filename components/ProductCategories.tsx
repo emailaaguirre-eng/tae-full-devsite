@@ -10,7 +10,7 @@ export default function ProductCategories() {
   };
 
   const handleStartCreating = () => {
-    router.push('/customize');
+    router.push('/shop');
   };
   const categories = [
     {

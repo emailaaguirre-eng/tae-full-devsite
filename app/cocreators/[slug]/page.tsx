@@ -316,7 +316,7 @@ export default function CoCreatorPage({ params }: CoCreatorPageProps) {
                         <h3 className="font-bold text-brand-darkest mb-2 font-playfair">{product.name}</h3>
                         <p className="text-brand-dark font-semibold mb-3">${price}</p>
                         <Link
-                          href={`/customize?product_id=${product.id}&product_name=${encodeURIComponent(product.name)}&price=${product.price}`}
+                          href={`/shop?product_id=${product.id}&product_name=${encodeURIComponent(product.name)}&price=${product.price}`}
                           className="inline-block bg-brand-medium text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-brand-dark transition-all shadow-md hover:shadow-lg"
                         >
                           Customize →
