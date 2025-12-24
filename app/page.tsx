@@ -12,6 +12,9 @@ import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 
+// Force dynamic rendering to prevent build-time static generation issues
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   // Updated: Section backgrounds now alternate between #ecece9 and #ffffff
   return (
