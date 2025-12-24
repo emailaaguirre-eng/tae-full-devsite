@@ -7,11 +7,15 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const limitParam = searchParams.get('limit');
+    // If limit is 0, -1, or not specified with a high value, fetch all products
+    const limit = limitParam ? parseInt(limitParam) : 20;
     const category = searchParams.get('category') || undefined;
     const featured = searchParams.get('featured') === 'true';
 
-    const products = await getWooCommerceProducts(limit, category, featured);
+    // If limit is 100 or more, fetch all products (0 = fetch all)
+    const fetchLimit = limit >= 100 ? 0 : limit;
+    const products = await getWooCommerceProducts(fetchLimit, category, featured);
     
     return NextResponse.json(products);
   } catch (error) {
