@@ -133,6 +133,11 @@ export async function getPage(slug: string) {
  */
 export async function getMedia(mediaId: number) {
   try {
+    if (!WP_URL) {
+      console.warn('WordPress URL not configured, returning null');
+      return null;
+    }
+    
     const response = await fetch(
       `${WP_URL}/wp-json/wp/v2/media/${mediaId}`,
       {
@@ -158,6 +163,11 @@ export async function getMedia(mediaId: number) {
  */
 export async function getAllMedia(limit = 100, mimeType?: string) {
   try {
+    if (!WP_URL) {
+      console.warn('WordPress URL not configured, returning empty media array');
+      return [];
+    }
+    
     let url = `${WP_URL}/wp-json/wp/v2/media?per_page=${limit}&_embed`;
     
     if (mimeType) {
