@@ -22,9 +22,6 @@ const nextConfig = {
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
-  // Skip build-time static generation for routes that use dynamic data
-  // This prevents build failures when WordPress is unreachable
-  output: 'standalone',
 }
 
 module.exports = nextConfig
