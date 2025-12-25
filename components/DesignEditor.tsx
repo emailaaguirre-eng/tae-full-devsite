@@ -392,7 +392,7 @@ export default function DesignEditor({
   const fabricRef = useRef<fabric.Canvas | null>(null);
   
   // State
-const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'stickers' | 'frames' | 'filters' | 'magic' | 'overlays'>('templates');
+const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'labels' | 'shapes' | 'stickers' | 'frames' | 'filters' | 'magic' | 'overlays'>('templates');
   const [selectedTemplate, setSelectedTemplate] = useState<CollageTemplate>(collageTemplates[0]);
   const [collageSlots, setCollageSlots] = useState<CollageSlot[]>([]);
   const [isCollageMode, setIsCollageMode] = useState(false);
@@ -1919,9 +1919,11 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
     { id: 'templates', label: 'Layout', icon: <LayoutGrid className="w-5 h-5" /> },
     { id: 'images', label: 'Images', icon: <ImageIcon className="w-5 h-5" /> },
     { id: 'text', label: 'Text', icon: <Type className="w-5 h-5" /> },
+    { id: 'labels', label: 'Labels', icon: <Frame className="w-5 h-5" /> },
+    { id: 'shapes', label: 'Shapes', icon: <Square className="w-5 h-5" /> },
     { id: 'stickers', label: 'Elements', icon: <Star className="w-5 h-5" /> },
     { id: 'overlays', label: 'Overlays', icon: <Layers className="w-5 h-5" /> },
-    { id: 'frames', label: 'Frames', icon: <Frame className="w-5 h-5" /> },
+    { id: 'frames', label: 'Borders', icon: <Aperture className="w-5 h-5" /> },
     { id: 'filters', label: 'Filters', icon: <Palette className="w-5 h-5" /> },
     { id: 'magic', label: 'Themes', icon: <Sparkles className="w-5 h-5" /> },
   ];
@@ -2299,6 +2301,130 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'st
                   }`}
                 >
                   <Layers className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* LABELS TAB */}
+          {activeTab === 'labels' && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <Frame className="w-4 h-4" />
+                Decorative Labels
+              </h3>
+              <p className="text-xs text-gray-500">Click to add a label frame to your design</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { id: 'label-01', name: 'Classic', path: 'M 5 10 L 15 2 L 85 2 L 95 10 L 95 40 L 85 48 L 15 48 L 5 40 Z' },
+                  { id: 'label-02', name: 'Rounded', path: 'M 8 5 Q 5 5 5 8 L 5 42 Q 5 45 8 45 L 92 45 Q 95 45 95 42 L 95 8 Q 95 5 92 5 Z' },
+                  { id: 'label-03', name: 'Scalloped', path: 'M 8 5 Q 12 8 16 5 Q 20 8 24 5 Q 28 8 32 5 L 97 5 L 97 45 Q 92 42 88 45 Q 84 42 80 45 L 3 45 L 3 5 Z' },
+                  { id: 'label-04', name: 'Bracket', path: 'M 5 3 L 20 3 L 20 10 L 10 10 L 10 40 L 20 40 L 20 47 L 5 47 Z M 95 3 L 80 3 L 80 10 L 90 10 L 90 40 L 80 40 L 80 47 L 95 47 Z' },
+                  { id: 'label-05', name: 'Banner', path: 'M 0 12 L 12 12 L 18 3 L 82 3 L 88 12 L 100 12 L 94 25 L 100 38 L 88 38 L 82 47 L 18 47 L 12 38 L 0 38 L 6 25 Z' },
+                ].map((label) => (
+                  <button
+                    key={label.id}
+                    onClick={() => {
+                      if (!fabricCanvasRef.current) return;
+                      const path = new fabric.Path(label.path, {
+                        left: 100,
+                        top: 100,
+                        fill: 'transparent',
+                        stroke: '#000000',
+                        strokeWidth: 2,
+                        scaleX: 2,
+                        scaleY: 2,
+                      });
+                      fabricCanvasRef.current.add(path);
+                      fabricCanvasRef.current.setActiveObject(path);
+                      fabricCanvasRef.current.renderAll();
+                    }}
+                    className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                  >
+                    <svg viewBox="0 0 100 50" className="w-full h-12" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d={label.path} />
+                    </svg>
+                    <span className="text-xs text-gray-600 mt-1 block">{label.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* SHAPES TAB */}
+          {activeTab === 'shapes' && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <Square className="w-4 h-4" />
+                Basic Shapes
+              </h3>
+              <p className="text-xs text-gray-500">Click to add a shape to your design</p>
+              <div className="grid grid-cols-4 gap-3">
+                <button
+                  onClick={() => {
+                    if (!fabricCanvasRef.current) return;
+                    const rect = new fabric.Rect({
+                      left: 100, top: 100, width: 100, height: 80,
+                      fill: '#E5E7EB', stroke: '#374151', strokeWidth: 2
+                    });
+                    fabricCanvasRef.current.add(rect);
+                    fabricCanvasRef.current.setActiveObject(rect);
+                    fabricCanvasRef.current.renderAll();
+                  }}
+                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                >
+                  <Square className="w-8 h-8 text-gray-600" />
+                  <span className="text-xs text-gray-600 mt-1">Rectangle</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (!fabricCanvasRef.current) return;
+                    const circle = new fabric.Circle({
+                      left: 100, top: 100, radius: 50,
+                      fill: '#E5E7EB', stroke: '#374151', strokeWidth: 2
+                    });
+                    fabricCanvasRef.current.add(circle);
+                    fabricCanvasRef.current.setActiveObject(circle);
+                    fabricCanvasRef.current.renderAll();
+                  }}
+                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                >
+                  <Circle className="w-8 h-8 text-gray-600" />
+                  <span className="text-xs text-gray-600 mt-1">Circle</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (!fabricCanvasRef.current) return;
+                    const heart = new fabric.Path('M 50 85 C 20 55 0 35 0 20 C 0 5 15 0 25 0 C 35 0 45 10 50 20 C 55 10 65 0 75 0 C 85 0 100 5 100 20 C 100 35 80 55 50 85 Z', {
+                      left: 100, top: 100,
+                      fill: '#E5E7EB', stroke: '#374151', strokeWidth: 2,
+                      scaleX: 1, scaleY: 1
+                    });
+                    fabricCanvasRef.current.add(heart);
+                    fabricCanvasRef.current.setActiveObject(heart);
+                    fabricCanvasRef.current.renderAll();
+                  }}
+                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                >
+                  <Heart className="w-8 h-8 text-gray-600" />
+                  <span className="text-xs text-gray-600 mt-1">Heart</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (!fabricCanvasRef.current) return;
+                    const star = new fabric.Path('M 50 5 L 61 35 L 95 35 L 68 55 L 79 90 L 50 70 L 21 90 L 32 55 L 5 35 L 39 35 Z', {
+                      left: 100, top: 100,
+                      fill: '#E5E7EB', stroke: '#374151', strokeWidth: 2,
+                      scaleX: 1, scaleY: 1
+                    });
+                    fabricCanvasRef.current.add(star);
+                    fabricCanvasRef.current.setActiveObject(star);
+                    fabricCanvasRef.current.renderAll();
+                  }}
+                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                >
+                  <Star className="w-8 h-8 text-gray-600" />
+                  <span className="text-xs text-gray-600 mt-1">Star</span>
                 </button>
               </div>
             </div>
