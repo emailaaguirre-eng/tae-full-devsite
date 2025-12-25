@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import * as fabric from 'fabric';
-import AIEffectsPanel from './AIEffectsPanel';
+// import AIEffectsPanel from './AIEffectsPanel'; // COMMENTED OUT: Requires API backend
 import {
   LayoutGrid,
   Image as ImageIcon,
@@ -82,6 +82,7 @@ interface StudioProps {
   onClose?: () => void;
   initialImages?: string[];
   initialMessage?: string;
+  frameColor?: string; // Frame color if product is framed (e.g., 'Black', 'White', 'Silver')
 }
 
 interface DesignOutput {
@@ -385,7 +386,8 @@ export default function DesignEditor({
   onComplete,
   onClose,
   initialImages = [],
-  initialMessage = ''
+  initialMessage = '',
+  frameColor
 }: StudioProps) {
   // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -439,6 +441,9 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
     shadow: false,
     outline: false,
   });
+  
+  // Folded product check (cards, invitations, announcements, postcards)
+  const isFoldedProduct = productType === 'card' || productType === 'invitation' || productType === 'announcement' || productType === 'postcard';
   
   // Foil settings (for cards, invitations, announcements)
   const isFoilProduct = productType === 'card' || productType === 'invitation' || productType === 'announcement';
@@ -507,6 +512,277 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
   // INITIALIZE CANVAS
   // =============================================================================
   
+  // Draw printable area guides
+  const drawPrintableArea = (canvas: fabric.Canvas) => {
+    // Remove existing printable area guides
+    const existingGuides = canvas.getObjects().filter((obj: any) => obj.data?.type === 'printable-area');
+    existingGuides.forEach((obj) => canvas.remove(obj));
+    
+    const bleed = 0.125 * DPI * displayScale; // 1/8 inch bleed in display scale
+    const safeArea = 0.25 * DPI * displayScale; // 1/4 inch safe area in display scale
+    
+    if (isFoldedProduct) {
+      // Cards have 4 regions: Front, Back, Inside Left, Inside Right
+      const regionWidth = (canvas.width! / 2);
+      const regionHeight = canvas.height! / 2;
+      
+      // Front (top left)
+      const frontRect = new fabric.Rect({
+        left: bleed,
+        top: bleed,
+        width: regionWidth - (bleed * 2),
+        height: regionHeight - (bleed * 2),
+        fill: 'transparent',
+        stroke: '#3b82f6',
+        strokeWidth: 2,
+        strokeDashArray: [5, 5],
+        selectable: false,
+        evented: false,
+        name: 'printable-front',
+        data: { type: 'printable-area', region: 'front' }
+      });
+      
+      // Safe area for front
+      const frontSafe = new fabric.Rect({
+        left: safeArea,
+        top: safeArea,
+        width: regionWidth - (safeArea * 2),
+        height: regionHeight - (safeArea * 2),
+        fill: 'transparent',
+        stroke: '#10b981',
+        strokeWidth: 1,
+        strokeDashArray: [3, 3],
+        selectable: false,
+        evented: false,
+        name: 'safe-front',
+        data: { type: 'printable-area', region: 'front-safe' }
+      });
+      
+      // Back (top right)
+      const backRect = new fabric.Rect({
+        left: regionWidth + bleed,
+        top: bleed,
+        width: regionWidth - (bleed * 2),
+        height: regionHeight - (bleed * 2),
+        fill: 'transparent',
+        stroke: '#3b82f6',
+        strokeWidth: 2,
+        strokeDashArray: [5, 5],
+        selectable: false,
+        evented: false,
+        name: 'printable-back',
+        data: { type: 'printable-area', region: 'back' }
+      });
+      
+      // Safe area for back
+      const backSafe = new fabric.Rect({
+        left: regionWidth + safeArea,
+        top: safeArea,
+        width: regionWidth - (safeArea * 2),
+        height: regionHeight - (safeArea * 2),
+        fill: 'transparent',
+        stroke: '#10b981',
+        strokeWidth: 1,
+        strokeDashArray: [3, 3],
+        selectable: false,
+        evented: false,
+        name: 'safe-back',
+        data: { type: 'printable-area', region: 'back-safe' }
+      });
+      
+      // Inside Left (bottom left)
+      const insideLeftRect = new fabric.Rect({
+        left: bleed,
+        top: regionHeight + bleed,
+        width: regionWidth - (bleed * 2),
+        height: regionHeight - (bleed * 2),
+        fill: 'transparent',
+        stroke: '#3b82f6',
+        strokeWidth: 2,
+        strokeDashArray: [5, 5],
+        selectable: false,
+        evented: false,
+        name: 'printable-inside-left',
+        data: { type: 'printable-area', region: 'inside-left' }
+      });
+      
+      // Inside Right (bottom right)
+      const insideRightRect = new fabric.Rect({
+        left: regionWidth + bleed,
+        top: regionHeight + bleed,
+        width: regionWidth - (bleed * 2),
+        height: regionHeight - (bleed * 2),
+        fill: 'transparent',
+        stroke: '#3b82f6',
+        strokeWidth: 2,
+        strokeDashArray: [5, 5],
+        selectable: false,
+        evented: false,
+        name: 'printable-inside-right',
+        data: { type: 'printable-area', region: 'inside-right' }
+      });
+      
+      // Labels
+      const frontLabel = new fabric.Text('Front', {
+        left: 10,
+        top: 10,
+        fontSize: 12,
+        fill: '#3b82f6',
+        fontFamily: 'Arial',
+        fontWeight: 'bold',
+        selectable: false,
+        evented: false,
+        name: 'label-front',
+        data: { type: 'printable-area-label' }
+      });
+      
+      const backLabel = new fabric.Text('Back', {
+        left: regionWidth + 10,
+        top: 10,
+        fontSize: 12,
+        fill: '#3b82f6',
+        fontFamily: 'Arial',
+        fontWeight: 'bold',
+        selectable: false,
+        evented: false,
+        name: 'label-back',
+        data: { type: 'printable-area-label' }
+      });
+      
+      const insideLabel = new fabric.Text('Inside', {
+        left: canvas.width! / 2 - 20,
+        top: regionHeight + 10,
+        fontSize: 12,
+        fill: '#3b82f6',
+        fontFamily: 'Arial',
+        fontWeight: 'bold',
+        selectable: false,
+        evented: false,
+        name: 'label-inside',
+        data: { type: 'printable-area-label' }
+      });
+      
+      canvas.add(frontRect);
+      canvas.add(frontSafe);
+      canvas.add(backRect);
+      canvas.add(backSafe);
+      canvas.add(insideLeftRect);
+      canvas.add(insideRightRect);
+      canvas.add(frontLabel);
+      canvas.add(backLabel);
+      canvas.add(insideLabel);
+      
+      // Send all guides to back
+      [frontRect, frontSafe, backRect, backSafe, insideLeftRect, insideRightRect, frontLabel, backLabel, insideLabel].forEach(obj => {
+        canvas.sendToBack(obj);
+      });
+    } else {
+      // Regular prints - single printable area
+      const printableRect = new fabric.Rect({
+        left: bleed,
+        top: bleed,
+        width: canvas.width! - (bleed * 2),
+        height: canvas.height! - (bleed * 2),
+        fill: 'transparent',
+        stroke: '#3b82f6',
+        strokeWidth: 2,
+        strokeDashArray: [5, 5],
+        selectable: false,
+        evented: false,
+        name: 'printable-area',
+        data: { type: 'printable-area' }
+      });
+      
+      // Safe area
+      const safeRect = new fabric.Rect({
+        left: safeArea,
+        top: safeArea,
+        width: canvas.width! - (safeArea * 2),
+        height: canvas.height! - (safeArea * 2),
+        fill: 'transparent',
+        stroke: '#10b981',
+        strokeWidth: 1,
+        strokeDashArray: [3, 3],
+        selectable: false,
+        evented: false,
+        name: 'safe-area',
+        data: { type: 'printable-area', subtype: 'safe' }
+      });
+      
+      canvas.add(printableRect);
+      canvas.add(safeRect);
+      canvas.sendToBack(printableRect);
+      canvas.sendToBack(safeRect);
+      
+      // Add frame visualization if frame is selected (only for prints)
+      if (frameColor && productType === 'print') {
+        const frameWidth = 20 * displayScale; // Frame width in display scale
+        const frameColorMap: Record<string, string> = {
+          'Black': '#1a1a1a',
+          'White': '#f5f5f5',
+          'Silver': '#c0c0c0'
+        };
+        const frameFillColor = frameColorMap[frameColor] || '#888888';
+        const frameStrokeColor = frameColor === 'Black' ? '#000000' : frameColor === 'White' ? '#cccccc' : '#a0a0a0';
+        
+        // Outer frame (back layer)
+        const outerFrame = new fabric.Rect({
+          left: -frameWidth,
+          top: -frameWidth,
+          width: canvas.width! + (frameWidth * 2),
+          height: canvas.height! + (frameWidth * 2),
+          fill: frameFillColor,
+          stroke: frameStrokeColor,
+          strokeWidth: 2,
+          selectable: false,
+          evented: false,
+          name: 'frame-outer',
+          data: { type: 'frame', frameColor }
+        });
+        
+        // Inner frame edge (to show depth)
+        const innerFrame = new fabric.Rect({
+          left: 0,
+          top: 0,
+          width: canvas.width!,
+          height: canvas.height!,
+          fill: 'transparent',
+          stroke: frameColor === 'Black' ? '#000000' : frameColor === 'White' ? '#ffffff' : '#e0e0e0',
+          strokeWidth: 1,
+          selectable: false,
+          evented: false,
+          name: 'frame-inner',
+          data: { type: 'frame', frameColor }
+        });
+        
+        // Frame disclaimer text
+        const disclaimerText = new fabric.Text('Frame shown is a placeholder representation', {
+          left: canvas.width! / 2,
+          top: canvas.height! + (frameWidth * 1.5),
+          fontSize: 10 * displayScale,
+          fill: '#666666',
+          fontFamily: 'Arial',
+          fontStyle: 'italic',
+          textAlign: 'center',
+          originX: 'center',
+          originY: 'top',
+          selectable: false,
+          evented: false,
+          name: 'frame-disclaimer',
+          data: { type: 'frame-disclaimer' }
+        });
+        
+        canvas.add(outerFrame);
+        canvas.add(innerFrame);
+        canvas.add(disclaimerText);
+        canvas.sendToBack(outerFrame);
+        canvas.sendToBack(innerFrame);
+      }
+    }
+    
+    canvas.renderAll();
+  };
+
   useEffect(() => {
     if (!canvasRef.current) return;
     
@@ -523,8 +799,30 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
     canvas.on('selection:updated', (e) => setSelectedObject(e.selected?.[0] || null));
     canvas.on('selection:cleared', () => setSelectedObject(null));
     
+    // Draw printable area guides
+    drawPrintableArea(canvas);
+    
     return () => { canvas.dispose(); };
-  }, [canvasWidth, canvasHeight, backgroundColor, orientation]);
+  }, [canvasWidth, canvasHeight, backgroundColor, orientation, productType, productSize]);
+  
+  // Redraw printable area when frame color changes (without recreating canvas)
+  useEffect(() => {
+    if (fabricRef.current) {
+      drawPrintableArea(fabricRef.current);
+    }
+  }, [frameColor]);
+  
+  // Load initial images to canvas when provided
+  useEffect(() => {
+    if (!fabricRef.current || initialImages.length === 0) return;
+    
+    // Add initial images to canvas
+    initialImages.forEach((imageUrl, index) => {
+      setTimeout(() => {
+        addImageToCanvas(imageUrl);
+      }, index * 100); // Stagger image loading
+    });
+  }, [initialImages.length]); // Only depend on initialImages.length, not fabricRef.current
   
   // =============================================================================
   // IMAGE HANDLING
@@ -733,13 +1031,21 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialImages]);
   
-  // Ensure canvas is ready before adding images
+  // Load initial images to canvas when provided (after canvas is initialized)
   useEffect(() => {
-    if (fabricRef.current && uploadedImages.length > 0) {
-      // Canvas is ready and images are available
-      console.log('Canvas ready with', uploadedImages.length, 'images available');
-    }
-  }, [fabricRef.current, uploadedImages.length]);
+    if (!fabricRef.current || initialImages.length === 0) return;
+    
+    // Small delay to ensure canvas is fully initialized
+    const timer = setTimeout(() => {
+      initialImages.forEach((imageUrl, index) => {
+        setTimeout(() => {
+          addImageToCanvas(imageUrl);
+        }, index * 200); // Stagger image loading
+      });
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [initialImages.length]); // Only depend on initialImages.length
   
   // =============================================================================
   // TEXT HANDLING
@@ -1728,106 +2034,113 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
   // AI FEATURES
   // =============================================================================
   
-  const applyAIEffect = async (effectId: string, imageDataUrl: string): Promise<string | null> => {
-    setIsProcessingAI(true);
-    setAiStatus(`Processing AI effect...`);
-    
-    try {
-      const response = await fetch('/api/ai-effects', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          effectId,
-          imageDataUrl,
-        }),
-      });
+  // COMMENTED OUT: AI Effects require API backend
+  // const applyAIEffect = async (effectId: string, imageDataUrl: string): Promise<string | null> => {
+  //   setIsProcessingAI(true);
+  //   setAiStatus(`Processing AI effect...`);
+  //   
+  //   try {
+  //     const response = await fetch('/api/ai-effects', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({
+  //         effectId,
+  //         imageDataUrl,
+  //       }),
+  //     });
 
-      const data = await response.json();
+  //     const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to process effect');
-      }
+  //     if (!response.ok) {
+  //       throw new Error(data.error || 'Failed to process effect');
+  //     }
 
-      if (data.success && data.imageUrl) {
-        // Load the processed image onto canvas
-        const canvas = fabricRef.current;
-        if (canvas) {
-          const activeObj = canvas.getActiveObject();
-          
-          // Create new image from result
-          const img = await fabric.FabricImage.fromURL(data.imageUrl, { crossOrigin: 'anonymous' });
-          
-          if (activeObj) {
-            // Replace the active object with the new image
-            img.set({
-              left: activeObj.left,
-              top: activeObj.top,
-              scaleX: activeObj.scaleX,
-              scaleY: activeObj.scaleY,
-              angle: activeObj.angle,
-            });
-            canvas.remove(activeObj);
-          }
-          
-          canvas.add(img);
-          canvas.setActiveObject(img);
-          canvas.renderAll();
-        }
+  //     if (data.success && data.imageUrl) {
+  //       // Load the processed image onto canvas
+  //       const canvas = fabricRef.current;
+  //       if (canvas) {
+  //         const activeObj = canvas.getActiveObject();
+  //         
+  //         // Create new image from result
+  //         const img = await fabric.FabricImage.fromURL(data.imageUrl, { crossOrigin: 'anonymous' });
+  //         
+  //         if (activeObj) {
+  //           // Replace the active object with the new image
+  //           img.set({
+  //             left: activeObj.left,
+  //             top: activeObj.top,
+  //             scaleX: activeObj.scaleX,
+  //             scaleY: activeObj.scaleY,
+  //             angle: activeObj.angle,
+  //           });
+  //           canvas.remove(activeObj);
+  //         }
+  //         
+  //         canvas.add(img);
+  //         canvas.setActiveObject(img);
+  //         canvas.renderAll();
+  //       }
 
-        setAiStatus('Effect applied successfully!');
-        setTimeout(() => setAiStatus(''), 2000);
-        return data.imageUrl;
-      }
+  //       setAiStatus('Effect applied successfully!');
+  //       setTimeout(() => setAiStatus(''), 2000);
+  //       return data.imageUrl;
+  //     }
 
-      throw new Error('No image returned from API');
-    } catch (error) {
-      console.error('AI Effect error:', error);
-      setAiStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setTimeout(() => setAiStatus(''), 3000);
-      return null;
-    } finally {
-      setIsProcessingAI(false);
-    }
-  };
+  //     throw new Error('No image returned from API');
+  //   } catch (error) {
+  //     console.error('AI Effect error:', error);
+  //     setAiStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  //     setTimeout(() => setAiStatus(''), 3000);
+  //     return null;
+  //   } finally {
+  //     setIsProcessingAI(false);
+  //   }
+  // };
 
-  // Legacy effect handler for backward compatibility
+  // COMMENTED OUT: Legacy effect handler requires API backend
+  // const applyLegacyAIEffect = async (effectName: string) => {
+  //   // Map old effect names to new effect IDs
+  //   const effectMap: Record<string, string> = {
+  //     'Van Gogh': 'vangogh',
+  //     'Monet': 'monet',
+  //     'Picasso': 'picasso',
+  //     'Warhol': 'warhol',
+  //     'Pencil Sketch': 'pencil',
+  //     'Watercolor': 'watercolor',
+  //     'Cartoonify': 'cartoon',
+  //     'Rotoscope': 'rotoscope',
+  //     'Background Removal': 'removebg',
+  //     'Face Detection': 'facefix',
+  //     'Magic Enhancement': 'upscale',
+  //   };
+
+  //   const effectId = effectMap[effectName];
+  //   if (!effectId) {
+  //     setAiStatus(`Unknown effect: ${effectName}`);
+  //     return;
+  //   }
+
+  //   // Get current image from canvas
+  //   const canvas = fabricRef.current;
+  //   if (!canvas) return;
+
+  //   const activeObj = canvas.getActiveObject();
+  //   if (!activeObj || activeObj.type !== 'image') {
+  //     setAiStatus('Please select an image first');
+  //     setTimeout(() => setAiStatus(''), 2000);
+  //     return;
+  //   }
+
+  //   const imageDataUrl = (activeObj as fabric.FabricImage).toDataURL({ format: 'png' });
+  //   await applyAIEffect(effectId, imageDataUrl);
+  // };
+  
+  // Placeholder function to show message when AI features are clicked
   const applyLegacyAIEffect = async (effectName: string) => {
-    // Map old effect names to new effect IDs
-    const effectMap: Record<string, string> = {
-      'Van Gogh': 'vangogh',
-      'Monet': 'monet',
-      'Picasso': 'picasso',
-      'Warhol': 'warhol',
-      'Pencil Sketch': 'pencil',
-      'Watercolor': 'watercolor',
-      'Cartoonify': 'cartoon',
-      'Rotoscope': 'rotoscope',
-      'Background Removal': 'removebg',
-      'Face Detection': 'facefix',
-      'Magic Enhancement': 'upscale',
-    };
-
-    const effectId = effectMap[effectName];
-    if (!effectId) {
-      setAiStatus(`Unknown effect: ${effectName}`);
-      return;
-    }
-
-    // Get current image from canvas
-    const canvas = fabricRef.current;
-    if (!canvas) return;
-
-    const activeObj = canvas.getActiveObject();
-    if (!activeObj || activeObj.type !== 'image') {
-      setAiStatus('Please select an image first');
-      setTimeout(() => setAiStatus(''), 2000);
-      return;
-    }
-
-    const imageDataUrl = (activeObj as fabric.FabricImage).toDataURL({ format: 'png' });
-    await applyAIEffect(effectId, imageDataUrl);
+    setAiStatus('AI effects require API backend - currently disabled');
+    setTimeout(() => setAiStatus(''), 3000);
   };
 
   // Get current image data URL for AI effects
@@ -1924,8 +2237,9 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
     { id: 'stickers', label: 'Elements', icon: <Star className="w-5 h-5" /> },
     { id: 'overlays', label: 'Overlays', icon: <Layers className="w-5 h-5" /> },
     { id: 'frames', label: 'Borders', icon: <Aperture className="w-5 h-5" /> },
-    { id: 'filters', label: 'Filters', icon: <Palette className="w-5 h-5" /> },
-    { id: 'magic', label: 'Themes', icon: <Sparkles className="w-5 h-5" /> },
+    // COMMENTED OUT: Filters and Magic tabs require API backend
+    // { id: 'filters', label: 'Filters', icon: <Palette className="w-5 h-5" /> },
+    // { id: 'magic', label: 'Themes', icon: <Sparkles className="w-5 h-5" /> },
   ];
   
   // =============================================================================
@@ -2723,8 +3037,8 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
             </div>
           )}
           
-          {/* FILTERS TAB */}
-          {activeTab === 'filters' && (
+          {/* COMMENTED OUT: FILTERS TAB - Requires API backend */}
+          {/* {activeTab === 'filters' && (
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                 <Palette className="w-4 h-4" />
@@ -2747,7 +3061,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 ))}
               </div>
             </div>
-          )}
+          )} */}
           
           {/* OVERLAYS TAB */}
           {activeTab === 'overlays' && (
@@ -2845,10 +3159,9 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
             </div>
           )}
           
-          {/* THEMES/MAGIC TAB */}
-          {activeTab === 'magic' && (
+          {/* COMMENTED OUT: THEMES/MAGIC TAB - Requires API backend */}
+          {/* {activeTab === 'magic' && (
             <div className="space-y-5">
-              {/* One-Click Magic */}
               <div className="p-6 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl text-center">
                 <Sparkles className="w-10 h-10 text-white mx-auto mb-3" />
                 <h4 className="font-bold text-white mb-2">One-Click Magic</h4>
@@ -2862,7 +3175,6 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 </button>
               </div>
               
-              {/* Mood Themes */}
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <Palette className="w-4 h-4" />
@@ -2893,7 +3205,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 </div>
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </div>
       
@@ -2946,6 +3258,18 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
               <ZoomIn className="w-5 h-5" />
             </button>
           </div>
+          
+          {/* Frame Disclaimer */}
+          {frameColor && productType === 'print' && (
+            <>
+              <div className="w-px h-6 bg-brand-medium" />
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+                <span className="text-xs text-yellow-200 italic">
+                  Frame shown is a placeholder representation. Actual frame may vary.
+                </span>
+              </div>
+            </>
+          )}
           
           <div className="w-px h-6 bg-brand-medium" />
           

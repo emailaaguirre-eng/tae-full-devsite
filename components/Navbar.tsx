@@ -52,6 +52,13 @@ export default function Navbar() {
               </a>
 
               <Link
+                href="/shop"
+                className="text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-sm font-medium font-playfair"
+              >
+                Shop
+              </Link>
+
+              <Link
                 href="/gallery"
                 className="text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-sm font-medium font-playfair"
               >
@@ -144,6 +151,13 @@ export default function Navbar() {
             >
               Home
             </a>
+            <Link
+              href="/shop"
+              className="block text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-base font-medium font-playfair"
+              onClick={() => setIsOpen(false)}
+            >
+              Shop
+            </Link>
             <Link
               href="/gallery"
               className="block text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-base font-medium font-playfair"
