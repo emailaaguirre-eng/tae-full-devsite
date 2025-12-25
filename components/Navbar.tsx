@@ -66,6 +66,13 @@ export default function Navbar() {
               </Link>
 
               <Link
+                href="/ideas"
+                className="text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-sm font-medium font-playfair"
+              >
+                Ideas
+              </Link>
+
+              <Link
                 href="/cocreators"
                 className="text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-sm font-medium font-playfair"
               >
@@ -164,6 +171,13 @@ export default function Navbar() {
               onClick={() => setIsOpen(false)}
             >
               TheAE Gallery
+            </Link>
+            <Link
+              href="/ideas"
+              className="block text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 text-base font-medium font-playfair"
+              onClick={() => setIsOpen(false)}
+            >
+              Ideas
             </Link>
             <Link
               href="/cocreators"
