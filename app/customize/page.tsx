@@ -187,7 +187,8 @@ function CustomizeContent() {
   };
   
   const handleVariantsComplete = () => {
-    setCurrentStep(4); // Move to Design Editor
+    setCurrentStep(3); // Move to Design step
+    setShowStudio(true); // Open Design Editor directly
   };
 
   // Product-specific options
