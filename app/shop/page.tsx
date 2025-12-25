@@ -25,15 +25,13 @@ export default function ShopPage() {
       
       <div className="pt-24 pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Hero banner */}
-          <div className="relative w-full overflow-hidden rounded-3xl shadow-2xl mb-12 bg-white p-2 sm:p-3">
-            <div className="relative max-w-4xl mx-auto rounded-2xl overflow-hidden flex items-center justify-center bg-gray-50">
-              <img
-                src={cardsHero}
-                alt="Shop hero"
-                className="w-full h-auto object-contain max-h-[400px]"
-              />
-            </div>
+          {/* Hero banner - no container */}
+          <div className="relative w-full overflow-hidden rounded-2xl mb-12">
+            <img
+              src={cardsHero}
+              alt="Shop hero"
+              className="w-full h-auto object-cover"
+            />
           </div>
 
           {/* Product Selection Grid */}

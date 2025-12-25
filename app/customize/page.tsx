@@ -45,8 +45,9 @@ function CustomizeContent() {
   const heroImages = searchParams.get("images")?.split(',').filter(Boolean) || [];
   const heroMessage = searchParams.get("message") || "";
 
-  // Step tracking - NEW FLOW: 1=Upload Image, 2=Product Selection, 3=Options, 4=Design Editor, 5=ArtKey™
-  const [currentStep, setCurrentStep] = useState(heroImages.length > 0 ? 2 : 1);
+  // Step tracking - FLOW: 1=Upload Image, 2=Options, 3=Design Editor, 4=ArtKeyT
+  // Product selection happens on Shop page
+  const [currentStep, setCurrentStep] = useState(1);
   
   // Uploaded images state
   const [uploadedImages, setUploadedImages] = useState<string[]>(heroImages);
