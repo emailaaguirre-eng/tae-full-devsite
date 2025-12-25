@@ -45,9 +45,9 @@ function CustomizeContent() {
   const heroImages = searchParams.get("images")?.split(',').filter(Boolean) || [];
   const heroMessage = searchParams.get("message") || "";
 
-  // Step tracking - FLOW: 1=Upload Image, 2=Options, 3=Design Editor, 4=ArtKeyT
-  // Product selection happens on Shop page
-  const [currentStep, setCurrentStep] = useState(1);
+  // Step tracking - FLOW: 1=Product Selection, 2=Upload Image, 3=Options, 4=Design Editor, 5=ArtKeyT
+  // If product_type is provided via URL (from Shop), skip to Upload step
+  const [currentStep, setCurrentStep] = useState(initialProductType ? 2 : 1);
   
   // Uploaded images state
   const [uploadedImages, setUploadedImages] = useState<string[]>(heroImages);
@@ -342,8 +342,8 @@ function CustomizeContent() {
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-brand-darkest mb-2 font-playfair">
-                {currentStep === 1 ? "Upload Your Image" : 
-                 currentStep === 2 ? "Choose Your Product" : 
+                {currentStep === 1 ? "Choose Your Product" : 
+                 currentStep === 2 ? "Upload Your Image" : 
                  currentStep === 3 ? `Customize Your ${productType === "card" ? "Card" : productType === "invitation" ? "Invitation" : productType === "announcement" ? "Announcement" : productType === "postcard" ? "Postcard" : productType === "ideas" ? "Idea" : "Wall Art"}` :
                  currentStep === 4 ? "Design Your Product" :
                  "Create Your ArtKey™ Portal"}
@@ -376,12 +376,12 @@ function CustomizeContent() {
           <div className="flex items-center justify-center mt-6 gap-2 flex-wrap">
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 1 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
               <span className={`w-6 h-6 rounded-full ${currentStep >= 1 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>1</span>
-              <span className="hidden sm:inline">Upload</span>
+              <span className="hidden sm:inline">Product</span>
             </div>
             <div className="w-8 h-0.5 bg-gray-300"></div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 2 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
               <span className={`w-6 h-6 rounded-full ${currentStep >= 2 ? 'bg-white/20 text-white' : 'bg-gray-300 text-gray-700'} flex items-center justify-center text-sm font-bold`}>2</span>
-              <span className="hidden sm:inline">Product</span>
+              <span className="hidden sm:inline">Upload</span>
             </div>
             <div className="w-8 h-0.5 bg-gray-300"></div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${currentStep >= 3 ? 'bg-brand-medium text-white' : 'bg-gray-200 text-gray-700'}`}>
@@ -416,8 +416,8 @@ function CustomizeContent() {
           />
         )}
 
-        {/* Step 1: Upload Image */}
-        {currentStep === 1 && (
+        {/* Step 1: Product Selection */}
+        {currentStep === 2 && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <h2 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair text-center">
@@ -477,8 +477,8 @@ function CustomizeContent() {
           </div>
         )}
 
-        {/* Step 2: Product Selection */}
-        {currentStep === 2 && (
+        {/* Step 2: Upload Image */}
+        {currentStep === 1 && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <h2 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair text-center">
@@ -1044,6 +1044,7 @@ function CustomizeContent() {
         )}
 
         {/* Step 5: ArtKey™ Portal (handled by handleContinueToArtKey) */}
+        )}
       </div>
     </div>
   );
