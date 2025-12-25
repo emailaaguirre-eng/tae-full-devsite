@@ -1,10 +1,12 @@
 "use client";
+
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { X, ArrowLeft } from "lucide-react";
+
 // Dynamic import to avoid SSR issues with Fabric.js
 const DesignEditor = dynamic(
   () => import("@/components/DesignEditor"),
@@ -20,6 +22,7 @@ const DesignEditor = dynamic(
     )
   }
 );
+
 interface DesignData {
   imageDataUrl: string;
   imageBlob: Blob;
@@ -28,10 +31,12 @@ interface DesignData {
   productType: string;
   productSize: string;
 }
+
 function CustomizeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { addToCart } = useCart();
+
   const productId = searchParams.get("product_id") || "";
   const initialProductType = searchParams.get("product_type") || "";
   const productName = searchParams.get("product_name") || "Product";
@@ -39,6 +44,7 @@ function CustomizeContent() {
   const fromHero = searchParams.get("from_hero") === "true";
   const heroImages = searchParams.get("images")?.split(',').filter(Boolean) || [];
   const heroMessage = searchParams.get("message") || "";
+
   // Step tracking - NEW FLOW: 1=Upload Image, 2=Product Selection, 3=Options, 4=Design Editor, 5=ArtKey™
   const [currentStep, setCurrentStep] = useState(heroImages.length > 0 ? 2 : 1);
   
@@ -54,6 +60,7 @@ function CustomizeContent() {
   
   // Initial images for design editor (from uploaded images)
   const [initialImages, setInitialImages] = useState<string[]>(heroImages);
+
   // State for customization options
   const [selectedSize, setSelectedSize] = useState<string | null>(
     productType === "print" ? "8x10" : productType === "card" ? "5x7" : null
@@ -62,9 +69,11 @@ function CustomizeContent() {
   const [isFramed, setIsFramed] = useState<boolean | null>(null);
   const [frameColor, setFrameColor] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+
   const [showStudio, setShowStudio] = useState(false);
   const [existingArtKeyId, setExistingArtKeyId] = useState<string | null>(null);
   const [reuseExistingArtKey, setReuseExistingArtKey] = useState(false);
+
   // Generate short alphanumeric ArtKey IDs for portal URLs
   const generateArtKeyId = (length = 8) => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -74,6 +83,7 @@ function CustomizeContent() {
     }
     return result;
   };
+
   // Load any existing ArtKey ID to reuse (but don't auto-open design editor)
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -133,6 +143,7 @@ function CustomizeContent() {
       reader.readAsDataURL(file);
     });
   };
+
   // Handle image upload
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -177,6 +188,7 @@ function CustomizeContent() {
   const handleVariantsComplete = () => {
     setCurrentStep(4); // Move to Design Editor
   };
+
   // Product-specific options
   const printSizes = [
     { name: "5x7", price: 9.99, gelatoUid: "prints_pt_cl" },
@@ -186,37 +198,44 @@ function CustomizeContent() {
     { name: "20x24", price: 59.99, gelatoUid: "canvas_print_gallery_wrap" },
     { name: "24x36", price: 89.99, gelatoUid: "canvas_print_gallery_wrap" },
   ];
+
   const materials = [
     { name: "Glossy Paper", price: 0, gelatoUid: "prints_pt_cl" },
     { name: "Matte Paper", price: 2.00, gelatoUid: "prints_pt_cl" },
     { name: "Canvas", price: 15.00, gelatoUid: "canvas_print_gallery_wrap" },
     { name: "Metal", price: 35.00, gelatoUid: "metal_prints" },
   ];
+
   const frameColors = [
     { name: "Black", price: 0 },
     { name: "White", price: 5.00 },
     { name: "Silver", price: 6.00 },
   ];
+
   const cardSizes = [
     { name: "4x6", price: 12.99, gelatoUid: "cards_cl_dtc_prt_pt" },
     { name: "5x7", price: 15.99, gelatoUid: "cards_cl_dtc_prt_pt" },
     { name: "6x9", price: 19.99, gelatoUid: "cards_cl_dtc_prt_pt" },
   ];
+
   const cardPaperTypes = [
     { name: "Premium Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm coated silk" },
     { name: "Matte Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm matte finish" },
     { name: "Linen Cardstock", price: 2.00, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm textured linen" },
     { name: "Recycled Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm eco-friendly" },
   ];
+
   const foilColors = [
     { name: "Gold", price: 5.00 },
     { name: "Silver", price: 5.00 },
     { name: "Rose Gold", price: 6.00 },
     { name: "Copper", price: 5.00 },
   ];
+
   const [selectedCardPaper, setSelectedCardPaper] = useState<string | null>(null);
   const [hasFoil, setHasFoil] = useState<boolean | null>(null);
   const [selectedFoilColor, setSelectedFoilColor] = useState<string | null>(null);
+
   const calculateTotal = () => {
     let total = basePrice;
     
@@ -259,6 +278,7 @@ function CustomizeContent() {
     
     return (total * quantity).toFixed(2);
   };
+
   const handleContinueToArtKey = () => {
     // This is called from Design Editor completion (step 3 -> step 4)
     // Save customization to session/cart
@@ -277,8 +297,10 @@ function CustomizeContent() {
       basePrice: parseFloat(calculateTotal()) / quantity,
       totalPrice: parseFloat(calculateTotal()),
     };
+
     // Store in sessionStorage
     sessionStorage.setItem("productCustomization", JSON.stringify(customization));
+
     // Choose ArtKey portal ID (reuse or new)
     const artKeyId =
       reuseExistingArtKey && existingArtKeyId
@@ -288,6 +310,7 @@ function CustomizeContent() {
     if (!reuseExistingArtKey || !existingArtKeyId) {
       localStorage.setItem("lastArtKeyId", artKeyId);
     }
+
     // Navigate to ArtKey Editor - use /art-key/editor (not /artkey/editor)
     const params = new URLSearchParams({
       product_id: productId,
@@ -297,6 +320,7 @@ function CustomizeContent() {
     });
     router.push(`/art-key/editor?${params}`);
   };
+
   const canProceed = () => {
     if (productType === "print") {
       return selectedSize && selectedMaterial && isFramed !== null && (!isFramed || frameColor);
@@ -308,6 +332,7 @@ function CustomizeContent() {
     }
     return false;
   };
+
   return (
     <div className="min-h-screen bg-brand-lightest pt-24 pb-12">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -335,6 +360,7 @@ function CustomizeContent() {
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
+              )}
               <Link
                 href="/"
                 className="p-2 text-brand-dark hover:text-brand-darkest hover:bg-brand-lightest rounded-lg transition-colors"
@@ -373,6 +399,7 @@ function CustomizeContent() {
             </div>
           </div>
         </div>
+
         {/* Design Editor Modal */}
         {showStudio && (
           <DesignEditor
@@ -386,6 +413,8 @@ function CustomizeContent() {
               setShowStudio(false);
             }}
           />
+        )}
+
         {/* Step 1: Upload Image */}
         {currentStep === 1 && (
           <div className="space-y-6">
@@ -442,8 +471,11 @@ function CustomizeContent() {
                     Continue to Product Selection
                   </button>
                 </div>
+              )}
             </div>
           </div>
+        )}
+
         {/* Step 2: Product Selection */}
         {currentStep === 2 && (
           <div className="space-y-6">
@@ -504,6 +536,8 @@ function CustomizeContent() {
               </div>
             </div>
           </div>
+        )}
+
         {/* Step 3: Product Options */}
         {currentStep === 3 && (
           <div className="space-y-6">
@@ -527,6 +561,8 @@ function CustomizeContent() {
                   />
                 </div>
               </div>
+            )}
+
         {/* Customization Options */}
         <div className="space-y-6">
           {/* Print-specific options */}
@@ -558,6 +594,7 @@ function CustomizeContent() {
                   ))}
                 </div>
               </div>
+
               {/* Material Selection */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
@@ -584,6 +621,7 @@ function CustomizeContent() {
                   ))}
                 </div>
               </div>
+
               {/* Frame Selection */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
@@ -618,6 +656,7 @@ function CustomizeContent() {
                     <div className="text-brand-darkest">With professional frame</div>
                   </button>
                 </div>
+
                 {isFramed && (
                   <div className="border-t-2 border-brand-light pt-6">
                     <h3 className="font-bold text-lg text-brand-darkest mb-4 text-center">
@@ -653,8 +692,11 @@ function CustomizeContent() {
                       ))}
                     </div>
                   </div>
+                )}
               </div>
             </>
+          )}
+
           {/* Postcard-specific options */}
           {productType === "postcard" && (
             <>
@@ -684,6 +726,7 @@ function CustomizeContent() {
                   ))}
                 </div>
               </div>
+
               {/* Paper Type Selection (simpler for postcards) */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
@@ -714,6 +757,8 @@ function CustomizeContent() {
                 </div>
               </div>
             </>
+          )}
+
           {/* Card/Invitation/Announcement-specific options */}
           {(productType === "card" || productType === "invitation" || productType === "announcement") && (
             <>
@@ -743,6 +788,7 @@ function CustomizeContent() {
                   ))}
                 </div>
               </div>
+
               {/* Paper Type Selection */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
@@ -772,6 +818,7 @@ function CustomizeContent() {
                   ))}
                 </div>
               </div>
+
               {/* Foil Selection */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
@@ -806,6 +853,7 @@ function CustomizeContent() {
                     <div className="text-brand-darkest">Premium metallic accents</div>
                   </button>
                 </div>
+
                 {hasFoil && (
                   <div className="border-t-2 border-brand-light pt-6">
                     <h3 className="font-bold text-lg text-brand-darkest mb-4 text-center">
@@ -843,8 +891,11 @@ function CustomizeContent() {
                       ))}
                     </div>
                   </div>
+                )}
               </div>
             </>
+          )}
+
           {/* Quantity */}
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <h2 className="text-xl font-bold text-brand-darkest mb-4 font-playfair">
@@ -868,6 +919,7 @@ function CustomizeContent() {
               </button>
             </div>
           </div>
+
           {/* Order Summary */}
           <div className="bg-gradient-to-br from-brand-dark to-brand-darkest rounded-2xl p-8 shadow-2xl text-white">
             <h2 className="text-2xl font-bold mb-6 text-center font-playfair">Order Summary</h2>
@@ -881,16 +933,19 @@ function CustomizeContent() {
                   <span>Size:</span>
                   <span className="font-semibold">{selectedSize}&quot;</span>
                 </div>
+              )}
               {selectedMaterial && (
                 <div className="flex justify-between">
                   <span>Material:</span>
                   <span className="font-semibold">{selectedMaterial}</span>
                 </div>
+              )}
               {selectedCardPaper && (
                 <div className="flex justify-between">
                   <span>Paper:</span>
                   <span className="font-semibold">{selectedCardPaper}</span>
                 </div>
+              )}
               {isFramed !== null && (
                 <div className="flex justify-between">
                   <span>Frame:</span>
@@ -898,6 +953,7 @@ function CustomizeContent() {
                     {isFramed ? `${frameColor || "Select color"}` : "Unframed"}
                   </span>
                 </div>
+              )}
               {hasFoil !== null && (
                 <div className="flex justify-between">
                   <span>Foil:</span>
@@ -905,6 +961,7 @@ function CustomizeContent() {
                     {hasFoil ? `${selectedFoilColor || "Select color"}` : "No Foil"}
                   </span>
                 </div>
+              )}
               <div className="flex justify-between">
                 <span>Quantity:</span>
                 <span className="font-semibold">{quantity}</span>
@@ -926,10 +983,12 @@ function CustomizeContent() {
                 />
                 Use existing ArtKey™ Portal ({existingArtKeyId}) for this product
               </label>
+            )}
             {!existingArtKeyId && (
               <p className="text-sm text-white/80 mb-4">
                 A new ArtKey™ Portal ID will be generated automatically in the next step.
               </p>
+            )}
             <button
               onClick={handleVariantsComplete}
               disabled={!canProceed()}
@@ -944,7 +1003,9 @@ function CustomizeContent() {
           </div>
         </div>
         </div>
-                )}`n`n        {/* Step 4: Design Editor */}
+        )}
+
+        {/* Step 4: Design Editor */}
         {currentStep === 4 && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-6">
@@ -963,6 +1024,7 @@ function CustomizeContent() {
                     ))}
                   </div>
                 </div>
+              )}
               <div className="mt-4">
                 <button
                   onClick={() => setShowStudio(true)}
@@ -980,11 +1042,13 @@ function CustomizeContent() {
           </div>
         )}
 
-        {/* Step 5: ArtKeyT Portal (handled by handleContinueToArtKey) */}
+        {/* Step 5: ArtKey™ Portal (handled by handleContinueToArtKey) */}
+        )}
       </div>
     </div>
   );
 }
+
 export default function CustomizePage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-brand-lightest flex items-center justify-center"><div className="text-xl">Loading...</div></div>}>
