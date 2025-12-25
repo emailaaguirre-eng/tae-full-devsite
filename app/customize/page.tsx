@@ -1044,7 +1044,6 @@ function CustomizeContent() {
         )}
 
         {/* Step 5: ArtKey™ Portal (handled by handleContinueToArtKey) */}
-        )}
       </div>
     </div>
   );
