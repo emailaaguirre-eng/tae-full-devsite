@@ -12,8 +12,8 @@ export default function robots(): MetadataRoute.Robots {
           '/art-key/artkey-session-*', // Disallow all ArtKey session URLs
           '/art-key/edit/', // Disallow ArtKey editor URLs
           '/art-key/edit/*', // Disallow ArtKey editor URLs with tokens
-          '/manage/', // Disallow admin/management URLs
-          '/manage/*', // Disallow all admin/management URLs
+          '/b_d_admn_tae/', // Disallow admin/management URLs
+          '/b_d_admn_tae/*', // Disallow all admin/management URLs
           '/admin/', // Disallow legacy admin URLs (if any exist)
           '/admin/*', // Disallow all legacy admin URLs
         ],
