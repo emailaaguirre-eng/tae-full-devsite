@@ -116,7 +116,7 @@ export default function ProductPage() {
   // Design Editor state
   const [showDesignEditor, setShowDesignEditor] = useState(false);
   const [designData, setDesignData] = useState<DesignData | null>(null);
-  const [currentStep, setCurrentStep] = useState(0); // 0: Product Info/Options, 1: Upload, 2: Design Editor, 3: ArtKey
+  const [currentStep, setCurrentStep] = useState(0);
 
   // Fallback variants
   const getFallbackVariants = (type: string): GelatoVariant => {
@@ -187,7 +187,6 @@ export default function ProductPage() {
       if (response.ok) {
         const data = await response.json();
         setGelatoVariants(data);
-        // Auto-select first size if available
         if (data.sizes && data.sizes.length > 0) {
           setSelectedSize(data.sizes[0].name);
         }
@@ -229,7 +228,7 @@ export default function ProductPage() {
       }
       if (isFramed && frameColor) {
         const frame = variants.frames?.find(f => f.name === frameColor);
-        if (frame) total += frame.price + 20; // Base frame cost
+        if (frame) total += frame.price + 20;
       }
     } else if (productType === "card" || productType === "invitation" || productType === "announcement") {
       if (selectedSize) {
@@ -271,7 +270,7 @@ export default function ProductPage() {
 
   const handleOptionsComplete = () => {
     if (canProceedToUpload()) {
-      setCurrentStep(1); // Move to Upload step
+      setCurrentStep(1);
     }
   };
 
@@ -297,7 +296,7 @@ export default function ProductPage() {
 
   const handleUploadComplete = () => {
     if (uploadedImages.length > 0) {
-      setCurrentStep(2); // Move to Design Editor
+      setCurrentStep(2);
       setShowDesignEditor(true);
     }
   };
@@ -305,7 +304,7 @@ export default function ProductPage() {
   const handleDesignComplete = (data: DesignData) => {
     setDesignData(data);
     setShowDesignEditor(false);
-    setCurrentStep(3); // Move to ArtKey Editor
+    setCurrentStep(3);
   };
 
   const generateArtKeyId = (length = 8): string => {
@@ -356,10 +355,8 @@ export default function ProductPage() {
       <Navbar />
       
       <div className="pt-24 pb-12">
-        {/* Step 0: Product Info & Options */}
         {currentStep === 0 && (
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            {/* Product Information Section */}
             <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 relative">
               <Link
                 href="/shop"
@@ -373,8 +370,6 @@ export default function ProductPage() {
                 <div className="flex-1">
                   <h1 className="text-4xl font-bold text-brand-darkest mb-4 font-playfair">{info.title}</h1>
                   <p className="text-lg text-brand-dark mb-6">{info.description}</p>
-                  
-                  {/* Examples */}
                   <div>
                     <h3 className="text-xl font-semibold text-brand-darkest mb-3 font-playfair">Perfect For:</h3>
                     <ul className="list-disc list-inside space-y-2 text-brand-dark">
@@ -387,7 +382,6 @@ export default function ProductPage() {
               </div>
             </div>
 
-            {/* Options Section */}
             <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-3xl font-bold text-brand-darkest font-playfair">Select Options</h2>
@@ -416,7 +410,6 @@ export default function ProductPage() {
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {/* Size Selection */}
                   {variants.sizes && variants.sizes.length > 0 && (
                     <div>
                       <h3 className="text-lg font-semibold text-brand-darkest mb-4">Choose Size</h3>
@@ -439,7 +432,6 @@ export default function ProductPage() {
                     </div>
                   )}
 
-                  {/* Material Selection (for prints) */}
                   {productType === "print" && variants.materials && variants.materials.length > 0 && (
                     <div>
                       <h3 className="text-lg font-semibold text-brand-darkest mb-4">Choose Material</h3>
@@ -464,7 +456,6 @@ export default function ProductPage() {
                     </div>
                   )}
 
-                  {/* Paper Type Selection (for cards/postcards) */}
                   {(productType === "card" || productType === "postcard" || productType === "invitation" || productType === "announcement") && 
                    variants.paperTypes && variants.paperTypes.length > 0 && (
                     <div>
@@ -493,7 +484,6 @@ export default function ProductPage() {
                     </div>
                   )}
 
-                  {/* Frame Selection (for prints) */}
                   {productType === "print" && variants.frames && variants.frames.length > 0 && (
                     <>
                       <div>
@@ -564,7 +554,6 @@ export default function ProductPage() {
                     </>
                   )}
 
-                  {/* Foil Selection (for cards/invitations/announcements) */}
                   {(productType === "card" || productType === "invitation" || productType === "announcement") && 
                    variants.foilColors && variants.foilColors.length > 0 && (
                     <>
@@ -623,7 +612,6 @@ export default function ProductPage() {
                     </>
                   )}
 
-                  {/* Quantity */}
                   <div>
                     <h3 className="text-lg font-semibold text-brand-darkest mb-4">Quantity</h3>
                     <div className="flex items-center gap-4">
@@ -649,7 +637,6 @@ export default function ProductPage() {
                     </div>
                   </div>
 
-                  {/* Order Summary */}
                   <div className="bg-brand-darkest text-white rounded-2xl p-6">
                     <h3 className="text-xl font-bold mb-4">Order Summary</h3>
                     <div className="space-y-2 mb-4 text-sm">
@@ -688,7 +675,6 @@ export default function ProductPage() {
           </div>
         )}
 
-        {/* Step 1: Upload Image */}
         {currentStep === 1 && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -744,7 +730,6 @@ export default function ProductPage() {
           </div>
         )}
 
-        {/* Step 2: Design Editor */}
         {currentStep === 2 && showDesignEditor && (
           <DesignEditor
             productType={productType as 'canvas' | 'print' | 'card' | 'poster' | 'photobook'}
@@ -759,7 +744,6 @@ export default function ProductPage() {
           />
         )}
 
-        {/* Step 3: ArtKey Editor */}
         {currentStep === 3 && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
@@ -783,4 +767,3 @@ export default function ProductPage() {
     </main>
   );
 }
-
