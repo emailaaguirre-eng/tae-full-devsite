@@ -2314,13 +2314,18 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 Decorative Labels
               </h3>
               <p className="text-xs text-gray-500">Click to add a label frame to your design</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: 'label-01', name: 'Classic', path: 'M 5 10 L 15 2 L 85 2 L 95 10 L 95 40 L 85 48 L 15 48 L 5 40 Z' },
                   { id: 'label-02', name: 'Rounded', path: 'M 8 5 Q 5 5 5 8 L 5 42 Q 5 45 8 45 L 92 45 Q 95 45 95 42 L 95 8 Q 95 5 92 5 Z' },
-                  { id: 'label-03', name: 'Scalloped', path: 'M 8 5 Q 12 8 16 5 Q 20 8 24 5 Q 28 8 32 5 L 97 5 L 97 45 Q 92 42 88 45 Q 84 42 80 45 L 3 45 L 3 5 Z' },
+                  { id: 'label-03', name: 'Scalloped', path: 'M 5 5 Q 10 10 15 5 Q 20 10 25 5 Q 30 10 35 5 Q 40 10 45 5 Q 50 10 55 5 Q 60 10 65 5 Q 70 10 75 5 Q 80 10 85 5 Q 90 10 95 5 L 95 45 Q 90 40 85 45 Q 80 40 75 45 Q 70 40 65 45 Q 60 40 55 45 Q 50 40 45 45 Q 40 40 35 45 Q 30 40 25 45 Q 20 40 15 45 Q 10 40 5 45 Z' },
                   { id: 'label-04', name: 'Bracket', path: 'M 5 3 L 20 3 L 20 10 L 10 10 L 10 40 L 20 40 L 20 47 L 5 47 Z M 95 3 L 80 3 L 80 10 L 90 10 L 90 40 L 80 40 L 80 47 L 95 47 Z' },
                   { id: 'label-05', name: 'Banner', path: 'M 0 12 L 12 12 L 18 3 L 82 3 L 88 12 L 100 12 L 94 25 L 100 38 L 88 38 L 82 47 L 18 47 L 12 38 L 0 38 L 6 25 Z' },
+                  { id: 'label-06', name: 'Ribbon', path: 'M 0 15 L 10 15 L 10 5 L 90 5 L 90 15 L 100 15 L 100 35 L 90 35 L 90 45 L 10 45 L 10 35 L 0 35 Z' },
+                  { id: 'label-07', name: 'Shield', path: 'M 50 5 L 95 15 L 95 35 Q 95 45 50 50 Q 5 45 5 35 L 5 15 Z' },
+                  { id: 'label-08', name: 'Oval Frame', path: 'M 50 3 Q 95 3 95 25 Q 95 47 50 47 Q 5 47 5 25 Q 5 3 50 3 Z' },
+                  { id: 'label-09', name: 'Ticket', path: 'M 5 5 L 95 5 L 95 18 Q 90 18 90 25 Q 90 32 95 32 L 95 45 L 5 45 L 5 32 Q 10 32 10 25 Q 10 18 5 18 Z' },
+                  { id: 'label-10', name: 'Crest', path: 'M 50 3 L 90 8 L 95 20 L 85 35 L 50 48 L 15 35 L 5 20 L 10 8 Z' },
                 ].map((label) => (
                   <button
                     key={label.id}
@@ -2329,9 +2334,9 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                       const path = new fabric.Path(label.path, {
                         left: 100,
                         top: 100,
-                        fill: 'transparent',
-                        stroke: '#000000',
-                        strokeWidth: 2,
+                        fill: shapeSettings.fill === 'transparent' ? 'transparent' : shapeSettings.fill,
+                        stroke: shapeSettings.stroke,
+                        strokeWidth: shapeSettings.strokeWidth,
                         scaleX: 2,
                         scaleY: 2,
                       });
@@ -2339,14 +2344,56 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                       fabricCanvasRef.current.setActiveObject(path);
                       fabricCanvasRef.current.renderAll();
                     }}
-                    className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                    className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
                   >
-                    <svg viewBox="0 0 100 50" className="w-full h-12" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg viewBox="0 0 100 50" className="w-full h-10" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d={label.path} />
                     </svg>
-                    <span className="text-xs text-gray-600 mt-1 block">{label.name}</span>
+                    <span className="text-xs text-gray-600 block">{label.name}</span>
                   </button>
                 ))}
+              </div>
+              
+              {/* Label Color Controls */}
+              <div className="space-y-3 pt-3 border-t border-gray-200">
+                <h4 className="text-xs font-semibold text-gray-700">Label Colors</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-600 block mb-1">Fill</label>
+                    <input
+                      type="color"
+                      value={shapeSettings.fill === 'transparent' ? '#ffffff' : shapeSettings.fill}
+                      onChange={(e) => setShapeSettings(p => ({ ...p, fill: e.target.value }))}
+                      className="w-full h-8 rounded cursor-pointer border border-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600 block mb-1">Stroke</label>
+                    <input
+                      type="color"
+                      value={shapeSettings.stroke}
+                      onChange={(e) => setShapeSettings(p => ({ ...p, stroke: e.target.value }))}
+                      className="w-full h-8 rounded cursor-pointer border border-gray-200"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 block mb-1">Stroke Width: {shapeSettings.strokeWidth}px</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={shapeSettings.strokeWidth}
+                    onChange={(e) => setShapeSettings(p => ({ ...p, strokeWidth: parseInt(e.target.value) }))}
+                    className="w-full accent-gray-900"
+                  />
+                </div>
+                <button
+                  onClick={() => setShapeSettings(p => ({ ...p, fill: 'transparent' }))}
+                  className="w-full py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  No Fill (Outline Only)
+                </button>
               </div>
             </div>
           )}
@@ -2359,72 +2406,187 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 Basic Shapes
               </h3>
               <p className="text-xs text-gray-500">Click to add a shape to your design</p>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-4 gap-2">
+                {/* Rectangle */}
                 <button
                   onClick={() => {
                     if (!fabricCanvasRef.current) return;
                     const rect = new fabric.Rect({
                       left: 100, top: 100, width: 100, height: 80,
-                      fill: '#E5E7EB', stroke: '#374151', strokeWidth: 2
+                      fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
                     });
                     fabricCanvasRef.current.add(rect);
                     fabricCanvasRef.current.setActiveObject(rect);
                     fabricCanvasRef.current.renderAll();
                   }}
-                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                  className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
-                  <Square className="w-8 h-8 text-gray-600" />
-                  <span className="text-xs text-gray-600 mt-1">Rectangle</span>
+                  <Square className="w-6 h-6 text-gray-600" />
+                  <span className="text-xs text-gray-600">Rect</span>
                 </button>
+                {/* Rounded Rectangle */}
+                <button
+                  onClick={() => {
+                    if (!fabricCanvasRef.current) return;
+                    const rect = new fabric.Rect({
+                      left: 100, top: 100, width: 100, height: 80, rx: 15, ry: 15,
+                      fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
+                    });
+                    fabricCanvasRef.current.add(rect);
+                    fabricCanvasRef.current.setActiveObject(rect);
+                    fabricCanvasRef.current.renderAll();
+                  }}
+                  className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                >
+                  <div className="w-6 h-5 rounded-md border-2 border-gray-600" />
+                  <span className="text-xs text-gray-600">Rounded</span>
+                </button>
+                {/* Circle */}
                 <button
                   onClick={() => {
                     if (!fabricCanvasRef.current) return;
                     const circle = new fabric.Circle({
                       left: 100, top: 100, radius: 50,
-                      fill: '#E5E7EB', stroke: '#374151', strokeWidth: 2
+                      fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
                     });
                     fabricCanvasRef.current.add(circle);
                     fabricCanvasRef.current.setActiveObject(circle);
                     fabricCanvasRef.current.renderAll();
                   }}
-                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                  className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
-                  <Circle className="w-8 h-8 text-gray-600" />
-                  <span className="text-xs text-gray-600 mt-1">Circle</span>
+                  <Circle className="w-6 h-6 text-gray-600" />
+                  <span className="text-xs text-gray-600">Circle</span>
                 </button>
+                {/* Ellipse */}
+                <button
+                  onClick={() => {
+                    if (!fabricCanvasRef.current) return;
+                    const ellipse = new fabric.Ellipse({
+                      left: 100, top: 100, rx: 60, ry: 35,
+                      fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
+                    });
+                    fabricCanvasRef.current.add(ellipse);
+                    fabricCanvasRef.current.setActiveObject(ellipse);
+                    fabricCanvasRef.current.renderAll();
+                  }}
+                  className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                >
+                  <div className="w-7 h-4 rounded-full border-2 border-gray-600" />
+                  <span className="text-xs text-gray-600">Ellipse</span>
+                </button>
+                {/* Triangle */}
+                <button
+                  onClick={() => {
+                    if (!fabricCanvasRef.current) return;
+                    const triangle = new fabric.Triangle({
+                      left: 100, top: 100, width: 80, height: 80,
+                      fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
+                    });
+                    fabricCanvasRef.current.add(triangle);
+                    fabricCanvasRef.current.setActiveObject(triangle);
+                    fabricCanvasRef.current.renderAll();
+                  }}
+                  className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                >
+                  <Triangle className="w-6 h-6 text-gray-600" />
+                  <span className="text-xs text-gray-600">Triangle</span>
+                </button>
+                {/* Heart */}
                 <button
                   onClick={() => {
                     if (!fabricCanvasRef.current) return;
                     const heart = new fabric.Path('M 50 85 C 20 55 0 35 0 20 C 0 5 15 0 25 0 C 35 0 45 10 50 20 C 55 10 65 0 75 0 C 85 0 100 5 100 20 C 100 35 80 55 50 85 Z', {
                       left: 100, top: 100,
-                      fill: '#E5E7EB', stroke: '#374151', strokeWidth: 2,
+                      fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth,
                       scaleX: 1, scaleY: 1
                     });
                     fabricCanvasRef.current.add(heart);
                     fabricCanvasRef.current.setActiveObject(heart);
                     fabricCanvasRef.current.renderAll();
                   }}
-                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                  className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
-                  <Heart className="w-8 h-8 text-gray-600" />
-                  <span className="text-xs text-gray-600 mt-1">Heart</span>
+                  <Heart className="w-6 h-6 text-gray-600" />
+                  <span className="text-xs text-gray-600">Heart</span>
                 </button>
+                {/* Star */}
                 <button
                   onClick={() => {
                     if (!fabricCanvasRef.current) return;
                     const star = new fabric.Path('M 50 5 L 61 35 L 95 35 L 68 55 L 79 90 L 50 70 L 21 90 L 32 55 L 5 35 L 39 35 Z', {
                       left: 100, top: 100,
-                      fill: '#E5E7EB', stroke: '#374151', strokeWidth: 2,
+                      fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth,
                       scaleX: 1, scaleY: 1
                     });
                     fabricCanvasRef.current.add(star);
                     fabricCanvasRef.current.setActiveObject(star);
                     fabricCanvasRef.current.renderAll();
                   }}
-                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                  className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
-                  <Star className="w-8 h-8 text-gray-600" />
-                  <span className="text-xs text-gray-600 mt-1">Star</span>
+                  <Star className="w-6 h-6 text-gray-600" />
+                  <span className="text-xs text-gray-600">Star</span>
+                </button>
+                {/* Line */}
+                <button
+                  onClick={() => {
+                    if (!fabricCanvasRef.current) return;
+                    const line = new fabric.Line([50, 50, 200, 50], {
+                      left: 100, top: 100,
+                      stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
+                    });
+                    fabricCanvasRef.current.add(line);
+                    fabricCanvasRef.current.setActiveObject(line);
+                    fabricCanvasRef.current.renderAll();
+                  }}
+                  className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
+                >
+                  <Minus className="w-6 h-6 text-gray-600" />
+                  <span className="text-xs text-gray-600">Line</span>
+                </button>
+              </div>
+              
+              {/* Shape Color Controls */}
+              <div className="space-y-3 pt-3 border-t border-gray-200">
+                <h4 className="text-xs font-semibold text-gray-700">Shape Colors</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-600 block mb-1">Fill</label>
+                    <input
+                      type="color"
+                      value={shapeSettings.fill}
+                      onChange={(e) => setShapeSettings(p => ({ ...p, fill: e.target.value }))}
+                      className="w-full h-8 rounded cursor-pointer border border-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600 block mb-1">Stroke</label>
+                    <input
+                      type="color"
+                      value={shapeSettings.stroke}
+                      onChange={(e) => setShapeSettings(p => ({ ...p, stroke: e.target.value }))}
+                      className="w-full h-8 rounded cursor-pointer border border-gray-200"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 block mb-1">Stroke Width: {shapeSettings.strokeWidth}px</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="20"
+                    value={shapeSettings.strokeWidth}
+                    onChange={(e) => setShapeSettings(p => ({ ...p, strokeWidth: parseInt(e.target.value) }))}
+                    className="w-full accent-gray-900"
+                  />
+                </div>
+                {/* No Fill Button */}
+                <button
+                  onClick={() => setShapeSettings(p => ({ ...p, fill: 'transparent' }))}
+                  className="w-full py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  No Fill (Outline Only)
                 </button>
               </div>
             </div>
@@ -2854,7 +3016,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
         </div>
         
         {/* Canvas Container - This is the workspace representing the print area */}
-        <div className="flex-1 flex flex-col items-center justify-center p-8 overflow-auto bg-gray-100">
+        <div className="flex-1 flex flex-col items-center justify-center p-8 overflow-auto bg-gray-100 relative">
           {/* Surface Tabs for Folded Products */}
           {isFoldedProduct && (
             <div className="mb-4 flex gap-2 bg-white rounded-lg p-1 shadow-md">
@@ -2915,6 +3077,146 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
               <canvas ref={canvasRef} className="shadow-lg rounded-lg bg-white" />
             </div>
           </div>
+          
+          {/* Properties Panel - Floating when object selected */}
+          {selectedObject && (
+            <div className="absolute top-4 right-4 w-64 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 z-20">
+              <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Paintbrush className="w-4 h-4" />
+                Element Properties
+              </h3>
+              
+              <div className="space-y-4">
+                {/* Fill Color */}
+                <div>
+                  <label className="text-xs font-medium text-gray-700 block mb-1">Fill Color</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={(selectedObject.get('fill') as string) || '#ffffff'}
+                      onChange={(e) => {
+                        selectedObject.set('fill', e.target.value);
+                        fabricRef.current?.renderAll();
+                      }}
+                      className="w-full h-8 rounded cursor-pointer border border-gray-200"
+                    />
+                    <button
+                      onClick={() => {
+                        selectedObject.set('fill', 'transparent');
+                        fabricRef.current?.renderAll();
+                      }}
+                      className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                      title="No fill"
+                    >
+                      ∅
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Stroke Color */}
+                <div>
+                  <label className="text-xs font-medium text-gray-700 block mb-1">Stroke Color</label>
+                  <input
+                    type="color"
+                    value={(selectedObject.get('stroke') as string) || '#000000'}
+                    onChange={(e) => {
+                      selectedObject.set('stroke', e.target.value);
+                      fabricRef.current?.renderAll();
+                    }}
+                    className="w-full h-8 rounded cursor-pointer border border-gray-200"
+                  />
+                </div>
+                
+                {/* Stroke Width */}
+                <div>
+                  <label className="text-xs font-medium text-gray-700 block mb-1">
+                    Stroke Width: {(selectedObject.get('strokeWidth') as number) || 0}px
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="20"
+                    value={(selectedObject.get('strokeWidth') as number) || 0}
+                    onChange={(e) => {
+                      selectedObject.set('strokeWidth', parseInt(e.target.value));
+                      fabricRef.current?.renderAll();
+                    }}
+                    className="w-full accent-gray-900"
+                  />
+                </div>
+                
+                {/* Opacity */}
+                <div>
+                  <label className="text-xs font-medium text-gray-700 block mb-1">
+                    Opacity: {Math.round((selectedObject.get('opacity') as number || 1) * 100)}%
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={Math.round((selectedObject.get('opacity') as number || 1) * 100)}
+                    onChange={(e) => {
+                      selectedObject.set('opacity', parseInt(e.target.value) / 100);
+                      fabricRef.current?.renderAll();
+                    }}
+                    className="w-full accent-gray-900"
+                  />
+                </div>
+                
+                {/* Text-specific properties */}
+                {selectedObject.type === 'i-text' || selectedObject.type === 'textbox' ? (
+                  <div className="pt-3 border-t border-gray-200 space-y-3">
+                    <label className="text-xs font-medium text-gray-700 block">Font Family</label>
+                    <select
+                      value={(selectedObject as any).fontFamily || 'Arial'}
+                      onChange={(e) => {
+                        (selectedObject as any).set('fontFamily', e.target.value);
+                        fabricRef.current?.renderAll();
+                      }}
+                      className="w-full p-2 text-sm border border-gray-200 rounded-lg"
+                    >
+                      {availableFonts.map(font => (
+                        <option key={font} value={font} style={{ fontFamily: font }}>{font}</option>
+                      ))}
+                    </select>
+                    
+                    <label className="text-xs font-medium text-gray-700 block">
+                      Font Size: {(selectedObject as any).fontSize || 24}px
+                    </label>
+                    <input
+                      type="range"
+                      min="12"
+                      max="200"
+                      value={(selectedObject as any).fontSize || 24}
+                      onChange={(e) => {
+                        (selectedObject as any).set('fontSize', parseInt(e.target.value));
+                        fabricRef.current?.renderAll();
+                      }}
+                      className="w-full accent-gray-900"
+                    />
+                  </div>
+                ) : null}
+                
+                {/* Quick Actions */}
+                <div className="pt-3 border-t border-gray-200 flex gap-2">
+                  <button
+                    onClick={deleteSelected}
+                    className="flex-1 py-2 px-3 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition-all flex items-center justify-center gap-1"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Delete
+                  </button>
+                  <button
+                    onClick={duplicateSelected}
+                    className="flex-1 py-2 px-3 bg-gray-50 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-100 transition-all flex items-center justify-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" />
+                    Duplicate
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Footer */}
