@@ -45,9 +45,9 @@ function CustomizeContent() {
   const heroImages = searchParams.get("images")?.split(',').filter(Boolean) || [];
   const heroMessage = searchParams.get("message") || "";
 
-  // Step tracking - FLOW: 1=Product Selection, 2=Upload Image, 3=Options, 4=Design Editor, 5=ArtKeyT
+  // Step tracking - FLOW: 1=Upload Image, 2=Options, 3=Design Editor, 4=ArtKeyT
   // If product_type is provided via URL (from Shop), skip to Upload step
-  const [currentStep, setCurrentStep] = useState(initialProductType ? 2 : 1);
+  const [currentStep, setCurrentStep] = useState(1);
   
   // Uploaded images state
   const [uploadedImages, setUploadedImages] = useState<string[]>(heroImages);
@@ -344,8 +344,8 @@ function CustomizeContent() {
               <h1 className="text-3xl font-bold text-brand-darkest mb-2 font-playfair">
                 {currentStep === 1 ? "Choose Your Product" : 
                  currentStep === 2 ? "Upload Your Image" : 
-                 currentStep === 3 ? `Customize Your ${productType === "card" ? "Card" : productType === "invitation" ? "Invitation" : productType === "announcement" ? "Announcement" : productType === "postcard" ? "Postcard" : productType === "ideas" ? "Idea" : "Wall Art"}` :
-                 currentStep === 4 ? "Design Your Product" :
+                 currentStep === 3 ? "Design Your Product" : currentStep === 4 ? `Create Your ${productType === "card" ? "Card" : productType === "invitation" ? "Invitation" : productType === "announcement" ? "Announcement" : productType === "postcard" ? "Postcard" : productType === "ideas" ? "Idea" : "Wall Art"}` :
+                 false ? "unused" :
                  "Create Your ArtKey™ Portal"}
               </h1>
               <p className="text-brand-dark">
@@ -416,7 +416,7 @@ function CustomizeContent() {
           />
         )}
 
-        {/* Step 1: Product Selection */}
+        {/* Step 1: Upload Image */}
         {currentStep === 1 && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -477,7 +477,7 @@ function CustomizeContent() {
           </div>
         )}
 
-        {/* Step 2: Upload Image */}
+        {/* Step 2: Options */}
         {currentStep === 2 && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -539,7 +539,7 @@ function CustomizeContent() {
           </div>
         )}
 
-        {/* Step 3: Product Options */}
+        {/* Step 3: Design Editor (auto-opens) */}
         {currentStep === 3 && (
           <div className="space-y-6">
             {/* Image Preview */}
@@ -1006,7 +1006,7 @@ function CustomizeContent() {
         </div>
         )}
 
-        {/* Step 4: Design Editor */}
+        {/* Step 4: ArtKey Portal */}
         {currentStep === 4 && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-6">
