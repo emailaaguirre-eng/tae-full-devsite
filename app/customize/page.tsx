@@ -417,7 +417,7 @@ function CustomizeContent() {
         )}
 
         {/* Step 1: Product Selection */}
-        {currentStep === 2 && (
+        {currentStep === 1 && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <h2 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair text-center">
@@ -478,7 +478,7 @@ function CustomizeContent() {
         )}
 
         {/* Step 2: Upload Image */}
-        {currentStep === 1 && (
+        {currentStep === 2 && (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <h2 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair text-center">
