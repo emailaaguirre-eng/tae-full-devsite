@@ -26,7 +26,7 @@ export default function Testimonials() {
       name: "Dr. Shyla",
       location: "",
       text: "I wanted to send a special holiday card to my patients, but instead of a traditional card, I chose to share beautiful imagery that truly reflected my vision. I was thrilled to discover that I could also upload videos, personalized patient plans, and inspirational testimonials. What I didn't expect was just how impactful it would be. The response from my patients was incredible—meaningful, memorable, and genuinely useful. If you want to create a lasting impression, I highly recommend ordering your holiday cards, birthday greetings, or special-occasion announcements through The Artful Experience.",
-      image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/IMG_7692-scaled.jpeg"
+      image: "https://theartfulexperience.com/wp-content/uploads/2025/12/IMG_7692-1-scaled.jpeg"
     },
     {
       name: "Connie Upham",
@@ -44,7 +44,7 @@ export default function Testimonials() {
       name: "Bryant Colman",
       location: "Founder - The Artful Experience",
       text: "For the past twenty years, I have sent holiday cards as a way to stay connected with family, friends, and clients. Each year, I reflect on the moments that mattered most—sharing inspirational images, personal reflections, and a message of encouragement for the year ahead. This year, I used our platform to reimagine that tradition. Instead of a static card, I sent an interactive experience that included a personal video message, favorite destinations, hotels, restaurants, and artists I discovered throughout the year. I also included a guestbook, allowing old friends and new connections to leave messages and reconnect in meaningful ways. What began as a holiday greeting became a living, shared experience and a reminder of why The Artful Experience exists.",
-      image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/bctestimonialimage.png"
+      image: "https://theartfulexperience.com/wp-content/uploads/2025/12/bctestimonial.png"
     }
   ];
 
@@ -110,3 +110,5 @@ export default function Testimonials() {
     </section>
   );
 }
+
+
