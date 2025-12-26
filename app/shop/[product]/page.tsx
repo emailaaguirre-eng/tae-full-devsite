@@ -1,380 +1,294 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter, useParams } from "next/navigation";
-import Link from "next/link";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import dynamic from "next/dynamic";
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 
-const DesignEditor = dynamic(() => import("@/components/DesignEditor"), {
+// Dynamic import for Design Editor
+const DesignEditor = dynamic(() => import('@/components/DesignEditor'), {
   ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-96">
+      <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full"></div>
+    </div>
+  ),
 });
 
-interface GelatoVariant {
-  sizes?: Array<{ name: string; price: number; gelatoUid: string }>;
-  materials?: Array<{ name: string; price: number; gelatoUid: string }>;
-  frames?: Array<{ name: string; price: number }>;
-  paperTypes?: Array<{ name: string; price: number; gelatoUid: string; description?: string }>;
-  foilColors?: Array<{ name: string; price: number }>;
-}
-
-interface DesignData {
-  canvasData?: string;
-  images?: string[];
-}
-
-const productInfo: Record<string, {
-  title: string;
-  icon: string;
-  description: string;
-  examples: string[];
-}> = {
+// Product information
+const productInfo: Record<string, { title: string; description: string; icon: string; examples: string[] }> = {
   card: {
-    title: "Cards",
-    icon: "Γëí╞Æ├å├«",
-    description: "Everyday greeting cards for notes and moments. Perfect for birthdays, holidays, thank you notes, and any occasion where you want to share a personal touch.",
+    title: 'Greeting Cards',
+    description: 'Beautiful cards for birthdays, holidays, thank yous, and everyday moments.',
+    icon: '💌',
     examples: [
-      "Birthday cards with personalized messages",
-      "Thank you cards for special occasions",
-      "Holiday greeting cards",
-      "Congratulations cards",
-      "Thinking of you cards"
-    ]
+      'Birthday celebrations',
+      'Thank you notes',
+      'Holiday greetings',
+      'Get well wishes',
+      'Congratulations',
+    ],
   },
   postcard: {
-    title: "Postcards",
-    icon: "Γëí╞Æ├┤┬½",
-    description: "Mail-ready postcards with a writable back. Ideal for travel memories, vacation updates, or quick notes to friends and family.",
+    title: 'Postcards',
+    description: 'Share memories and moments with custom postcards.',
+    icon: '📮',
     examples: [
-      "Travel postcards from your adventures",
-      "Vacation updates to family",
-      "Quick notes to friends",
-      "Event announcements",
-      "Photo postcards of special moments"
-    ]
+      'Travel memories',
+      'Event announcements',
+      'Save the dates',
+      'Business promotions',
+      'Art prints',
+    ],
   },
   invitation: {
-    title: "Invitations",
-    icon: "Γëí╞Æ├ä├½",
-    description: "Event invitations designed to gather your people. Make your special events memorable with beautifully designed invitations.",
+    title: 'Invitations',
+    description: 'Elegant invitations for weddings, parties, and special events.',
+    icon: '💒',
     examples: [
-      "Wedding invitations",
-      "Birthday party invitations",
-      "Anniversary celebration invites",
-      "Graduation party invitations",
-      "Baby shower invitations"
-    ]
+      'Wedding invitations',
+      'Birthday parties',
+      'Baby showers',
+      'Graduation celebrations',
+      'Corporate events',
+    ],
   },
   announcement: {
-    title: "Announcements",
-    icon: "Γëí╞Æ├┤├│",
-    description: "Share life updates and milestone news beautifully. Perfect for announcing important life events and achievements.",
+    title: 'Announcements',
+    description: 'Share your news with beautifully designed announcements.',
+    icon: '📢',
     examples: [
-      "Birth announcements",
-      "Graduation announcements",
-      "Engagement announcements",
-      "New job announcements",
-      "Moving announcements"
-    ]
+      'Birth announcements',
+      'Engagement news',
+      'Moving announcements',
+      'Business launches',
+      'Graduation announcements',
+    ],
   },
   print: {
-    title: "Wall Art",
-    icon: "Γëí╞Æ├╗Γò¥Γê⌐Γòò├à",
-    description: "Premium prints for your walls, framed or unframed. Transform your favorite photos into stunning wall art for your home or office.",
+    title: 'Wall Art',
+    description: 'Transform your photos into stunning wall art with prints, canvas, and frames.',
+    icon: '🖼️',
     examples: [
-      "Family portrait prints",
-      "Landscape photography prints",
-      "Abstract art prints",
-      "Pet portrait prints",
-      "Custom artwork prints"
-    ]
-  }
+      'Family portraits',
+      'Landscape photography',
+      'Abstract art',
+      'Pet photos',
+      'Memory collages',
+    ],
+  },
 };
 
+// Frame color options with actual color values
+const frameColors = [
+  { name: 'Black', color: '#000000', border: '#333333' },
+  { name: 'White', color: '#FFFFFF', border: '#CCCCCC' },
+  { name: 'Silver', color: 'linear-gradient(135deg, #C0C0C0 0%, #E8E8E8 50%, #A0A0A0 100%)', border: '#888888' },
+  { name: 'Gold', color: 'linear-gradient(135deg, #D4AF37 0%, #F5D76E 50%, #C5A028 100%)', border: '#B8960C' },
+  { name: 'Natural Wood', color: 'linear-gradient(135deg, #DEB887 0%, #D2B48C 50%, #C4A575 100%)', border: '#A0825A' },
+];
+
+// Foil color options with actual color values
+const foilColors = [
+  { name: 'Gold', color: 'linear-gradient(135deg, #FFD700 0%, #FFF8DC 30%, #DAA520 70%, #B8860B 100%)', price: 5.00 },
+  { name: 'Silver', color: 'linear-gradient(135deg, #C0C0C0 0%, #FFFFFF 30%, #A9A9A9 70%, #808080 100%)', price: 5.00 },
+  { name: 'Rose Gold', color: 'linear-gradient(135deg, #E8B4B8 0%, #FFE4E1 30%, #DDA0A0 70%, #C48888 100%)', price: 6.00 },
+  { name: 'Copper', color: 'linear-gradient(135deg, #B87333 0%, #DA8A47 30%, #CD7F32 70%, #A05A2C 100%)', price: 5.00 },
+];
+
+// Size options by product type
+const sizeOptions: Record<string, { name: string; price: number }[]> = {
+  card: [
+    { name: '4x6', price: 12.99 },
+    { name: '5x7', price: 15.99 },
+    { name: '6x9', price: 19.99 },
+  ],
+  postcard: [
+    { name: '4x6', price: 10.99 },
+    { name: '5x7', price: 13.99 },
+  ],
+  invitation: [
+    { name: '5x7', price: 18.99 },
+    { name: '6x9', price: 24.99 },
+  ],
+  announcement: [
+    { name: '4x6', price: 14.99 },
+    { name: '5x7', price: 17.99 },
+  ],
+  print: [
+    { name: '5x7', price: 9.99 },
+    { name: '8x10', price: 14.99 },
+    { name: '11x14', price: 24.99 },
+    { name: '16x20', price: 39.99 },
+    { name: '24x36', price: 89.99 },
+  ],
+};
+
+// Paper types for cards
+const paperTypes = [
+  { name: 'Premium Cardstock', description: '350gsm coated silk', price: 0 },
+  { name: 'Matte Cardstock', description: '350gsm matte finish', price: 0 },
+  { name: 'Linen Cardstock', description: '350gsm textured linen', price: 2.00 },
+  { name: 'Recycled', description: '350gsm eco-friendly', price: 0 },
+];
+
+// Materials for prints
+const printMaterials = [
+  { name: 'Glossy Paper', price: 0 },
+  { name: 'Matte Paper', price: 2.00 },
+  { name: 'Canvas', price: 15.00 },
+  { name: 'Metal', price: 35.00 },
+];
+
 export default function ProductPage() {
-  const router = useRouter();
   const params = useParams();
+  const router = useRouter();
   const productType = params.product as string;
-
-  const [gelatoVariants, setGelatoVariants] = useState<GelatoVariant | null>(null);
-  const [loadingVariants, setLoadingVariants] = useState(false);
-
-  // Options state
+  
+  // State
+  const [currentStep, setCurrentStep] = useState(0); // 0=options, 1=upload, 2=design, 3=artkey, 4=complete
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
   const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null);
   const [isFramed, setIsFramed] = useState<boolean | null>(null);
-  const [frameColor, setFrameColor] = useState<string | null>(null);
-  const [selectedCardPaper, setSelectedCardPaper] = useState<string | null>(null);
+  const [selectedFrame, setSelectedFrame] = useState<string | null>(null);
   const [hasFoil, setHasFoil] = useState<boolean | null>(null);
-  const [selectedFoilColor, setSelectedFoilColor] = useState<string | null>(null);
+  const [selectedFoil, setSelectedFoil] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
-
-  // Upload state
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [artkeyId, setArtkeyId] = useState<string | null>(null);
 
-  // Design Editor state
-  const [showDesignEditor, setShowDesignEditor] = useState(false);
-  const [designData, setDesignData] = useState<DesignData | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
+  const info = productInfo[productType] || productInfo.card;
+  const sizes = sizeOptions[productType] || sizeOptions.card;
+  const isPrint = productType === 'print';
+  const isCardType = ['card', 'postcard', 'invitation', 'announcement'].includes(productType);
 
-  // Fallback variants
-  const getFallbackVariants = (type: string): GelatoVariant => {
-    if (type === "print") {
-      return {
-        sizes: [
-          { name: "5x7", price: 9.99, gelatoUid: "prints_pt_cl" },
-          { name: "8x10", price: 14.99, gelatoUid: "prints_pt_cl" },
-          { name: "11x14", price: 24.99, gelatoUid: "prints_pt_cl" },
-          { name: "16x20", price: 39.99, gelatoUid: "canvas_print_gallery_wrap" },
-          { name: "20x24", price: 59.99, gelatoUid: "canvas_print_gallery_wrap" },
-          { name: "24x36", price: 89.99, gelatoUid: "canvas_print_gallery_wrap" },
-        ],
-        materials: [
-          { name: "Glossy Paper", price: 0, gelatoUid: "prints_pt_cl" },
-          { name: "Matte Paper", price: 2.00, gelatoUid: "prints_pt_cl" },
-          { name: "Canvas", price: 15.00, gelatoUid: "canvas_print_gallery_wrap" },
-          { name: "Metal", price: 35.00, gelatoUid: "metal_prints" },
-        ],
-        frames: [
-          { name: "Black", price: 0 },
-          { name: "White", price: 5.00 },
-          { name: "Silver", price: 6.00 },
-        ],
-      };
-    } else if (type === "card" || type === "invitation" || type === "announcement") {
-      return {
-        sizes: [
-          { name: "4x6", price: 12.99, gelatoUid: "cards_cl_dtc_prt_pt" },
-          { name: "5x7", price: 15.99, gelatoUid: "cards_cl_dtc_prt_pt" },
-          { name: "6x9", price: 19.99, gelatoUid: "cards_cl_dtc_prt_pt" },
-        ],
-        paperTypes: [
-          { name: "Premium Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm coated silk" },
-          { name: "Matte Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm matte finish" },
-          { name: "Linen Cardstock", price: 2.00, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm textured linen" },
-          { name: "Recycled Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm eco-friendly" },
-        ],
-        foilColors: [
-          { name: "Gold", price: 5.00 },
-          { name: "Silver", price: 5.00 },
-          { name: "Rose Gold", price: 6.00 },
-          { name: "Copper", price: 5.00 },
-        ],
-      };
-    } else if (type === "postcard") {
-      return {
-        sizes: [
-          { name: "4x6", price: 12.99, gelatoUid: "cards_cl_dtc_prt_pt" },
-          { name: "5x7", price: 15.99, gelatoUid: "cards_cl_dtc_prt_pt" },
-          { name: "6x9", price: 19.99, gelatoUid: "cards_cl_dtc_prt_pt" },
-        ],
-        paperTypes: [
-          { name: "Premium Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm coated silk" },
-          { name: "Matte Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm matte finish" },
-          { name: "Linen Cardstock", price: 2.00, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm textured linen" },
-          { name: "Recycled Cardstock", price: 0, gelatoUid: "cards_cl_dtc_prt_pt", description: "350gsm eco-friendly" },
-        ],
-      };
-    }
-    return {};
-  };
-
-  const fetchGelatoVariants = useCallback(async (type: string) => {
-    setLoadingVariants(true);
-    try {
-      const response = await fetch(`/api/gelato/variants?productType=${type}`);
-      if (response.ok) {
-        const data = await response.json();
-        setGelatoVariants(data);
-        if (data.sizes && data.sizes.length > 0) {
-          setSelectedSize(data.sizes[0].name);
-        }
-        if (data.materials && data.materials.length > 0) {
-          setSelectedMaterial(data.materials[0].name);
-        }
-        if (data.paperTypes && data.paperTypes.length > 0) {
-          setSelectedCardPaper(data.paperTypes[0].name);
-        }
-      } else {
-        setGelatoVariants(getFallbackVariants(type));
-      }
-    } catch (error) {
-      console.error("Error fetching Gelato variants:", error);
-      setGelatoVariants(getFallbackVariants(type));
-    } finally {
-      setLoadingVariants(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (productType && productInfo[productType]) {
-      fetchGelatoVariants(productType);
-    }
-  }, [productType, fetchGelatoVariants]);
-
-  const calculateTotal = (): string => {
+  // Calculate total price
+  const calculateTotal = () => {
     let total = 0;
-    const variants = gelatoVariants || getFallbackVariants(productType);
-
-    if (productType === "print") {
-      if (selectedSize) {
-        const size = variants.sizes?.find(s => s.name === selectedSize);
-        if (size) total = size.price;
+    
+    const sizeOption = sizes.find(s => s.name === selectedSize);
+    if (sizeOption) total += sizeOption.price;
+    
+    if (isPrint) {
+      const material = printMaterials.find(m => m.name === selectedMaterial);
+      if (material) total += material.price;
+      
+      if (isFramed && selectedFrame) {
+        total += 25.00; // Frame base price
       }
-      if (selectedMaterial) {
-        const material = variants.materials?.find(m => m.name === selectedMaterial);
-        if (material) total += material.price;
-      }
-      if (isFramed && frameColor) {
-        const frame = variants.frames?.find(f => f.name === frameColor);
-        if (frame) total += frame.price + 20;
-      }
-    } else if (productType === "card" || productType === "invitation" || productType === "announcement") {
-      if (selectedSize) {
-        const size = variants.sizes?.find(s => s.name === selectedSize);
-        if (size) total = size.price;
-      }
-      if (selectedCardPaper) {
-        const paper = variants.paperTypes?.find(p => p.name === selectedCardPaper);
-        if (paper) total += paper.price;
-      }
-      if (hasFoil && selectedFoilColor) {
-        const foil = variants.foilColors?.find(f => f.name === selectedFoilColor);
+    }
+    
+    if (isCardType) {
+      const paper = paperTypes.find(p => p.name === selectedPaper);
+      if (paper) total += paper.price;
+      
+      if (hasFoil && selectedFoil) {
+        const foil = foilColors.find(f => f.name === selectedFoil);
         if (foil) total += foil.price;
       }
-    } else if (productType === "postcard") {
-      if (selectedSize) {
-        const size = variants.sizes?.find(s => s.name === selectedSize);
-        if (size) total = size.price;
-      }
-      if (selectedCardPaper) {
-        const paper = variants.paperTypes?.find(p => p.name === selectedCardPaper);
-        if (paper) total += paper.price;
-      }
     }
-
+    
     return (total * quantity).toFixed(2);
   };
 
-  const canProceedToUpload = (): boolean => {
-    if (productType === "print") {
-      return selectedSize !== null && selectedMaterial !== null && isFramed !== null && (!isFramed || frameColor !== null);
-    } else if (productType === "card" || productType === "invitation" || productType === "announcement") {
-      return selectedSize !== null && selectedCardPaper !== null && hasFoil !== null && (!hasFoil || selectedFoilColor !== null);
-    } else if (productType === "postcard") {
-      return selectedSize !== null && selectedCardPaper !== null;
-    }
-    return false;
+  // Check if can proceed
+  const canProceed = () => {
+    if (!selectedSize) return false;
+    if (isPrint && !selectedMaterial) return false;
+    if (isPrint && isFramed === null) return false;
+    if (isPrint && isFramed && !selectedFrame) return false;
+    if (isCardType && !selectedPaper) return false;
+    if (isCardType && hasFoil && !selectedFoil) return false;
+    return true;
   };
 
-  const handleOptionsComplete = () => {
-    if (canProceedToUpload()) {
-      setCurrentStep(1);
-    }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle image upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
-
-    const newImages: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          newImages.push(event.target.result as string);
-          if (newImages.length === files.length) {
-            setUploadedImages([...uploadedImages, ...newImages]);
+    if (files) {
+      const newImages: string[] = [];
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            newImages.push(event.target.result as string);
+            if (newImages.length === files.length) {
+              setUploadedImages(prev => [...prev, ...newImages]);
+            }
           }
-        }
-      };
-      reader.readAsDataURL(file);
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
-  const handleUploadComplete = () => {
-    if (uploadedImages.length > 0) {
-      setCurrentStep(2);
-      setShowDesignEditor(true);
-    }
-  };
-
-  const handleDesignComplete = (data: DesignData) => {
-    setDesignData(data);
-    setShowDesignEditor(false);
+  // Handle design complete
+  const handleDesignComplete = (designData: any) => {
+    const newArtkeyId = 'artkey-' + Date.now().toString(36);
+    setArtkeyId(newArtkeyId);
     setCurrentStep(3);
   };
 
-  const generateArtKeyId = (length = 8): string => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  };
-
-  const handleContinueToArtKey = () => {
-    const artKeyId = generateArtKeyId();
-    const params = new URLSearchParams({
-      product_type: productType,
-      artkey_id: artKeyId,
-    });
-    router.push(`/art-key/editor?${params}`);
-  };
-
-  const getStudioSize = (): { width: number; height: number; name: string } => {
-    if (selectedSize) {
-      const [width, height] = selectedSize.split("x").map(Number);
-      return { width: width * 100, height: height * 100, name: selectedSize };
+  // Navigate to ArtKey editor
+  const goToArtKeyEditor = () => {
+    if (artkeyId) {
+      router.push(`/art-key/editor?product_type=${productType}&artkey_id=${artkeyId}`);
     }
-    return { width: 800, height: 1000, name: "8x10" };
   };
 
-  if (!productType || !productInfo[productType]) {
-    return (
-      <main className="min-h-screen bg-brand-lightest">
-        <Navbar />
-        <div className="pt-24 pb-12 text-center">
-          <h1 className="text-3xl font-bold text-brand-darkest mb-4">Product Not Found</h1>
-          <Link
-            href="/shop"
-            className="px-6 py-3 bg-brand-darkest text-white rounded-lg hover:bg-brand-dark transition-colors"
-          >
-            Back to Shop
-          </Link>
-        </div>
-        <Footer />
-      </main>
-    );
-  }
-
-  const info = productInfo[productType];
-  const variants = gelatoVariants || getFallbackVariants(productType);
+  // Get canvas size for design editor
+  const getCanvasSize = () => {
+    if (!selectedSize) return { width: 800, height: 600 };
+    const [w, h] = selectedSize.split('x').map(Number);
+    const scale = 100;
+    return { width: w * scale, height: h * scale };
+  };
 
   return (
     <main className="min-h-screen bg-brand-lightest">
       <Navbar />
       
       <div className="pt-24 pb-12">
+        {/* Step 0: Product Options */}
         {currentStep === 0 && (
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 relative">
+            {/* Header with back button */}
+            <div className="flex items-center justify-between mb-8">
               <Link
                 href="/shop"
-                className="absolute top-4 right-4 p-2 text-brand-dark hover:text-brand-darkest hover:bg-brand-lightest rounded-lg transition-colors text-xl font-bold leading-none"
+                className="flex items-center gap-2 text-brand-dark hover:text-brand-darkest transition-colors"
+              >
+                <span className="text-xl">&#8592;</span>
+                <span>Back to Products</span>
+              </Link>
+              <Link
+                href="/shop"
+                className="text-2xl text-brand-dark hover:text-brand-darkest"
                 title="Close"
               >
-                Γö£├╣
+                &#10005;
               </Link>
+            </div>
+
+            {/* Product Info */}
+            <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
               <div className="flex items-start gap-6">
                 <div className="text-6xl">{info.icon}</div>
                 <div className="flex-1">
-                  <h1 className="text-4xl font-bold text-brand-darkest mb-4 font-playfair">{info.title}</h1>
+                  <h1 className="text-4xl font-bold text-brand-darkest mb-4 font-playfair">
+                    {info.title}
+                  </h1>
                   <p className="text-lg text-brand-dark mb-6">{info.description}</p>
                   <div>
-                    <h3 className="text-xl font-semibold text-brand-darkest mb-3 font-playfair">Perfect For:</h3>
-                    <ul className="list-disc list-inside space-y-2 text-brand-dark">
-                      {info.examples.map((example, index) => (
-                        <li key={index}>{example}</li>
+                    <h3 className="text-xl font-semibold text-brand-darkest mb-3 font-playfair">
+                      Perfect For:
+                    </h3>
+                    <ul className="list-disc list-inside space-y-1 text-brand-dark">
+                      {info.examples.map((example, idx) => (
+                        <li key={idx}>{example}</li>
                       ))}
                     </ul>
                   </div>
@@ -382,73 +296,80 @@ export default function ProductPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-3xl font-bold text-brand-darkest font-playfair">Select Options</h2>
-                <div className="flex items-center gap-3">
-                  <Link
-                    href="/shop"
-                    className="flex items-center gap-2 px-4 py-2 text-brand-dark hover:text-brand-darkest hover:bg-brand-lightest rounded-lg transition-colors"
-                  >
-                    <span>╬ô├Ñ├ë</span>
-                    <span>Back to Products</span>
-                  </Link>
-                  <Link
-                    href="/shop"
-                    className="p-2 text-brand-dark hover:text-brand-darkest hover:bg-brand-lightest rounded-lg transition-colors text-xl font-bold"
-                    title="Close"
-                  >
-                    Γö£├╣
-                  </Link>
-                </div>
-              </div>
+            {/* Options Section */}
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <h2 className="text-3xl font-bold text-brand-darkest mb-8 font-playfair">
+                Choose Your Options
+              </h2>
 
-              {loadingVariants ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full mx-auto mb-4"></div>
-                  <p className="text-brand-dark">Loading options...</p>
-                </div>
-              ) : (
-                <div className="space-y-8">
-                  {variants.sizes && variants.sizes.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Options Column */}
+                <div className="lg:col-span-2 space-y-8">
+                  {/* Size Selection */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-brand-darkest mb-4">Select Size</h3>
+                    <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
+                      {sizes.map((size) => (
+                        <button
+                          key={size.name}
+                          onClick={() => setSelectedSize(size.name)}
+                          className={`p-4 rounded-xl border-2 transition-all text-center ${
+                            selectedSize === size.name
+                              ? 'border-brand-darkest bg-brand-lightest shadow-md'
+                              : 'border-brand-light hover:border-brand-medium'
+                          }`}
+                        >
+                          <div className="font-bold text-brand-darkest">{size.name}"</div>
+                          <div className="text-sm text-brand-dark">${size.price.toFixed(2)}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Paper Type (for cards) */}
+                  {isCardType && (
                     <div>
-                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Choose Size</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {variants.sizes.map((size) => (
+                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Paper Type</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {paperTypes.map((paper) => (
                           <button
-                            key={size.name}
-                            onClick={() => setSelectedSize(size.name)}
+                            key={paper.name}
+                            onClick={() => setSelectedPaper(paper.name)}
                             className={`p-4 rounded-xl border-2 transition-all text-left ${
-                              selectedSize === size.name
-                                ? "border-brand-darkest bg-brand-lightest shadow-md"
-                                : "border-brand-light hover:border-brand-medium"
+                              selectedPaper === paper.name
+                                ? 'border-brand-darkest bg-brand-lightest shadow-md'
+                                : 'border-brand-light hover:border-brand-medium'
                             }`}
                           >
-                            <div className="font-bold text-brand-darkest mb-1">{size.name}"</div>
-                            <div className="text-sm text-brand-dark">${size.price.toFixed(2)}</div>
+                            <div className="font-bold text-brand-darkest text-sm">{paper.name}</div>
+                            <div className="text-xs text-brand-dark">{paper.description}</div>
+                            <div className="text-sm text-brand-dark mt-1">
+                              {paper.price === 0 ? 'Included' : `+$${paper.price.toFixed(2)}`}
+                            </div>
                           </button>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {productType === "print" && variants.materials && variants.materials.length > 0 && (
+                  {/* Material (for prints) */}
+                  {isPrint && (
                     <div>
-                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Choose Material</h3>
+                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Material</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {variants.materials.map((material) => (
+                        {printMaterials.map((material) => (
                           <button
                             key={material.name}
                             onClick={() => setSelectedMaterial(material.name)}
                             className={`p-4 rounded-xl border-2 transition-all text-left ${
                               selectedMaterial === material.name
-                                ? "border-brand-darkest bg-brand-lightest shadow-md"
-                                : "border-brand-light hover:border-brand-medium"
+                                ? 'border-brand-darkest bg-brand-lightest shadow-md'
+                                : 'border-brand-light hover:border-brand-medium'
                             }`}
                           >
-                            <div className="font-bold text-brand-darkest mb-1">{material.name}</div>
+                            <div className="font-bold text-brand-darkest">{material.name}</div>
                             <div className="text-sm text-brand-dark">
-                              {material.price === 0 ? "Included" : `+$${material.price.toFixed(2)}`}
+                              {material.price === 0 ? 'Included' : `+$${material.price.toFixed(2)}`}
                             </div>
                           </button>
                         ))}
@@ -456,168 +377,133 @@ export default function ProductPage() {
                     </div>
                   )}
 
-                  {(productType === "card" || productType === "postcard" || productType === "invitation" || productType === "announcement") && 
-                   variants.paperTypes && variants.paperTypes.length > 0 && (
+                  {/* Foil Options (for cards) */}
+                  {isCardType && (
                     <div>
-                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Choose Paper Type</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {variants.paperTypes.map((paper) => (
-                          <button
-                            key={paper.name}
-                            onClick={() => setSelectedCardPaper(paper.name)}
-                            className={`p-4 rounded-xl border-2 transition-all text-left ${
-                              selectedCardPaper === paper.name
-                                ? "border-brand-darkest bg-brand-lightest shadow-md"
-                                : "border-brand-light hover:border-brand-medium"
-                            }`}
-                          >
-                            <div className="font-bold text-brand-darkest mb-1">{paper.name}</div>
-                            {paper.description && (
-                              <div className="text-xs text-brand-dark mb-1">{paper.description}</div>
-                            )}
-                            <div className="text-sm text-brand-dark">
-                              {paper.price === 0 ? "Included" : `+$${paper.price.toFixed(2)}`}
-                            </div>
-                          </button>
-                        ))}
+                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Add Foil Accent?</h3>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <button
+                          onClick={() => { setHasFoil(false); setSelectedFoil(null); }}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            hasFoil === false
+                              ? 'border-brand-darkest bg-brand-lightest shadow-md'
+                              : 'border-brand-light hover:border-brand-medium'
+                          }`}
+                        >
+                          <div className="font-bold text-brand-darkest">No Foil</div>
+                          <div className="text-sm text-brand-dark">Standard printing</div>
+                        </button>
+                        <button
+                          onClick={() => setHasFoil(true)}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            hasFoil === true
+                              ? 'border-brand-darkest bg-brand-lightest shadow-md'
+                              : 'border-brand-light hover:border-brand-medium'
+                          }`}
+                        >
+                          <div className="font-bold text-brand-darkest">Add Foil</div>
+                          <div className="text-sm text-brand-dark">Metallic accent</div>
+                        </button>
                       </div>
+
+                      {/* FOIL COLOR SAMPLES */}
+                      {hasFoil && (
+                        <div className="grid grid-cols-4 gap-4">
+                          {foilColors.map((foil) => (
+                            <button
+                              key={foil.name}
+                              onClick={() => setSelectedFoil(foil.name)}
+                              className={`p-4 rounded-xl border-2 transition-all ${
+                                selectedFoil === foil.name
+                                  ? 'border-brand-darkest bg-brand-lightest shadow-md'
+                                  : 'border-brand-light hover:border-brand-medium'
+                              }`}
+                            >
+                              {/* COLOR SAMPLE CIRCLE */}
+                              <div
+                                className="w-12 h-12 rounded-full mx-auto mb-2 shadow-inner"
+                                style={{ background: foil.color }}
+                              />
+                              <div className="font-bold text-brand-darkest text-sm text-center">
+                                {foil.name}
+                              </div>
+                              <div className="text-xs text-brand-dark text-center">
+                                +${foil.price.toFixed(2)}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {productType === "print" && variants.frames && variants.frames.length > 0 && (
-                    <>
-                      <div>
-                        <h3 className="text-lg font-semibold text-brand-darkest mb-4">Framed or Unframed?</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                          <button
-                            onClick={() => {
-                              setIsFramed(false);
-                              setFrameColor(null);
-                            }}
-                            className={`p-6 rounded-xl border-2 transition-all text-left ${
-                              isFramed === false
-                                ? "border-brand-darkest bg-brand-lightest shadow-md"
-                                : "border-brand-light hover:border-brand-medium"
-                            }`}
-                          >
-                            <div className="font-bold text-brand-darkest mb-2">Unframed</div>
-                            <div className="text-sm text-brand-dark">Print only</div>
-                          </button>
-                          <button
-                            onClick={() => setIsFramed(true)}
-                            className={`p-6 rounded-xl border-2 transition-all text-left ${
-                              isFramed === true
-                                ? "border-brand-darkest bg-brand-lightest shadow-md"
-                                : "border-brand-light hover:border-brand-medium"
-                            }`}
-                          >
-                            <div className="font-bold text-brand-darkest mb-2">Framed</div>
-                            <div className="text-sm text-brand-dark">With professional frame</div>
-                          </button>
-                        </div>
+                  {/* Frame Options (for prints) */}
+                  {isPrint && (
+                    <div>
+                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Framing</h3>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <button
+                          onClick={() => { setIsFramed(false); setSelectedFrame(null); }}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            isFramed === false
+                              ? 'border-brand-darkest bg-brand-lightest shadow-md'
+                              : 'border-brand-light hover:border-brand-medium'
+                          }`}
+                        >
+                          <div className="font-bold text-brand-darkest">Unframed</div>
+                          <div className="text-sm text-brand-dark">Print only</div>
+                        </button>
+                        <button
+                          onClick={() => setIsFramed(true)}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            isFramed === true
+                              ? 'border-brand-darkest bg-brand-lightest shadow-md'
+                              : 'border-brand-light hover:border-brand-medium'
+                          }`}
+                        >
+                          <div className="font-bold text-brand-darkest">Framed</div>
+                          <div className="text-sm text-brand-dark">+$25.00</div>
+                        </button>
                       </div>
 
+                      {/* FRAME COLOR SAMPLES */}
                       {isFramed && (
-                        <div>
-                          <h3 className="text-lg font-semibold text-brand-darkest mb-4">Choose Frame Color:</h3>
-                          <div className="grid grid-cols-3 gap-4">
-                            {variants.frames.map((frame) => (
-                              <button
-                                key={frame.name}
-                                onClick={() => setFrameColor(frame.name)}
-                                className={`p-4 rounded-xl border-2 transition-all text-left ${
-                                  frameColor === frame.name
-                                    ? "border-brand-darkest bg-brand-lightest shadow-md"
-                                    : "border-brand-light hover:border-brand-medium"
-                                }`}
-                              >
-                                <div className="flex items-center gap-3 mb-2">
-                                  <div
-                                    className={`w-6 h-6 rounded-full border-2 ${
-                                      frame.name === "Black"
-                                        ? "bg-gray-900 border-gray-700"
-                                        : frame.name === "White"
-                                        ? "bg-white border-gray-300"
-                                        : "bg-gray-400 border-gray-500"
-                                    }`}
-                                  />
-                                  <div className="font-bold text-brand-darkest">{frame.name}</div>
-                                </div>
-                                <div className="text-sm text-brand-dark">
-                                  {frame.price === 0 ? "+$0.00" : `+$${frame.price.toFixed(2)}`}
-                                </div>
-                              </button>
-                            ))}
-                          </div>
+                        <div className="grid grid-cols-5 gap-4">
+                          {frameColors.map((frame) => (
+                            <button
+                              key={frame.name}
+                              onClick={() => setSelectedFrame(frame.name)}
+                              className={`p-4 rounded-xl border-2 transition-all ${
+                                selectedFrame === frame.name
+                                  ? 'border-brand-darkest bg-brand-lightest shadow-md'
+                                  : 'border-brand-light hover:border-brand-medium'
+                              }`}
+                            >
+                              {/* COLOR SAMPLE SQUARE (like a frame) */}
+                              <div
+                                className="w-12 h-12 rounded mx-auto mb-2 shadow-md"
+                                style={{
+                                  background: frame.color,
+                                  border: `3px solid ${frame.border}`,
+                                }}
+                              />
+                              <div className="font-bold text-brand-darkest text-xs text-center">
+                                {frame.name}
+                              </div>
+                            </button>
+                          ))}
                         </div>
                       )}
-                    </>
+                    </div>
                   )}
 
-                  {(productType === "card" || productType === "invitation" || productType === "announcement") && 
-                   variants.foilColors && variants.foilColors.length > 0 && (
-                    <>
-                      <div>
-                        <h3 className="text-lg font-semibold text-brand-darkest mb-4">Add Foil Accent?</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                          <button
-                            onClick={() => {
-                              setHasFoil(false);
-                              setSelectedFoilColor(null);
-                            }}
-                            className={`p-6 rounded-xl border-2 transition-all text-left ${
-                              hasFoil === false
-                                ? "border-brand-darkest bg-brand-lightest shadow-md"
-                                : "border-brand-light hover:border-brand-medium"
-                            }`}
-                          >
-                            <div className="font-bold text-brand-darkest mb-2">No Foil</div>
-                            <div className="text-sm text-brand-dark">Standard printing</div>
-                          </button>
-                          <button
-                            onClick={() => setHasFoil(true)}
-                            className={`p-6 rounded-xl border-2 transition-all text-left ${
-                              hasFoil === true
-                                ? "border-brand-darkest bg-brand-lightest shadow-md"
-                                : "border-brand-light hover:border-brand-medium"
-                            }`}
-                          >
-                            <div className="font-bold text-brand-darkest mb-2">Add Foil</div>
-                            <div className="text-sm text-brand-dark">Elegant metallic accent</div>
-                          </button>
-                        </div>
-                      </div>
-
-                      {hasFoil && (
-                        <div>
-                          <h3 className="text-lg font-semibold text-brand-darkest mb-4">Choose Foil Color:</h3>
-                          <div className="grid grid-cols-4 gap-4">
-                            {variants.foilColors.map((foil) => (
-                              <button
-                                key={foil.name}
-                                onClick={() => setSelectedFoilColor(foil.name)}
-                                className={`p-4 rounded-xl border-2 transition-all text-left ${
-                                  selectedFoilColor === foil.name
-                                    ? "border-brand-darkest bg-brand-lightest shadow-md"
-                                    : "border-brand-light hover:border-brand-medium"
-                                }`}
-                              >
-                                <div className="font-bold text-brand-darkest mb-1">{foil.name}</div>
-                                <div className="text-sm text-brand-dark">+${foil.price.toFixed(2)}</div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-
+                  {/* Quantity */}
                   <div>
                     <h3 className="text-lg font-semibold text-brand-darkest mb-4">Quantity</h3>
                     <div className="flex items-center gap-4">
                       <button
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="w-12 h-12 rounded-lg border-2 border-brand-light hover:border-brand-medium transition-colors font-bold text-brand-darkest"
+                        className="w-12 h-12 rounded-lg border-2 border-brand-light hover:border-brand-medium font-bold text-xl"
                       >
                         -
                       </button>
@@ -630,55 +516,66 @@ export default function ProductPage() {
                       />
                       <button
                         onClick={() => setQuantity(quantity + 1)}
-                        className="w-12 h-12 rounded-lg border-2 border-brand-light hover:border-brand-medium transition-colors font-bold text-brand-darkest"
+                        className="w-12 h-12 rounded-lg border-2 border-brand-light hover:border-brand-medium font-bold text-xl"
                       >
                         +
                       </button>
                     </div>
                   </div>
+                </div>
 
-                  <div className="bg-brand-darkest text-white rounded-2xl p-6">
+                {/* Order Summary Sidebar */}
+                <div className="lg:col-span-1">
+                  <div className="sticky top-24 bg-brand-darkest text-white rounded-2xl p-6">
                     <h3 className="text-xl font-bold mb-4">Order Summary</h3>
-                    <div className="space-y-2 mb-4 text-sm">
+                    <div className="space-y-2 text-sm mb-4">
                       {selectedSize && <div>Size: {selectedSize}"</div>}
+                      {selectedPaper && <div>Paper: {selectedPaper}</div>}
                       {selectedMaterial && <div>Material: {selectedMaterial}</div>}
-                      {selectedCardPaper && <div>Paper: {selectedCardPaper}</div>}
                       {isFramed !== null && (
-                        <div>Frame: {isFramed ? (frameColor || "Not selected") : "Unframed"}</div>
+                        <div>Frame: {isFramed ? (selectedFrame || 'Select color') : 'Unframed'}</div>
                       )}
                       {hasFoil !== null && (
-                        <div>Foil: {hasFoil ? (selectedFoilColor || "Not selected") : "None"}</div>
+                        <div>Foil: {hasFoil ? (selectedFoil || 'Select color') : 'None'}</div>
                       )}
                       <div>Quantity: {quantity}</div>
                     </div>
-                    <div className="border-t border-white/20 pt-4 mb-4">
-                      <div className="flex justify-between items-center text-xl font-bold">
+                    <div className="border-t border-white/20 pt-4 mb-6">
+                      <div className="flex justify-between text-xl font-bold">
                         <span>Total:</span>
                         <span>${calculateTotal()}</span>
                       </div>
                     </div>
-                    <p className="text-xs text-white/80 mb-4">
-                      A new ArtKey╬ô├ñ├│ Portal ID will be generated automatically in the next step.
-                    </p>
                     <button
-                      onClick={handleOptionsComplete}
-                      disabled={!canProceedToUpload()}
-                      className="w-full py-4 px-6 bg-white text-brand-darkest rounded-lg font-bold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                      onClick={() => setCurrentStep(1)}
+                      disabled={!canProceed()}
+                      className="w-full py-4 bg-white text-brand-darkest rounded-lg font-bold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Continue to Upload Image
-                      <span className="text-pink-500">ArtKey</span>
                     </button>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         )}
 
+        {/* Step 1: Upload Images */}
         {currentStep === 1 && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-3xl font-bold text-brand-darkest mb-6 font-playfair">Upload Your Image</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-3xl font-bold text-brand-darkest font-playfair">
+                  Upload Your Images
+                </h2>
+                <button
+                  onClick={() => setCurrentStep(0)}
+                  className="text-brand-dark hover:text-brand-darkest"
+                >
+                  &#8592; Back to Options
+                </button>
+              </div>
+
               <div className="border-2 border-dashed border-brand-light rounded-xl p-12 text-center mb-6">
                 <input
                   type="file"
@@ -688,76 +585,114 @@ export default function ProductPage() {
                   className="hidden"
                   id="image-upload"
                 />
-                <label
-                  htmlFor="image-upload"
-                  className="cursor-pointer block"
-                >
-                  <div className="text-5xl mb-4">Γëí╞Æ├┤Γòû</div>
+                <label htmlFor="image-upload" className="cursor-pointer block">
+                  <div className="text-5xl mb-4">📷</div>
                   <p className="text-lg text-brand-dark mb-2">Click to upload images</p>
                   <p className="text-sm text-brand-dark">JPG, PNG, or BMP format</p>
                 </label>
               </div>
 
+              {/* Uploaded Images Preview */}
               {uploadedImages.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-brand-darkest mb-4">Uploaded Images:</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {uploadedImages.map((img, index) => (
-                      <div key={index} className="relative">
-                        <img src={img} alt={`Upload ${index + 1}`} className="w-full h-32 object-cover rounded-lg" />
+                  <h3 className="text-lg font-semibold text-brand-darkest mb-4">
+                    Uploaded Images ({uploadedImages.length})
+                  </h3>
+                  <div className="grid grid-cols-4 gap-4">
+                    {uploadedImages.map((img, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden">
+                        <img src={img} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => setUploadedImages(prev => prev.filter((_, i) => i !== idx))}
+                          className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-sm"
+                        >
+                          &#10005;
+                        </button>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setCurrentStep(0)}
-                  className="px-6 py-3 border-2 border-brand-light rounded-lg hover:border-brand-medium transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleUploadComplete}
-                  disabled={uploadedImages.length === 0}
-                  className="flex-1 px-6 py-3 bg-brand-darkest text-white rounded-lg font-semibold hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Continue to Design Editor
-                </button>
-              </div>
+              <button
+                onClick={() => setCurrentStep(2)}
+                disabled={uploadedImages.length === 0}
+                className="w-full py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Continue to Design Editor
+              </button>
             </div>
           </div>
         )}
 
-        {currentStep === 2 && showDesignEditor && (
-          <DesignEditor
-            productType={productType as 'canvas' | 'print' | 'card' | 'poster' | 'photobook'}
-            productSize={getStudioSize()}
-            onComplete={handleDesignComplete}
-            initialImages={uploadedImages}
-            frameColor={isFramed && frameColor ? frameColor : undefined}
-            onClose={() => {
-              setShowDesignEditor(false);
-              setCurrentStep(1);
-            }}
-          />
+        {/* Step 2: Design Editor */}
+        {currentStep === 2 && (
+          <div className="w-full">
+            <DesignEditor
+              productType={productType as 'canvas' | 'print' | 'card' | 'poster' | 'photobook'}
+              productSize={getCanvasSize()}
+              onComplete={handleDesignComplete}
+              initialImages={uploadedImages}
+              frameColor={isFramed && selectedFrame ? selectedFrame : undefined}
+              onClose={() => setCurrentStep(1)}
+            />
+          </div>
         )}
 
+        {/* Step 3: ArtKey Transition */}
         {currentStep === 3 && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-              <h2 className="text-3xl font-bold text-brand-darkest mb-6 font-playfair">Design Complete!</h2>
+              <div className="text-6xl mb-6">✨</div>
+              <h2 className="text-3xl font-bold text-brand-darkest mb-4 font-playfair">
+                Design Complete!
+              </h2>
               <p className="text-lg text-brand-dark mb-8">
-                Your design has been saved. Continue to the ArtKey╬ô├ñ├│ Portal to finalize your order.
+                Your design has been saved. Continue to the ArtKey Portal to add digital experiences.
               </p>
+              <div className="bg-brand-lightest rounded-xl p-6 mb-8">
+                <p className="text-brand-darkest">
+                  <strong>ArtKey ID:</strong> {artkeyId}
+                </p>
+              </div>
               <button
-                onClick={handleContinueToArtKey}
-                className="px-8 py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark transition-colors flex items-center justify-center gap-2 mx-auto"
+                onClick={goToArtKeyEditor}
+                className="px-8 py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark transition-colors"
               >
-                Continue to ArtKey╬ô├ñ├│ Portal
-                <span className="text-pink-500">ArtKey</span>
+                Continue to ArtKey Portal
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: Completion */}
+        {currentStep === 4 && (
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+              <div className="text-6xl mb-6">🎉</div>
+              <h1 className="text-4xl font-bold text-brand-darkest mb-4 font-playfair">
+                Your Order is Ready!
+              </h1>
+              <p className="text-lg text-brand-dark mb-8">
+                Your {info.title} with ArtKey Portal is ready for checkout.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <button
+                  className="px-8 py-4 bg-brand-light text-brand-darkest rounded-lg font-bold hover:bg-brand-medium transition-colors opacity-50 cursor-not-allowed"
+                  disabled
+                >
+                  Save and Continue Shopping
+                </button>
+                <button
+                  className="px-8 py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark transition-colors opacity-50 cursor-not-allowed"
+                  disabled
+                >
+                  Save and Checkout
+                </button>
+              </div>
+              <p className="text-sm text-brand-dark mt-4">
+                (Checkout functionality coming soon)
+              </p>
             </div>
           </div>
         )}
@@ -767,3 +702,4 @@ export default function ProductPage() {
     </main>
   );
 }
+
