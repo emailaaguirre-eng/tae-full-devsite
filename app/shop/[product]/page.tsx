@@ -241,10 +241,10 @@ export default function ProductPage() {
 
   // Get canvas size for design editor
   const getCanvasSize = () => {
-    if (!selectedSize) return { width: 800, height: 600 };
+    if (!selectedSize) return { width: 800, height: 600, name: 'Default' };
     const [w, h] = selectedSize.split('x').map(Number);
     const scale = 100;
-    return { width: w * scale, height: h * scale };
+    return { width: w * scale, height: h * scale, name: selectedSize };
   };
 
   return (
