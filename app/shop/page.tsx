@@ -46,7 +46,7 @@ export default function ShopPage() {
       {/* Hero Section */}
       <section className="relative h-[750px] overflow-hidden">
         <img
-          src="https://theartfulexperience.com/wp-content/uploads/2025/12/tAE_Holiday_Hero-1.png"
+          src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/newyearartkeyportal.png"
           alt="Shop Hero"
           className="w-full h-full object-cover"
         />
