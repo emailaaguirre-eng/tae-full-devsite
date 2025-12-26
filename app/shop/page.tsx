@@ -77,7 +77,7 @@ export default function ShopPage() {
       </section>
 
       {/* Products Grid */}
-      <section id="products" className="py-16 px-4 sm:px-6 lg:px-8">
+      <section id="products" className="py-16 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#ffffff' }}>
         <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl font-bold text-brand-darkest mb-8 font-playfair text-center">
             Our Products
