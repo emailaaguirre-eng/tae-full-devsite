@@ -44,26 +44,40 @@ export default function ShopPage() {
       <Navbar />
       
       {/* Hero Section */}
-      <section className="relative h-[900px] overflow-hidden" style={{ backgroundColor: "#f3f3f3" }}>
-        <img
-          src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/newyearartkeyportal.png"
-          alt="Shop Hero"
-          className="w-full h-full object-contain"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent flex items-center">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-            <h1 className="text-5xl font-bold text-white mb-4 font-playfair">
-              Create Something Beautiful
-            </h1>
-            <p className="text-xl text-white/90 max-w-xl">
-              Choose a product to start designing with ArtKey
-            </p>
+      <section className="pt-24 pb-16" style={{ backgroundColor: "#f3f3f3" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Text Side */}
+            <div className="space-y-6">
+              <h1 className="text-5xl lg:text-6xl font-bold text-brand-darkest font-playfair leading-tight">
+                Create Something Beautiful
+              </h1>
+              <p className="text-xl text-brand-dark max-w-xl">
+                Choose a product to start designing with ArtKey. Transform your photos into stunning cards, prints, and more.
+              </p>
+              <div className="flex gap-4">
+                <a
+                  href="#products"
+                  className="inline-block bg-brand-darkest text-white px-8 py-4 rounded-lg font-semibold hover:bg-brand-dark transition-colors"
+                >
+                  Browse Products
+                </a>
+              </div>
+            </div>
+            {/* Image Side */}
+            <div className="flex justify-center">
+              <img
+                src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/newyearartkeyportal.png"
+                alt="Shop Hero"
+                className="max-w-md w-full h-auto rounded-2xl shadow-xl"
+              />
+            </div>
           </div>
         </div>
       </section>
 
       {/* Products Grid */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
+      <section id="products" className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl font-bold text-brand-darkest mb-8 font-playfair text-center">
             Our Products
@@ -112,4 +126,3 @@ export default function ShopPage() {
     </main>
   );
 }
-
