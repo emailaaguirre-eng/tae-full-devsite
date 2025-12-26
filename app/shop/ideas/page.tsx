@@ -40,31 +40,28 @@ export default function IdeasPage() {
             <p className="text-lg text-brand-dark mb-6">
               The things that matter don't end in the moment. A physical keepsake becomes a living memory.
             </p>
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-brand-darkest">An ArtKey&#8482; can:</h3>
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3">
-                  <span className="text-purple-600 mt-1">&#9679;</span>
-                  <span className="text-brand-dark">Add voice, video, or music to a card or gift</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-purple-600 mt-1">&#9679;</span>
-                  <span className="text-brand-dark">Share memories, galleries, or a story behind a photo or artwork</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-purple-600 mt-1">&#9679;</span>
-                  <span className="text-brand-dark">Hold time-released messages for milestones or special dates</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-purple-600 mt-1">&#9679;</span>
-                  <span className="text-brand-dark">Host RSVP pages, guest registries, and thank-you experiences</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-purple-600 mt-1">&#9679;</span>
-                  <span className="text-brand-dark">Create keepsakes that grow more meaningful over time</span>
-                </li>
-              </ul>
-            </div>
+            <ul className="space-y-3">
+              <li className="flex items-start gap-3">
+                <span className="text-purple-600 mt-1">&#9679;</span>
+                <span className="text-brand-dark">Add voice, video, or music to a card or gift</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-purple-600 mt-1">&#9679;</span>
+                <span className="text-brand-dark">Share memories, galleries, or a story behind a photo or artwork</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-purple-600 mt-1">&#9679;</span>
+                <span className="text-brand-dark">Hold time-released messages for milestones or special dates</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-purple-600 mt-1">&#9679;</span>
+                <span className="text-brand-dark">Host RSVP pages, guest registries, and thank-you experiences</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-purple-600 mt-1">&#9679;</span>
+                <span className="text-brand-dark">Create keepsakes that grow more meaningful over time</span>
+              </li>
+            </ul>
           </section>
 
           {/* Business Use */}
@@ -78,31 +75,32 @@ export default function IdeasPage() {
             <p className="text-lg text-brand-dark mb-6">
               A smarter way to be remembered.
             </p>
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-brand-darkest">An ArtKey&#8482; can:</h3>
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3">
-                  <span className="text-orange-600 mt-1">&#9679;</span>
-                  <span className="text-brand-dark">Introduce you or your business with a video or message</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-orange-600 mt-1">&#9679;</span>
-                  <span className="text-brand-dark">Link to booking, scheduling, or inquiry forms</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-orange-600 mt-1">&#9679;</span>
-                  <span className="text-brand-dark">Launch product information, demos, or purchase options</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-orange-600 mt-1">&#9679;</span>
-                  <span className="text-brand-dark">Support events with RSVP, registration, or post-event follow-up</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-orange-600 mt-1">&#9679;</span>
-                  <span className="text-brand-dark">Share portfolios, testimonials, or onboarding content</span>
-                </li>
-              </ul>
-            </div>
+            <ul className="space-y-3">
+              <li className="flex items-start gap-3">
+                <span className="text-orange-600 mt-1">&#9679;</span>
+                <span className="text-brand-dark">Introduce you or your business with a video or message</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-orange-600 mt-1">&#9679;</span>
+                <span className="text-brand-dark">Link to booking, scheduling, or inquiry forms</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-orange-600 mt-1">&#9679;</span>
+                <span className="text-brand-dark">Launch product information, demos, or purchase options</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-orange-600 mt-1">&#9679;</span>
+                <span className="text-brand-dark">Support events with RSVP, registration, or post-event follow-up</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-orange-600 mt-1">&#9679;</span>
+                <span className="text-brand-dark">Share portfolios, testimonials, or onboarding content</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-orange-600 mt-1">&#9679;</span>
+                <span className="text-brand-dark">Share your booking link</span>
+              </li>
+            </ul>
           </section>
 
           {/* CTA */}
