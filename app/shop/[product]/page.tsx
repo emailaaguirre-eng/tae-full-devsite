@@ -32,7 +32,7 @@ const productInfo: Record<string, {
 }> = {
   card: {
     title: "Cards",
-    icon: "💌",
+    icon: "≡ƒÆî",
     description: "Everyday greeting cards for notes and moments. Perfect for birthdays, holidays, thank you notes, and any occasion where you want to share a personal touch.",
     examples: [
       "Birthday cards with personalized messages",
@@ -44,7 +44,7 @@ const productInfo: Record<string, {
   },
   postcard: {
     title: "Postcards",
-    icon: "📮",
+    icon: "≡ƒô«",
     description: "Mail-ready postcards with a writable back. Ideal for travel memories, vacation updates, or quick notes to friends and family.",
     examples: [
       "Travel postcards from your adventures",
@@ -56,7 +56,7 @@ const productInfo: Record<string, {
   },
   invitation: {
     title: "Invitations",
-    icon: "🎉",
+    icon: "≡ƒÄë",
     description: "Event invitations designed to gather your people. Make your special events memorable with beautifully designed invitations.",
     examples: [
       "Wedding invitations",
@@ -68,7 +68,7 @@ const productInfo: Record<string, {
   },
   announcement: {
     title: "Announcements",
-    icon: "📢",
+    icon: "≡ƒôó",
     description: "Share life updates and milestone news beautifully. Perfect for announcing important life events and achievements.",
     examples: [
       "Birth announcements",
@@ -80,7 +80,7 @@ const productInfo: Record<string, {
   },
   print: {
     title: "Wall Art",
-    icon: "🖼️",
+    icon: "≡ƒû╝∩╕Å",
     description: "Premium prints for your walls, framed or unframed. Transform your favorite photos into stunning wall art for your home or office.",
     examples: [
       "Family portrait prints",
@@ -363,7 +363,7 @@ export default function ProductPage() {
                 className="absolute top-4 right-4 p-2 text-brand-dark hover:text-brand-darkest hover:bg-brand-lightest rounded-lg transition-colors text-xl font-bold leading-none"
                 title="Close"
               >
-                ×
+                ├ù
               </Link>
               <div className="flex items-start gap-6">
                 <div className="text-6xl">{info.icon}</div>
@@ -390,7 +390,7 @@ export default function ProductPage() {
                     href="/shop"
                     className="flex items-center gap-2 px-4 py-2 text-brand-dark hover:text-brand-darkest hover:bg-brand-lightest rounded-lg transition-colors"
                   >
-                    <span>←</span>
+                    <span>ΓåÉ</span>
                     <span>Back to Products</span>
                   </Link>
                   <Link
@@ -398,7 +398,7 @@ export default function ProductPage() {
                     className="p-2 text-brand-dark hover:text-brand-darkest hover:bg-brand-lightest rounded-lg transition-colors text-xl font-bold"
                     title="Close"
                   >
-                    ×
+                    ├ù
                   </Link>
                 </div>
               </div>
@@ -658,7 +658,7 @@ export default function ProductPage() {
                       </div>
                     </div>
                     <p className="text-xs text-white/80 mb-4">
-                      A new ArtKey™ Portal ID will be generated automatically in the next step.
+                      A new ArtKeyΓäó Portal ID will be generated automatically in the next step.
                     </p>
                     <button
                       onClick={handleOptionsComplete}
@@ -692,7 +692,7 @@ export default function ProductPage() {
                   htmlFor="image-upload"
                   className="cursor-pointer block"
                 >
-                  <div className="text-5xl mb-4">📷</div>
+                  <div className="text-5xl mb-4">≡ƒô╖</div>
                   <p className="text-lg text-brand-dark mb-2">Click to upload images</p>
                   <p className="text-sm text-brand-dark">JPG, PNG, or BMP format</p>
                 </label>
@@ -749,13 +749,13 @@ export default function ProductPage() {
             <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
               <h2 className="text-3xl font-bold text-brand-darkest mb-6 font-playfair">Design Complete!</h2>
               <p className="text-lg text-brand-dark mb-8">
-                Your design has been saved. Continue to the ArtKey™ Portal to finalize your order.
+                Your design has been saved. Continue to the ArtKeyΓäó Portal to finalize your order.
               </p>
               <button
                 onClick={handleContinueToArtKey}
                 className="px-8 py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark transition-colors flex items-center justify-center gap-2 mx-auto"
               >
-                Continue to ArtKey™ Portal
+                Continue to ArtKeyΓäó Portal
                 <span className="text-pink-500">ArtKey</span>
               </button>
             </div>
