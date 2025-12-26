@@ -44,7 +44,7 @@ export default function ShopPage() {
       <Navbar />
       
       {/* Hero Section */}
-      <section className="relative h-[600px] overflow-hidden">
+      <section className="relative h-[750px] overflow-hidden">
         <img
           src="https://theartfulexperience.com/wp-content/uploads/2025/12/tAE_Holiday_Hero-1.png"
           alt="Shop Hero"
