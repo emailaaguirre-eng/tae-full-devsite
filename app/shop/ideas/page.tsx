@@ -29,24 +29,6 @@ export default function IdeasPage() {
             </p>
           </div>
 
-          {/* What is ArtKey */}
-          <section className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-            <h2 className="text-3xl font-bold text-brand-darkest mb-6 font-playfair">
-              What is ArtKey?
-            </h2>
-            <p className="text-lg text-brand-dark leading-relaxed mb-6">
-              ArtKey turns a physical moment into a digital experience that continues the story. 
-              A scan or tap from a card, print, or product opens a private portal where you can 
-              share what doesn't fit on paper - memories, media, messages, introductions, offers, 
-              and next steps.
-            </p>
-            <div className="bg-brand-lightest rounded-xl p-6 text-center">
-              <p className="text-xl font-semibold text-brand-darkest">
-                No app. No account. Just connection.
-              </p>
-            </div>
-          </section>
-
           {/* Personal Use */}
           <section className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl shadow-lg p-8 mb-8">
             <div className="flex items-center gap-4 mb-6">
@@ -59,7 +41,7 @@ export default function IdeasPage() {
               The things that matter don't end in the moment. A physical keepsake becomes a living memory.
             </p>
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-brand-darkest">An ArtKey can:</h3>
+              <h3 className="text-xl font-semibold text-brand-darkest">An ArtKey&#8482; can:</h3>
               <ul className="space-y-3">
                 <li className="flex items-start gap-3">
                   <span className="text-purple-600 mt-1">&#9679;</span>
@@ -97,7 +79,7 @@ export default function IdeasPage() {
               A printed piece becomes a smart, scannable touchpoint.
             </p>
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-brand-darkest">An ArtKey can:</h3>
+              <h3 className="text-xl font-semibold text-brand-darkest">An ArtKey&#8482; can:</h3>
               <ul className="space-y-3">
                 <li className="flex items-start gap-3">
                   <span className="text-orange-600 mt-1">&#9679;</span>
@@ -129,7 +111,7 @@ export default function IdeasPage() {
               href="/shop"
               className="inline-block px-8 py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark transition-colors"
             >
-              Start Creating with ArtKey
+              Start Creating with ArtKey&#8482;
             </Link>
           </section>
         </div>
@@ -139,4 +121,3 @@ export default function IdeasPage() {
     </main>
   );
 }
-
