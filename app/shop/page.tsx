@@ -44,7 +44,7 @@ export default function ShopPage() {
       <Navbar />
       
       {/* Hero Section */}
-      <section className="relative h-[900px] overflow-hidden bg-gradient-to-br from-brand-darkest via-brand-dark to-brand-medium">
+      <section className="relative h-[900px] overflow-hidden" style={{ backgroundColor: "#f3f3f3" }}>
         <img
           src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/newyearartkeyportal.png"
           alt="Shop Hero"
