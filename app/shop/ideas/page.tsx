@@ -34,7 +34,7 @@ export default function IdeasPage() {
             <div className="flex items-center gap-4 mb-6">
               <span className="text-4xl">&#10024;</span>
               <h2 className="text-3xl font-bold text-brand-darkest font-playfair">
-                For Personal Use
+                For Moments That Matter
               </h2>
             </div>
             <p className="text-lg text-brand-dark mb-6">
@@ -72,11 +72,11 @@ export default function IdeasPage() {
             <div className="flex items-center gap-4 mb-6">
               <span className="text-4xl">&#128640;</span>
               <h2 className="text-3xl font-bold text-brand-darkest font-playfair">
-                For Business &amp; Professional Use
+                For Brands &amp; Businesses
               </h2>
             </div>
             <p className="text-lg text-brand-dark mb-6">
-              A printed piece becomes a smart, scannable touchpoint.
+              A smarter way to be remembered.
             </p>
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-brand-darkest">An ArtKey&#8482; can:</h3>
