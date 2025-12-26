@@ -44,13 +44,13 @@ export default function ShopPage() {
       <Navbar />
       
       {/* Hero Section */}
-      <section className="relative h-[750px] overflow-hidden">
+      <section className="relative h-[900px] overflow-hidden bg-gradient-to-br from-brand-darkest via-brand-dark to-brand-medium">
         <img
           src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/newyearartkeyportal.png"
           alt="Shop Hero"
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent flex items-center">
+        <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent flex items-center">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
             <h1 className="text-5xl font-bold text-white mb-4 font-playfair">
               Create Something Beautiful
