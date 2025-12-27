@@ -188,24 +188,27 @@ export default function Hero() {
                 {(heroContent.subtitle || "").replace(/\s*\n\s*/g, " ").trim()}
               </p>
               <p className="text-sm md:text-base text-brand-dark leading-relaxed">
-                {heroContent.description.split('\n').map((line, i) => (
-                  <span key={i}>
-                    {i === 0 && line.includes('ArtKey') ? (
-                      <>
-                        {line.split('ArtKey')[0]}
-                        <span className="font-bold text-brand-darkest">ArtKey™</span>
-                        {line.split('ArtKey')[1]}
-                      </>
-                    ) : (
-                      line
-                    )}
-                    {i < heroContent.description.split('\n').length - 1 && <br />}
-                  </span>
-                ))}
+                {heroContent.description.split('\n')
+                  .filter(line => !line.toLowerCase().includes('upload an image') && !line.toLowerCase().includes('browse our library'))
+                  .map((line, i) => (
+                    <span key={i}>
+                      {i === 0 && line.includes('ArtKey') ? (
+                        <>
+                          {line.split('ArtKey')[0]}
+                          <span className="font-bold text-brand-darkest">ArtKey™</span>
+                          {line.split('ArtKey')[1]}
+                        </>
+                      ) : (
+                        line
+                      )}
+                      {i < heroContent.description.split('\n').filter(line => !line.toLowerCase().includes('upload an image') && !line.toLowerCase().includes('browse our library')).length - 1 && <br />}
+                    </span>
+                  ))}
               </p>
             </div>
 
             {/* Action buttons - more refined */}
+            {/* COMMENTED OUT: Upload Image and Browse Gallery buttons
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <button
                 onClick={() => setSelectedOption("upload")}
@@ -231,6 +234,7 @@ export default function Hero() {
                 </span>
               </button>
             </div>
+            */}
           </div>
 
           {/* Right side - Upload interface or placeholder */}
