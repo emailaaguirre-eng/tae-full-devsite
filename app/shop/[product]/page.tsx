@@ -12,9 +12,15 @@ const DesignEditor = dynamic(() => import('@/components/DesignEditor'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-96">
-      <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full"></div>
+      <div className="text-center">
+        <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-brand-dark">Loading Design Editor...</p>
+      </div>
     </div>
   ),
+  onError: (error) => {
+    console.error('Failed to load Design Editor:', error);
+  },
 });
 
 // Product information
@@ -628,14 +634,28 @@ export default function ProductPage() {
         {/* Step 2: Design Editor */}
         {currentStep === 2 && (
           <div className="w-full">
-            <DesignEditor
-              productType={productType as 'canvas' | 'print' | 'card' | 'poster' | 'photobook'}
-              productSize={getCanvasSize()}
-              onComplete={handleDesignComplete}
-              initialImages={uploadedImages}
-              frameColor={isFramed && selectedFrame ? selectedFrame : undefined}
-              onClose={() => setCurrentStep(1)}
-            />
+            {uploadedImages.length === 0 ? (
+              <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                  <p className="text-yellow-800 mb-4">Please upload at least one image first.</p>
+                  <button
+                    onClick={() => setCurrentStep(1)}
+                    className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+                  >
+                    Go Back to Upload
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <DesignEditor
+                productType={productType as 'canvas' | 'print' | 'card' | 'poster' | 'photobook'}
+                productSize={getCanvasSize()}
+                onComplete={handleDesignComplete}
+                initialImages={uploadedImages}
+                frameColor={isFramed && selectedFrame ? selectedFrame : undefined}
+                onClose={() => setCurrentStep(1)}
+              />
+            )}
           </div>
         )}
 
