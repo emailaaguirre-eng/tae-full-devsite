@@ -45,31 +45,37 @@ export async function POST(request: Request) {
         
         try {
           // Try to submit to Contact Form 7
-          // You'll need to create a form in WordPress and get its ID
+          // Form should have fields: your-name and your-email
           const formId = process.env.WP_NEWSLETTER_FORM_ID || '1'; // Default to form ID 1
           const cf7SubmitUrl = `${wpApiBase}/contact-form-7/v1/contact-forms/${formId}/feedback`;
+          
+          // Contact Form 7 expects form data, not JSON
+          const formData = new URLSearchParams();
+          formData.append('your-name', name);
+          formData.append('your-email', email);
           
           const cf7Response = await fetch(cf7SubmitUrl, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Basic ${auth}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: JSON.stringify({
-              'your-name': name,
-              'your-email': email,
-            }),
+            body: formData.toString(),
           });
 
-          if (cf7Response.ok) {
-            console.log('Newsletter sign-up submitted to Contact Form 7');
+          const cf7Data = await cf7Response.json();
+          
+          if (cf7Response.ok && cf7Data.status === 'mail_sent') {
+            console.log('Newsletter sign-up submitted to Contact Form 7 successfully');
             return NextResponse.json(
-              { success: true, message: 'Thank you for signing up!' },
+              { success: true, message: cf7Data.message || 'Thank you for signing up!' },
               { status: 200 }
             );
+          } else {
+            console.log('Contact Form 7 submission failed:', cf7Data);
+            // Fall through to alternative method
           }
         } catch (cf7Error) {
-          console.log('Contact Form 7 not available, trying alternative method');
+          console.log('Contact Form 7 not available, trying alternative method:', cf7Error);
         }
 
         // Method 2: Create a custom post or use WordPress comments API
