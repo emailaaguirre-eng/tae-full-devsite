@@ -1420,8 +1420,8 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
       
       canvas.add(slotRect);
       canvas.add(slotLabel);
-      canvas.sendToBack(slotRect);
-      canvas.sendToBack(slotLabel);
+      sendToBack(canvas,slotRect);
+      sendToBack(canvas,slotLabel);
       
       return {
         id: slotId,
@@ -1531,7 +1531,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                   });
                   
                   canvas.add(img);
-                  canvas.sendToBack(img);
+                  sendToBack(canvas,img);
                   canvas.renderAll();
                   resolve();
                 })
@@ -1557,7 +1557,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
             });
             
             canvas.add(svgGroup);
-            canvas.sendToBack(svgGroup);
+            sendToBack(canvas,svgGroup);
             canvas.renderAll();
             resolve();
           }, (error) => {
@@ -1580,7 +1580,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 });
                 
                 canvas.add(img);
-                canvas.sendToBack(img);
+                sendToBack(canvas,img);
                 canvas.renderAll();
                 resolve();
               })
@@ -1608,7 +1608,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
         });
         
         canvas.add(img);
-        canvas.sendToBack(img);
+        sendToBack(canvas,img);
       }
       
       // Update slot with image reference
@@ -1710,8 +1710,8 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
     
     canvas.add(slotRect);
     canvas.add(slotLabel);
-    canvas.sendToBack(slotRect);
-    canvas.sendToBack(slotLabel);
+    sendToBack(canvas,slotRect);
+    sendToBack(canvas,slotLabel);
     
     setCollageSlots(prev => [...prev, defaultSlot]);
     
@@ -1828,7 +1828,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
       });
       
       canvas.add(borderRect);
-      canvas.sendToBack(borderRect);
+      sendToBack(canvas,borderRect);
     } 
     else if (overlay.type === 'texture' || overlay.type === 'pattern' || overlay.type === 'background') {
       // Create pattern/texture overlay using SVG pattern or canvas pattern
@@ -1858,7 +1858,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
       });
       
       canvas.add(patternImg);
-      canvas.sendToBack(patternImg);
+      sendToBack(canvas,patternImg);
     }
     else if (overlay.type === 'decorative') {
       // For decorative overlays, create SVG-based decorative elements
@@ -1888,7 +1888,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
       });
       
       canvas.add(patternImg);
-      canvas.sendToBack(patternImg);
+      sendToBack(canvas,patternImg);
     }
     
     setAppliedOverlays(prev => [...prev, overlay.id]);
