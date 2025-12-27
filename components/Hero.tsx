@@ -17,6 +17,10 @@ export default function Hero() {
   const [selectedOption, setSelectedOption] = useState<"upload" | "gallery" | null>(null);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showSignUpModal, setShowSignUpModal] = useState(false);
+  const [signUpForm, setSignUpForm] = useState({ name: '', email: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   // Use hero content from JSON file (editable via Visual Editor)
   const [heroContent, setHeroContent] = useState<HeroContent>(heroData);
@@ -84,6 +88,39 @@ export default function Hero() {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleSignUpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitMessage(null);
+
+    try {
+      const response = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(signUpForm),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSubmitMessage({ type: 'success', text: data.message || 'Thank you for signing up!' });
+        setSignUpForm({ name: '', email: '' });
+        setTimeout(() => {
+          setShowSignUpModal(false);
+          setSubmitMessage(null);
+        }, 2000);
+      } else {
+        setSubmitMessage({ type: 'error', text: data.error || 'Something went wrong. Please try again.' });
+      }
+    } catch (error) {
+      setSubmitMessage({ type: 'error', text: 'Failed to submit. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <section
       id="home"
@@ -126,12 +163,12 @@ export default function Hero() {
                 </p>
               </div>
               <div className="text-center">
-                <a
-                  href="mailto:info@theartfulexperience.com?subject=Sign%20Up%20for%20Updates"
+                <button
+                  onClick={() => setShowSignUpModal(true)}
                   className="inline-block bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg"
                 >
                   Sign up for updates
-                </a>
+                </button>
               </div>
             </div>
           </div>
@@ -357,6 +394,81 @@ export default function Hero() {
           />
         </svg>
       </div>
+
+      {/* Sign Up Modal */}
+      {showSignUpModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 relative">
+            <button
+              onClick={() => {
+                setShowSignUpModal(false);
+                setSubmitMessage(null);
+                setSignUpForm({ name: '', email: '' });
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <h2 className="text-2xl font-bold text-brand-darkest mb-2 font-playfair">Sign Up for Updates</h2>
+            <p className="text-gray-600 mb-6">Stay informed about our launch and new features.</p>
+
+            <form onSubmit={handleSignUpSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  required
+                  value={signUpForm.name}
+                  onChange={(e) => setSignUpForm({ ...signUpForm, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-medium focus:border-transparent"
+                  placeholder="Your name"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  required
+                  value={signUpForm.email}
+                  onChange={(e) => setSignUpForm({ ...signUpForm, email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-medium focus:border-transparent"
+                  placeholder="your@email.com"
+                />
+              </div>
+
+              {submitMessage && (
+                <div
+                  className={`p-3 rounded-lg ${
+                    submitMessage.type === 'success'
+                      ? 'bg-green-50 text-green-800'
+                      : 'bg-red-50 text-red-800'
+                  }`}
+                >
+                  {submitMessage.text}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-brand-medium text-white px-6 py-3 rounded-lg font-semibold hover:bg-brand-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? 'Submitting...' : 'Sign Up'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
