@@ -396,6 +396,12 @@ export default function DesignEditor({
   // Error state
   const [error, setError] = useState<string | null>(null);
   
+  // Debug: Log component mount
+  useEffect(() => {
+    console.log('DesignEditor mounted', { productType, productSize, initialImages: initialImages.length });
+    console.log('Fabric available:', typeof fabric !== 'undefined', fabric ? Object.keys(fabric).slice(0, 5) : 'N/A');
+  }, []);
+  
   // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
@@ -791,9 +797,24 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
   };
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current) {
+      console.warn('DesignEditor: canvasRef.current is null');
+      return;
+    }
+    
+    if (!fabric || !fabric.Canvas) {
+      const errorMsg = 'Fabric.js is not loaded. Please refresh the page.';
+      console.error('DesignEditor:', errorMsg);
+      setError(errorMsg);
+      return;
+    }
     
     try {
+      console.log('DesignEditor: Creating canvas', { 
+        width: canvasWidth * displayScale, 
+        height: canvasHeight * displayScale 
+      });
+      
       const canvas = new fabric.Canvas(canvasRef.current, {
         width: canvasWidth * displayScale,
         height: canvasHeight * displayScale,
@@ -801,6 +822,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
         preserveObjectStacking: true,
       });
       
+      console.log('DesignEditor: Canvas created successfully');
       fabricRef.current = canvas;
       
       canvas.on('selection:created', (e) => setSelectedObject(e.selected?.[0] || null));
@@ -808,12 +830,15 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
       canvas.on('selection:cleared', () => setSelectedObject(null));
       
       // Draw printable area guides
+      console.log('DesignEditor: Drawing printable area');
       drawPrintableArea(canvas);
       
       setError(null); // Clear any previous errors
+      console.log('DesignEditor: Initialization complete');
       
       return () => { 
         try {
+          console.log('DesignEditor: Cleaning up canvas');
           canvas.dispose(); 
         } catch (e) {
           console.error('Error disposing canvas:', e);
@@ -821,6 +846,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
       };
     } catch (err: any) {
       console.error('Error initializing Design Editor canvas:', err);
+      console.error('Error stack:', err?.stack);
       setError(`Failed to initialize canvas: ${err?.message || 'Unknown error'}`);
     }
   }, [canvasWidth, canvasHeight, backgroundColor, orientation, productType, productSize]);
