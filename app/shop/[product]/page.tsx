@@ -239,15 +239,55 @@ export default function ProductPage() {
       const newArtkeyId = 'artkey-' + Date.now().toString(36);
       setArtkeyId(newArtkeyId);
       
+      // Upload design image to server/WordPress for Gelato (if needed later)
+      // For now, we'll save the dataUrl which can be converted to a file when needed
+      let imageUrl = designData.imageDataUrl; // Base64 data URL
+      
+      // Optionally upload to WordPress media library for permanent storage
+      // This makes it ready for Gelato API later (Gelato needs a URL, not base64)
+      try {
+        const formData = new FormData();
+        // Convert dataUrl to Blob for upload
+        const response = await fetch(designData.imageDataUrl);
+        const blob = await response.blob();
+        const file = new File([blob], `design-${newArtkeyId}.png`, { type: 'image/png' });
+        formData.append('file', file);
+        formData.append('title', `Design for ${productType} - ${newArtkeyId}`);
+        
+        // Try to upload to WordPress media library
+        const uploadResponse = await fetch('/api/wordpress/media/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          if (uploadData.url) {
+            imageUrl = uploadData.url; // Use WordPress URL instead of dataUrl
+            console.log('Design image uploaded to WordPress:', uploadData.url);
+          }
+        }
+      } catch (uploadError) {
+        console.log('WordPress upload not available, using dataUrl:', uploadError);
+        // Continue with dataUrl - can be converted to file when needed for Gelato
+        // Note: For Gelato, you'll need to convert dataUrl to a file and upload it
+      }
+      
       // Save design data to localStorage for persistence
       const designSaveData = {
         artkeyId: newArtkeyId,
         designData: {
-          imageDataUrl: designData.imageDataUrl,
+          imageDataUrl: designData.imageDataUrl, // Keep original for display
+          imageUrl: imageUrl, // WordPress URL if uploaded, or dataUrl (ready for Gelato)
           dimensions: designData.dimensions,
           dpi: designData.dpi,
           productType: designData.productType,
           productSize: designData.productSize,
+          // Store as base64 string for localStorage (Blob can't be stored)
+          // This can be converted back to a file for Gelato when needed
+          imageBase64: designData.imageDataUrl.split(',')[1], // Remove data:image/png;base64, prefix
+          // Gelato-ready: If imageUrl is a WordPress URL, it's ready for Gelato API
+          // If it's still a dataUrl, convert to file before sending to Gelato
         },
         productInfo: {
           productType,
