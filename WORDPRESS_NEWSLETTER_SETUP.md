@@ -1,6 +1,51 @@
 # WordPress Newsletter Form Setup Guide
 
-## Quick Setup: Contact Form 7
+## Quick Setup: Forminator (Current Setup)
+
+### Your Form ID: 1708
+
+Your form is already set up with Forminator! The shortcode is:
+```
+[forminator_form id="1708"]
+```
+
+### Step 1: Verify Form Fields
+1. Go to WordPress Admin: `https://theartfulexperience.com/wp-admin`
+2. Navigate to **Forminator → Forms**
+3. Find form ID 1708 (or search for "Newsletter")
+4. Make sure it has:
+   - A **Name** field (field ID will be like `name-1` or `text-1`)
+   - An **Email** field (field ID will be like `email-1` or `email-2`)
+
+### Step 2: Configure Email Settings
+1. Open your form (ID 1708)
+2. Go to **Email Notifications** tab
+3. Set **Send To:** to `info@theartfulexperience.com`
+4. Set **Email Subject:** to `New Newsletter Sign-Up: {name-1}`
+5. Include in email body:
+   ```
+   New Newsletter Sign-Up
+   
+   Name: {name-1}
+   Email: {email-1}
+   Date: {date}
+   ```
+
+### Step 3: Add to Environment Variables
+Add to your `.env.local` or server environment:
+```bash
+WP_NEWSLETTER_FORM_ID=1708
+```
+
+### Step 4: Check Field IDs (if needed)
+If the form doesn't work, you may need to check the actual field IDs:
+1. In Forminator form editor, hover over each field
+2. Note the field ID (e.g., `name-1`, `text-1`, `email-1`)
+3. Update the API code if field IDs are different
+
+---
+
+## Alternative Setup: Contact Form 7
 
 ### Step 1: Install Contact Form 7
 1. Go to WordPress Admin: `https://theartfulexperience.com/wp-admin`

@@ -37,19 +37,50 @@ export async function POST(request: Request) {
     // Try WordPress REST API first (if configured)
     if (wpApiBase && wpAppUser && wpAppPass) {
       try {
-        // Method 1: Try Contact Form 7 REST API (if plugin is installed)
-        const cf7Endpoint = `${wpApiBase}/contact-form-7/v1/contact-forms`;
-        
-        // First, try to get contact forms to find newsletter form ID
         const auth = Buffer.from(`${wpAppUser}:${wpAppPass}`).toString('base64');
         
+        // Method 1: Try Forminator REST API
         try {
-          // Try to submit to Contact Form 7
-          // Form should have fields: your-name and your-email
-          const formId = process.env.WP_NEWSLETTER_FORM_ID || '1'; // Default to form ID 1
-          const cf7SubmitUrl = `${wpApiBase}/contact-form-7/v1/contact-forms/${formId}/feedback`;
+          const formId = process.env.WP_NEWSLETTER_FORM_ID || '1708'; // Default to form ID 1708
+          const forminatorSubmitUrl = `${wpApiBase}/forminator/v1/forms/${formId}/entries`;
           
-          // Contact Form 7 expects form data, not JSON
+          // Forminator expects JSON with field data
+          // Field names depend on your form, but typically: name-1, email-1, etc.
+          // You may need to adjust these based on your actual form field IDs
+          const forminatorResponse = await fetch(forminatorSubmitUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Basic ${auth}`,
+            },
+            body: JSON.stringify({
+              'data': {
+                'name-1': name,      // Adjust field ID if different
+                'email-1': email,    // Adjust field ID if different
+              },
+            }),
+          });
+
+          if (forminatorResponse.ok) {
+            const forminatorData = await forminatorResponse.json();
+            console.log('Newsletter sign-up submitted to Forminator successfully');
+            return NextResponse.json(
+              { success: true, message: 'Thank you for signing up!' },
+              { status: 200 }
+            );
+          } else {
+            const errorData = await forminatorResponse.json().catch(() => ({}));
+            console.log('Forminator submission failed, trying alternative method:', errorData);
+          }
+        } catch (forminatorError) {
+          console.log('Forminator not available, trying alternative method:', forminatorError);
+        }
+
+        // Method 2: Try Contact Form 7 REST API (fallback)
+        try {
+          const cf7FormId = process.env.WP_NEWSLETTER_FORM_ID || '1';
+          const cf7SubmitUrl = `${wpApiBase}/contact-form-7/v1/contact-forms/${cf7FormId}/feedback`;
+          
           const formData = new URLSearchParams();
           formData.append('your-name', name);
           formData.append('your-email', email);
@@ -70,12 +101,9 @@ export async function POST(request: Request) {
               { success: true, message: cf7Data.message || 'Thank you for signing up!' },
               { status: 200 }
             );
-          } else {
-            console.log('Contact Form 7 submission failed:', cf7Data);
-            // Fall through to alternative method
           }
         } catch (cf7Error) {
-          console.log('Contact Form 7 not available, trying alternative method:', cf7Error);
+          console.log('Contact Form 7 not available');
         }
 
         // Method 2: Create a custom post or use WordPress comments API
