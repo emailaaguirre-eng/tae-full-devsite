@@ -369,11 +369,11 @@ export default function Hero() {
                 </div>
               </div>
             ) : (
-              <div className="w-full bg-white/80 flex items-center justify-center overflow-hidden rounded-2xl shadow-xl border border-brand-light/60">
+              <div className="w-full bg-white/80 flex items-center justify-center overflow-hidden rounded-2xl shadow-xl border border-brand-light/60 p-4">
                 <img
                   src={heroBackground}
                   alt="TheAE Hero"
-                  className="w-full h-auto object-contain"
+                  className="max-w-md w-full h-auto object-contain"
                   style={{ objectPosition: 'top center' }}
                 />
               </div>
