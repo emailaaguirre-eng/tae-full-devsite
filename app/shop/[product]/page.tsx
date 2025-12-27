@@ -232,11 +232,55 @@ export default function ProductPage() {
     }
   };
 
-  // Handle design complete
-  const handleDesignComplete = (designData: any) => {
-    const newArtkeyId = 'artkey-' + Date.now().toString(36);
-    setArtkeyId(newArtkeyId);
-    setCurrentStep(3);
+  // Handle design complete - save design and navigate to ArtKey editor
+  const handleDesignComplete = async (designData: any) => {
+    try {
+      // Generate ArtKey ID
+      const newArtkeyId = 'artkey-' + Date.now().toString(36);
+      setArtkeyId(newArtkeyId);
+      
+      // Save design data to localStorage for persistence
+      const designSaveData = {
+        artkeyId: newArtkeyId,
+        designData: {
+          imageDataUrl: designData.imageDataUrl,
+          dimensions: designData.dimensions,
+          dpi: designData.dpi,
+          productType: designData.productType,
+          productSize: designData.productSize,
+        },
+        productInfo: {
+          productType,
+          selectedSize,
+          selectedPaper,
+          selectedMaterial,
+          selectedFrame,
+          selectedFoil,
+          isFramed,
+          hasFoil,
+          quantity,
+        },
+        timestamp: new Date().toISOString(),
+      };
+      
+      // Save to localStorage
+      localStorage.setItem(`design_${newArtkeyId}`, JSON.stringify(designSaveData));
+      
+      // Also save a reference for quick access
+      const savedDesigns = JSON.parse(localStorage.getItem('savedDesigns') || '[]');
+      savedDesigns.push({
+        artkeyId: newArtkeyId,
+        productType,
+        timestamp: designSaveData.timestamp,
+      });
+      localStorage.setItem('savedDesigns', JSON.stringify(savedDesigns));
+      
+      // Navigate directly to ArtKey editor
+      router.push(`/art-key/editor?product_type=${productType}&artkey_id=${newArtkeyId}`);
+    } catch (error) {
+      console.error('Error saving design:', error);
+      alert('Failed to save design. Please try again.');
+    }
   };
 
   // Navigate to ArtKey editor
