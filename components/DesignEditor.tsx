@@ -525,6 +525,22 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
   // INITIALIZE CANVAS
   // =============================================================================
   
+  // Helper function to send object to back (Fabric.js v6 compatible)
+  const sendToBack = (canvas: fabric.Canvas, obj: fabric.Object) => {
+    try {
+      if (typeof canvas.sendObjectBackwards === 'function') {
+        canvas.sendObjectBackwards(obj);
+      } else if (typeof obj.moveTo === 'function') {
+        obj.moveTo(0);
+      } else if (typeof obj.set === 'function') {
+        obj.set('zIndex', -1000);
+      }
+    } catch (e) {
+      // Silently fail - not critical
+      console.warn('Could not send object to back');
+    }
+  };
+  
   // Draw printable area guides
   const drawPrintableArea = (canvas: fabric.Canvas) => {
     // Remove existing printable area guides
@@ -685,9 +701,23 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
       canvas.add(backLabel);
       canvas.add(insideLabel);
       
-      // Send all guides to back
-      [frontRect, frontSafe, backRect, backSafe, insideLeftRect, insideRightRect, frontLabel, backLabel, insideLabel].forEach(obj => {
-        canvas.sendToBack(obj);
+      // Send all guides to back (Fabric.js v6 - z-index manipulation)
+      // Note: In v6, we manipulate z-index directly or use moveTo method
+      [frontRect, frontSafe, backRect, backSafe, insideLeftRect, insideRightRect, frontLabel, backLabel, insideLabel].forEach((obj, index) => {
+        try {
+          // Try v6 API methods
+          if (typeof canvas.sendObjectBackwards === 'function') {
+            canvas.sendObjectBackwards(obj);
+          } else if (typeof obj.moveTo === 'function') {
+            obj.moveTo(0);
+          } else {
+            // Set low z-index
+            obj.set('zIndex', -1000 - index);
+          }
+        } catch (e) {
+          // Silently fail - not critical for functionality
+          console.warn('Could not send object to back:', e);
+        }
       });
     } else {
       // Regular prints - single printable area
@@ -724,8 +754,21 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
       
       canvas.add(printableRect);
       canvas.add(safeRect);
-      canvas.sendToBack(printableRect);
-      canvas.sendToBack(safeRect);
+      // Send to back (Fabric.js v6 API)
+      try {
+        if (typeof canvas.sendObjectBackwards === 'function') {
+          canvas.sendObjectBackwards(printableRect);
+          canvas.sendObjectBackwards(safeRect);
+        } else if (typeof printableRect.moveTo === 'function') {
+          printableRect.moveTo(0);
+          safeRect.moveTo(0);
+        } else {
+          printableRect.set('zIndex', -1000);
+          safeRect.set('zIndex', -999);
+        }
+      } catch (e) {
+        console.warn('Could not send to back:', e);
+      }
       
       // Add frame visualization if frame is selected (only for prints)
       if (frameColor && productType === 'print') {
@@ -788,8 +831,21 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
         canvas.add(outerFrame);
         canvas.add(innerFrame);
         canvas.add(disclaimerText);
-        canvas.sendToBack(outerFrame);
-        canvas.sendToBack(innerFrame);
+        // Send to back (Fabric.js v6 API)
+        try {
+          if (typeof canvas.sendObjectBackwards === 'function') {
+            canvas.sendObjectBackwards(outerFrame);
+            canvas.sendObjectBackwards(innerFrame);
+          } else if (typeof outerFrame.moveTo === 'function') {
+            outerFrame.moveTo(0);
+            innerFrame.moveTo(0);
+          } else {
+            outerFrame.set('zIndex', -1001);
+            innerFrame.set('zIndex', -1000);
+          }
+        } catch (e) {
+          console.warn('Could not send frame to back:', e);
+        }
       }
     }
     
