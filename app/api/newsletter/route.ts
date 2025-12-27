@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
 
+/**
+ * Newsletter Sign-Up API Route
+ * Submits form data to WordPress via REST API
+ * WordPress will handle email sending via wp_mail()
+ */
 export async function POST(request: Request) {
   try {
     const { name, email } = await request.json();
@@ -22,84 +26,129 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create email content
-    const emailSubject = 'New Newsletter Sign-Up - The Artful Experience';
-    const emailBody = `
-New Newsletter Sign-Up
+    // Get WordPress API credentials
+    const wpApiBase = process.env.WP_API_BASE || 
+                     (process.env.NEXT_PUBLIC_WORDPRESS_URL 
+                       ? `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json` 
+                       : null);
+    const wpAppUser = process.env.WP_APP_USER;
+    const wpAppPass = process.env.WP_APP_PASS;
 
-Name: ${name}
-Email: ${email}
-Date: ${new Date().toLocaleString()}
+    // Try WordPress REST API first (if configured)
+    if (wpApiBase && wpAppUser && wpAppPass) {
+      try {
+        // Method 1: Try Contact Form 7 REST API (if plugin is installed)
+        const cf7Endpoint = `${wpApiBase}/contact-form-7/v1/contact-forms`;
+        
+        // First, try to get contact forms to find newsletter form ID
+        const auth = Buffer.from(`${wpAppUser}:${wpAppPass}`).toString('base64');
+        
+        try {
+          // Try to submit to Contact Form 7
+          // You'll need to create a form in WordPress and get its ID
+          const formId = process.env.WP_NEWSLETTER_FORM_ID || '1'; // Default to form ID 1
+          const cf7SubmitUrl = `${wpApiBase}/contact-form-7/v1/contact-forms/${formId}/feedback`;
+          
+          const cf7Response = await fetch(cf7SubmitUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Basic ${auth}`,
+            },
+            body: JSON.stringify({
+              'your-name': name,
+              'your-email': email,
+            }),
+          });
 
-This is an automated message from The Artful Experience website newsletter sign-up form.
-    `.trim();
+          if (cf7Response.ok) {
+            console.log('Newsletter sign-up submitted to Contact Form 7');
+            return NextResponse.json(
+              { success: true, message: 'Thank you for signing up!' },
+              { status: 200 }
+            );
+          }
+        } catch (cf7Error) {
+          console.log('Contact Form 7 not available, trying alternative method');
+        }
 
-    // Configure nodemailer transporter
-    // You can use SMTP, Gmail, SendGrid, etc.
-    // For now, we'll use a simple SMTP configuration
-    // You'll need to set these environment variables:
-    // SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
-    
-    let transporter;
-    
-    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-      // Use configured SMTP
-      transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
-    } else {
-      // Fallback: Use Gmail OAuth or a test account
-      // For production, you should configure proper SMTP settings
-      console.warn('SMTP not configured. Using test mode. Please set SMTP_HOST, SMTP_USER, SMTP_PASS in environment variables.');
-      
-      // Create a test transporter (won't actually send emails)
-      transporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
-        auth: {
-          user: 'test@example.com',
-          pass: 'test',
-        },
-      });
-      
-      // Log the email for now (in production, configure SMTP)
-      console.log('Newsletter Sign-Up (Email not sent - SMTP not configured):', {
-        to: 'info@theartfulexperience.com',
-        subject: emailSubject,
-        body: emailBody,
-      });
+        // Method 2: Create a custom post or use WordPress comments API
+        // This creates a comment on a specific post (you can create a "Newsletter Signups" post)
+        const newsletterPostId = process.env.WP_NEWSLETTER_POST_ID || '1';
+        const commentUrl = `${wpApiBase}/wp/v2/comments`;
+        
+        const commentResponse = await fetch(commentUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Basic ${auth}`,
+          },
+          body: JSON.stringify({
+            post: newsletterPostId,
+            author_name: name,
+            author_email: email,
+            content: `Newsletter Sign-Up\n\nName: ${name}\nEmail: ${email}\nDate: ${new Date().toLocaleString()}`,
+            status: 'approved', // Auto-approve newsletter signups
+          }),
+        });
+
+        if (commentResponse.ok) {
+          console.log('Newsletter sign-up saved to WordPress');
+          
+          // WordPress will handle email sending via wp_mail() if configured
+          // You can also trigger email via a WordPress hook/action
+          
+          return NextResponse.json(
+            { success: true, message: 'Thank you for signing up!' },
+            { status: 200 }
+          );
+        }
+      } catch (wpError) {
+        console.error('WordPress API error:', wpError);
+        // Fall through to email fallback
+      }
     }
 
-    // Send email
-    try {
-      if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    // Fallback: Direct email (if WordPress is not configured)
+    // This uses nodemailer as a backup
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      try {
+        const nodemailer = await import('nodemailer');
+        const transporter = nodemailer.default.createTransport({
+          host: process.env.SMTP_HOST,
+          port: parseInt(process.env.SMTP_PORT || '587'),
+          secure: process.env.SMTP_PORT === '465',
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+        });
+
         await transporter.sendMail({
           from: process.env.SMTP_FROM || process.env.SMTP_USER,
           to: 'info@theartfulexperience.com',
-          subject: emailSubject,
-          text: emailBody,
+          subject: 'New Newsletter Sign-Up - The Artful Experience',
+          text: `New Newsletter Sign-Up\n\nName: ${name}\nEmail: ${email}\nDate: ${new Date().toLocaleString()}`,
           html: `
             <h2>New Newsletter Sign-Up</h2>
             <p><strong>Name:</strong> ${name}</p>
             <p><strong>Email:</strong> ${email}</p>
             <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-            <p>This is an automated message from The Artful Experience website newsletter sign-up form.</p>
           `,
         });
-        console.log('Newsletter sign-up email sent successfully');
+        
+        console.log('Newsletter sign-up email sent via SMTP');
+        return NextResponse.json(
+          { success: true, message: 'Thank you for signing up!' },
+          { status: 200 }
+        );
+      } catch (emailError) {
+        console.error('Email sending error:', emailError);
       }
-    } catch (emailError) {
-      console.error('Error sending email:', emailError);
-      // Still return success to user, but log the error
-      // In production, you might want to handle this differently
     }
 
+    // If all methods fail, still return success but log warning
+    console.warn('Newsletter sign-up received but no email service configured. Please set up WordPress API or SMTP.');
     return NextResponse.json(
       { success: true, message: 'Thank you for signing up!' },
       { status: 200 }
