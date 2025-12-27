@@ -985,13 +985,16 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
   };
   
   const addImageToCanvas = async (imageUrl: string) => {
+    console.log('addImageToCanvas called with:', imageUrl);
     if (!fabricRef.current) {
-      console.error('Canvas not initialized');
+      console.error('Canvas not initialized - fabricRef.current is null');
+      alert('Canvas not ready. Please wait a moment and try again.');
       return;
     }
     
     try {
       const canvas = fabricRef.current!;
+      console.log('Canvas found, adding image...');
       
       // For folded products, position image based on active surface
       let imageLeft = canvas.width! / 2;
@@ -1114,6 +1117,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
         canvas.setActiveObject(img);
         canvas.renderAll();
         saveState();
+        console.log('Image successfully added to canvas');
       }
     } catch (error) {
       console.error('Error loading image:', error);
@@ -2746,7 +2750,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                   <button
                     key={label.id}
                     onClick={() => {
-                      if (!fabricCanvasRef.current) return;
+                      if (!fabricRef.current) return;
                       const path = new fabric.Path(label.path, {
                         left: 100,
                         top: 100,
@@ -2756,9 +2760,9 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                         scaleX: 2,
                         scaleY: 2,
                       });
-                      fabricCanvasRef.current.add(path);
-                      fabricCanvasRef.current.setActiveObject(path);
-                      fabricCanvasRef.current.renderAll();
+                      fabricRef.current.add(path);
+                      fabricRef.current.setActiveObject(path);
+                      fabricRef.current.renderAll();
                     }}
                     className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
                   >
@@ -2826,14 +2830,14 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 {/* Rectangle */}
                 <button
                   onClick={() => {
-                    if (!fabricCanvasRef.current) return;
+                    if (!fabricRef.current) return;
                     const rect = new fabric.Rect({
                       left: 100, top: 100, width: 100, height: 80,
                       fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
                     });
-                    fabricCanvasRef.current.add(rect);
-                    fabricCanvasRef.current.setActiveObject(rect);
-                    fabricCanvasRef.current.renderAll();
+                    fabricRef.current.add(rect);
+                    fabricRef.current.setActiveObject(rect);
+                    fabricRef.current.renderAll();
                   }}
                   className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
@@ -2843,14 +2847,14 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 {/* Rounded Rectangle */}
                 <button
                   onClick={() => {
-                    if (!fabricCanvasRef.current) return;
+                    if (!fabricRef.current) return;
                     const rect = new fabric.Rect({
                       left: 100, top: 100, width: 100, height: 80, rx: 15, ry: 15,
                       fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
                     });
-                    fabricCanvasRef.current.add(rect);
-                    fabricCanvasRef.current.setActiveObject(rect);
-                    fabricCanvasRef.current.renderAll();
+                    fabricRef.current.add(rect);
+                    fabricRef.current.setActiveObject(rect);
+                    fabricRef.current.renderAll();
                   }}
                   className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
@@ -2860,14 +2864,14 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 {/* Circle */}
                 <button
                   onClick={() => {
-                    if (!fabricCanvasRef.current) return;
+                    if (!fabricRef.current) return;
                     const circle = new fabric.Circle({
                       left: 100, top: 100, radius: 50,
                       fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
                     });
-                    fabricCanvasRef.current.add(circle);
-                    fabricCanvasRef.current.setActiveObject(circle);
-                    fabricCanvasRef.current.renderAll();
+                    fabricRef.current.add(circle);
+                    fabricRef.current.setActiveObject(circle);
+                    fabricRef.current.renderAll();
                   }}
                   className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
@@ -2877,14 +2881,14 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 {/* Ellipse */}
                 <button
                   onClick={() => {
-                    if (!fabricCanvasRef.current) return;
+                    if (!fabricRef.current) return;
                     const ellipse = new fabric.Ellipse({
                       left: 100, top: 100, rx: 60, ry: 35,
                       fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
                     });
-                    fabricCanvasRef.current.add(ellipse);
-                    fabricCanvasRef.current.setActiveObject(ellipse);
-                    fabricCanvasRef.current.renderAll();
+                    fabricRef.current.add(ellipse);
+                    fabricRef.current.setActiveObject(ellipse);
+                    fabricRef.current.renderAll();
                   }}
                   className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
@@ -2894,14 +2898,14 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 {/* Triangle */}
                 <button
                   onClick={() => {
-                    if (!fabricCanvasRef.current) return;
+                    if (!fabricRef.current) return;
                     const triangle = new fabric.Triangle({
                       left: 100, top: 100, width: 80, height: 80,
                       fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
                     });
-                    fabricCanvasRef.current.add(triangle);
-                    fabricCanvasRef.current.setActiveObject(triangle);
-                    fabricCanvasRef.current.renderAll();
+                    fabricRef.current.add(triangle);
+                    fabricRef.current.setActiveObject(triangle);
+                    fabricRef.current.renderAll();
                   }}
                   className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
@@ -2911,15 +2915,15 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 {/* Heart */}
                 <button
                   onClick={() => {
-                    if (!fabricCanvasRef.current) return;
+                    if (!fabricRef.current) return;
                     const heart = new fabric.Path('M 50 85 C 20 55 0 35 0 20 C 0 5 15 0 25 0 C 35 0 45 10 50 20 C 55 10 65 0 75 0 C 85 0 100 5 100 20 C 100 35 80 55 50 85 Z', {
                       left: 100, top: 100,
                       fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth,
                       scaleX: 1, scaleY: 1
                     });
-                    fabricCanvasRef.current.add(heart);
-                    fabricCanvasRef.current.setActiveObject(heart);
-                    fabricCanvasRef.current.renderAll();
+                    fabricRef.current.add(heart);
+                    fabricRef.current.setActiveObject(heart);
+                    fabricRef.current.renderAll();
                   }}
                   className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
@@ -2929,15 +2933,15 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 {/* Star */}
                 <button
                   onClick={() => {
-                    if (!fabricCanvasRef.current) return;
+                    if (!fabricRef.current) return;
                     const star = new fabric.Path('M 50 5 L 61 35 L 95 35 L 68 55 L 79 90 L 50 70 L 21 90 L 32 55 L 5 35 L 39 35 Z', {
                       left: 100, top: 100,
                       fill: shapeSettings.fill, stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth,
                       scaleX: 1, scaleY: 1
                     });
-                    fabricCanvasRef.current.add(star);
-                    fabricCanvasRef.current.setActiveObject(star);
-                    fabricCanvasRef.current.renderAll();
+                    fabricRef.current.add(star);
+                    fabricRef.current.setActiveObject(star);
+                    fabricRef.current.renderAll();
                   }}
                   className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
@@ -2947,14 +2951,14 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
                 {/* Line */}
                 <button
                   onClick={() => {
-                    if (!fabricCanvasRef.current) return;
+                    if (!fabricRef.current) return;
                     const line = new fabric.Line([50, 50, 200, 50], {
                       left: 100, top: 100,
                       stroke: shapeSettings.stroke, strokeWidth: shapeSettings.strokeWidth
                     });
-                    fabricCanvasRef.current.add(line);
-                    fabricCanvasRef.current.setActiveObject(line);
-                    fabricCanvasRef.current.renderAll();
+                    fabricRef.current.add(line);
+                    fabricRef.current.setActiveObject(line);
+                    fabricRef.current.renderAll();
                   }}
                   className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 flex flex-col items-center"
                 >
@@ -3437,7 +3441,7 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
           </button>
           <button onClick={exportDesign} className="px-5 py-2.5 bg-white text-brand-darkest rounded-lg font-semibold hover:bg-brand-lightest transition-all flex items-center gap-2 shadow-lg">
             <Check className="w-4 h-4" />
-            Continue
+            Save and Design the ArtKey™
           </button>
         </div>
         
