@@ -391,6 +391,9 @@ export default function DesignEditor({
   initialMessage = '',
   frameColor
 }: StudioProps) {
+  // Error state
+  const [error, setError] = useState<string | null>(null);
+  
   // Canvas refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
@@ -788,23 +791,36 @@ const [activeTab, setActiveTab] = useState<'templates' | 'images' | 'text' | 'la
   useEffect(() => {
     if (!canvasRef.current) return;
     
-    const canvas = new fabric.Canvas(canvasRef.current, {
-      width: canvasWidth * displayScale,
-      height: canvasHeight * displayScale,
-      backgroundColor: backgroundColor,
-      preserveObjectStacking: true,
-    });
-    
-    fabricRef.current = canvas;
-    
-    canvas.on('selection:created', (e) => setSelectedObject(e.selected?.[0] || null));
-    canvas.on('selection:updated', (e) => setSelectedObject(e.selected?.[0] || null));
-    canvas.on('selection:cleared', () => setSelectedObject(null));
-    
-    // Draw printable area guides
-    drawPrintableArea(canvas);
-    
-    return () => { canvas.dispose(); };
+    try {
+      const canvas = new fabric.Canvas(canvasRef.current, {
+        width: canvasWidth * displayScale,
+        height: canvasHeight * displayScale,
+        backgroundColor: backgroundColor,
+        preserveObjectStacking: true,
+      });
+      
+      fabricRef.current = canvas;
+      
+      canvas.on('selection:created', (e) => setSelectedObject(e.selected?.[0] || null));
+      canvas.on('selection:updated', (e) => setSelectedObject(e.selected?.[0] || null));
+      canvas.on('selection:cleared', () => setSelectedObject(null));
+      
+      // Draw printable area guides
+      drawPrintableArea(canvas);
+      
+      setError(null); // Clear any previous errors
+      
+      return () => { 
+        try {
+          canvas.dispose(); 
+        } catch (e) {
+          console.error('Error disposing canvas:', e);
+        }
+      };
+    } catch (err: any) {
+      console.error('Error initializing Design Editor canvas:', err);
+      setError(`Failed to initialize canvas: ${err?.message || 'Unknown error'}`);
+    }
   }, [canvasWidth, canvasHeight, backgroundColor, orientation, productType, productSize]);
   
   // Redraw printable area when frame color changes (without recreating canvas)
