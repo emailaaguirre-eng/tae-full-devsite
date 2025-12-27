@@ -39,41 +39,70 @@ export async function POST(request: Request) {
       try {
         const auth = Buffer.from(`${wpAppUser}:${wpAppPass}`).toString('base64');
         
-        // Method 1: Try Forminator REST API
+        // Method 1: Submit to Forminator form directly
         try {
-          const formId = process.env.WP_NEWSLETTER_FORM_ID || '1708'; // Default to form ID 1708
-          const forminatorSubmitUrl = `${wpApiBase}/forminator/v1/forms/${formId}/entries`;
+          const formId = process.env.WP_NEWSLETTER_FORM_ID || '1708'; // Form ID 1708
           
-          // Forminator expects JSON with field data
-          // Field names depend on your form, but typically: name-1, email-1, etc.
-          // You may need to adjust these based on your actual form field IDs
+          // Forminator forms submit to admin-ajax.php
+          // We need to submit to the WordPress site's admin-ajax endpoint
+          const wpBaseUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL || 
+                           process.env.WP_API_BASE?.replace('/wp-json', '') || 
+                           'https://theartfulexperience.com';
+          const forminatorSubmitUrl = `${wpBaseUrl}/wp-admin/admin-ajax.php`;
+          
+          // Forminator expects form data with specific field names
+          // Field IDs depend on your form setup - common patterns:
+          // name-1, text-1, email-1, email-2, etc.
+          // You may need to check your form's actual field IDs
+          const formData = new URLSearchParams();
+          formData.append('action', 'forminator_custom_form_submit');
+          formData.append('form_id', formId);
+          formData.append('forminator_nonce', ''); // Nonce may be required, but we'll try without first
+          
+          // Try common field name patterns
+          // Adjust these based on your actual Forminator form field IDs
+          formData.append('name-1', name);      // Try name-1 first
+          formData.append('email-1', email);    // Try email-1 first
+          
+          // Also try alternative field names
+          formData.append('text-1', name);      // Alternative: text-1
+          formData.append('email-2', email);    // Alternative: email-2
+          
           const forminatorResponse = await fetch(forminatorSubmitUrl, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Basic ${auth}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Referer': wpBaseUrl,
             },
-            body: JSON.stringify({
-              'data': {
-                'name-1': name,      // Adjust field ID if different
-                'email-1': email,    // Adjust field ID if different
-              },
-            }),
+            body: formData.toString(),
           });
 
-          if (forminatorResponse.ok) {
-            const forminatorData = await forminatorResponse.json();
-            console.log('Newsletter sign-up submitted to Forminator successfully');
-            return NextResponse.json(
-              { success: true, message: 'Thank you for signing up!' },
-              { status: 200 }
-            );
-          } else {
-            const errorData = await forminatorResponse.json().catch(() => ({}));
-            console.log('Forminator submission failed, trying alternative method:', errorData);
+          const responseText = await forminatorResponse.text();
+          
+          // Forminator typically returns JSON or HTML
+          try {
+            const forminatorData = JSON.parse(responseText);
+            if (forminatorData.success || forminatorData.data) {
+              console.log('Newsletter sign-up submitted to Forminator successfully');
+              return NextResponse.json(
+                { success: true, message: 'Thank you for signing up!' },
+                { status: 200 }
+              );
+            }
+          } catch (parseError) {
+            // If not JSON, check if it's a success response
+            if (forminatorResponse.ok && responseText.includes('success')) {
+              console.log('Newsletter sign-up submitted to Forminator successfully');
+              return NextResponse.json(
+                { success: true, message: 'Thank you for signing up!' },
+                { status: 200 }
+              );
+            }
           }
+          
+          console.log('Forminator submission response:', responseText.substring(0, 200));
         } catch (forminatorError) {
-          console.log('Forminator not available, trying alternative method:', forminatorError);
+          console.log('Forminator submission error, trying alternative method:', forminatorError);
         }
 
         // Method 2: Try Contact Form 7 REST API (fallback)
