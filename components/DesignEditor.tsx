@@ -3,6 +3,8 @@
 // Note: TypeScript checking disabled due to Fabric.js v6 API compatibility issues
 
 import { useState, useRef, useEffect } from 'react';
+
+// Fabric.js v6 import - v6 exports everything directly
 import * as fabric from 'fabric';
 // import AIEffectsPanel from './AIEffectsPanel'; // COMMENTED OUT: Requires API backend
 import {
