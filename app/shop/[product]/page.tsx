@@ -6,6 +6,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 // Dynamic import for Design Editor
 const DesignEditor = dynamic(() => import('@/components/DesignEditor'), {
@@ -633,30 +634,60 @@ export default function ProductPage() {
 
         {/* Step 2: Design Editor */}
         {currentStep === 2 && (
-          <div className="w-full">
-            {uploadedImages.length === 0 ? (
-              <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                  <p className="text-yellow-800 mb-4">Please upload at least one image first.</p>
-                  <button
-                    onClick={() => setCurrentStep(1)}
-                    className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
-                  >
-                    Go Back to Upload
-                  </button>
+          <ErrorBoundary
+            fallback={
+              <div className="min-h-screen bg-brand-lightest flex items-center justify-center p-8">
+                <div className="max-w-2xl w-full bg-white rounded-2xl shadow-lg p-8 text-center">
+                  <div className="text-6xl mb-4">⚠️</div>
+                  <h2 className="text-2xl font-bold text-brand-darkest mb-4 font-playfair">
+                    Design Editor Error
+                  </h2>
+                  <p className="text-brand-dark mb-6">
+                    The Design Editor failed to load. This may be due to a browser compatibility issue or missing dependencies.
+                  </p>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => setCurrentStep(1)}
+                      className="px-6 py-3 bg-brand-darkest text-white rounded-lg font-semibold hover:bg-brand-dark transition-colors mr-3"
+                    >
+                      Go Back
+                    </button>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                    >
+                      Reload Page
+                    </button>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <DesignEditor
-                productType={productType as 'canvas' | 'print' | 'card' | 'poster' | 'photobook'}
-                productSize={getCanvasSize()}
-                onComplete={handleDesignComplete}
-                initialImages={uploadedImages}
-                frameColor={isFramed && selectedFrame ? selectedFrame : undefined}
-                onClose={() => setCurrentStep(1)}
-              />
-            )}
-          </div>
+            }
+          >
+            <div className="w-full">
+              {uploadedImages.length === 0 ? (
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                    <p className="text-yellow-800 mb-4">Please upload at least one image first.</p>
+                    <button
+                      onClick={() => setCurrentStep(1)}
+                      className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+                    >
+                      Go Back to Upload
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <DesignEditor
+                  productType={productType as 'canvas' | 'print' | 'card' | 'poster' | 'photobook'}
+                  productSize={getCanvasSize()}
+                  onComplete={handleDesignComplete}
+                  initialImages={uploadedImages}
+                  frameColor={isFramed && selectedFrame ? selectedFrame : undefined}
+                  onClose={() => setCurrentStep(1)}
+                />
+              )}
+            </div>
+          </ErrorBoundary>
         )}
 
         {/* Step 3: ArtKey Transition */}
