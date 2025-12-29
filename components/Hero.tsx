@@ -140,12 +140,12 @@ export default function Hero() {
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-brand-dark font-playfair tracking-wide">
             The Artful Experience
           </h1>
-          <div className="mt-6 max-w-3xl mx-auto">
-            <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
+          <div className="mt-6 max-w-6xl mx-auto">
+            <div className="bg-white rounded-2xl p-8 shadow-lg w-full">
               <h2 className="text-2xl md:text-3xl font-bold text-brand-darkest mb-6 font-playfair text-center">
                 We&apos;re Building Something Special
               </h2>
-              <div className="text-lg text-brand-darkest max-w-2xl mx-auto mb-6 text-center space-y-4">
+              <div className="text-lg text-brand-darkest max-w-4xl mx-auto mb-6 text-center space-y-4">
                 <p>
                   A destination where art comes to life. From original paintings and photography (even from your phone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
                 </p>
@@ -369,11 +369,11 @@ export default function Hero() {
                 </div>
               </div>
             ) : (
-              <div className="w-full bg-white/80 flex items-center justify-center overflow-hidden rounded-2xl shadow-xl border border-brand-light/60 p-4">
+              <div className="w-full bg-white/80 flex items-center justify-center overflow-hidden rounded-2xl shadow-xl border border-brand-light/60">
                 <img
                   src={heroBackground}
                   alt="TheAE Hero"
-                  className="max-w-md w-full h-auto object-contain"
+                  className="w-full h-auto object-contain"
                   style={{ objectPosition: 'top center' }}
                 />
               </div>
