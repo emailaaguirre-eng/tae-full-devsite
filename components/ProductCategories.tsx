@@ -1,4 +1,17 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+
 export default function ProductCategories() {
+  const router = useRouter();
+
+  const handleShopNow = () => {
+    router.push('/customize');
+  };
+
+  const handleStartCreating = () => {
+    router.push('/customize');
+  };
   const categories = [
     {
       title: "Upload Your Image",
@@ -75,7 +88,10 @@ export default function ProductCategories() {
                     </li>
                   ))}
                 </ul>
-                <button className="w-full bg-brand-medium text-white py-3 rounded-full font-semibold hover:bg-brand-dark transition-colors">
+                <button 
+                  onClick={handleShopNow}
+                  className="w-full bg-brand-medium text-white py-3 rounded-full font-semibold hover:bg-brand-dark transition-colors"
+                >
                   Shop Now
                 </button>
               </div>
@@ -88,7 +104,10 @@ export default function ProductCategories() {
             <p className="text-brand-darkest text-lg mb-4">
               Ready to begin? Upload your image or browse the gallery to start crafting your living artwork.
             </p>
-            <button className="bg-brand-dark text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-darkest transition-colors">
+            <button 
+              onClick={handleStartCreating}
+              className="bg-brand-dark text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-darkest transition-colors"
+            >
               Start Creating
             </button>
           </div>

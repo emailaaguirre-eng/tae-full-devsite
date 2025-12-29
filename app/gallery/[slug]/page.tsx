@@ -263,15 +263,35 @@ export default function ArtistPage({ params }: ArtistPageProps) {
             </div>
           )}
 
+<<<<<<< HEAD
           {/* Available Artwork/Photography Section */}
+=======
+          {/* Bio Image for Bryant */}
+          {artist.bioImage && (
+            <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
+              <div className="relative w-full h-[600px] md:h-[700px] rounded-2xl overflow-hidden bg-brand-lightest">
+                <Image
+                  src={artist.bioImage}
+                  alt={`${artist.name} bio image`}
+                  fill
+                  className="object-contain"
+                  style={{ objectPosition: 'center top' }}
+                  unoptimized={artist.bioImage.includes('theartfulexperience.com')}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Available ArtWork/Photography Section */}
+>>>>>>> 898d29324028a1208ee4becfd760c10d81359467
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
-              {artist.slug === 'bryant-colman' ? 'Available Photography' : 'Available Artwork'}
+              {artist.slug === 'bryant-colman' ? 'Available Photography' : 'Available ArtWork'}
             </h2>
             
             {loading ? (
               <div className="text-center py-12">
-                <p className="text-brand-dark">Loading {artist.slug === 'bryant-colman' ? 'photography' : 'artwork'}...</p>
+                <p className="text-brand-dark">Loading {artist.slug === 'bryant-colman' ? 'photography' : 'ArtWork'}...</p>
               </div>
             ) : wooProducts.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -311,7 +331,7 @@ export default function ArtistPage({ params }: ArtistPageProps) {
                 <p className="text-brand-dark">
                   {artist.slug === 'bryant-colman' 
                     ? 'Available photography coming soon.' 
-                    : 'Available artwork coming soon.'}
+                    : 'Available ArtWork coming soon.'}
                 </p>
               </div>
             )}

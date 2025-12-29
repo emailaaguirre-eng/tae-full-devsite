@@ -20,13 +20,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setLoading(false);
       
       // Only redirect if we're not already on the login page
-      if (!auth && pathname !== '/manage/login') {
+      if (!auth && pathname !== '/b_d_admn_tae/login') {
         console.log('AdminLayout: Not authenticated, redirecting to login');
         // Use window.location for reliable redirect
-        window.location.href = '/manage/login';
-      } else if (auth && pathname === '/manage/login') {
+        window.location.href = '/b_d_admn_tae/login';
+      } else if (auth && pathname === '/b_d_admn_tae/login') {
         console.log('AdminLayout: Already authenticated, redirecting to dashboard');
-        window.location.href = '/manage/dashboard';
+        window.location.href = '/b_d_admn_tae/dashboard';
       }
     };
 
@@ -38,7 +38,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const handleLogout = () => {
     removeAdminToken();
-    router.push('/manage/login');
+    router.push('/b_d_admn_tae/login');
   };
 
   // Show loading state
@@ -51,9 +51,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   // If on login page and authenticated, redirect to dashboard
-  if (pathname === '/manage/login' && authenticated) {
+  if (pathname === '/b_d_admn_tae/login' && authenticated) {
     console.log('AdminLayout: On login page but authenticated, redirecting');
-    window.location.href = '/manage/dashboard';
+    window.location.href = '/b_d_admn_tae/dashboard';
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
@@ -62,13 +62,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   // If not authenticated and not on login page, show nothing (will redirect)
-  if (!authenticated && pathname !== '/manage/login') {
+  if (!authenticated && pathname !== '/b_d_admn_tae/login') {
     console.log('AdminLayout: Not authenticated, showing nothing (redirect in progress)');
     return null;
   }
 
   // If on login page and not authenticated, show login form
-  if (pathname === '/manage/login') {
+  if (pathname === '/b_d_admn_tae/login') {
     return <>{children}</>;
   }
 
@@ -83,9 +83,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
             <nav className="flex items-center space-x-4">
               <Link
-                href="/manage/dashboard"
+                href="/b_d_admn_tae/dashboard"
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/manage/dashboard'
+                  pathname === '/b_d_admn_tae/dashboard'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
@@ -93,9 +93,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 Dashboard
               </Link>
               <Link
-                href="/manage/demos"
+                href="/b_d_admn_tae/demos"
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/manage/demos'
+                  pathname === '/b_d_admn_tae/demos'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
@@ -103,9 +103,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 Demos
               </Link>
               <Link
-                href="/manage/artkeys"
+                href="/b_d_admn_tae/artkeys"
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/manage/artkeys'
+                  pathname === '/b_d_admn_tae/artkeys'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
@@ -113,9 +113,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 ArtKeys
               </Link>
               <Link
-                href="/manage/users"
+                href="/b_d_admn_tae/users"
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/manage/users'
+                  pathname === '/b_d_admn_tae/users'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}

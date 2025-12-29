@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 // import ArtKeyHoverPreview from "./ArtKeyHoverPreview"; // Commented out - to be worked on later
 import Image from "next/image";
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface WooCommerceProduct {
   id: number;
@@ -26,46 +27,21 @@ type FeaturedProductsProps = {
   title?: string;
 };
 
-export default function FeaturedProducts({ title = "Products" }: FeaturedProductsProps) {
-  const [activeTab, setActiveTab] = useState("bestsellers");
+export default function FeaturedProducts({ title = "Products from TheAE Gallery" }: FeaturedProductsProps) {
   const [wooProducts, setWooProducts] = useState<WooCommerceProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const sliderRef = useRef<HTMLDivElement>(null);
 
-  // Fetch products from WordPress/WooCommerce - all products, but prioritize collage, test product, and wall art
+  // Fetch products from WordPress/WooCommerce - all gallery products
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const response = await fetch('/api/products?limit=100');
         if (response.ok) {
           const data = await response.json();
-          // Filter to show collage, test product, and wall art as featured products
-          const shopProducts = data.filter((product: WooCommerceProduct) => {
-            const name = product.name.toLowerCase();
-            return name.includes('collage') || 
-                   name.includes('test product') || 
-                   name.includes('wall art');
-          });
-          
-          // Debug: Log all products and filtered results
-          console.log('All WooCommerce products:', data.map((p: WooCommerceProduct) => ({ name: p.name, id: p.id })));
-          console.log('Filtered shop products:', shopProducts.map((p: WooCommerceProduct) => {
-            const firstImage = p.images?.[0];
-            const imageUrl = typeof firstImage === 'string' ? firstImage : (firstImage?.src || firstImage?.url);
-            return { 
-              name: p.name, 
-              id: p.id, 
-              hasImage: !!imageUrl,
-              imageUrl: imageUrl,
-              description: p.description || p.short_description
-            };
-          }));
-          
-          // If no products found, log for debugging
-          if (shopProducts.length === 0) {
-            console.log('No shop products found. Available products:', data.map((p: WooCommerceProduct) => p.name));
-          }
-          
-          setWooProducts(shopProducts);
+          // Show all products from the gallery
+          setWooProducts(data);
         }
       } catch (error) {
         console.error('Error fetching products:', error);
@@ -363,58 +339,48 @@ export default function FeaturedProducts({ title = "Products" }: FeaturedProduct
     };
   };
 
-// Get products based on active tab
+// Get products from gallery
   const getCurrentProducts = () => {
     if (wooProducts.length > 0) {
       const transformed = wooProducts.map(transformWooProduct);
-      
-      // Featured products: collage, test product, and wall art - always show these first
-      const featuredProducts = transformed.filter(p => {
-        const name = p.name.toLowerCase();
-        return name.includes('collage') || 
-               name.includes('test product') || 
-               name.includes('wall art');
-      });
-      
-      // Other products (non-featured)
-      const otherProducts = transformed.filter(p => {
-        const name = p.name.toLowerCase();
-        return !name.includes('collage') && 
-               !name.includes('test product') && 
-               !name.includes('wall art');
-      });
-
-      if (activeTab === 'sale') {
-        // Show featured products first, then sale products
-        const saleProducts = otherProducts.filter(p => p.onSale);
-        return [...featuredProducts, ...saleProducts].slice(0, 8);
-      } else if (activeTab === 'new') {
-        // Show featured products first, then other products
-        return [...featuredProducts, ...otherProducts].slice(0, 8);
-      } else if (activeTab === 'cards') {
-        // Filter products that contain "card" or "invitation" in name
-        const cardProducts = otherProducts.filter(p => 
-          p.name.toLowerCase().includes('card') || 
-          p.name.toLowerCase().includes('invitation') ||
-          p.name.toLowerCase().includes('announcement')
-        );
-        // Show featured products first, then card products
-        if (cardProducts.length === 0 && featuredProducts.length === 0) {
-          return fallbackProducts.cards;
-        }
-        return [...featuredProducts, ...cardProducts].slice(0, 8);
-      } else {
-        // For bestsellers, show featured products first, then sorted by rating
-        const sorted = otherProducts.sort((a, b) => b.rating - a.rating);
-        return [...featuredProducts, ...sorted].slice(0, 8);
-      }
+      // Show all gallery products (limit to 12 for display)
+      return transformed.slice(0, 12);
     }
 
-    // Fallback to static products
-    return fallbackProducts[activeTab as keyof typeof fallbackProducts] || [];  
+    // Fallback: return empty array if no products
+    return [];  
   };
 
   const currentProducts = getCurrentProducts();
+
+  // Calculate how many products to show per slide based on screen size
+  const getProductsPerSlide = () => {
+    if (typeof window === 'undefined') return 4;
+    if (window.innerWidth < 640) return 1; // mobile
+    if (window.innerWidth < 1024) return 2; // tablet
+    return 4; // desktop
+  };
+
+  const [productsPerSlide, setProductsPerSlide] = useState(4);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setProductsPerSlide(getProductsPerSlide());
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const maxIndex = Math.max(0, currentProducts.length - productsPerSlide);
+
+  const goToPrevious = () => {
+    setCurrentIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const goToNext = () => {
+    setCurrentIndex((prev) => Math.min(maxIndex, prev + 1));
+  };
 
   return (
     <section
@@ -427,51 +393,7 @@ export default function FeaturedProducts({ title = "Products" }: FeaturedProduct
           <div className="w-24 h-1 bg-brand-medium mx-auto"></div>
         </div>
 
-{/* Tabs */}
-        <div className="flex justify-center gap-4 mb-12 flex-wrap">
-          <button
-            onClick={() => setActiveTab("bestsellers")}
-            className={`px-6 py-3 rounded-full font-semibold transition-all ${  
-              activeTab === "bestsellers"
-                ? "bg-brand-dark text-white shadow-lg"
-                : "bg-brand-lightest text-brand-darkest hover:bg-brand-light"   
-            }`}
-          >
-            ⭐ Bestsellers
-          </button>
-          <button
-            onClick={() => setActiveTab("cards")}
-            className={`px-6 py-3 rounded-full font-semibold transition-all ${  
-              activeTab === "cards"
-                ? "bg-brand-dark text-white shadow-lg"
-                : "bg-brand-lightest text-brand-darkest hover:bg-brand-light"   
-            }`}
-          >
-            Cards &amp; Invitations
-          </button>
-          <button
-            onClick={() => setActiveTab("new")}
-            className={`px-6 py-3 rounded-full font-semibold transition-all ${  
-              activeTab === "new"
-                ? "bg-brand-dark text-white shadow-lg"
-                : "bg-brand-lightest text-brand-darkest hover:bg-brand-light"   
-            }`}
-          >
-            ✨ New Arrivals
-          </button>
-          <button
-            onClick={() => setActiveTab("sale")}
-            className={`px-6 py-3 rounded-full font-semibold transition-all ${  
-              activeTab === "sale"
-                ? "bg-brand-dark text-white shadow-lg"
-                : "bg-brand-lightest text-brand-darkest hover:bg-brand-light"   
-            }`}
-          >
-            🔥 On Sale
-          </button>
-        </div>
-
-        {/* Products Grid */}
+        {/* Products Slider */}
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-dark"></div>
@@ -479,11 +401,40 @@ export default function FeaturedProducts({ title = "Products" }: FeaturedProduct
           </div>
         ) : currentProducts.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-brand-darkest">No products found. Showing sample products.</p>
+            <p className="text-brand-darkest">No products found.</p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {currentProducts.map((product, index) => {
+          <div className="relative">
+            {/* Navigation Arrows */}
+            {currentIndex > 0 && (
+              <button
+                onClick={goToPrevious}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-brand-light transition-colors"
+                aria-label="Previous products"
+              >
+                <ChevronLeft className="w-6 h-6 text-brand-dark" />
+              </button>
+            )}
+            {currentIndex < maxIndex && (
+              <button
+                onClick={goToNext}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-brand-light transition-colors"
+                aria-label="Next products"
+              >
+                <ChevronRight className="w-6 h-6 text-brand-dark" />
+              </button>
+            )}
+
+            {/* Slider Container */}
+            <div className="overflow-hidden">
+              <div
+                ref={sliderRef}
+                className="flex transition-transform duration-500 ease-in-out gap-6"
+                style={{
+                  transform: `translateX(-${currentIndex * (100 / productsPerSlide)}%)`,
+                }}
+              >
+                {currentProducts.map((product, index) => {
               // Image with ArtKey signature in corner
               const ProductImage = (
                 <div className="bg-gradient-to-br from-brand-light to-brand-medium h-48 flex items-center justify-center group-hover:scale-105 transition-transform relative overflow-hidden">
@@ -512,7 +463,10 @@ export default function FeaturedProducts({ title = "Products" }: FeaturedProduct
               const ProductCard = (
                 <div
                   key={'id' in product ? product.id : index}
-                  className="bg-brand-lightest rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-2 cursor-pointer group"
+                  className="bg-brand-lightest rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-2 cursor-pointer group flex-shrink-0 w-full"
+                  style={{ 
+                    width: `calc((100% - ${(productsPerSlide - 1) * 24}px) / ${productsPerSlide})`
+                  }}
                 >
                 {/* Image with ArtKey signature overlay */}
                 {/* ArtKeyHoverPreview commented out - to be worked on later
@@ -570,7 +524,6 @@ export default function FeaturedProducts({ title = "Products" }: FeaturedProduct
                         product_type: productType,
                         product_name: product.name,
                         price: product.price.replace('$', ''),
-                        tab: activeTab,
                       });
                       window.location.href = `/customize?${params}`;
                     }}
@@ -598,15 +551,17 @@ export default function FeaturedProducts({ title = "Products" }: FeaturedProduct
               // }
               return ProductCard;
             })}
+              </div>
+            </div>
           </div>
         )}
 
         <div className="text-center mt-12">
           <Link
-            href="/shop"
+            href="/gallery"
             className="inline-block bg-brand-dark text-white px-10 py-4 rounded-full text-lg font-semibold hover:bg-brand-darkest transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
-            View All Products →
+            Visit Gallery →
           </Link>
         </div>
       </div>

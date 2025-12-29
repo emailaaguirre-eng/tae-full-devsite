@@ -1,8 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 
 export default function VideoSection() {
+  const [showTooltip, setShowTooltip] = useState<string | null>(null);
+
+  const handlePortalButtonClick = (feature: string) => {
+    setShowTooltip(feature);
+    setTimeout(() => setShowTooltip(null), 2000);
+  };
   return (
     <section className="py-20" style={{ backgroundColor: '#ffffff' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -43,22 +50,47 @@ export default function VideoSection() {
                 </h3>
                 
                 {/* Portal Buttons */}
-                <div className="space-y-3">
-                  <button className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left">
+                <div className="space-y-3 relative">
+                  <button 
+                    onClick={() => handlePortalButtonClick('Share Your Interests')}
+                    className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left"
+                    title="Available in ArtKey Portal"
+                  >
                     Share Your Interests
                   </button>
-                  <button className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left">
+                  <button 
+                    onClick={() => handlePortalButtonClick('Playlist')}
+                    className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left"
+                    title="Available in ArtKey Portal"
+                  >
                     Playlist
                   </button>
-                  <button className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left">
+                  <button 
+                    onClick={() => handlePortalButtonClick('Sign Guestbook')}
+                    className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left"
+                    title="Available in ArtKey Portal"
+                  >
                     Sign Guestbook
                   </button>
-                  <button className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left">
+                  <button 
+                    onClick={() => handlePortalButtonClick('Video Greeting')}
+                    className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left"
+                    title="Available in ArtKey Portal"
+                  >
                     Video Greeting
                   </button>
-                  <button className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left">
+                  <button 
+                    onClick={() => handlePortalButtonClick('Image Gallery')}
+                    className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left"
+                    title="Available in ArtKey Portal"
+                  >
                     Image Gallery
                   </button>
+                  {showTooltip && (
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-brand-darkest text-white px-4 py-2 rounded-lg shadow-xl z-10 text-sm whitespace-nowrap">
+                      {showTooltip} - Available in ArtKey Portal
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

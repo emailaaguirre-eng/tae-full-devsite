@@ -13,21 +13,62 @@ export default function CommissionedArt() {
     timeline: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission - you can integrate with your backend/email service
-    console.log("Commissioned Art Request:", formData);
-    alert("Thank you for your interest! We'll contact you soon.");
-    // Reset form
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      projectType: "",
-      description: "",
-      budget: "",
-      timeline: "",
-    });
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          message: `Commissioned Art Request
+
+Project Type: ${formData.projectType}
+Phone: ${formData.phone || 'Not provided'}
+Budget: ${formData.budget || 'Not specified'}
+Timeline: ${formData.timeline || 'Not specified'}
+
+Description:
+${formData.description}`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit form');
+      }
+
+      setSubmitted(true);
+      // Reset form
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        projectType: "",
+        description: "",
+        budget: "",
+        timeline: "",
+      });
+      
+      setTimeout(() => {
+        setSubmitted(false);
+      }, 5000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (
@@ -48,7 +89,7 @@ export default function CommissionedArt() {
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
           <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
-            Bring your vision to life with custom commissioned artwork. 
+            Bring your vision to life with custom commissioned ArtWork. 
             Work directly with our talented artists to create something truly unique.
           </p>
         </div>
@@ -77,7 +118,7 @@ export default function CommissionedArt() {
                     <span className="text-white text-sm">✓</span>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-brand-darkest mb-1">Original Artwork</h4>
+                    <h4 className="font-semibold text-brand-darkest mb-1">Original ArtWork</h4>
                     <p className="text-brand-darkest">
                       One-of-a-kind pieces created specifically for you
                     </p>
@@ -127,7 +168,7 @@ export default function CommissionedArt() {
                 </li>
                 <li className="flex gap-3">
                   <span className="font-bold text-brand-medium">4.</span>
-                  <span className="text-brand-darkest">Finalize and receive your custom artwork</span>
+                  <span className="text-brand-darkest">Finalize and receive your custom ArtWork</span>
                 </li>
               </ol>
             </div>
@@ -138,7 +179,23 @@ export default function CommissionedArt() {
             <h3 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair">
               Request a Commission
             </h3>
+            {submitted ? (
+              <div className="text-center py-8">
+                <div className="text-6xl mb-4">✓</div>
+                <h3 className="text-2xl font-bold text-brand-dark mb-2">
+                  Thank You!
+                </h3>
+                <p className="text-brand-darkest">
+                  We&apos;ve received your commission request and will get back to you soon.
+                </p>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+              )}
               <div>
                 <label htmlFor="name" className="block text-sm font-semibold text-brand-darkest mb-2">
                   Your Name *
@@ -200,7 +257,7 @@ export default function CommissionedArt() {
                 >
                   <option value="">Select a type...</option>
                   <option value="portrait">Custom Portrait</option>
-                  <option value="original">Original Artwork</option>
+                  <option value="original">Original ArtWork</option>
                   <option value="digital">Digital Art</option>
                   <option value="other">Other</option>
                 </select>
@@ -266,11 +323,13 @@ export default function CommissionedArt() {
 
               <button
                 type="submit"
-                className="w-full bg-brand-dark text-white py-4 rounded-lg font-semibold hover:bg-brand-darkest transition-all shadow-lg hover:shadow-xl"
+                disabled={isSubmitting}
+                className="w-full bg-brand-dark text-white py-4 rounded-lg font-semibold hover:bg-brand-darkest transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Submit Commission Request
+                {isSubmitting ? 'Sending...' : 'Submit Commission Request'}
               </button>
             </form>
+            )}
           </div>
         </div>
       </div>

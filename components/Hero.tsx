@@ -17,6 +17,10 @@ export default function Hero() {
   const [selectedOption, setSelectedOption] = useState<"upload" | "gallery" | null>(null);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showSignUpModal, setShowSignUpModal] = useState(false);
+  const [signUpForm, setSignUpForm] = useState({ name: '', email: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   // Use hero content from JSON file (editable via Visual Editor)
   const [heroContent, setHeroContent] = useState<HeroContent>(heroData);
@@ -32,18 +36,89 @@ export default function Hero() {
       });
   }, []);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Convert image to JPG format
+  const convertImageToJPG = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          // Create canvas to convert image
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          // Draw image to canvas
+          ctx.drawImage(img, 0, 0);
+          
+          // Convert to JPG (quality 0.92 for good balance)
+          const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          resolve(jpgDataUrl);
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      // Only allow one photo at this stage
-      const file = files[0];
-      const mediaUrl = URL.createObjectURL(file);
-      setSelectedImages([mediaUrl]); // Replace with single image
+      try {
+        // Only allow one photo at this stage, convert to JPG
+        const file = files[0];
+        const jpgDataUrl = await convertImageToJPG(file);
+        setSelectedImages([jpgDataUrl]); // Replace with single image
+      } catch (error) {
+        console.error('Error converting image:', error);
+        alert('Failed to process image. Please ensure it is in JPG, PNG, or BMP format.');
+      }
     }
   };
 
   const handleRemoveImage = (index: number) => {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSignUpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitMessage(null);
+
+    try {
+      const response = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(signUpForm),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSubmitMessage({ type: 'success', text: data.message || 'Thank you for signing up!' });
+        setSignUpForm({ name: '', email: '' });
+        setTimeout(() => {
+          setShowSignUpModal(false);
+          setSubmitMessage(null);
+        }, 2000);
+      } else {
+        setSubmitMessage({ type: 'error', text: data.error || 'Something went wrong. Please try again.' });
+      }
+    } catch (error) {
+      setSubmitMessage({ type: 'error', text: 'Failed to submit. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -65,17 +140,14 @@ export default function Hero() {
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-brand-dark font-playfair tracking-wide">
             The Artful Experience
           </h1>
-          <div className="mt-6 max-w-3xl mx-auto">
-            <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
+          <div className="mt-6 max-w-6xl mx-auto">
+            <div className="bg-white rounded-2xl p-8 shadow-lg w-full">
               <h2 className="text-2xl md:text-3xl font-bold text-brand-darkest mb-6 font-playfair text-center">
                 We&apos;re Building Something Special
               </h2>
-              <div className="text-lg text-brand-darkest max-w-2xl mx-auto mb-6 text-center space-y-4">
+              <div className="text-lg text-brand-darkest max-w-4xl mx-auto mb-6 text-left space-y-4">
                 <p>
-                  A destination where art comes to life.
-                </p>
-                <p>
-                  From original paintings and photography (even from your iPhone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
+                  A destination where art comes to life. From original paintings and photography (even from your phone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
                 </p>
                 <p>
                   Through our proprietary ArtKey™ technology, any artwork, image, or card becomes an interactive experience. Upload a personal video, curated playlist, heartfelt message, or e-gift card, and transform what you give into something that speaks, evolves, and endures.
@@ -84,19 +156,21 @@ export default function Hero() {
                   Every piece becomes more than an object.
                 </p>
                 <p>
-                  It becomes a story. A memory. An experience that&apos;s meant to be returned to, not tucked away.
+                  It becomes a story.<br />
+                  A memory.<br />
+                  An experience that&apos;s meant to be returned to, not tucked away.
                 </p>
-                <p>
-                  We invite you to explore and look forward to our official launch in January 2026.
+                <p className="font-bold">
+                  We invite you to explore, and look forward to our official launch in January 2026.
                 </p>
               </div>
               <div className="text-center">
-                <a
-                  href="mailto:info@theartfulexperience.com?subject=Sign%20Up%20for%20Updates"
+                <button
+                  onClick={() => setShowSignUpModal(true)}
                   className="inline-block bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg"
                 >
                   Sign up for updates
-                </a>
+                </button>
               </div>
             </div>
           </div>
@@ -116,24 +190,27 @@ export default function Hero() {
                 {(heroContent.subtitle || "").replace(/\s*\n\s*/g, " ").trim()}
               </p>
               <p className="text-sm md:text-base text-brand-dark leading-relaxed">
-                {heroContent.description.split('\n').map((line, i) => (
-                  <span key={i}>
-                    {i === 0 && line.includes('ArtKey') ? (
-                      <>
-                        {line.split('ArtKey')[0]}
-                        <span className="font-bold text-brand-darkest">ArtKey™</span>
-                        {line.split('ArtKey')[1]}
-                      </>
-                    ) : (
-                      line
-                    )}
-                    {i < heroContent.description.split('\n').length - 1 && <br />}
-                  </span>
-                ))}
+                {heroContent.description.split('\n')
+                  .filter(line => !line.toLowerCase().includes('upload an image') && !line.toLowerCase().includes('browse our library'))
+                  .map((line, i) => (
+                    <span key={i}>
+                      {i === 0 && line.includes('ArtKey') ? (
+                        <>
+                          {line.split('ArtKey')[0]}
+                          <span className="font-bold text-brand-darkest">ArtKey™</span>
+                          {line.split('ArtKey')[1]}
+                        </>
+                      ) : (
+                        line
+                      )}
+                      {i < heroContent.description.split('\n').filter(line => !line.toLowerCase().includes('upload an image') && !line.toLowerCase().includes('browse our library')).length - 1 && <br />}
+                    </span>
+                  ))}
               </p>
             </div>
 
             {/* Action buttons - more refined */}
+            {/* COMMENTED OUT: Upload Image and Browse Gallery buttons
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <button
                 onClick={() => setSelectedOption("upload")}
@@ -159,6 +236,7 @@ export default function Hero() {
                 </span>
               </button>
             </div>
+            */}
           </div>
 
           {/* Right side - Upload interface or placeholder */}
@@ -193,7 +271,7 @@ export default function Hero() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept=".jpg,.jpeg,.png,.bmp,image/jpeg,image/png,image/bmp"
                       onChange={handleImageSelect}
                       className="hidden"
                     />
@@ -322,6 +400,81 @@ export default function Hero() {
           />
         </svg>
       </div>
+
+      {/* Sign Up Modal */}
+      {showSignUpModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 relative">
+            <button
+              onClick={() => {
+                setShowSignUpModal(false);
+                setSubmitMessage(null);
+                setSignUpForm({ name: '', email: '' });
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <h2 className="text-2xl font-bold text-brand-darkest mb-2 font-playfair">Sign Up for Updates</h2>
+            <p className="text-gray-600 mb-6">Stay informed about our launch and new features.</p>
+
+            <form onSubmit={handleSignUpSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  required
+                  value={signUpForm.name}
+                  onChange={(e) => setSignUpForm({ ...signUpForm, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-medium focus:border-transparent"
+                  placeholder="Your name"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  required
+                  value={signUpForm.email}
+                  onChange={(e) => setSignUpForm({ ...signUpForm, email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-medium focus:border-transparent"
+                  placeholder="your@email.com"
+                />
+              </div>
+
+              {submitMessage && (
+                <div
+                  className={`p-3 rounded-lg ${
+                    submitMessage.type === 'success'
+                      ? 'bg-green-50 text-green-800'
+                      : 'bg-red-50 text-red-800'
+                  }`}
+                >
+                  {submitMessage.text}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-brand-medium text-white px-6 py-3 rounded-lg font-semibold hover:bg-brand-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? 'Submitting...' : 'Sign Up'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
