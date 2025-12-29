@@ -145,7 +145,7 @@ export default function Hero() {
               <h2 className="text-2xl md:text-3xl font-bold text-brand-darkest mb-6 font-playfair text-center">
                 We&apos;re Building Something Special
               </h2>
-              <div className="text-lg text-brand-darkest max-w-4xl mx-auto mb-6 text-center space-y-4">
+              <div className="text-lg text-brand-darkest max-w-4xl mx-auto mb-6 text-left space-y-4">
                 <p>
                   A destination where art comes to life. From original paintings and photography (even from your phone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
                 </p>
