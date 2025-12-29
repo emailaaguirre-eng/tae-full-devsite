@@ -149,10 +149,18 @@ export default function CoCreatorPage({ params }: CoCreatorPageProps) {
 
   // Parse bio and description
   const bioParts = cocreator.bio.split('\n\n');
+  // Skip the first part if it's just the name (e.g., "Kimber Cross")
   const firstBioPart = bioParts[0] || '';
+  const skipFirstBioPart = firstBioPart.trim() === cocreator.name.trim();
+  const actualBioContent = skipFirstBioPart ? bioParts.slice(1).join('\n\n') : firstBioPart;
+  
   const descriptionParts = cocreator.description ? cocreator.description.split('\n\n') : [];
+  // Skip "Learn More About Kimber" title
   const descriptionTitle = descriptionParts[0] || '';
-  const descriptionContent = descriptionParts.slice(1).join('\n\n');
+  const skipDescriptionTitle = descriptionTitle.toLowerCase().includes('learn more about');
+  const descriptionContent = skipDescriptionTitle 
+    ? descriptionParts.slice(1).join('\n\n') 
+    : descriptionParts.slice(1).join('\n\n');
 
   return (
     <main className="min-h-screen bg-brand-lightest">
@@ -199,28 +207,39 @@ export default function CoCreatorPage({ params }: CoCreatorPageProps) {
             </div>
           </div>
 
-          {/* Full Bio Section */}
+          {/* Full Bio Section with Image Combined */}
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-6 font-playfair">
               About {cocreator.name.split(' ')[0]}
             </h2>
-            <div className="space-y-4">
-              <p className="text-lg text-brand-darkest leading-relaxed">
-                {firstBioPart}
-              </p>
+            <div className="space-y-4 mb-8">
+              {actualBioContent && (
+                <p className="text-lg text-brand-darkest leading-relaxed">
+                  {actualBioContent}
+                </p>
+              )}
               {descriptionContent && (
-                <div className="mt-6 pt-6 border-t border-brand-light">
-                  {descriptionTitle && (
-                    <h3 className="text-2xl font-bold text-brand-darkest mb-4 font-playfair">
-                      {descriptionTitle}
-                    </h3>
-                  )}
+                <div className={actualBioContent ? "mt-6 pt-6 border-t border-brand-light" : ""}>
                   <p className="text-base text-brand-darkest leading-relaxed whitespace-pre-line">
                     {descriptionContent}
                   </p>
                 </div>
               )}
             </div>
+            
+            {/* Bio Image (mountainImage for Kimber) - Combined in same section */}
+            {cocreator.mountainImage && (
+              <div className="relative w-full h-[600px] md:h-[700px] rounded-2xl overflow-hidden bg-brand-lightest">
+                <Image
+                  src={cocreator.mountainImage}
+                  alt={`${cocreator.name} bio image`}
+                  fill
+                  className="object-contain"
+                  style={{ objectPosition: 'center top' }}
+                  unoptimized={cocreator.mountainImage.startsWith('http')}
+                />
+              </div>
+            )}
           </div>
 
           {/* Portfolio Section */}
@@ -263,22 +282,6 @@ export default function CoCreatorPage({ params }: CoCreatorPageProps) {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* Bio Image (mountainImage for Kimber) */}
-          {cocreator.mountainImage && (
-            <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
-              <div className="relative w-full h-[600px] md:h-[700px] rounded-2xl overflow-hidden bg-brand-lightest">
-                <Image
-                  src={cocreator.mountainImage}
-                  alt={`${cocreator.name} bio image`}
-                  fill
-                  className="object-contain"
-                  style={{ objectPosition: 'center top' }}
-                  unoptimized={cocreator.mountainImage.startsWith('http')}
-                />
               </div>
             </div>
           )}

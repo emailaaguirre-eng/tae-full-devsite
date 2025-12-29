@@ -75,14 +75,23 @@ export default function Gallery() {
                 <h3 className="text-2xl font-bold text-brand-darkest mb-2 font-playfair">
                   {artist.name}
                 </h3>
-                <div className="mb-3">
+                <div className={artist.slug === 'bryant-colman' ? "mb-4" : "mb-3"}>
                   <span className="text-xs uppercase tracking-wide text-brand-dark font-semibold">
-                    {artist.title}
+                    {artist.title.trim()}
                   </span>
                 </div>
-                <p className="text-brand-darkest mb-4 line-clamp-3">
-                  {artist.bio}
-                </p>
+                {artist.slug !== 'bryant-colman' && (
+                  <p className="text-brand-darkest mb-4 line-clamp-3">
+                    {artist.slug === 'deanna-lankin' && artist.bio.includes('of the Pacific Northwest')
+                      ? artist.bio.substring(0, artist.bio.indexOf('of the Pacific Northwest') + 'of the Pacific Northwest'.length) + '.'
+                      : artist.bio}
+                  </p>
+                )}
+                {artist.slug === 'bryant-colman' && (
+                  <p className="text-brand-darkest mb-4">
+                    Bryant's work is shaped by the elegance of storied places and the thrill of discovery—from timeless cities to remote, awe‑inspiring landscapes.
+                  </p>
+                )}
                 <Link
                   href={`/gallery/${artist.slug}`}
                   className="text-brand-dark font-semibold group-hover:text-brand-darkest transition-colors inline-block cursor-pointer"
