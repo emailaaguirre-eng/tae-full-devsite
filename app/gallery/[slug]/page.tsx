@@ -200,12 +200,12 @@ export default function ArtistPage({ params }: ArtistPageProps) {
             </div>
           </div>
 
-          {/* Full Bio Section */}
+          {/* Full Bio Section with Image Combined */}
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-6 font-playfair">
               About {artist.name.split(' ')[0]}
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-4 mb-8">
               {artist.bio && (
                 <p className="text-lg text-brand-darkest leading-relaxed">
                   {artist.bio}
@@ -219,6 +219,20 @@ export default function ArtistPage({ params }: ArtistPageProps) {
                 </div>
               )}
             </div>
+            
+            {/* Bio Image - Combined in same section */}
+            {artist.bioImage && (
+              <div className="relative w-full h-[600px] md:h-[700px] rounded-2xl overflow-hidden bg-brand-lightest">
+                <Image
+                  src={artist.bioImage}
+                  alt={`${artist.name} bio image`}
+                  fill
+                  className="object-contain"
+                  style={{ objectPosition: 'center top' }}
+                  unoptimized={artist.bioImage.includes('theartfulexperience.com')}
+                />
+              </div>
+            )}
           </div>
 
           {/* Portfolio Section */}
@@ -245,22 +259,6 @@ export default function ArtistPage({ params }: ArtistPageProps) {
                     )}
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* Bio Image for Bryant */}
-          {artist.bioImage && (
-            <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
-              <div className="relative w-full h-[600px] md:h-[700px] rounded-2xl overflow-hidden bg-brand-lightest">
-                <Image
-                  src={artist.bioImage}
-                  alt={`${artist.name} bio image`}
-                  fill
-                  className="object-contain"
-                  style={{ objectPosition: 'center top' }}
-                  unoptimized={artist.bioImage.includes('theartfulexperience.com')}
-                />
               </div>
             </div>
           )}

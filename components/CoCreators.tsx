@@ -136,11 +136,16 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
                       {cocreator.title}
                     </span>
                   </div>
-                  {/* Parse bio to show first part (before \n\n) */}
+                  {/* Parse bio to show first part (before \n\n), skip if it's just the name */}
                   {cocreator.bio && (
                     <div className="text-brand-darkest mb-4">
                       {cocreator.bio.split('\n\n').map((part, idx) => {
                         if (idx === 0) {
+                          // Skip first part if it's just the name
+                          const trimmedPart = part.trim();
+                          if (trimmedPart === cocreator.name.trim()) {
+                            return null;
+                          }
                           // First part - show as preview
                           return (
                             <p key={idx} className="line-clamp-3">
