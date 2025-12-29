@@ -156,10 +156,12 @@ export default function Hero() {
                   Every piece becomes more than an object.
                 </p>
                 <p>
-                  It becomes a story. A memory. An experience that&apos;s meant to be returned to, not tucked away.
+                  It becomes a story.<br />
+                  A memory.<br />
+                  An experience that&apos;s meant to be returned to, not tucked away.
                 </p>
-                <p>
-                  We invite you to explore and look forward to our official launch in January 2026.
+                <p className="font-bold">
+                  We invite you to explore, and look forward to our official launch in January 2026.
                 </p>
               </div>
               <div className="text-center">
