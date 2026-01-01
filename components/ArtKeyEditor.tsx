@@ -510,10 +510,23 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
   const handleSave = async (redirectToShop = false) => {
     try {
+      // Validate skeleton key and QR position if product requires it
+      if (productInfo?.requiresQR || productInfo?.requiresSkeletonKey) {
+        if (!skeletonKey || !qrPosition) {
+          alert('⚠️ Please select a skeleton key template and QR code position before saving.\n\nThis is required for cards, invitations, postcards, and announcements.');
+          // Scroll to QR Code Placement section
+          const qrSection = document.querySelector('[data-section="qr-placement"]');
+          if (qrSection) {
+            qrSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          return;
+        }
+      }
+
       // Include skeleton key and QR position in customizations if product requires QR
       const customizations = {
         ...artKeyData.customizations,
-        ...(productInfo?.requiresQR ? {
+        ...(productInfo?.requiresQR || productInfo?.requiresSkeletonKey ? {
           skeleton_key: skeletonKey,
           qr_position: qrPosition,
         } : {}),
@@ -1753,8 +1766,17 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             )}
 
             {/* Step 8: QR Code & Skeleton Key (only for cards/invitations/postcards) */}
-            {designMode !== null && productInfo?.requiresQR && (
-              <Card title="QR Code Placement">
+            {designMode !== null && (productInfo?.requiresQR || productInfo?.requiresSkeletonKey) && (
+              <Card title="QR Code Placement" data-section="qr-placement">
+                {(productInfo?.requiresQR || productInfo?.requiresSkeletonKey) && !skeletonKey && (
+                  <div className="mb-4 p-3 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
+                    <p className="text-sm font-semibold text-yellow-800">
+                      ⚠️ Required: Please select a skeleton key template and QR code position
+                    </p>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      This product requires a skeleton key template and QR code placement.</p>
+                  </div>
+                )}
                 <div className="space-y-6">
                   {/* Skeleton Key Selection */}
                   <div>
@@ -1911,6 +1933,35 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       ))}
                     </div>
                   </div>
+
+                  {/* Validation Status */}
+                  {(!skeletonKey || !qrPosition) && (
+                    <div className="p-3 bg-red-50 border-2 border-red-300 rounded-lg">
+                      <p className="text-sm font-semibold text-red-800">
+                        ⚠️ Required Fields Missing
+                      </p>
+                      <ul className="text-xs text-red-700 mt-2 list-disc list-inside space-y-1">
+                        {!skeletonKey && <li>Please select a skeleton key template</li>}
+                        {!qrPosition && <li>Please select a QR code position</li>}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Validation Status */}
+                  {(!skeletonKey || !qrPosition) && (
+                    <div className="p-3 bg-red-50 border-2 border-red-300 rounded-lg mb-4">
+                      <p className="text-sm font-semibold text-red-800 mb-2">
+                        ⚠️ Required: Complete QR Code Setup
+                      </p>
+                      <ul className="text-xs text-red-700 list-disc list-inside space-y-1">
+                        {!skeletonKey && <li>Select a skeleton key template above</li>}
+                        {!qrPosition && <li>Select a QR code position above</li>}
+                      </ul>
+                      <p className="text-xs text-red-600 mt-2">
+                        You cannot save until both are selected.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Preview of Selected Template */}
                   {skeletonKey && (

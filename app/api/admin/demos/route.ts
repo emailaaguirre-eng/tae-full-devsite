@@ -1,24 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma, generatePublicToken, generateOwnerToken } from '@/lib/db';
+import { getAppBaseUrl } from '@/lib/wp';
 
 /**
  * Demo ArtKey Management API
  * Create, list, and manage demo ArtKeys for testing and sales demos
+ * Now uses Prisma database instead of in-memory storage
  */
-
-// In-memory storage for demos (in production, use database or WordPress)
-const demosStorage = new Map<string, any>();
-
-interface Demo {
-  id: string;
-  token: string;
-  title: string;
-  description?: string;
-  artKeyData: any;
-  shareUrl: string;
-  qrCodeUrl?: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 /**
  * POST - Create a new demo ArtKey
@@ -35,93 +23,123 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate unique token (12 hex characters for shorter URLs)
-    const token = Array.from(crypto.getRandomValues(new Uint8Array(6)))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+    // Generate tokens
+    const publicToken = generatePublicToken();
+    const ownerToken = generateOwnerToken();
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                 process.env.VERCEL_URL || 
-                 'http://localhost:3000';
+    // Ensure publicToken is unique
+    let attempts = 0;
+    let finalPublicToken = publicToken;
+    while (await prisma.artKey.findUnique({ where: { publicToken: finalPublicToken } })) {
+      finalPublicToken = generatePublicToken();
+      attempts++;
+      if (attempts > 10) {
+        return NextResponse.json(
+          { error: 'Failed to generate unique token' },
+          { status: 500 }
+        );
+      }
+    }
 
-    // Create ArtKey using the store API
-    let artKeyToken = token;
-    let shareUrl = `${baseUrl}/art-key/${token}`;
+    // Parse or create default ArtKey data
+    let parsedArtKeyData = artKeyData;
+    if (!parsedArtKeyData) {
+      parsedArtKeyData = {
+        title: title,
+        theme: {
+          template: 'classic',
+          bg_color: '#F6F7FB',
+          bg_image_id: 0,
+          bg_image_url: '',
+          font: 'g:Playfair Display',
+          text_color: '#111111',
+          title_color: '#4f46e5',
+          title_style: 'solid',
+          button_color: '#4f46e5',
+          button_gradient: '',
+          color_scope: 'content',
+        },
+        links: [],
+        spotify: { url: 'https://', autoplay: false },
+        featured_video: null,
+        features: {
+          enable_gallery: true,
+          enable_video: true,
+          show_guestbook: true,
+          enable_custom_links: false,
+          enable_spotify: false,
+          allow_img_uploads: true,
+          allow_vid_uploads: true,
+          gb_btn_view: true,
+          gb_signing_status: 'open',
+          gb_signing_start: '',
+          gb_signing_end: '',
+          gb_require_approval: false,
+          img_require_approval: false,
+          vid_require_approval: false,
+          order: ['gallery', 'guestbook', 'video'],
+        },
+        uploadedImages: [],
+        uploadedVideos: [],
+        customizations: {
+          demo: true,
+          description: description || '',
+        },
+      };
+    } else {
+      // Ensure demo flag is set
+      if (!parsedArtKeyData.customizations) {
+        parsedArtKeyData.customizations = {};
+      }
+      parsedArtKeyData.customizations.demo = true;
+      if (description) {
+        parsedArtKeyData.customizations.description = description;
+      }
+    }
+
+    // Create ArtKey in database
+    const artKey = await prisma.artKey.create({
+      data: {
+        publicToken: finalPublicToken,
+        ownerToken: ownerToken,
+        title: parsedArtKeyData.title || title,
+        theme: JSON.stringify(parsedArtKeyData.theme || {}),
+        features: JSON.stringify(parsedArtKeyData.features || {}),
+        links: JSON.stringify(parsedArtKeyData.links || []),
+        spotify: JSON.stringify(parsedArtKeyData.spotify || { url: 'https://', autoplay: false }),
+        featuredVideo: parsedArtKeyData.featured_video ? JSON.stringify(parsedArtKeyData.featured_video) : null,
+        customizations: JSON.stringify(parsedArtKeyData.customizations || {}),
+        uploadedImages: JSON.stringify(parsedArtKeyData.uploadedImages || []),
+        uploadedVideos: JSON.stringify(parsedArtKeyData.uploadedVideos || []),
+      },
+    });
+
+    const baseUrl = getAppBaseUrl();
+    const shareUrl = `${baseUrl}/artkey/${finalPublicToken}`;
+
+    // Generate QR code
     let qrCodeUrl: string | undefined;
-
     try {
-      // Store the ArtKey
-      const storeResponse = await fetch(`${baseUrl}/api/artkey/store`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          artKeyData: artKeyData || {
-            title: title,
-            description: description,
-            demo: true,
-            createdAt: new Date().toISOString(),
-          },
-        }),
-      });
-
-      if (storeResponse.ok) {
-        const storeData = await storeResponse.json();
-        artKeyToken = storeData.artKey.token;
-        shareUrl = storeData.artKey.shareUrl;
-        qrCodeUrl = storeData.artKey.qrCodeUrl;
+      const qrResponse = await fetch(`${baseUrl}/api/artkey/qr?url=${encodeURIComponent(shareUrl)}&format=dataurl&size=400`);
+      if (qrResponse.ok) {
+        const qrData = await qrResponse.json();
+        qrCodeUrl = qrData.qrCodeUrl;
       }
     } catch (error) {
-      console.error('Error storing ArtKey:', error);
-      // Continue with demo creation even if ArtKey store fails
+      console.error('Error generating QR code:', error);
     }
-
-    // Generate QR code if not already generated
-    if (!qrCodeUrl) {
-      try {
-        const qrResponse = await fetch(`${baseUrl}/api/artkey/qr`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            url: shareUrl,
-            size: 400,
-            format: 'dataurl',
-          }),
-        });
-
-        if (qrResponse.ok) {
-          const qrData = await qrResponse.json();
-          qrCodeUrl = qrData.qrCodeUrl;
-        }
-      } catch (error) {
-        console.error('Error generating QR code:', error);
-      }
-    }
-
-    // Create demo record
-    const demo: Demo = {
-      id: `demo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      token: artKeyToken,
-      title: title,
-      description: description,
-      artKeyData: artKeyData || { title, description, demo: true },
-      shareUrl: shareUrl,
-      qrCodeUrl: qrCodeUrl,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    demosStorage.set(demo.id, demo);
 
     return NextResponse.json({
       success: true,
       demo: {
-        id: demo.id,
-        token: demo.token,
-        title: demo.title,
-        description: demo.description,
-        shareUrl: demo.shareUrl,
-        qrCodeUrl: demo.qrCodeUrl,
-        createdAt: demo.createdAt,
+        id: artKey.id,
+        token: artKey.publicToken,
+        title: artKey.title,
+        description: description,
+        shareUrl: shareUrl,
+        qrCodeUrl: qrCodeUrl,
+        ownerToken: ownerToken, // Include for admin use
+        createdAt: artKey.createdAt.toISOString(),
       },
     });
   } catch (error: any) {
@@ -135,41 +153,51 @@ export async function POST(request: Request) {
 
 /**
  * GET - List all demos
+ * Demos are ArtKeys with customizations.demo === true
  */
 export async function GET() {
   try {
-    const demos = Array.from(demosStorage.values())
-      .map(demo => ({
-        id: demo.id,
-        token: demo.token,
-        title: demo.title,
-        description: demo.description,
-        shareUrl: demo.shareUrl,
-        qrCodeUrl: demo.qrCodeUrl,
-        createdAt: demo.createdAt,
-        updatedAt: demo.updatedAt,
-      }))
-      .sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+    // Fetch all ArtKeys and filter for demos
+    const allArtKeys = await prisma.artKey.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
 
-    // Include hardcoded demo if it doesn't exist in storage
-    const hardcodedDemo = {
-      id: '1',
-      token: '691e3d09ef58e',
-      title: 'Holiday Greeting Card Demo',
-      shareUrl: '/art-key/691e3d09ef58e',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    const baseUrl = getAppBaseUrl();
+    const demos = allArtKeys
+      .filter((artKey) => {
+        try {
+          const customizations = JSON.parse(artKey.customizations);
+          return customizations.demo === true;
+        } catch {
+          return false;
+        }
+      })
+      .map((artKey) => {
+        let description = '';
+        try {
+          const customizations = JSON.parse(artKey.customizations);
+          description = customizations.description || '';
+        } catch {}
 
-    const allDemos = demos.find(d => d.token === hardcodedDemo.token) 
-      ? demos 
-      : [hardcodedDemo, ...demos];
+        // Generate QR code URL if needed
+        const shareUrl = `${baseUrl}/artkey/${artKey.publicToken}`;
+        // Note: QR code generation would need to be done on-demand or stored
+
+        return {
+          id: artKey.id,
+          token: artKey.publicToken,
+          title: artKey.title,
+          description: description,
+          shareUrl: shareUrl,
+          qrCodeUrl: undefined, // Could be stored in customizations or generated on-demand
+          createdAt: artKey.createdAt.toISOString(),
+          updatedAt: artKey.updatedAt.toISOString(),
+        };
+      });
 
     return NextResponse.json({
       success: true,
-      demos: allDemos,
+      demos: demos,
     });
   } catch (error: any) {
     console.error('Error listing demos:', error);
@@ -195,21 +223,38 @@ export async function DELETE(request: Request) {
       );
     }
 
-    if (id === '1') {
-      return NextResponse.json(
-        { error: 'Cannot delete the default demo' },
-        { status: 400 }
-      );
-    }
+    // Find and delete the ArtKey
+    const artKey = await prisma.artKey.findUnique({
+      where: { id },
+    });
 
-    if (!demosStorage.has(id)) {
+    if (!artKey) {
       return NextResponse.json(
         { error: 'Demo not found' },
         { status: 404 }
       );
     }
 
-    demosStorage.delete(id);
+    // Verify it's a demo
+    try {
+      const customizations = JSON.parse(artKey.customizations);
+      if (customizations.demo !== true) {
+        return NextResponse.json(
+          { error: 'This is not a demo ArtKey' },
+          { status: 400 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid ArtKey data' },
+        { status: 400 }
+      );
+    }
+
+    // Delete the ArtKey (cascade will delete related entries and media)
+    await prisma.artKey.delete({
+      where: { id },
+    });
 
     return NextResponse.json({
       success: true,
@@ -223,4 +268,3 @@ export async function DELETE(request: Request) {
     );
   }
 }
-

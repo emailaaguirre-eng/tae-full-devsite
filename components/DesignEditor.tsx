@@ -329,8 +329,32 @@ export default function DesignEditor({
 
     try {
       const canvas = fabricCanvasRef.current;
-      const img = await fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' });
       
+      // Check if it's a data URL (starts with data:)
+      const isDataUrl = imageUrl.startsWith('data:');
+      
+      let img: fabric.Image;
+      
+      if (isDataUrl) {
+        // For data URLs, create image element first, then convert to fabric image
+        // Data URLs don't need crossOrigin
+        const imgElement = document.createElement('img');
+        
+        await new Promise<void>((resolve, reject) => {
+          imgElement.onload = () => resolve();
+          imgElement.onerror = () => reject(new Error('Failed to load image'));
+          imgElement.src = imageUrl;
+        });
+        
+        img = new fabric.Image(imgElement);
+      } else {
+        // For regular URLs, use fromURL but handle CORS properly
+        img = await fabric.Image.fromURL(imageUrl, { 
+          crossOrigin: 'anonymous' 
+        });
+      }
+      
+      // Calculate scale to fit 40% of canvas
       const scale = Math.min(
         (canvas.width! * 0.4) / (img.width || 100),
         (canvas.height! * 0.4) / (img.height || 100)
@@ -351,7 +375,7 @@ export default function DesignEditor({
       saveState();
     } catch (error) {
       console.error('Error adding image:', error);
-      alert('Failed to add image to canvas.');
+      alert(`Failed to add image to canvas: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

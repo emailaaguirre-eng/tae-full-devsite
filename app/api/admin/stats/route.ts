@@ -1,17 +1,30 @@
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
 import { getWooCommerceProducts } from '@/lib/wordpress';
 
 /**
  * Get admin dashboard statistics
  * GET /api/admin/stats
+ * Now uses Prisma database for ArtKey and demo counts
  */
 export async function GET() {
   try {
-    // Get ArtKey count (placeholder - implement when ArtKey storage is set up)
-    const totalArtKeys = 0;
+    // Get ArtKey count from database
+    const totalArtKeys = await prisma.artKey.count();
     
-    // Get demo count (placeholder - implement when demo storage is set up)
-    const totalDemos = 0;
+    // Get demo count (ArtKeys with customizations.demo === true)
+    const allArtKeys = await prisma.artKey.findMany({
+      select: { customizations: true },
+    });
+    
+    const totalDemos = allArtKeys.filter((artKey) => {
+      try {
+        const customizations = JSON.parse(artKey.customizations);
+        return customizations.demo === true;
+      } catch {
+        return false;
+      }
+    }).length;
     
     // Get WooCommerce product count
     let totalProducts = 0;

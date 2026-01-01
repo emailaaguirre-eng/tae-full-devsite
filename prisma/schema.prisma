@@ -1,0 +1,86 @@
+// Prisma schema for ArtKey Portal
+// This schema supports the full ArtKey experience: editor, public portal, and owner management
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ArtKey {
+  id            String   @id @default(cuid())
+  publicToken  String   @unique // Short, URL-friendly token for public access (e.g., rkN93dX4)
+  ownerToken   String   @unique // Secret token for owner/host management
+  ownerEmail   String?  // Optional email for the owner
+  
+  // Core ArtKey data (stored as JSON to match ArtKeyEditor structure)
+  title         String
+  theme         String  // JSON: { template, bg_color, bg_image_url, font, text_color, title_color, etc. }
+  features      String  // JSON: { enable_gallery, show_guestbook, gb_require_approval, etc. }
+  links         String  // JSON array: [{ label, url }]
+  spotify       String  // JSON: { url, autoplay }
+  featuredVideo String? // JSON: { video_url, button_label } or null
+  customizations String // JSON: { skeleton_key, qr_position, etc. }
+  
+  // Media arrays (stored as JSON for backward compatibility, but also tracked in MediaItem)
+  uploadedImages String // JSON array of URLs
+  uploadedVideos String // JSON array of URLs
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  guestbookEntries GuestbookEntry[]
+  mediaItems       MediaItem[]
+  
+  @@index([publicToken])
+  @@index([ownerToken])
+}
+
+model GuestbookEntry {
+  id        String   @id @default(cuid())
+  artkeyId  String
+  parentId  String?  // For threaded comments/replies
+  name      String
+  email     String?  // Optional email for guest entries
+  message   String
+  role      String   @default("guest") // "guest" | "host" - distinguishes guest entries from host replies
+  approved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  // Relations
+  artkey    ArtKey   @relation(fields: [artkeyId], references: [id], onDelete: Cascade)
+  parent    GuestbookEntry? @relation("GuestbookReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   GuestbookEntry[] @relation("GuestbookReplies")
+  mediaItems MediaItem[]
+  
+  @@index([artkeyId])
+  @@index([parentId])
+  @@index([approved])
+  @@index([role])
+}
+
+model MediaItem {
+  id               String   @id @default(cuid())
+  artkeyId         String
+  guestbookEntryId String?  // Optional: media attached to a guestbook entry
+  type             String   // "image" | "video" | "audio"
+  url              String   // Full URL or path to the file
+  caption          String?  // Optional caption
+  approved         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  
+  // Relations
+  artkey          ArtKey          @relation(fields: [artkeyId], references: [id], onDelete: Cascade)
+  guestbookEntry  GuestbookEntry? @relation(fields: [guestbookEntryId], references: [id], onDelete: SetNull)
+  
+  @@index([artkeyId])
+  @@index([guestbookEntryId])
+  @@index([approved])
+  @@index([type])
+}
+

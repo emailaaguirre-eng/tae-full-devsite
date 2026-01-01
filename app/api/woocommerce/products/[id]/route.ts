@@ -48,23 +48,42 @@ export async function GET(
 
     const product = await response.json();
     
-    // Determine if product requires QR code (cards, invitations, postcards)
+    // Determine if product requires QR code (cards, invitations, postcards, announcements)
+    // Products with quantity > 1 typically need skeleton keys and QR codes
     const productName = (product.name || '').toLowerCase();
     const productCategories = (product.categories || []).map((cat: any) => cat.name?.toLowerCase() || '').join(' ');
     const productTags = (product.tags || []).map((tag: any) => tag.name?.toLowerCase() || '').join(' ');
     const allText = `${productName} ${productCategories} ${productTags}`;
     
-    const requiresQR = 
+    // Check if product requires QR code based on:
+    // 1. Product name/categories/tags contain keywords
+    // 2. Custom meta field _requires_qr_code
+    // 3. Product type or quantity settings (cards/invitations typically have min quantity > 1)
+    const hasQRKeywords = 
       allText.includes('card') || 
       allText.includes('invitation') || 
       allText.includes('postcard') ||
-      product.meta_data?.some((meta: any) => 
-        meta.key === '_requires_qr_code' && meta.value === 'yes'
-      );
+      allText.includes('announcement');
+    
+    const hasQRMeta = product.meta_data?.some((meta: any) => 
+      meta.key === '_requires_qr_code' && meta.value === 'yes'
+    );
+    
+    // Check if product has minimum quantity > 1 (typically cards/invitations)
+    const minQuantity = product.meta_data?.find((meta: any) => 
+      meta.key === '_min_quantity' || meta.key === 'minimum_quantity'
+    )?.value;
+    const hasMinQuantity = minQuantity && parseInt(minQuantity) > 1;
+    
+    // Check if product is sold individually (opposite of bulk/quantity products)
+    const soldIndividually = product.sold_individually === false || product.sold_individually === 'no';
+    
+    const requiresQR = hasQRKeywords || hasQRMeta || (hasMinQuantity && soldIndividually);
 
     return NextResponse.json({
       ...product,
       requiresQR,
+      requiresSkeletonKey: requiresQR, // Same requirement for skeleton keys
     });
   } catch (error) {
     console.error('Error fetching product:', error);

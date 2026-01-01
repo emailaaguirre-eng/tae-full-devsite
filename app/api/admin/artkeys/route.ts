@@ -1,43 +1,34 @@
 import { NextResponse } from "next/server";
-import { getWpApiBase } from "@/lib/wp";
+import { prisma } from "@/lib/db";
 
+/**
+ * Admin ArtKeys API
+ * Lists all ArtKeys for admin management
+ * Now uses Prisma database instead of WordPress
+ */
 export async function GET() {
   try {
-    const wpApiBase = getWpApiBase();
-    if (!wpApiBase) {
-      return NextResponse.json(
-        { error: 'WP_API_BASE not configured' },
-        { status: 500 }
-      );
-    }
-    
-    // Fetch all artkey posts from WordPress
-    const res = await fetch(`${wpApiBase}/wp/v2/artkey?per_page=100`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    // Fetch all ArtKeys from database
+    const artKeys = await prisma.artKey.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100, // Limit to 100 most recent
     });
 
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: 'Failed to fetch ArtKeys from WordPress' },
-        { status: res.status }
-      );
-    }
-
-    const posts = await res.json();
-    
     // Format ArtKeys for admin display
-    const artkeys = posts.map((post: any) => ({
-      id: post.id,
-      token: post.meta?._artkey_token || post._artkey_token || 'N/A',
-      title: post.title?.rendered || post.title || 'Untitled',
-      createdAt: post.date || new Date().toISOString(),
+    const formattedArtKeys = artKeys.map((artKey) => ({
+      id: artKey.id,
+      token: artKey.publicToken,
+      title: artKey.title,
+      createdAt: artKey.createdAt.toISOString(),
+      updatedAt: artKey.updatedAt.toISOString(),
     }));
 
-    return NextResponse.json({ artkeys });
+    return NextResponse.json({ 
+      artkeys: formattedArtKeys,
+      total: artKeys.length,
+    });
   } catch (err: any) {
+    console.error('Error fetching ArtKeys:', err);
     return NextResponse.json(
       { error: err.message || 'Failed to fetch ArtKeys' },
       { status: 500 }

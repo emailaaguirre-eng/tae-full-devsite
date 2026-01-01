@@ -85,15 +85,15 @@ export default function ArtKeysPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <Link
-                      href={`/art-key/${artkey.token}`}
+                      href={`/artkey/${artkey.token}`}
                       target="_blank"
                       className="text-blue-600 hover:text-blue-800 mr-4"
                     >
-                      View
+                      View Portal
                     </Link>
                     <Link
                       href={`/art-key/edit/${artkey.token}`}
-                      className="text-green-600 hover:text-green-800"
+                      className="text-green-600 hover:text-green-800 mr-4"
                     >
                       Edit
                     </Link>

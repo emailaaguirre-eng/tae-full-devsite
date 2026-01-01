@@ -4,8 +4,16 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**', // Allows images from any domain (you can restrict to your WordPress domain)
+        hostname: 'theartfulexperience.com',
+        pathname: '/wp-content/uploads/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'dredev.theartfulexperience.com',
+        pathname: '/wp-content/uploads/**',
+      },
+      // Allow other domains if needed (e.g., for external images)
+      // Add more patterns here as needed
     ],
   },
   // Ignore ESLint errors during builds to prevent warnings from failing deployment

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import heroData from "@/content/hero.json";
+import { mediaUrl } from "@/lib/media";
 
 interface HeroContent {
   headline1: string;
@@ -10,8 +11,12 @@ interface HeroContent {
   description: string;
 }
 
-const heroBackground =
-  "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/tAE_Hero_Image-e1765861961231.png?v=2";
+// Hero background image - using mediaUrl helper for future migration support
+// Original URL preserved: https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/tAE_Hero_Image-e1765861961231.png?v=2
+// Note: mediaUrl() handles absolute URLs, so this will work as-is
+const heroBackground = mediaUrl(
+  "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/tAE_Hero_Image-e1765861961231.png?v=2"
+);
 
 export default function Hero() {
   const [selectedOption, setSelectedOption] = useState<"upload" | "gallery" | null>(null);
