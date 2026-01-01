@@ -52,10 +52,17 @@ export default function AssetPanel() {
   };
 
   const handleThumbnailClick = (asset: UploadedAsset) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[AssetPanel] Thumbnail clicked:', asset.id, asset.name);
+    }
+
     const printSpec = getPrintSpec(state.printSpecId);
     const currentSide = printSpec?.sides.find((s) => s.id === state.currentSide);
     
-    if (!currentSide) return;
+    if (!currentSide) {
+      console.error('[AssetPanel] No current side found');
+      return;
+    }
 
     // Calculate placement: centered, scaled to 80% of print area
     const printAreaWidth = currentSide.canvasPx.w - currentSide.safePx * 2;
@@ -84,6 +91,15 @@ export default function AssetPanel() {
       scaleY: 1,
       assetId: asset.id,
     };
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[AssetPanel] Adding object to canvas:', {
+        objectId: object.id,
+        position: { x, y },
+        size: { width: scaledWidth, height: scaledHeight },
+        asset: { id: asset.id, name: asset.name },
+      });
+    }
 
     projectEditorStore.addObject(object);
     projectEditorStore.setSelectedObject(object.id);

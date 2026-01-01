@@ -82,9 +82,16 @@ export default function ProjectEditor({
   // Handle object drag end
   const handleDragEnd = useCallback((objectId: string, e: any) => {
     const node = e.target;
+    const newX = node.x();
+    const newY = node.y();
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ProjectEditor] Drag end:', { objectId, x: newX, y: newY });
+    }
+    
     projectEditorStore.updateObject(objectId, {
-      x: node.x(),
-      y: node.y(),
+      x: newX,
+      y: newY,
     });
   }, []);
 
@@ -242,6 +249,19 @@ export default function ProjectEditor({
               height={currentSideSpec.canvasPx.h * stageScale}
               scaleX={stageScale}
               scaleY={stageScale}
+              onClick={(e) => {
+                // Deselect if clicking on empty space
+                const clickedOnEmpty = e.target === e.target.getStage();
+                if (clickedOnEmpty) {
+                  projectEditorStore.setSelectedObject(null);
+                }
+              }}
+              onTap={(e) => {
+                const tappedOnEmpty = e.target === e.target.getStage();
+                if (tappedOnEmpty) {
+                  projectEditorStore.setSelectedObject(null);
+                }
+              }}
             >
               <Layer>
                 {/* Print Area Background */}
