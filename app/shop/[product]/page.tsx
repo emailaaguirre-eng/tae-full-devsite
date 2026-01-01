@@ -975,9 +975,6 @@ export default function ProductPage() {
                     {hasInvalidCombination() && (
                       <p className="text-red-300 text-xs mt-2 text-center">⚠️ This combination isn't available</p>
                     )}
-                    {hasInvalidCombination() && (
-                      <p className="text-red-300 text-xs mt-2 text-center">⚠️ This combination isn't available</p>
-                    )}
                   </div>
                 </div>
               </div>
