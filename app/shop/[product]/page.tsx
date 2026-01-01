@@ -164,7 +164,7 @@ export default function ProductPage() {
   const [hasFoil, setHasFoil] = useState<boolean | null>(null);
   const [selectedFoil, setSelectedFoil] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]); // Legacy, kept for compatibility
   const [artkeyId, setArtkeyId] = useState<string | null>(null);
 
   const info = productInfo[productType] || productInfo.card;
@@ -212,24 +212,57 @@ export default function ProductPage() {
     return true;
   };
 
-  // Handle image upload
+  // Handle image upload - now uses shared asset store
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      const newImages: string[] = [];
-      Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            newImages.push(event.target.result as string);
-            if (newImages.length === files.length) {
-              setUploadedImages(prev => [...prev, ...newImages]);
+    if (!files) return;
+
+    // Import dynamically to avoid SSR issues
+    import('@/lib/assetStore').then(({ useAssetStore }) => {
+      const { addAsset } = useAssetStore.getState();
+
+      Array.from(files).forEach((file) => {
+        if (!file.type.startsWith('image/')) return;
+
+        // Create object URL for fast preview
+        const objectUrl = URL.createObjectURL(file);
+
+        // Load image to get dimensions
+        const img = new window.Image();
+        img.onload = () => {
+          const asset = {
+            id: `asset-${Date.now()}-${Math.random()}`,
+            name: file.name,
+            mimeType: file.type,
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+            src: objectUrl,
+            origin: 'uploader' as const,
+            objectUrl,
+            file,
+          };
+
+          addAsset(asset);
+
+          // Also add to legacy state for backward compatibility
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            if (event.target?.result) {
+              setUploadedImages((prev) => [...prev, event.target.result as string]);
             }
-          }
+          };
+          reader.readAsDataURL(file);
         };
-        reader.readAsDataURL(file);
+        img.onerror = () => {
+          console.error('Failed to load image:', file.name);
+          URL.revokeObjectURL(objectUrl);
+        };
+        img.src = objectUrl;
       });
-    }
+    });
+
+    // Reset input
+    e.target.value = '';
   };
 
   // Handle design complete - save design and navigate to ArtKey editor

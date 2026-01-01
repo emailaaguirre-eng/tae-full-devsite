@@ -3,45 +3,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Image as KonvaImage, Rect, Transformer } from 'react-konva';
 import useImage from 'use-image';
-import { X, Download } from 'lucide-react';
-
-// Hardcoded test image URLs (using WordPress media URLs from the site)
-const TEST_IMAGES = [
-  {
-    id: 'test-1',
-    name: 'Test Image 1',
-    url: 'https://theartfulexperience.com/wp-content/uploads/2024/01/sample-image-1.jpg',
-  },
-  {
-    id: 'test-2',
-    name: 'Test Image 2',
-    url: 'https://theartfulexperience.com/wp-content/uploads/2024/01/sample-image-2.jpg',
-  },
-  {
-    id: 'test-3',
-    name: 'Test Image 3',
-    url: 'https://theartfulexperience.com/wp-content/uploads/2024/01/sample-image-3.jpg',
-  },
-];
-
-// Fallback to placeholder images if WordPress URLs don't work
-const FALLBACK_IMAGES = [
-  {
-    id: 'test-1',
-    name: 'Test Image 1',
-    url: 'https://via.placeholder.com/800/600?text=Test+Image+1',
-  },
-  {
-    id: 'test-2',
-    name: 'Test Image 2',
-    url: 'https://via.placeholder.com/600/800?text=Test+Image+2',
-  },
-  {
-    id: 'test-3',
-    name: 'Test Image 3',
-    url: 'https://via.placeholder.com/1000/1000?text=Test+Image+3',
-  },
-];
+import { Download, Upload } from 'lucide-react';
+import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
 
 interface CanvasImage {
   id: string;
@@ -59,6 +22,9 @@ export default function ProjectEditorDemo() {
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
   const imageRefs = useRef<Record<string, any>>({});
+  
+  // Get assets from shared store
+  const assets = useAssetStore((state) => state.assets);
 
   // Stage dimensions (simple poster size: 18x24 inches at 300 DPI, scaled down for display)
   const STAGE_WIDTH = 1800; // 18 inches * 100px per inch (scaled)
@@ -80,15 +46,21 @@ export default function ProjectEditorDemo() {
   }, [selectedId]);
 
   // Handle thumbnail click - add image to canvas
-  const handleThumbnailClick = (testImage: typeof TEST_IMAGES[0]) => {
-    console.log('[Demo] Thumbnail clicked:', testImage.id);
+  const handleThumbnailClick = (asset: UploadedAsset) => {
+    console.log('[Demo] Thumbnail clicked:', asset.id, asset.name);
 
-    // Create a temporary image to get dimensions
+    // Create a temporary image to get dimensions (use asset dimensions if available)
     const img = new window.Image();
-    img.crossOrigin = 'anonymous';
+    
+    // Set crossOrigin only for external URLs, not for blob: URLs
+    if (!asset.src.startsWith('blob:') && !asset.src.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
+    
     img.onload = () => {
-      const imgWidth = img.naturalWidth;
-      const imgHeight = img.naturalHeight;
+      // Use asset dimensions if available, otherwise use loaded image dimensions
+      const imgWidth = asset.width || img.naturalWidth;
+      const imgHeight = asset.height || img.naturalHeight;
 
       // Calculate scale to fit 80% of stage
       const maxWidth = STAGE_WIDTH * 0.8;
@@ -104,7 +76,7 @@ export default function ProjectEditorDemo() {
 
       const newImage: CanvasImage = {
         id: `img-${Date.now()}-${Math.random()}`,
-        url: testImage.url,
+        url: asset.src,
         x,
         y,
         width: scaledWidth,
@@ -114,6 +86,7 @@ export default function ProjectEditorDemo() {
 
       console.log('[Demo] Adding image to canvas:', {
         id: newImage.id,
+        assetId: asset.id,
         position: { x, y },
         size: { width: scaledWidth, height: scaledHeight },
       });
@@ -122,10 +95,10 @@ export default function ProjectEditorDemo() {
       setSelectedId(newImage.id);
     };
     img.onerror = () => {
-      console.error('[Demo] Failed to load image:', testImage.url);
-      alert('Failed to load image. Please check the URL.');
+      console.error('[Demo] Failed to load image:', asset.src);
+      alert(`Failed to load image: ${asset.name}`);
     };
-    img.src = testImage.url;
+    img.src = asset.src;
   };
 
   // Handle image drag end
@@ -281,40 +254,42 @@ export default function ProjectEditorDemo() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Test Images</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Your Images</h3>
           <p className="text-xs text-gray-500 mb-4">Click an image to add it to the canvas</p>
 
-          <div className="space-y-3">
-            {TEST_IMAGES.map((testImage) => (
-              <button
-                key={testImage.id}
-                onClick={() => handleThumbnailClick(testImage)}
-                className="w-full aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-all hover:shadow-md relative group"
-              >
-                <img
-                  src={testImage.url}
-                  alt={testImage.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Fallback to placeholder if image fails to load
-                    const fallback = FALLBACK_IMAGES.find((f) => f.id === testImage.id);
-                    if (fallback && e.currentTarget.src !== fallback.url) {
-                      e.currentTarget.src = fallback.url;
-                    }
-                  }}
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                  <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded">
-                    Add to Canvas
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
+          {assets.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <Upload className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">Upload images above to start</p>
+              <p className="text-xs mt-2">Go to the product page and upload images first</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {assets.map((asset) => (
+                <button
+                  key={asset.id}
+                  onClick={() => handleThumbnailClick(asset)}
+                  className="w-full aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-all hover:shadow-md relative group"
+                >
+                  <img
+                    src={asset.src}
+                    alt={asset.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                    <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded">
+                      Add to Canvas
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Debug Info */}
           {process.env.NODE_ENV === 'development' && (
             <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-600">
+              <div>Assets in store: {assets.length}</div>
               <div>Images on canvas: {images.length}</div>
               <div>Selected: {selectedId || 'none'}</div>
             </div>
