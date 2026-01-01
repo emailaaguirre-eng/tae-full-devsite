@@ -366,7 +366,7 @@ export default function ProjectEditor({
   const [displayScale, setDisplayScale] = useState(0.3);
   
   useEffect(() => {
-    if (!currentSide) return;
+    if (!currentSide || typeof window === 'undefined') return;
     
     const maxDisplayWidth = window.innerWidth * 0.7;
     const maxDisplayHeight = window.innerHeight * 0.8;
@@ -394,6 +394,8 @@ export default function ProjectEditor({
 
   // Handle keyboard delete
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault();
@@ -412,6 +414,7 @@ export default function ProjectEditor({
     console.log('[ProjectEditor] Thumbnail clicked:', asset.id, asset.name);
 
     // Create a temporary image to get dimensions (use asset dimensions if available)
+    if (typeof window === 'undefined') return;
     const img = new window.Image();
 
     // Set crossOrigin only for external URLs, not for blob: URLs
@@ -617,6 +620,7 @@ export default function ProjectEditor({
     const svgUrl = URL.createObjectURL(svgBlob);
     
     // Load SVG as image to get dimensions
+    if (typeof window === 'undefined') return;
     const img = new window.Image();
     await new Promise((resolve, reject) => {
       img.onload = resolve;
@@ -1075,12 +1079,14 @@ export default function ProjectEditor({
         });
       } else {
         // Fallback: download directly
-        const link = document.createElement('a');
-        link.download = `${productSlug || printSpec.id}_${result.sideId}_${Date.now()}.png`;
-        link.href = result.dataUrl;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        if (typeof document !== 'undefined') {
+          const link = document.createElement('a');
+          link.download = `${productSlug || printSpec.id}_${result.sideId}_${Date.now()}.png`;
+          link.href = result.dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
       }
       console.log('[ProjectEditor] Export complete:', {
         sideId: result.sideId,
@@ -1143,19 +1149,21 @@ export default function ProjectEditor({
         });
       } else {
         // Fallback: download all
-        exports.forEach((exportItem) => {
-          const link = document.createElement('a');
-          link.download = `${productSlug || printSpec.id}_${exportItem.sideId}_${Date.now()}.png`;
-          // Convert dataUrl to blob for download
-          fetch(exportItem.dataUrl).then(res => res.blob()).then(blob => {
-            const url = URL.createObjectURL(blob);
-            link.href = url;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+        if (typeof document !== 'undefined') {
+          exports.forEach((exportItem) => {
+            const link = document.createElement('a');
+            link.download = `${productSlug || printSpec.id}_${exportItem.sideId}_${Date.now()}.png`;
+            // Convert dataUrl to blob for download
+            fetch(exportItem.dataUrl).then(res => res.blob()).then(blob => {
+              const url = URL.createObjectURL(blob);
+              link.href = url;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            });
           });
-        });
+        }
       }
       console.log('[ProjectEditor] Export all sides complete:', {
         sides: exports.map((e) => e.sideId),
