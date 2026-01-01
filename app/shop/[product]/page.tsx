@@ -265,7 +265,65 @@ export default function ProductPage() {
     e.target.value = '';
   };
 
-  // Handle design complete - save design and navigate to ArtKey editor
+  // Handle design complete from ProjectEditor - save design and navigate to ArtKey editor
+  const handleProjectEditorComplete = async (exportData: { side: string; dataUrl: string; blob: Blob }[]) => {
+    try {
+      // Generate ArtKey ID
+      const newArtkeyId = 'artkey-' + Date.now().toString(36);
+      setArtkeyId(newArtkeyId);
+      
+      // Use the first export (or front side if available)
+      const mainExport = exportData.find(e => e.side === 'front') || exportData[0];
+      if (!mainExport) {
+        throw new Error('No export data available');
+      }
+      
+      let imageUrl = mainExport.dataUrl; // Base64 data URL
+      
+      // Optionally upload to WordPress media library for permanent storage
+      try {
+        const formData = new FormData();
+        formData.append('file', mainExport.blob, `design-${newArtkeyId}.png`);
+        formData.append('title', `Design for ${productType} - ${newArtkeyId}`);
+        
+        const uploadResponse = await fetch('/api/wordpress/media/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          if (uploadData.url) {
+            imageUrl = uploadData.url;
+            console.log('Design image uploaded to WordPress:', uploadData.url);
+          }
+        }
+      } catch (uploadError) {
+        console.log('WordPress upload not available, using dataUrl:', uploadError);
+      }
+      
+      // Save design data to localStorage for persistence
+      const designSaveData = {
+        artkeyId: newArtkeyId,
+        designData: {
+          imageUrl,
+          productType,
+          exportedSides: exportData,
+        },
+        timestamp: new Date().toISOString(),
+      };
+      
+      localStorage.setItem(`design-${newArtkeyId}`, JSON.stringify(designSaveData));
+      
+      // Navigate to ArtKey editor
+      setCurrentStep(3);
+    } catch (error) {
+      console.error('Error saving design:', error);
+      alert('Failed to save design. Please try again.');
+    }
+  };
+
+  // Handle design complete - save design and navigate to ArtKey editor (legacy, kept for compatibility)
   const handleDesignComplete = async (designData: any) => {
     try {
       // Generate ArtKey ID
