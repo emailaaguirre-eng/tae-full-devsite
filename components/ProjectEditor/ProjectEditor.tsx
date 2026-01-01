@@ -1771,7 +1771,7 @@ export default function ProjectEditor({
                   : 'Click an image to add it to the canvas'}
               </p>
 
-          {assets.length === 0 ? (
+              {assets.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               <p className="text-sm">Upload images above to start</p>
               <p className="text-xs mt-2">Go back to Step 1 and upload images first</p>
@@ -1792,10 +1792,10 @@ export default function ProjectEditor({
                   </div>
                 </button>
               ))}
-            </div>
-          )}
+              </div>
+              )}
 
-            {/* Debug Info */}
+              {/* Debug Info */}
             {process.env.NODE_ENV === 'development' && (
               <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-600">
                 <div>Assets in store: {assets.length}</div>
