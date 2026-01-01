@@ -27,8 +27,8 @@ interface AssetStore {
   getTotalBytes: () => number;
 }
 
-// Create store only in browser environment
-const createAssetStore = () => create<AssetStore>((set, get) => ({
+// Zustand store - safe for SSR (only accessed in client components)
+export const useAssetStore = create<AssetStore>((set, get) => ({
   assets: [],
 
   addAsset: (asset) => {
@@ -89,56 +89,3 @@ const createAssetStore = () => create<AssetStore>((set, get) => ({
     }, 0);
   },
 }));
-
-// Lazy initialization - only create store when accessed in browser
-let storeInstance: ReturnType<typeof createAssetStore> | null = null;
-
-export const useAssetStore = ((selector?: any) => {
-  if (typeof window === 'undefined') {
-    // Return a no-op hook for SSR
-    return selector ? selector({
-      assets: [],
-      addAsset: () => {},
-      addAssetFromPersisted: () => {},
-      removeAsset: () => {},
-      clearAssets: () => {},
-      getTotalBytes: () => 0,
-    }) : {
-      assets: [],
-      addAsset: () => {},
-      addAssetFromPersisted: () => {},
-      removeAsset: () => {},
-      clearAssets: () => {},
-      getTotalBytes: () => 0,
-    };
-  }
-  
-  if (!storeInstance) {
-    storeInstance = createAssetStore();
-  }
-  
-  // Zustand hook usage
-  if (selector) {
-    return storeInstance(selector);
-  }
-  
-  // Direct access (for getState())
-  return storeInstance as any;
-}) as ReturnType<typeof createAssetStore> & {
-  getState: () => AssetStore;
-};
-
-// Add getState method
-(useAssetStore as any).getState = () => {
-  if (typeof window === 'undefined' || !storeInstance) {
-    return {
-      assets: [],
-      addAsset: () => {},
-      addAssetFromPersisted: () => {},
-      removeAsset: () => {},
-      clearAssets: () => {},
-      getTotalBytes: () => 0,
-    };
-  }
-  return storeInstance.getState();
-};
