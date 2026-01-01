@@ -31,6 +31,16 @@ interface ProjectEditorProps {
   printSpecId?: string; // Optional: if not provided, will use default
   productSlug?: string; // Product slug for spec lookup
   config?: Partial<ProjectEditorConfig>; // ArtKey configuration
+  gelatoVariantUid?: string; // Gelato variant UID from Sprint 2A
+  selectedVariant?: { // Selected variant data
+    uid: string;
+    size?: string | null;
+    material?: string | null;
+    paper?: string | null;
+    frame?: string | null;
+    foil?: string | null;
+    price?: number;
+  };
   onComplete?: (exportData: { 
     productSlug?: string;
     printSpecId?: string;
@@ -43,9 +53,18 @@ export default function ProjectEditor({
   printSpecId, 
   productSlug,
   config,
+  gelatoVariantUid,
+  selectedVariant,
   onComplete, 
   onClose 
 }: ProjectEditorProps) {
+  // Log Gelato variant in dev mode
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[GELATO_VARIANT]', { gelatoVariantUid, selectedVariant });
+    }
+  }, [gelatoVariantUid, selectedVariant]);
+
   // Merge config with defaults
   const editorConfig: ProjectEditorConfig = {
     productSlug: productSlug || config?.productSlug || 'unknown',
@@ -73,6 +92,9 @@ export default function ProjectEditor({
   const [activeTab, setActiveTab] = useState<'assets' | 'templates'>('assets');
   const [draftFound, setDraftFound] = useState(false);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [assetsPartial, setAssetsPartial] = useState(false);
+  const [restoredGelatoVariantUid, setRestoredGelatoVariantUid] = useState<string | null>(null);
+  const [restoredSelectedVariant, setRestoredSelectedVariant] = useState<any>(null);
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
@@ -203,6 +225,16 @@ export default function ProjectEditor({
         sideStateById: JSON.parse(JSON.stringify(sideStateById)), // Deep clone to remove refs
         persistedAssets,
         assetsPartial,
+        gelatoVariantUid: gelatoVariantUid || undefined,
+        selectedVariant: selectedVariant ? {
+          uid: selectedVariant.uid,
+          size: selectedVariant.size,
+          material: selectedVariant.material,
+          paper: selectedVariant.paper,
+          frame: selectedVariant.frame,
+          foil: selectedVariant.foil,
+          price: selectedVariant.price,
+        } : undefined,
         updatedAt: Date.now(),
       };
 
@@ -235,6 +267,8 @@ export default function ProjectEditor({
           setDraftFound(true);
           setShowDraftBanner(true);
           setAssetsPartial(draft.assetsPartial || false);
+          setRestoredGelatoVariantUid(draft.gelatoVariantUid || null);
+          setRestoredSelectedVariant(draft.selectedVariant || null);
         }
       } catch (error) {
         console.warn('[ProjectEditor] Failed to check for draft:', error);
@@ -280,8 +314,15 @@ export default function ProjectEditor({
         // Update assetsPartial state
         setAssetsPartial(draft.assetsPartial || false);
         
+        // Restore Gelato variant data (for reference, not state - props come from parent)
+        setRestoredGelatoVariantUid(draft.gelatoVariantUid || null);
+        setRestoredSelectedVariant(draft.selectedVariant || null);
+        
         setShowDraftBanner(false);
-        console.log('[ProjectEditor] Draft restored');
+        console.log('[ProjectEditor] Draft restored', {
+          gelatoVariantUid: draft.gelatoVariantUid,
+          selectedVariant: draft.selectedVariant,
+        });
       }
     } catch (error) {
       console.warn('[ProjectEditor] Failed to restore draft:', error);
@@ -319,6 +360,12 @@ export default function ProjectEditor({
       alert('Failed to clear draft. Please try again.');
     }
   };
+
+  // Check if restored variant matches current props (dev mode warning only)
+  const hasVariantMismatch = process.env.NODE_ENV === 'development' && 
+    restoredGelatoVariantUid && 
+    gelatoVariantUid && 
+    restoredGelatoVariantUid !== gelatoVariantUid;
 
   // Stage dimensions from print spec
   const STAGE_WIDTH = currentSide?.canvasPx.w || 1800;
@@ -1503,6 +1550,7 @@ export default function ProjectEditor({
             onDismiss={() => setShowDraftBanner(false)}
             onClear={handleClearDraft}
             assetsPartial={assetsPartial}
+            variantMismatch={hasVariantMismatch}
           />
         )}
 
@@ -1562,6 +1610,7 @@ export default function ProjectEditor({
           onDismiss={() => setShowDraftBanner(false)}
           onClear={handleClearDraft}
           assetsPartial={assetsPartial}
+          variantMismatch={hasVariantMismatch}
         />
       )}
 

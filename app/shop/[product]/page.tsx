@@ -1037,9 +1037,17 @@ export default function ProductPage() {
               )}
 
               <button
-                onClick={() => setCurrentStep(2)}
-                disabled={uploadedImages.length === 0}
+                onClick={() => {
+                  // Prevent Step 2 if no selected variant (invalid combo)
+                  if (variantsData && !selectedVariant) {
+                    alert('Please select a valid combination of options before continuing.');
+                    return;
+                  }
+                  setCurrentStep(2);
+                }}
+                disabled={uploadedImages.length === 0 || (variantsData && !selectedVariant)}
                 className="w-full py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title={variantsData && !selectedVariant ? 'Please select a valid combination of options' : ''}
               >
                 Continue to Project Editor
               </button>
@@ -1080,6 +1088,16 @@ export default function ProductPage() {
           >
             <ProjectEditor
               productSlug={productType}
+              gelatoVariantUid={gelatoVariantUid || undefined}
+              selectedVariant={selectedVariant ? {
+                uid: selectedVariant.uid,
+                size: selectedVariant.size,
+                material: selectedVariant.material,
+                paper: selectedVariant.paper,
+                frame: selectedVariant.frame,
+                foil: selectedVariant.foil,
+                price: selectedVariant.price,
+              } : undefined}
               config={{
                 productSlug: productType,
                 qrRequired: isCardType && quantity > 1, // Require QR for card products with quantity > 1

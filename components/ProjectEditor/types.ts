@@ -59,3 +59,14 @@ export interface SideState {
   template?: TemplateState;
 }
 
+// Gelato variant data (minimal fields needed)
+export interface GelatoVariantData {
+  uid: string;
+  size?: string | null;
+  material?: string | null;
+  paper?: string | null;
+  frame?: string | null;
+  foil?: string | null;
+  price?: number;
+}
+

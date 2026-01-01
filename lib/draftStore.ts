@@ -49,6 +49,16 @@ export interface PersistedAsset {
   bytesApprox: number;
 }
 
+export interface GelatoVariantData {
+  uid: string;
+  size?: string | null;
+  material?: string | null;
+  paper?: string | null;
+  frame?: string | null;
+  foil?: string | null;
+  price?: number;
+}
+
 export interface DraftData {
   version: number;
   productSlug: string;
@@ -69,6 +79,8 @@ export interface DraftData {
   }>;
   persistedAssets?: PersistedAsset[];
   assetsPartial?: boolean; // true if some assets couldn't be persisted due to size cap
+  gelatoVariantUid?: string; // Gelato variant UID from Sprint 2A
+  selectedVariant?: GelatoVariantData; // Selected variant data
   updatedAt: number;
 }
 

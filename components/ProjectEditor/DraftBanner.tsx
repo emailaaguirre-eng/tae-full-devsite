@@ -55,6 +55,15 @@ export default function DraftBanner({ onRestore, onDismiss, onClear, assetsParti
           </div>
         </div>
       )}
+      {variantMismatch && process.env.NODE_ENV === 'development' && (
+        <div className="bg-orange-50 border-b border-orange-200 px-6 py-3 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-orange-900">[DRAFT] Restored variant may not match current selections</p>
+            <p className="text-xs text-orange-700">Consider re-validating the variant match after restore.</p>
+          </div>
+        </div>
+      )}
     </>
   );
 }
