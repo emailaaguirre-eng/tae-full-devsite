@@ -103,13 +103,25 @@ export default function ProjectEditor({
         };
       });
       setSideStateById(initialStates);
-      // Set active side to first side
+      // Set active side to first side (ensure it matches a valid side)
       if (printSpec.sides.length > 0) {
-        setActiveSideId(printSpec.sides[0].id);
+        const firstSideId = printSpec.sides[0].id;
+        setActiveSideId(firstSideId);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [printSpec]); // Only depend on printSpec, not sideStateById to avoid re-initialization
+
+  // Ensure activeSideId matches a valid side in printSpec
+  useEffect(() => {
+    if (printSpec && printSpec.sides.length > 0) {
+      const validSideIds = printSpec.sides.map(s => s.id);
+      if (!validSideIds.includes(activeSideId)) {
+        // activeSideId doesn't match any side, reset to first side
+        setActiveSideId(printSpec.sides[0].id);
+      }
+    }
+  }, [printSpec, activeSideId]);
 
   const currentSide: PrintSide | undefined = printSpec
     ? getPrintSide(printSpec, activeSideId as 'front' | 'inside' | 'back')
