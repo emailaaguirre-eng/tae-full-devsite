@@ -32,6 +32,10 @@ export async function generateQRCode(
  * This is a minimal fallback if qrcode library is not installed
  */
 function generatePlaceholderQR(url: string, size: number): string {
+  if (typeof document === 'undefined') {
+    // Return a simple data URL with error message for SSR
+    return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  }
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
