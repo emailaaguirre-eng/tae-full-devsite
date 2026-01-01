@@ -857,6 +857,14 @@ export default function ProductPage() {
           >
             <ProjectEditor
               productSlug={productType}
+              config={{
+                productSlug: productType,
+                qrRequired: isCardType && quantity > 1, // Require QR for card products with quantity > 1
+                allowedSidesForQR: ['front'],
+                qrPlacementMode: 'flexible',
+                defaultSkeletonKeyId: isCardType ? 'card_classic' : undefined,
+                artKeyUrlPlaceholder: `https://theartfulexperience.com/artkey/PLACEHOLDER`,
+              }}
               onComplete={handleProjectEditorComplete}
               onClose={() => setCurrentStep(1)}
             />

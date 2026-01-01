@@ -343,6 +343,172 @@ export default function ProjectEditor({
     }));
   };
 
+  // Add skeleton key to canvas
+  const handleAddSkeletonKey = async (keyId: string) => {
+    if (!currentSide) return;
+
+    const keyDef = getSkeletonKey(keyId);
+    if (!keyDef) return;
+
+    // Convert SVG to data URL
+    const svgBlob = new Blob([keyDef.svg], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    
+    // Load SVG as image to get dimensions
+    const img = new window.Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = svgUrl;
+    });
+
+    // Calculate position from percentage
+    const x = (currentSide.canvasPx.w * keyDef.defaultPositionPct.xPct) - (img.width * keyDef.defaultScale / 2);
+    const y = (currentSide.canvasPx.h * keyDef.defaultPositionPct.yPct) - (img.height * keyDef.defaultScale / 2);
+
+    // Remove existing skeleton key on this side if any
+    const existingKey = objects.find(obj => obj.type === 'skeletonKey');
+    const filteredObjects = existingKey 
+      ? objects.filter(obj => obj.id !== existingKey.id)
+      : objects;
+
+    const newSkeletonKey: EditorObject = {
+      id: `skeleton-${Date.now()}-${Math.random()}`,
+      type: 'skeletonKey',
+      keyId: keyId,
+      src: svgUrl,
+      x: Math.max(0, Math.min(x, currentSide.canvasPx.w - img.width * keyDef.defaultScale)),
+      y: Math.max(0, Math.min(y, currentSide.canvasPx.h - img.height * keyDef.defaultScale)),
+      scaleX: keyDef.defaultScale,
+      scaleY: keyDef.defaultScale,
+      rotation: 0,
+      width: img.width,
+      height: img.height,
+      opacity: 0.3,
+      locked: false,
+    };
+
+    setSideStateById((prev) => ({
+      ...prev,
+      [activeSideId]: {
+        ...prev[activeSideId] || { objects: [], selectedId: undefined },
+        objects: [...filteredObjects, newSkeletonKey],
+        selectedId: newSkeletonKey.id,
+      },
+    }));
+  };
+
+  // Add QR code to canvas
+  const handleAddQR = async () => {
+    if (!currentSide) return;
+
+    const qrUrl = getDefaultArtKeyUrl(editorConfig.artKeyUrlPlaceholder);
+    const qrSize = 100; // Default QR size in pixels
+    
+    try {
+      const qrDataUrl = await generateQRCode(qrUrl, qrSize, 4);
+      
+      // Get skeleton key to find target position
+      const skeletonKey = objects.find(obj => obj.type === 'skeletonKey');
+      let qrX = currentSide.canvasPx.w / 2;
+      let qrY = currentSide.canvasPx.h / 2;
+
+      if (skeletonKey && skeletonKey.keyId) {
+        const keyDef = getSkeletonKey(skeletonKey.keyId);
+        if (keyDef) {
+          // Calculate QR target position relative to skeleton key
+          const keyLeft = skeletonKey.x;
+          const keyTop = skeletonKey.y;
+          const keyWidth = (skeletonKey.width || 500) * skeletonKey.scaleX;
+          const keyHeight = (skeletonKey.height || 700) * skeletonKey.scaleY;
+          
+          const targetX = keyLeft + (keyWidth * keyDef.qrTargetPct.xPct);
+          const targetY = keyTop + (keyHeight * keyDef.qrTargetPct.yPct);
+          const targetW = keyWidth * keyDef.qrTargetPct.wPct;
+          const targetH = keyHeight * keyDef.qrTargetPct.hPct;
+          
+          // Size QR to fit 90% of target box
+          const targetSize = Math.min(targetW, targetH) * 0.9;
+          qrX = targetX + (targetW / 2) - (targetSize / 2);
+          qrY = targetY + (targetH / 2) - (targetSize / 2);
+        }
+      }
+
+      // Remove existing QR on this side if any
+      const existingQR = objects.find(obj => obj.type === 'qr' && obj.sideId === activeSideId);
+      const filteredObjects = existingQR
+        ? objects.filter(obj => obj.id !== existingQR.id)
+        : objects;
+
+      const newQR: EditorObject = {
+        id: `qr-${Date.now()}-${Math.random()}`,
+        type: 'qr',
+        sideId: activeSideId as 'front' | 'inside' | 'back',
+        url: qrUrl,
+        src: qrDataUrl,
+        x: qrX,
+        y: qrY,
+        scaleX: 1,
+        scaleY: 1,
+        rotation: 0,
+        size: qrSize,
+        locked: editorConfig.qrRequired && editorConfig.qrPlacementMode === 'fixed',
+      };
+
+      setSideStateById((prev) => ({
+        ...prev,
+        [activeSideId]: {
+          ...prev[activeSideId] || { objects: [], selectedId: undefined },
+          objects: [...filteredObjects, newQR],
+          selectedId: newQR.id,
+        },
+      }));
+    } catch (error) {
+      console.error('[ProjectEditor] Failed to generate QR code:', error);
+      alert('Failed to generate QR code. Please try again.');
+    }
+  };
+
+  // Snap QR to skeleton key target
+  const handleSnapQRToTarget = () => {
+    if (!currentSide) return;
+
+    const skeletonKey = objects.find(obj => obj.type === 'skeletonKey');
+    const qr = objects.find(obj => obj.type === 'qr' && obj.sideId === activeSideId);
+    
+    if (!skeletonKey || !qr || !skeletonKey.keyId) return;
+
+    const keyDef = getSkeletonKey(skeletonKey.keyId);
+    if (!keyDef) return;
+
+    // Calculate target position
+    const keyLeft = skeletonKey.x;
+    const keyTop = skeletonKey.y;
+    const keyWidth = (skeletonKey.width || 500) * skeletonKey.scaleX;
+    const keyHeight = (skeletonKey.height || 700) * skeletonKey.scaleY;
+    
+    const targetX = keyLeft + (keyWidth * keyDef.qrTargetPct.xPct);
+    const targetY = keyTop + (keyHeight * keyDef.qrTargetPct.yPct);
+    const targetW = keyWidth * keyDef.qrTargetPct.wPct;
+    const targetH = keyHeight * keyDef.qrTargetPct.hPct;
+    
+    const targetSize = Math.min(targetW, targetH) * 0.9;
+    const newX = targetX + (targetW / 2) - (targetSize / 2);
+    const newY = targetY + (targetH / 2) - (targetSize / 2);
+
+    setSideStateById((prev) => ({
+      ...prev,
+      [activeSideId]: {
+        ...prev[activeSideId] || { objects: [], selectedId: undefined },
+        objects: (prev[activeSideId]?.objects || []).map((obj) =>
+          obj.id === qr.id
+            ? { ...obj, x: newX, y: newY, size: targetSize }
+            : obj
+        ),
+      },
+    }));
+  };
+
   // Handle side switch
   const handleSideSwitch = (sideId: string) => {
     // Clear selection on current side before switching
@@ -421,10 +587,38 @@ export default function ProjectEditor({
     }
   };
 
+  // Check if QR is required and missing
+  const checkQRRequired = (): { isValid: boolean; missingSides: string[] } => {
+    if (!editorConfig.qrRequired || !printSpec) {
+      return { isValid: true, missingSides: [] };
+    }
+
+    const missingSides: string[] = [];
+    for (const side of printSpec.sides) {
+      if (editorConfig.allowedSidesForQR.includes(side.id as 'front' | 'inside' | 'back')) {
+        const sideState = sideStateById[side.id] || { objects: [], selectedId: undefined };
+        const hasQR = sideState.objects.some(obj => obj.type === 'qr' && obj.sideId === side.id);
+        if (!hasQR) {
+          missingSides.push(side.id);
+        }
+      }
+    }
+
+    return { isValid: missingSides.length === 0, missingSides };
+  };
+
   // Export active side
   const handleExportActiveSide = async () => {
     if (printSpecError || !printSpec) {
       alert(printSpecError || 'Print spec not available');
+      return;
+    }
+
+    // Check QR requirement
+    const qrCheck = checkQRRequired();
+    if (!qrCheck.isValid) {
+      const sideNames = qrCheck.missingSides.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
+      alert(`ArtKey QR is required on ${sideNames} before exporting.`);
       return;
     }
 
@@ -464,6 +658,14 @@ export default function ProjectEditor({
   const handleExportAllSides = async () => {
     if (printSpecError || !printSpec) {
       alert(printSpecError || 'No print spec available');
+      return;
+    }
+
+    // Check QR requirement
+    const qrCheck = checkQRRequired();
+    if (!qrCheck.isValid) {
+      const sideNames = qrCheck.missingSides.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
+      alert(`ArtKey QR is required on ${sideNames} before exporting.`);
       return;
     }
 
@@ -610,6 +812,112 @@ export default function ProjectEditor({
           }));
         }}
         onDragEnd={(e) => handleDragEnd(object.id, e)}
+        onTransformEnd={(e) => handleTransformEnd(object.id, e)}
+      />
+    );
+  };
+
+  // Skeleton Key Component
+  const SkeletonKeyComponent = ({ object }: { object: EditorObject }) => {
+    const keyRef = useRef<any>(null);
+    const keyDef = object.keyId ? getSkeletonKey(object.keyId) : null;
+
+    useEffect(() => {
+      if (keyRef.current) {
+        imageRefs.current[object.id] = keyRef.current;
+      }
+      return () => {
+        delete imageRefs.current[object.id];
+      };
+    }, [object.id]);
+
+    if (!keyDef || !object.src) return null;
+
+    // Convert SVG to image
+    const [img, status] = useImage(object.src);
+
+    if (status === 'loading' || !img) {
+      return null;
+    }
+
+    return (
+      <KonvaImage
+        ref={keyRef}
+        image={img}
+        x={object.x}
+        y={object.y}
+        width={object.width || 500}
+        height={object.height || 700}
+        scaleX={object.scaleX}
+        scaleY={object.scaleY}
+        rotation={object.rotation}
+        opacity={object.opacity || 0.3}
+        draggable={!object.locked}
+        onClick={() => {
+          setSideStateById((prev) => ({
+            ...prev,
+            [activeSideId]: {
+              ...prev[activeSideId] || { objects: [], selectedId: undefined },
+              selectedId: object.id,
+            },
+          }));
+        }}
+        onDragEnd={(e) => handleDragEnd(object.id, e)}
+        onTransformEnd={(e) => handleTransformEnd(object.id, e)}
+      />
+    );
+  };
+
+  // QR Component
+  const QRComponent = ({ object }: { object: EditorObject }) => {
+    const qrRef = useRef<any>(null);
+
+    useEffect(() => {
+      if (qrRef.current) {
+        imageRefs.current[object.id] = qrRef.current;
+      }
+      return () => {
+        delete imageRefs.current[object.id];
+      };
+    }, [object.id]);
+
+    if (!object.src) return null;
+
+    const [img, status] = useImage(object.src);
+
+    if (status === 'loading' || !img) {
+      return null;
+    }
+
+    const qrSize = object.size || 100;
+    const isLocked = object.locked || (editorConfig.qrRequired && editorConfig.qrPlacementMode === 'fixed');
+
+    return (
+      <KonvaImage
+        ref={qrRef}
+        image={img}
+        x={object.x}
+        y={object.y}
+        width={qrSize}
+        height={qrSize}
+        scaleX={object.scaleX}
+        scaleY={object.scaleY}
+        rotation={object.rotation}
+        draggable={!isLocked}
+        onClick={() => {
+          setSideStateById((prev) => ({
+            ...prev,
+            [activeSideId]: {
+              ...prev[activeSideId] || { objects: [], selectedId: undefined },
+              selectedId: object.id,
+            },
+          }));
+        }}
+        onDragEnd={(e) => {
+          if (!isLocked) {
+            handleDragEnd(object.id, e);
+          }
+        }}
         onTransformEnd={(e) => handleTransformEnd(object.id, e)}
       />
     );
@@ -807,6 +1115,20 @@ export default function ProjectEditor({
             />
           )}
 
+          {/* ArtKey Panel */}
+          <ArtKeyPanel
+            config={editorConfig}
+            activeSideId={activeSideId}
+            selectedSkeletonKeyId={selectedSkeletonKeyId}
+            objects={objects}
+            showQRTarget={showQRTarget}
+            onSelectSkeletonKey={setSelectedSkeletonKeyId}
+            onAddSkeletonKey={handleAddSkeletonKey}
+            onAddQR={handleAddQR}
+            onSnapQRToTarget={handleSnapQRToTarget}
+            onToggleQRTarget={() => setShowQRTarget(!showQRTarget)}
+          />
+
           {/* Asset Library */}
           <div className="p-4 flex-1 overflow-y-auto">
             <h3 className="text-sm font-semibold text-gray-900 mb-4">Your Images</h3>
@@ -944,12 +1266,54 @@ export default function ProjectEditor({
                   </>
                 )}
 
+                {/* QR Target Guide */}
+                {showQRTarget && selectedSkeletonKeyId && (() => {
+                  const skeletonKey = objects.find(obj => obj.type === 'skeletonKey' && obj.keyId === selectedSkeletonKeyId);
+                  if (!skeletonKey || !skeletonKey.keyId) return null;
+                  
+                  const keyDef = getSkeletonKey(skeletonKey.keyId);
+                  if (!keyDef) return null;
+
+                  const keyLeft = skeletonKey.x;
+                  const keyTop = skeletonKey.y;
+                  const keyWidth = (skeletonKey.width || 500) * skeletonKey.scaleX;
+                  const keyHeight = (skeletonKey.height || 700) * skeletonKey.scaleY;
+                  
+                  const targetX = keyLeft + (keyWidth * keyDef.qrTargetPct.xPct);
+                  const targetY = keyTop + (keyHeight * keyDef.qrTargetPct.yPct);
+                  const targetW = keyWidth * keyDef.qrTargetPct.wPct;
+                  const targetH = keyHeight * keyDef.qrTargetPct.hPct;
+
+                  return (
+                    <Rect
+                      name="guide-overlay"
+                      x={targetX}
+                      y={targetY}
+                      width={targetW}
+                      height={targetH}
+                      fill="transparent"
+                      stroke="#0066cc"
+                      strokeWidth={2}
+                      dash={[5, 5]}
+                    />
+                  );
+                })()}
+
                 {/* Objects */}
                 {objects.map((object) => {
                   if (object.type === 'text') {
                     return <TextComponent key={object.id} object={object} />;
                   }
-                  return <ImageComponent key={object.id} object={object} />;
+                  if (object.type === 'skeletonKey') {
+                    return <SkeletonKeyComponent key={object.id} object={object} />;
+                  }
+                  if (object.type === 'qr') {
+                    return <QRComponent key={object.id} object={object} />;
+                  }
+                  if (object.type === 'image') {
+                    return <ImageComponent key={object.id} object={object} />;
+                  }
+                  return null;
                 })}
 
                 {/* Transformer */}
