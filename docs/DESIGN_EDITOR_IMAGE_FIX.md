@@ -81,6 +81,9 @@ interface UploadedAsset {
 - ✅ Uses `canvas.requestRenderAll()` (fabric.js v6 method)
 - ✅ Ensures image is added to canvas before rendering
 - ✅ Brings image to front to ensure visibility
+- ✅ Verifies image is actually on canvas after `add()`
+- ✅ Ensures image is selectable, evented, and not excluded from export
+- ✅ Verifies opacity is not 0 (would make invisible)
 
 **Scale Calculation:**
 - ✅ Clamps scale between 0.1 and 2.0
