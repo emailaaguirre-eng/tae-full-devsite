@@ -73,7 +73,8 @@ export default function ProjectEditor({
         setActiveSideId(printSpec.sides[0].id);
       }
     }
-  }, [printSpec, sideScenes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printSpec]); // Only depend on printSpec, not sideScenes to avoid re-initialization
 
   const currentSide: PrintSide | undefined = printSpec
     ? getPrintSide(printSpec, activeSideId as 'front' | 'inside' | 'back')
