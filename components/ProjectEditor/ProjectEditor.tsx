@@ -283,49 +283,57 @@ export default function ProjectEditor({
   // Handle object drag end
   const handleDragEnd = (objectId: string, e: any) => {
     const node = e.target;
-    setSideStateById((prev) => ({
-      ...prev,
-      [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined },
-        objects: (prev[activeSideId]?.objects || []).map((obj) =>
-          obj.id === objectId
-            ? {
-                ...obj,
-                x: node.x(),
-                y: node.y(),
-              }
-            : obj
-        ),
-      },
-    }));
+    setSideStateById((prev) => {
+      const newState = {
+        ...prev,
+        [activeSideId]: {
+          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+          objects: (prev[activeSideId]?.objects || []).map((obj) =>
+            obj.id === objectId
+              ? {
+                  ...obj,
+                  x: node.x(),
+                  y: node.y(),
+                }
+              : obj
+          ),
+        },
+      };
+      scheduleAutosave();
+      return newState;
+    });
   };
 
   // Handle object transform end
   const handleTransformEnd = (objectId: string, e: any) => {
     const node = e.target;
-    setSideStateById((prev) => ({
-      ...prev,
-      [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined },
-        objects: (prev[activeSideId]?.objects || []).map((obj) =>
-          obj.id === objectId
-            ? {
-                ...obj,
-                x: node.x(),
-                y: node.y(),
-                scaleX: node.scaleX(),
-                scaleY: node.scaleY(),
-                rotation: node.rotation(),
-                // Update width/height if stored (for images)
-                width: obj.width ? obj.width * node.scaleX() : undefined,
-                height: obj.height ? obj.height * node.scaleY() : undefined,
-                // Update fontSize for text objects
-                fontSize: obj.type === 'text' && obj.fontSize ? obj.fontSize * node.scaleX() : obj.fontSize,
-              }
-            : obj
-        ),
-      },
-    }));
+    setSideStateById((prev) => {
+      const newState = {
+        ...prev,
+        [activeSideId]: {
+          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+          objects: (prev[activeSideId]?.objects || []).map((obj) =>
+            obj.id === objectId
+              ? {
+                  ...obj,
+                  x: node.x(),
+                  y: node.y(),
+                  scaleX: node.scaleX(),
+                  scaleY: node.scaleY(),
+                  rotation: node.rotation(),
+                  // Update width/height if stored (for images)
+                  width: obj.width ? obj.width * node.scaleX() : undefined,
+                  height: obj.height ? obj.height * node.scaleY() : undefined,
+                  // Update fontSize for text objects
+                  fontSize: obj.type === 'text' && obj.fontSize ? obj.fontSize * node.scaleX() : obj.fontSize,
+                }
+              : obj
+          ),
+        },
+      };
+      scheduleAutosave();
+      return newState;
+    });
 
     // Reset scale after transform (Konva stores transform in scaleX/Y)
     node.scaleX(1);
@@ -336,15 +344,19 @@ export default function ProjectEditor({
   const handleLabelUpdate = (updates: Partial<EditorObject>) => {
     if (!selectedId) return;
     
-    setSideStateById((prev) => ({
-      ...prev,
-      [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined },
-        objects: (prev[activeSideId]?.objects || []).map((obj) =>
-          obj.id === selectedId ? { ...obj, ...updates } : obj
-        ),
-      },
-    }));
+    setSideStateById((prev) => {
+      const newState = {
+        ...prev,
+        [activeSideId]: {
+          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+          objects: (prev[activeSideId]?.objects || []).map((obj) =>
+            obj.id === selectedId ? { ...obj, ...updates } : obj
+          ),
+        },
+      };
+      scheduleAutosave();
+      return newState;
+    });
   };
 
   // Add text label to canvas
@@ -369,14 +381,18 @@ export default function ProjectEditor({
       fill: '#000000',
     };
 
-    setSideStateById((prev) => ({
-      ...prev,
-      [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined },
-        objects: [...(prev[activeSideId]?.objects || []), newTextObject],
-        selectedId: newTextObject.id,
-      },
-    }));
+    setSideStateById((prev) => {
+      const newState = {
+        ...prev,
+        [activeSideId]: {
+          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+          objects: [...(prev[activeSideId]?.objects || []), newTextObject],
+          selectedId: newTextObject.id,
+        },
+      };
+      scheduleAutosave();
+      return newState;
+    });
   };
 
   // Add skeleton key to canvas
@@ -447,14 +463,18 @@ export default function ProjectEditor({
       locked: false,
     };
 
-    setSideStateById((prev) => ({
-      ...prev,
-      [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined },
-        objects: [...filteredObjects, newSkeletonKey],
-        selectedId: newSkeletonKey.id,
-      },
-    }));
+    setSideStateById((prev) => {
+      const newState = {
+        ...prev,
+        [activeSideId]: {
+          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+          objects: [...filteredObjects, newSkeletonKey],
+          selectedId: newSkeletonKey.id,
+        },
+      };
+      scheduleAutosave();
+      return newState;
+    });
   };
 
   // Add QR code to canvas
@@ -589,17 +609,21 @@ export default function ProjectEditor({
     const newX = targetX + (targetW / 2) - (targetSize / 2);
     const newY = targetY + (targetH / 2) - (targetSize / 2);
 
-    setSideStateById((prev) => ({
-      ...prev,
-      [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined },
-        objects: (prev[activeSideId]?.objects || []).map((obj) =>
-          obj.id === qr.id
-            ? { ...obj, x: newX, y: newY, size: targetSize }
-            : obj
-        ),
-      },
-    }));
+    setSideStateById((prev) => {
+      const newState = {
+        ...prev,
+        [activeSideId]: {
+          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+          objects: (prev[activeSideId]?.objects || []).map((obj) =>
+            obj.id === qr.id
+              ? { ...obj, x: newX, y: newY, size: targetSize, scaleX: 1, scaleY: 1 }
+              : obj
+          ),
+        },
+      };
+      scheduleAutosave();
+      return newState;
+    });
   };
 
   // Template handlers
