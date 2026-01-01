@@ -1,5 +1,3 @@
-'use client';
-
 // Shared Asset Store (Zustand)
 // Used by both pre-uploader and ProjectEditorDemo
 
