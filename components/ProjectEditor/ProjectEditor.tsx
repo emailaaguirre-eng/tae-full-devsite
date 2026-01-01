@@ -711,7 +711,7 @@ export default function ProjectEditor({
     const qrCheck = checkQRRequired();
     if (!qrCheck.isValid) {
       const sideNames = qrCheck.missingSides.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
-      alert(`ArtKey QR is required on ${sideNames} before exporting.`);
+      alert(`ArtKey QR is required on at least one of: ${sideNames} before exporting.`);
       return;
     }
 
@@ -758,7 +758,7 @@ export default function ProjectEditor({
     const qrCheck = checkQRRequired();
     if (!qrCheck.isValid) {
       const sideNames = qrCheck.missingSides.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
-      alert(`ArtKey QR is required on ${sideNames} before exporting.`);
+      alert(`ArtKey QR is required on at least one of: ${sideNames} before exporting.`);
       return;
     }
 
@@ -984,6 +984,7 @@ export default function ProjectEditor({
 
     const qrSize = object.size || 100;
     const isLocked = object.locked || (editorConfig.qrRequired && editorConfig.qrPlacementMode === 'fixed');
+    const isFlexible = editorConfig.qrPlacementMode === 'flexible' && !isLocked;
 
     return (
       <KonvaImage
@@ -996,7 +997,22 @@ export default function ProjectEditor({
         scaleX={object.scaleX}
         scaleY={object.scaleY}
         rotation={object.rotation}
-        draggable={!isLocked}
+        draggable={isFlexible}
+        dragBoundFunc={(pos) => {
+          // Constrain QR to safe zone when flexible
+          if (isFlexible && currentSide) {
+            const safeLeft = currentSide.safePx;
+            const safeTop = currentSide.safePx;
+            const safeRight = currentSide.canvasPx.w - currentSide.safePx - qrSize;
+            const safeBottom = currentSide.canvasPx.h - currentSide.safePx - qrSize;
+            
+            return {
+              x: Math.max(safeLeft, Math.min(pos.x, safeRight)),
+              y: Math.max(safeTop, Math.min(pos.y, safeBottom)),
+            };
+          }
+          return pos;
+        }}
         onClick={() => {
           setSideStateById((prev) => ({
             ...prev,
@@ -1007,7 +1023,7 @@ export default function ProjectEditor({
           }));
         }}
         onDragEnd={(e) => {
-          if (!isLocked) {
+          if (isFlexible) {
             handleDragEnd(object.id, e);
           }
         }}
@@ -1145,7 +1161,7 @@ export default function ProjectEditor({
             const blockReason = printSpecError 
               ? printSpecError 
               : !qrCheck.isValid 
-                ? `ArtKey QR required on ${qrCheck.missingSides.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')}`
+                ? `ArtKey QR required on at least one of: ${qrCheck.missingSides.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')}`
                 : '';
 
             return printSpec && printSpec.sides.length > 1 ? (
