@@ -30,9 +30,7 @@ const nextConfig = {
   },
   // Disable static optimization for pages that use dynamic data
   // This prevents build failures when external APIs are unreachable
-  outputFileTracingIncludes: {
-    '/**': ['./lib/**/*'],
-  },
+  // Note: outputFileTracingIncludes is not a valid Next.js 14 option, removed
 }
 
 module.exports = nextConfig
