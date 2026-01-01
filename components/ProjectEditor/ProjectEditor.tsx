@@ -1780,8 +1780,8 @@ export default function ProjectEditor({
           <div className="bg-white p-4 rounded-lg shadow-lg">
             <Stage
               ref={stageRef}
-              width={STAGE_WIDTH * displayScale}
-              height={STAGE_HEIGHT * displayScale}
+              width={STAGE_WIDTH}
+              height={STAGE_HEIGHT}
               scaleX={displayScale}
               scaleY={displayScale}
               onClick={(e) => {
