@@ -7,25 +7,33 @@ import { Download, X, Eye, EyeOff } from 'lucide-react';
 import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
 import { getPrintSpecForProduct, getPrintSide, type PrintSpec, type PrintSide, type PrintSpecResult } from '@/lib/printSpecs';
 
-interface CanvasImage {
+// Editor object type matching requirements
+interface EditorObject {
   id: string;
-  url: string;
+  type: 'image';
+  src: string;
   x: number;
   y: number;
-  width: number;
-  height: number;
+  scaleX: number;
+  scaleY: number;
   rotation: number;
+  width?: number; // Optional: original width for reference
+  height?: number; // Optional: original height for reference
 }
 
-interface SceneState {
-  images: CanvasImage[];
-  selectedId: string | null;
+interface SideState {
+  objects: EditorObject[];
+  selectedId?: string;
 }
 
 interface ProjectEditorProps {
   printSpecId?: string; // Optional: if not provided, will use default
   productSlug?: string; // Product slug for spec lookup
-  onComplete?: (exportData: { side: string; dataUrl: string; blob: Blob }[]) => void;
+  onComplete?: (exportData: { 
+    productSlug?: string;
+    printSpecId?: string;
+    exports: Array<{ sideId: string; dataUrl: string; width: number; height: number }>;
+  }) => void;
   onClose?: () => void;
 }
 
@@ -35,8 +43,8 @@ export default function ProjectEditor({
   onComplete, 
   onClose 
 }: ProjectEditorProps) {
-  // Per-side scene state
-  const [sideScenes, setSideScenes] = useState<Record<string, SceneState>>({});
+  // Per-side scene state: Record<SideId, SideState>
+  const [sideStateById, setSideStateById] = useState<Record<string, SideState>>({});
   const [activeSideId, setActiveSideId] = useState<string>('front');
   const [showBleed, setShowBleed] = useState(false);
   const [showTrim, setShowTrim] = useState(false);
@@ -60,33 +68,33 @@ export default function ProjectEditor({
   const printSpec = printSpecResult.spec;
   const printSpecError = printSpecResult.error;
 
-  // Initialize side scenes if not already initialized
+  // Initialize side states if not already initialized
   useEffect(() => {
-    if (printSpec && Object.keys(sideScenes).length === 0) {
-      const initialScenes: Record<string, SceneState> = {};
+    if (printSpec && Object.keys(sideStateById).length === 0) {
+      const initialStates: Record<string, SideState> = {};
       printSpec.sides.forEach((side) => {
-        initialScenes[side.id] = {
-          images: [],
-          selectedId: null,
+        initialStates[side.id] = {
+          objects: [],
+          selectedId: undefined,
         };
       });
-      setSideScenes(initialScenes);
+      setSideStateById(initialStates);
       // Set active side to first side
       if (printSpec.sides.length > 0) {
         setActiveSideId(printSpec.sides[0].id);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [printSpec]); // Only depend on printSpec, not sideScenes to avoid re-initialization
+  }, [printSpec]); // Only depend on printSpec, not sideStateById to avoid re-initialization
 
   const currentSide: PrintSide | undefined = printSpec
     ? getPrintSide(printSpec, activeSideId as 'front' | 'inside' | 'back')
     : undefined;
 
-  // Get current side's scene state
-  const currentScene = sideScenes[activeSideId] || { images: [], selectedId: null };
-  const images = currentScene.images;
-  const selectedId = currentScene.selectedId;
+  // Get current side's state
+  const currentSideState = sideStateById[activeSideId] || { objects: [], selectedId: undefined };
+  const objects = currentSideState.objects;
+  const selectedId = currentSideState.selectedId;
 
   // Stage dimensions from print spec
   const STAGE_WIDTH = currentSide?.canvasPx.w || 1800;
@@ -163,31 +171,34 @@ export default function ProjectEditor({
         ? currentSide.safePx + (safeAreaHeight - scaledHeight) / 2
         : (STAGE_HEIGHT - scaledHeight) / 2;
 
-      const newImage: CanvasImage = {
+      const newObject: EditorObject = {
         id: `img-${Date.now()}-${Math.random()}`,
-        url: asset.src,
+        type: 'image',
+        src: asset.src,
         x,
         y,
-        width: scaledWidth,
-        height: scaledHeight,
+        scaleX: 1,
+        scaleY: 1,
         rotation: 0,
+        width: scaledWidth, // Store original scaled dimensions
+        height: scaledHeight,
       };
 
       console.log('[ProjectEditor] Adding image to canvas:', {
-        id: newImage.id,
+        id: newObject.id,
         assetId: asset.id,
         side: activeSideId,
         position: { x, y },
         size: { width: scaledWidth, height: scaledHeight },
       });
 
-      // Add image to current side's scene
-      setSideScenes((prev) => ({
+      // Add object to current side's state
+      setSideStateById((prev) => ({
         ...prev,
         [activeSideId]: {
-          ...prev[activeSideId],
-          images: [...(prev[activeSideId]?.images || []), newImage],
-          selectedId: newImage.id,
+          ...prev[activeSideId] || { objects: [], selectedId: undefined },
+          objects: [...(prev[activeSideId]?.objects || []), newObject],
+          selectedId: newObject.id,
         },
       }));
     };
@@ -248,26 +259,32 @@ export default function ProjectEditor({
   // Handle side switch
   const handleSideSwitch = (sideId: string) => {
     // Clear selection on current side before switching
-    setSideScenes((prev) => ({
+    setSideStateById((prev) => ({
       ...prev,
       [activeSideId]: {
-        ...prev[activeSideId],
-        selectedId: null,
+        ...prev[activeSideId] || { objects: [], selectedId: undefined },
+        selectedId: undefined,
       },
     }));
     
     // Switch to new side
     setActiveSideId(sideId);
     
-    // Ensure new side has scene state
-    setSideScenes((prev) => ({
+    // Ensure new side has state
+    setSideStateById((prev) => ({
       ...prev,
-      [sideId]: prev[sideId] || { images: [], selectedId: null },
+      [sideId]: prev[sideId] || { objects: [], selectedId: undefined },
     }));
   };
 
   // Export single side (must be called when that side is active)
-  const exportCurrentSide = async (): Promise<{ side: string; dataUrl: string; blob: Blob } | null> => {
+  const exportCurrentSide = async (): Promise<{ 
+    sideId: string; 
+    dataUrl: string; 
+    blob: Blob;
+    width: number;
+    height: number;
+  } | null> => {
     if (!stageRef.current || !currentSide) return null;
 
     try {
@@ -305,9 +322,11 @@ export default function ProjectEditor({
       const blob = await response.blob();
 
       return {
-        side: activeSideId,
+        sideId: activeSideId,
         dataUrl,
         blob,
+        width: currentSide.canvasPx.w,
+        height: currentSide.canvasPx.h,
       };
     } catch (error) {
       console.error(`[ProjectEditor] Export error for side ${activeSideId}:`, error);
@@ -325,19 +344,28 @@ export default function ProjectEditor({
     const result = await exportCurrentSide();
     if (result) {
       if (onComplete) {
-        onComplete([result]);
+        onComplete({
+          productSlug,
+          printSpecId: printSpec.id,
+          exports: [{
+            sideId: result.sideId,
+            dataUrl: result.dataUrl,
+            width: result.width,
+            height: result.height,
+          }],
+        });
       } else {
         // Fallback: download directly
         const link = document.createElement('a');
-        link.download = `${printSpec?.id || 'design'}_${activeSideId}_${Date.now()}.png`;
+        link.download = `${productSlug || printSpec.id}_${result.sideId}_${Date.now()}.png`;
         link.href = result.dataUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       }
       console.log('[ProjectEditor] Export complete:', {
-        side: activeSideId,
-        dimensions: currentSide?.canvasPx,
+        sideId: result.sideId,
+        dimensions: { width: result.width, height: result.height },
         includesGuides: includeGuidesInExport,
       });
     } else {
@@ -352,7 +380,7 @@ export default function ProjectEditor({
       return;
     }
 
-    const results: { side: string; dataUrl: string; blob: Blob }[] = [];
+    const exports: Array<{ sideId: string; dataUrl: string; width: number; height: number }> = [];
     const originalActiveSide = activeSideId;
     
     // Export each side by switching to it
@@ -366,7 +394,12 @@ export default function ProjectEditor({
       // Export current side
       const result = await exportCurrentSide();
       if (result) {
-        results.push(result);
+        exports.push({
+          sideId: result.sideId,
+          dataUrl: result.dataUrl,
+          width: result.width,
+          height: result.height,
+        });
       }
     }
 
@@ -374,22 +407,31 @@ export default function ProjectEditor({
     setActiveSideId(originalActiveSide);
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    if (results.length > 0) {
+    if (exports.length > 0) {
       if (onComplete) {
-        onComplete(results);
+        onComplete({
+          productSlug,
+          printSpecId: printSpec.id,
+          exports,
+        });
       } else {
         // Fallback: download all
-        results.forEach((result) => {
+        exports.forEach((exportItem) => {
           const link = document.createElement('a');
-          link.download = `${printSpec.id}_${result.side}_${Date.now()}.png`;
-          link.href = result.dataUrl;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          link.download = `${productSlug || printSpec.id}_${exportItem.sideId}_${Date.now()}.png`;
+          // Convert dataUrl to blob for download
+          fetch(exportItem.dataUrl).then(res => res.blob()).then(blob => {
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          });
         });
       }
       console.log('[ProjectEditor] Export all sides complete:', {
-        sides: results.map((r) => r.side),
+        sides: exports.map((e) => e.sideId),
         includesGuides: includeGuidesInExport,
       });
     } else {
@@ -398,31 +440,35 @@ export default function ProjectEditor({
   };
 
   // Image Component
-  const ImageComponent = ({ image }: { image: CanvasImage }) => {
+  const ImageComponent = ({ object }: { object: EditorObject }) => {
     // Only set crossOrigin for external URLs, not for blob: or data: URLs
     const crossOrigin = image.url.startsWith('blob:') || image.url.startsWith('data:')
       ? undefined
       : 'anonymous';
-    const [img, status] = useImage(image.url, crossOrigin);
+    const [img, status] = useImage(object.src, crossOrigin);
     const imageRef = useRef<any>(null);
 
     useEffect(() => {
       if (imageRef.current) {
-        imageRefs.current[image.id] = imageRef.current;
+        imageRefs.current[object.id] = imageRef.current;
       }
       return () => {
-        delete imageRefs.current[image.id];
+        delete imageRefs.current[object.id];
       };
-    }, [image.id]);
+    }, [object.id]);
+
+    // Calculate display dimensions from scale and original width/height
+    const displayWidth = object.width ? object.width * object.scaleX : 100;
+    const displayHeight = object.height ? object.height * object.scaleY : 100;
 
     if (status === 'loading') {
       return (
         <KonvaImage
           ref={imageRef}
-          x={image.x}
-          y={image.y}
-          width={image.width}
-          height={image.height}
+          x={object.x}
+          y={object.y}
+          width={displayWidth}
+          height={displayHeight}
           fill="#e5e7eb"
           opacity={0.5}
         />
@@ -433,10 +479,10 @@ export default function ProjectEditor({
       return (
         <KonvaImage
           ref={imageRef}
-          x={image.x}
-          y={image.y}
-          width={image.width}
-          height={image.height}
+          x={object.x}
+          y={object.y}
+          width={displayWidth}
+          height={displayHeight}
           fill="#fee2e2"
           opacity={0.5}
         />
@@ -447,33 +493,35 @@ export default function ProjectEditor({
       <KonvaImage
         ref={imageRef}
         image={img}
-        x={image.x}
-        y={image.y}
-        width={image.width}
-        height={image.height}
-        rotation={image.rotation}
+        x={object.x}
+        y={object.y}
+        width={displayWidth}
+        height={displayHeight}
+        scaleX={object.scaleX}
+        scaleY={object.scaleY}
+        rotation={object.rotation}
         draggable
         onClick={() => {
-          console.log('[ProjectEditor] Image clicked:', image.id);
-          setSideScenes((prev) => ({
+          console.log('[ProjectEditor] Image clicked:', object.id);
+          setSideStateById((prev) => ({
             ...prev,
             [activeSideId]: {
-              ...prev[activeSideId],
-              selectedId: image.id,
+              ...prev[activeSideId] || { objects: [], selectedId: undefined },
+              selectedId: object.id,
             },
           }));
         }}
         onTap={() => {
-          setSideScenes((prev) => ({
+          setSideStateById((prev) => ({
             ...prev,
             [activeSideId]: {
-              ...prev[activeSideId],
-              selectedId: image.id,
+              ...prev[activeSideId] || { objects: [], selectedId: undefined },
+              selectedId: object.id,
             },
           }));
         }}
-        onDragEnd={(e) => handleDragEnd(image.id, e)}
-        onTransformEnd={(e) => handleTransformEnd(image.id, e)}
+        onDragEnd={(e) => handleDragEnd(object.id, e)}
+        onTransformEnd={(e) => handleTransformEnd(object.id, e)}
       />
     );
   };
@@ -785,9 +833,9 @@ export default function ProjectEditor({
                   </>
                 )}
 
-                {/* Images */}
-                {images.map((image) => (
-                  <ImageComponent key={image.id} image={image} />
+                {/* Objects */}
+                {objects.map((object) => (
+                  <ImageComponent key={object.id} object={object} />
                 ))}
 
                 {/* Transformer */}

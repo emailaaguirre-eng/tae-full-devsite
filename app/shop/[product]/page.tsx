@@ -266,14 +266,22 @@ export default function ProductPage() {
   };
 
   // Handle design complete from ProjectEditor - save design and navigate to ArtKey editor
-  const handleProjectEditorComplete = async (exportData: { side: string; dataUrl: string; blob: Blob }[]) => {
+  const handleProjectEditorComplete = async (exportData: { 
+    productSlug?: string;
+    printSpecId?: string;
+    exports: Array<{ sideId: string; dataUrl: string; width: number; height: number }>;
+  }) => {
     try {
       // Generate ArtKey ID
       const newArtkeyId = 'artkey-' + Date.now().toString(36);
       setArtkeyId(newArtkeyId);
       
-      // Use the first export (or front side if available)
-      const mainExport = exportData.find(e => e.side === 'front') || exportData[0];
+      if (!exportData.exports || exportData.exports.length === 0) {
+        throw new Error('No export data available');
+      }
+      
+      // Use the first export (or front side if available) as main image
+      const mainExport = exportData.exports.find(e => e.sideId === 'front') || exportData.exports[0];
       if (!mainExport) {
         throw new Error('No export data available');
       }
@@ -282,8 +290,12 @@ export default function ProductPage() {
       
       // Optionally upload to WordPress media library for permanent storage
       try {
+        // Convert dataUrl to blob
+        const response = await fetch(mainExport.dataUrl);
+        const blob = await response.blob();
+        
         const formData = new FormData();
-        formData.append('file', mainExport.blob, `design-${newArtkeyId}.png`);
+        formData.append('file', blob, `design-${newArtkeyId}.png`);
         formData.append('title', `Design for ${productType} - ${newArtkeyId}`);
         
         const uploadResponse = await fetch('/api/wordpress/media/upload', {
@@ -308,14 +320,19 @@ export default function ProductPage() {
         designData: {
           imageUrl,
           productType,
-          exportedSides: exportData,
+          productSlug: exportData.productSlug,
+          printSpecId: exportData.printSpecId,
+          exportedSides: exportData.exports,
         },
         timestamp: new Date().toISOString(),
       };
       
       localStorage.setItem(`design-${newArtkeyId}`, JSON.stringify(designSaveData));
       
-      // Navigate to ArtKey editor
+      // Store exported sides for Step 3 preview
+      setExportedSides(exportData.exports);
+      
+      // Navigate to Step 3 (preview/confirmation)
       setCurrentStep(3);
     } catch (error) {
       console.error('Error saving design:', error);
