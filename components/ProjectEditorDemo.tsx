@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Image as KonvaImage, Transformer } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Rect, Transformer } from 'react-konva';
 import useImage from 'use-image';
 import { X, Download } from 'lucide-react';
 
@@ -346,12 +346,14 @@ export default function ProjectEditorDemo() {
             >
               <Layer>
                 {/* Background */}
-                <KonvaImage
+                <Rect
                   x={0}
                   y={0}
                   width={STAGE_WIDTH}
                   height={STAGE_HEIGHT}
                   fill="#ffffff"
+                  stroke="#e5e7eb"
+                  strokeWidth={1}
                 />
 
                 {/* Images */}
