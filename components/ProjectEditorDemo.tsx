@@ -172,7 +172,11 @@ export default function ProjectEditorDemo() {
 
   // Image Component
   const ImageComponent = ({ image }: { image: CanvasImage }) => {
-    const [img, status] = useImage(image.url, 'anonymous');
+    // Only set crossOrigin for external URLs, not for blob: or data: URLs
+    const crossOrigin = image.url.startsWith('blob:') || image.url.startsWith('data:') 
+      ? undefined 
+      : 'anonymous';
+    const [img, status] = useImage(image.url, crossOrigin);
     const imageRef = useRef<any>(null);
 
     useEffect(() => {
