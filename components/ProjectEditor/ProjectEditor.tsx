@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Image as KonvaImage, Rect, Transformer } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Rect, Line, Transformer } from 'react-konva';
 import useImage from 'use-image';
-import { Download, X } from 'lucide-react';
+import { Download, X, Eye, EyeOff } from 'lucide-react';
 import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
+import { getPrintSpecForProduct, getPrintSide, type PrintSpec, type PrintSide } from '@/lib/printSpecs';
 
 interface CanvasImage {
   id: string;
@@ -17,13 +18,25 @@ interface CanvasImage {
 }
 
 interface ProjectEditorProps {
+  printSpecId?: string; // Optional: if not provided, will use default
+  productSlug?: string; // Product slug for spec lookup
   onComplete?: (exportData: { side: string; dataUrl: string; blob: Blob }[]) => void;
   onClose?: () => void;
 }
 
-export default function ProjectEditor({ onComplete, onClose }: ProjectEditorProps) {
+export default function ProjectEditor({ 
+  printSpecId, 
+  productSlug,
+  onComplete, 
+  onClose 
+}: ProjectEditorProps) {
   const [images, setImages] = useState<CanvasImage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showBleed, setShowBleed] = useState(false);
+  const [showTrim, setShowTrim] = useState(false);
+  const [showSafe, setShowSafe] = useState(true);
+  const [showFold, setShowFold] = useState(false);
+  const [includeGuidesInExport, setIncludeGuidesInExport] = useState(false);
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
   const imageRefs = useRef<Record<string, any>>({});
@@ -31,10 +44,36 @@ export default function ProjectEditor({ onComplete, onClose }: ProjectEditorProp
   // Get assets from shared store
   const assets = useAssetStore((state) => state.assets);
 
-  // Stage dimensions (simple poster size: 18x24 inches at 300 DPI, scaled down for display)
-  const STAGE_WIDTH = 1800; // 18 inches * 100px per inch (scaled)
-  const STAGE_HEIGHT = 2400; // 24 inches * 100px per inch (scaled)
-  const DISPLAY_SCALE = 0.3; // Scale down for display
+  // Get print spec
+  const printSpec: PrintSpec | undefined = printSpecId
+    ? getPrintSpecForProduct(printSpecId)
+    : productSlug
+    ? getPrintSpecForProduct(productSlug)
+    : getPrintSpec('poster_simple'); // Default fallback
+
+  const currentSide: PrintSide | undefined = printSpec
+    ? getPrintSide(printSpec, 'front')
+    : undefined;
+
+  // Stage dimensions from print spec
+  const STAGE_WIDTH = currentSide?.canvasPx.w || 1800;
+  const STAGE_HEIGHT = currentSide?.canvasPx.h || 2400;
+  
+  // Calculate display scale to fit viewport
+  const [displayScale, setDisplayScale] = useState(0.3);
+  
+  useEffect(() => {
+    if (!currentSide) return;
+    
+    const maxDisplayWidth = window.innerWidth * 0.7;
+    const maxDisplayHeight = window.innerHeight * 0.8;
+    
+    const scaleX = maxDisplayWidth / currentSide.canvasPx.w;
+    const scaleY = maxDisplayHeight / currentSide.canvasPx.h;
+    const scale = Math.min(scaleX, scaleY, 1); // Don't scale up
+    
+    setDisplayScale(scale);
+  }, [currentSide]);
 
   // Update transformer when selection changes
   useEffect(() => {
@@ -67,17 +106,29 @@ export default function ProjectEditor({ onComplete, onClose }: ProjectEditorProp
       const imgWidth = asset.width || img.naturalWidth;
       const imgHeight = asset.height || img.naturalHeight;
 
-      // Calculate scale to fit 80% of stage
-      const maxWidth = STAGE_WIDTH * 0.8;
-      const maxHeight = STAGE_HEIGHT * 0.8;
+      // Calculate scale to fit within SAFE zone (default) or TRIM zone
+      // Use safe zone by default to ensure content is not cut off
+      const safeAreaWidth = currentSide
+        ? currentSide.canvasPx.w - currentSide.safePx * 2
+        : STAGE_WIDTH * 0.9;
+      const safeAreaHeight = currentSide
+        ? currentSide.canvasPx.h - currentSide.safePx * 2
+        : STAGE_HEIGHT * 0.9;
+      
+      const maxWidth = safeAreaWidth * 0.8; // 80% of safe area
+      const maxHeight = safeAreaHeight * 0.8;
       const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
 
       const scaledWidth = imgWidth * scale;
       const scaledHeight = imgHeight * scale;
 
-      // Center on stage
-      const x = (STAGE_WIDTH - scaledWidth) / 2;
-      const y = (STAGE_HEIGHT - scaledHeight) / 2;
+      // Center in safe area
+      const x = currentSide
+        ? currentSide.safePx + (safeAreaWidth - scaledWidth) / 2
+        : (STAGE_WIDTH - scaledWidth) / 2;
+      const y = currentSide
+        ? currentSide.safePx + (safeAreaHeight - scaledHeight) / 2
+        : (STAGE_HEIGHT - scaledHeight) / 2;
 
       const newImage: CanvasImage = {
         id: `img-${Date.now()}-${Math.random()}`,
@@ -147,18 +198,38 @@ export default function ProjectEditor({ onComplete, onClose }: ProjectEditorProp
 
   // Export PNG
   const handleExport = async () => {
-    if (!stageRef.current) {
-      alert('Stage not ready');
+    if (!stageRef.current || !currentSide) {
+      alert('Stage not ready or invalid print spec');
       return;
     }
 
     try {
       const stage = stageRef.current.getStage();
+      const layer = stage.findOne('Layer');
+      
+      // Temporarily hide guides if not including in export
+      const guideObjects: any[] = [];
+      if (!includeGuidesInExport && layer) {
+        layer.find('.guide-overlay').forEach((node: any) => {
+          node.visible(false);
+          guideObjects.push(node);
+        });
+        layer.draw();
+      }
+
       const dataUrl = stage.toDataURL({
-        pixelRatio: 2, // Higher quality
-        width: STAGE_WIDTH,
-        height: STAGE_HEIGHT,
+        pixelRatio: 1, // Use 1 for exact spec dimensions
+        width: currentSide.canvasPx.w,
+        height: currentSide.canvasPx.h,
       });
+
+      // Restore guide visibility
+      if (!includeGuidesInExport && layer) {
+        guideObjects.forEach((node) => {
+          node.visible(true);
+        });
+        layer.draw();
+      }
 
       const response = await fetch(dataUrl);
       const blob = await response.blob();
@@ -174,14 +245,17 @@ export default function ProjectEditor({ onComplete, onClose }: ProjectEditorProp
       } else {
         // Fallback: download directly
         const link = document.createElement('a');
-        link.download = `poster-design-${Date.now()}.png`;
+        link.download = `design-${Date.now()}.png`;
         link.href = dataUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       }
 
-      console.log('[ProjectEditor] Export complete');
+      console.log('[ProjectEditor] Export complete:', {
+        dimensions: { width: currentSide.canvasPx.w, height: currentSide.canvasPx.h },
+        includesGuides: includeGuidesInExport,
+      });
     } catch (error) {
       console.error('[ProjectEditor] Export error:', error);
       alert('Failed to export image');
@@ -326,10 +400,10 @@ export default function ProjectEditor({ onComplete, onClose }: ProjectEditorProp
           <div className="bg-white p-4 rounded-lg shadow-lg">
             <Stage
               ref={stageRef}
-              width={STAGE_WIDTH * DISPLAY_SCALE}
-              height={STAGE_HEIGHT * DISPLAY_SCALE}
-              scaleX={DISPLAY_SCALE}
-              scaleY={DISPLAY_SCALE}
+              width={STAGE_WIDTH * displayScale}
+              height={STAGE_HEIGHT * displayScale}
+              scaleX={displayScale}
+              scaleY={displayScale}
               onClick={(e) => {
                 // Deselect if clicking on empty space
                 const clickedOnEmpty = e.target === e.target.getStage();
@@ -355,6 +429,68 @@ export default function ProjectEditor({ onComplete, onClose }: ProjectEditorProp
                   stroke="#e5e7eb"
                   strokeWidth={1}
                 />
+
+                {/* Print Area Guides */}
+                {currentSide && (
+                  <>
+                    {/* Bleed Guide */}
+                    {showBleed && (
+                      <Rect
+                        name="guide-overlay"
+                        x={-currentSide.bleedPx}
+                        y={-currentSide.bleedPx}
+                        width={currentSide.canvasPx.w + currentSide.bleedPx * 2}
+                        height={currentSide.canvasPx.h + currentSide.bleedPx * 2}
+                        fill="transparent"
+                        stroke="#ef4444"
+                        strokeWidth={1}
+                        dash={[5, 5]}
+                      />
+                    )}
+
+                    {/* Trim Guide */}
+                    {showTrim && (
+                      <Rect
+                        name="guide-overlay"
+                        x={-currentSide.trimPx}
+                        y={-currentSide.trimPx}
+                        width={currentSide.canvasPx.w + currentSide.trimPx * 2}
+                        height={currentSide.canvasPx.h + currentSide.trimPx * 2}
+                        fill="transparent"
+                        stroke="#f59e0b"
+                        strokeWidth={1}
+                        dash={[3, 3]}
+                      />
+                    )}
+
+                    {/* Safe Zone Guide */}
+                    {showSafe && (
+                      <Rect
+                        name="guide-overlay"
+                        x={currentSide.safePx}
+                        y={currentSide.safePx}
+                        width={currentSide.canvasPx.w - currentSide.safePx * 2}
+                        height={currentSide.canvasPx.h - currentSide.safePx * 2}
+                        fill="transparent"
+                        stroke="#10b981"
+                        strokeWidth={1}
+                        dash={[2, 2]}
+                      />
+                    )}
+
+                    {/* Fold Lines */}
+                    {showFold && currentSide.foldLines && currentSide.foldLines.map((fold, idx) => (
+                      <Line
+                        key={`fold-${idx}`}
+                        name="guide-overlay"
+                        points={[fold.x1, fold.y1, fold.x2, fold.y2]}
+                        stroke="#6366f1"
+                        strokeWidth={2}
+                        dash={[10, 5]}
+                      />
+                    ))}
+                  </>
+                )}
 
                 {/* Images */}
                 {images.map((image) => (

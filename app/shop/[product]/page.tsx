@@ -839,6 +839,7 @@ export default function ProductPage() {
             }
           >
             <ProjectEditor
+              productSlug={productType}
               onComplete={handleProjectEditorComplete}
               onClose={() => setCurrentStep(1)}
             />

@@ -79,3 +79,19 @@ export function getPrintSide(spec: PrintSpec, sideId: 'front' | 'inside' | 'back
   return spec.sides.find((s) => s.id === sideId);
 }
 
+// Map product slug/type to print spec ID
+// This is a simple mapping - can be enhanced later with variationId support
+export function getPrintSpecForProduct(productSlugOrId: string, variationId?: string): PrintSpec | undefined {
+  const mapping: Record<string, string> = {
+    poster: 'poster_simple',
+    print: 'poster_simple',
+    card: 'greeting_card_bifold',
+    invitation: 'greeting_card_bifold',
+    announcement: 'greeting_card_bifold',
+    postcard: 'poster_simple', // Postcards use simple poster spec
+  };
+
+  const specId = mapping[productSlugOrId] || 'poster_simple';
+  return getPrintSpec(specId);
+}
+
