@@ -46,7 +46,12 @@ interface UploadedAsset {
 - Tracks file metadata
 - Better error handling
 
-### 3. Implemented `addUploadedImageToCanvas()` Function
+### 3. Wired Thumbnail Click
+- Thumbnail click → `addUploadedImageToCanvas(asset)` - the missing bridge
+- Proper event handler with asset ID tracking
+- Logging for debugging
+
+### 4. Implemented `addUploadedImageToCanvas()` Function
 
 **Key Features:**
 - ✅ Guards against null canvas
@@ -60,7 +65,7 @@ interface UploadedAsset {
 - ✅ Triggers render with `requestRenderAll()`
 - ✅ Comprehensive error handling and logging
 
-### 4. Fixed Common Failure Modes
+### 5. Fixed Common Failure Modes
 
 **Data URL Handling:**
 - ✅ Uses `fabric.Image.fromURL()` which works with data URLs in v6
@@ -86,7 +91,7 @@ interface UploadedAsset {
 - ✅ Uses `canvas.bringToFront()` to ensure image is visible
 - ✅ Sets opacity to 1 explicitly
 
-### 5. Added Instrumentation
+### 6. Added Instrumentation
 
 **Development Logging:**
 - `[UPLOAD]` - File selection and storage
@@ -99,7 +104,11 @@ interface UploadedAsset {
 - Lists all assets with IDs
 - Only visible in development mode
 
-### 6. Memory Cleanup
+### 7. Memory Cleanup & Object URL Safety
+- Revokes object URLs on unmount (safe pattern)
+- **IMPORTANT**: Only revokes AFTER image is fully loaded and added to canvas
+- Never revokes immediately after setting `img.src` - Fabric needs the URL for rendering
+- Currently uses data URLs (not object URLs), but handles future object URL usage safely
 - Revokes object URLs on unmount
 - Prevents memory leaks
 
