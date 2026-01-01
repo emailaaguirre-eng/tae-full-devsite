@@ -17,6 +17,11 @@ interface CanvasImage {
   rotation: number;
 }
 
+interface SceneState {
+  images: CanvasImage[];
+  selectedId: string | null;
+}
+
 interface ProjectEditorProps {
   printSpecId?: string; // Optional: if not provided, will use default
   productSlug?: string; // Product slug for spec lookup
@@ -30,8 +35,9 @@ export default function ProjectEditor({
   onComplete, 
   onClose 
 }: ProjectEditorProps) {
-  const [images, setImages] = useState<CanvasImage[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Per-side scene state
+  const [sideScenes, setSideScenes] = useState<Record<string, SceneState>>({});
+  const [activeSideId, setActiveSideId] = useState<string>('front');
   const [showBleed, setShowBleed] = useState(false);
   const [showTrim, setShowTrim] = useState(false);
   const [showSafe, setShowSafe] = useState(true);
@@ -51,9 +57,32 @@ export default function ProjectEditor({
     ? getPrintSpecForProduct(productSlug)
     : getPrintSpec('poster_simple'); // Default fallback
 
+  // Initialize side scenes if not already initialized
+  useEffect(() => {
+    if (printSpec && Object.keys(sideScenes).length === 0) {
+      const initialScenes: Record<string, SceneState> = {};
+      printSpec.sides.forEach((side) => {
+        initialScenes[side.id] = {
+          images: [],
+          selectedId: null,
+        };
+      });
+      setSideScenes(initialScenes);
+      // Set active side to first side
+      if (printSpec.sides.length > 0) {
+        setActiveSideId(printSpec.sides[0].id);
+      }
+    }
+  }, [printSpec, sideScenes]);
+
   const currentSide: PrintSide | undefined = printSpec
-    ? getPrintSide(printSpec, 'front')
+    ? getPrintSide(printSpec, activeSideId as 'front' | 'inside' | 'back')
     : undefined;
+
+  // Get current side's scene state
+  const currentScene = sideScenes[activeSideId] || { images: [], selectedId: null };
+  const images = currentScene.images;
+  const selectedId = currentScene.selectedId;
 
   // Stage dimensions from print spec
   const STAGE_WIDTH = currentSide?.canvasPx.w || 1800;
@@ -87,7 +116,7 @@ export default function ProjectEditor({
     } else {
       transformerRef.current.nodes([]);
     }
-  }, [selectedId]);
+  }, [selectedId, activeSideId]); // Include activeSideId to update when switching sides
 
   // Handle thumbnail click - add image to canvas
   const handleThumbnailClick = (asset: UploadedAsset) => {
@@ -143,12 +172,20 @@ export default function ProjectEditor({
       console.log('[ProjectEditor] Adding image to canvas:', {
         id: newImage.id,
         assetId: asset.id,
+        side: activeSideId,
         position: { x, y },
         size: { width: scaledWidth, height: scaledHeight },
       });
 
-      setImages((prev) => [...prev, newImage]);
-      setSelectedId(newImage.id);
+      // Add image to current side's scene
+      setSideScenes((prev) => ({
+        ...prev,
+        [activeSideId]: {
+          ...prev[activeSideId],
+          images: [...(prev[activeSideId]?.images || []), newImage],
+          selectedId: newImage.id,
+        },
+      }));
     };
     img.onerror = () => {
       console.error('[ProjectEditor] Failed to load image:', asset.src);
@@ -160,57 +197,85 @@ export default function ProjectEditor({
   // Handle image drag end
   const handleDragEnd = (imageId: string, e: any) => {
     const node = e.target;
-    setImages((prev) =>
-      prev.map((img) =>
-        img.id === imageId
-          ? {
-              ...img,
-              x: node.x(),
-              y: node.y(),
-            }
-          : img
-      )
-    );
+    setSideScenes((prev) => ({
+      ...prev,
+      [activeSideId]: {
+        ...prev[activeSideId],
+        images: (prev[activeSideId]?.images || []).map((img) =>
+          img.id === imageId
+            ? {
+                ...img,
+                x: node.x(),
+                y: node.y(),
+              }
+            : img
+        ),
+      },
+    }));
   };
 
   // Handle image transform end
   const handleTransformEnd = (imageId: string, e: any) => {
     const node = e.target;
-    setImages((prev) =>
-      prev.map((img) =>
-        img.id === imageId
-          ? {
-              ...img,
-              x: node.x(),
-              y: node.y(),
-              width: node.width() * node.scaleX(),
-              height: node.height() * node.scaleY(),
-              rotation: node.rotation(),
-            }
-          : img
-      )
-    );
+    setSideScenes((prev) => ({
+      ...prev,
+      [activeSideId]: {
+        ...prev[activeSideId],
+        images: (prev[activeSideId]?.images || []).map((img) =>
+          img.id === imageId
+            ? {
+                ...img,
+                x: node.x(),
+                y: node.y(),
+                width: node.width() * node.scaleX(),
+                height: node.height() * node.scaleY(),
+                rotation: node.rotation(),
+              }
+            : img
+        ),
+      },
+    }));
 
     // Reset scale after transform
     node.scaleX(1);
     node.scaleY(1);
   };
 
-  // Export PNG
-  const handleExport = async () => {
-    if (!stageRef.current || !currentSide) {
-      alert('Stage not ready or invalid print spec');
-      return;
+  // Handle side switch
+  const handleSideSwitch = (sideId: string) => {
+    setActiveSideId(sideId);
+    // Clear selection when switching sides
+    setSideScenes((prev) => ({
+      ...prev,
+      [sideId]: {
+        ...prev[sideId] || { images: [], selectedId: null },
+        selectedId: null,
+      },
+    }));
+  };
+
+  // Export single side
+  const exportSide = async (sideId: string): Promise<{ side: string; dataUrl: string; blob: Blob } | null> => {
+    if (!stageRef.current || !printSpec) return null;
+
+    const side = getPrintSide(printSpec, sideId as 'front' | 'inside' | 'back');
+    if (!side) return null;
+
+    // Temporarily switch to this side to render it
+    const wasActiveSide = activeSideId;
+    if (wasActiveSide !== sideId) {
+      setActiveSideId(sideId);
+      // Wait for render
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
     try {
       const stage = stageRef.current.getStage();
-      const layer = stage.getLayers()[0]; // Get the first layer
+      const layer = stage.getLayers()[0];
       
       // Temporarily hide guides if not including in export
       const guideObjects: any[] = [];
       if (!includeGuidesInExport && layer) {
-        // Find all guide overlays by name
         const allNodes = layer.getChildren();
         allNodes.forEach((node: any) => {
           if (node.name() === 'guide-overlay') {
@@ -222,9 +287,9 @@ export default function ProjectEditor({
       }
 
       const dataUrl = stage.toDataURL({
-        pixelRatio: 1, // Use 1 for exact spec dimensions
-        width: currentSide.canvasPx.w,
-        height: currentSide.canvasPx.h,
+        pixelRatio: 1,
+        width: side.canvasPx.w,
+        height: side.canvasPx.h,
       });
 
       // Restore guide visibility
@@ -238,31 +303,87 @@ export default function ProjectEditor({
       const response = await fetch(dataUrl);
       const blob = await response.blob();
 
+      // Restore active side if we switched
+      if (wasActiveSide !== sideId) {
+        setActiveSideId(wasActiveSide);
+      }
+
+      return {
+        side: sideId,
+        dataUrl,
+        blob,
+      };
+    } catch (error) {
+      console.error(`[ProjectEditor] Export error for side ${sideId}:`, error);
+      // Restore active side if we switched
+      if (wasActiveSide !== sideId) {
+        setActiveSideId(wasActiveSide);
+      }
+      return null;
+    }
+  };
+
+  // Export active side
+  const handleExportActiveSide = async () => {
+    const result = await exportSide(activeSideId);
+    if (result) {
       if (onComplete) {
-        onComplete([
-          {
-            side: 'front',
-            dataUrl,
-            blob,
-          },
-        ]);
+        onComplete([result]);
       } else {
         // Fallback: download directly
         const link = document.createElement('a');
-        link.download = `design-${Date.now()}.png`;
-        link.href = dataUrl;
+        link.download = `${printSpec?.id || 'design'}_${activeSideId}_${Date.now()}.png`;
+        link.href = result.dataUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       }
-
       console.log('[ProjectEditor] Export complete:', {
-        dimensions: { width: currentSide.canvasPx.w, height: currentSide.canvasPx.h },
+        side: activeSideId,
+        dimensions: currentSide?.canvasPx,
         includesGuides: includeGuidesInExport,
       });
-    } catch (error) {
-      console.error('[ProjectEditor] Export error:', error);
+    } else {
       alert('Failed to export image');
+    }
+  };
+
+  // Export all sides
+  const handleExportAllSides = async () => {
+    if (!printSpec) {
+      alert('No print spec available');
+      return;
+    }
+
+    const results: { side: string; dataUrl: string; blob: Blob }[] = [];
+    
+    for (const side of printSpec.sides) {
+      const result = await exportSide(side.id);
+      if (result) {
+        results.push(result);
+      }
+    }
+
+    if (results.length > 0) {
+      if (onComplete) {
+        onComplete(results);
+      } else {
+        // Fallback: download all
+        results.forEach((result) => {
+          const link = document.createElement('a');
+          link.download = `${printSpec.id}_${result.side}_${Date.now()}.png`;
+          link.href = result.dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        });
+      }
+      console.log('[ProjectEditor] Export all sides complete:', {
+        sides: results.map((r) => r.side),
+        includesGuides: includeGuidesInExport,
+      });
+    } else {
+      alert('Failed to export images');
     }
   };
 
@@ -324,10 +445,22 @@ export default function ProjectEditor({
         draggable
         onClick={() => {
           console.log('[ProjectEditor] Image clicked:', image.id);
-          setSelectedId(image.id);
+          setSideScenes((prev) => ({
+            ...prev,
+            [activeSideId]: {
+              ...prev[activeSideId],
+              selectedId: image.id,
+            },
+          }));
         }}
         onTap={() => {
-          setSelectedId(image.id);
+          setSideScenes((prev) => ({
+            ...prev,
+            [activeSideId]: {
+              ...prev[activeSideId],
+              selectedId: image.id,
+            },
+          }));
         }}
         onDragEnd={(e) => handleDragEnd(image.id, e)}
         onTransformEnd={(e) => handleTransformEnd(image.id, e)}
@@ -336,7 +469,7 @@ export default function ProjectEditor({
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
+      <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
       {/* Header */}
       <div className="bg-gray-800 text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -345,6 +478,25 @@ export default function ProjectEditor({
             <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded">
               <X className="w-5 h-5" />
             </button>
+          )}
+          
+          {/* Side Tabs */}
+          {printSpec && printSpec.sides.length > 1 && (
+            <div className="flex gap-2 ml-4 border-l border-gray-600 pl-4">
+              {printSpec.sides.map((side) => (
+                <button
+                  key={side.id}
+                  onClick={() => handleSideSwitch(side.id)}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    activeSideId === side.id
+                      ? 'bg-gray-700 text-white'
+                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  }`}
+                >
+                  {side.id.charAt(0).toUpperCase() + side.id.slice(1)}
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
@@ -390,13 +542,34 @@ export default function ProjectEditor({
             />
             <span>Include guides</span>
           </label>
-          <button
-            onClick={handleExport}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export PNG
-          </button>
+          {printSpec && printSpec.sides.length > 1 ? (
+            <>
+              <button
+                onClick={handleExportActiveSide}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 flex items-center gap-2"
+                title={`Export ${activeSideId} side`}
+              >
+                <Download className="w-4 h-4" />
+                Export {activeSideId.charAt(0).toUpperCase() + activeSideId.slice(1)}
+              </button>
+              <button
+                onClick={handleExportAllSides}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center gap-2"
+                title="Export all sides"
+              >
+                <Download className="w-4 h-4" />
+                Export All
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleExportActiveSide}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export PNG
+            </button>
+          )}
         </div>
       </div>
 
