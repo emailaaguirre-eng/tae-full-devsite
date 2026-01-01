@@ -209,49 +209,52 @@ export default function ProjectEditor({
     img.src = asset.src;
   };
 
-  // Handle image drag end
-  const handleDragEnd = (imageId: string, e: any) => {
+  // Handle object drag end
+  const handleDragEnd = (objectId: string, e: any) => {
     const node = e.target;
-    setSideScenes((prev) => ({
+    setSideStateById((prev) => ({
       ...prev,
       [activeSideId]: {
-        ...prev[activeSideId],
-        images: (prev[activeSideId]?.images || []).map((img) =>
-          img.id === imageId
+        ...prev[activeSideId] || { objects: [], selectedId: undefined },
+        objects: (prev[activeSideId]?.objects || []).map((obj) =>
+          obj.id === objectId
             ? {
-                ...img,
+                ...obj,
                 x: node.x(),
                 y: node.y(),
               }
-            : img
+            : obj
         ),
       },
     }));
   };
 
-  // Handle image transform end
-  const handleTransformEnd = (imageId: string, e: any) => {
+  // Handle object transform end
+  const handleTransformEnd = (objectId: string, e: any) => {
     const node = e.target;
-    setSideScenes((prev) => ({
+    setSideStateById((prev) => ({
       ...prev,
       [activeSideId]: {
-        ...prev[activeSideId],
-        images: (prev[activeSideId]?.images || []).map((img) =>
-          img.id === imageId
+        ...prev[activeSideId] || { objects: [], selectedId: undefined },
+        objects: (prev[activeSideId]?.objects || []).map((obj) =>
+          obj.id === objectId
             ? {
-                ...img,
+                ...obj,
                 x: node.x(),
                 y: node.y(),
-                width: node.width() * node.scaleX(),
-                height: node.height() * node.scaleY(),
+                scaleX: node.scaleX(),
+                scaleY: node.scaleY(),
                 rotation: node.rotation(),
+                // Update width/height if stored
+                width: obj.width ? obj.width * node.scaleX() : undefined,
+                height: obj.height ? obj.height * node.scaleY() : undefined,
               }
-            : img
+            : obj
         ),
       },
     }));
 
-    // Reset scale after transform
+    // Reset scale after transform (Konva stores transform in scaleX/Y)
     node.scaleX(1);
     node.scaleY(1);
   };
