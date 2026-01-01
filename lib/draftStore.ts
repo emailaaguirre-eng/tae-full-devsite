@@ -7,9 +7,15 @@ const DB_VERSION = 1;
 
 // Minimal IndexedDB wrapper (no external dependencies)
 async function openDB(): Promise<IDBDatabase | null> {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || !window.indexedDB) {
+    console.warn('[DraftStore] IndexedDB not available (server-side or unsupported)');
+    return null;
+  }
+
   return new Promise((resolve, reject) => {
     try {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      const request = window.indexedDB.open(DB_NAME, DB_VERSION);
       
       request.onerror = () => {
         console.warn('[DraftStore] Failed to open IndexedDB:', request.error);

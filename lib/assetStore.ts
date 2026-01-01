@@ -56,9 +56,9 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
   removeAsset: (assetId: string) => {
     set((state) => {
       const asset = state.assets.find((a) => a.id === assetId);
-      // Revoke object URL if it exists
-      if (asset?.objectUrl) {
-        URL.revokeObjectURL(asset.objectUrl);
+      // Revoke object URL if it exists (browser only)
+      if (asset?.objectUrl && typeof window !== 'undefined' && window.URL) {
+        window.URL.revokeObjectURL(asset.objectUrl);
       }
       return {
         assets: state.assets.filter((a) => a.id !== assetId),
@@ -68,12 +68,14 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
 
   clearAssets: () => {
     set((state) => {
-      // Revoke all object URLs
-      state.assets.forEach((asset) => {
-        if (asset.objectUrl) {
-          URL.revokeObjectURL(asset.objectUrl);
-        }
-      });
+      // Revoke all object URLs (browser only)
+      if (typeof window !== 'undefined' && window.URL) {
+        state.assets.forEach((asset) => {
+          if (asset.objectUrl) {
+            window.URL.revokeObjectURL(asset.objectUrl);
+          }
+        });
+      }
       return {
         assets: [],
       };
