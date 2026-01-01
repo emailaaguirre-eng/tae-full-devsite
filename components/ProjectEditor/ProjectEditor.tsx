@@ -189,7 +189,6 @@ export default function ProjectEditor({
     try {
       // Get assets from store and convert to persisted format
       const currentAssets = assets;
-      const { DRAFT_ASSETS_SIZE_CAP } = await import('@/lib/draftStore');
       
       let persistedAssets: PersistedAsset[] = [];
       let assetsPartial = false;
