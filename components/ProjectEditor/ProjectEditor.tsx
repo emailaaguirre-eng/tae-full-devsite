@@ -868,7 +868,7 @@ export default function ProjectEditor({
         scaleX={object.scaleX}
         scaleY={object.scaleY}
         rotation={object.rotation}
-        opacity={object.opacity || 0.3}
+        opacity={object.opacity ?? 0.3}
         draggable={!object.locked}
         onClick={() => {
           setSideStateById((prev) => ({
