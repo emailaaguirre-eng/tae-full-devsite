@@ -107,7 +107,7 @@ export async function getGelatoProducts() {
 }
 
 /**
- * Get product details including pricing
+ * Get product details including pricing and print specifications
  */
 export async function getGelatoProductDetails(productUid: string) {
   try {
@@ -126,6 +126,38 @@ export async function getGelatoProductDetails(productUid: string) {
   } catch (error) {
     console.error('Error fetching product details:', error);
     throw error;
+  }
+}
+
+/**
+ * Get print specifications from Gelato product details
+ * Returns print area, bleed, trim, safe zones, and fold information
+ */
+export async function getGelatoPrintSpecs(productUid: string) {
+  try {
+    const productDetails = await getGelatoProductDetails(productUid);
+    
+    // Gelato API structure may vary - parse common fields
+    // Typical structure includes:
+    // - dimensions (width, height in mm)
+    // - printArea (printable area)
+    // - bleed (bleed requirements)
+    // - fold (fold information for cards)
+    
+    const specs: any = {
+      productUid,
+      dimensions: productDetails.dimensions || productDetails.size,
+      printArea: productDetails.printArea || productDetails.print_area,
+      bleed: productDetails.bleed || productDetails.bleedRequirements,
+      trim: productDetails.trim || productDetails.trimSize,
+      safeZone: productDetails.safeZone || productDetails.safe_area,
+      fold: productDetails.fold || productDetails.foldLines,
+    };
+    
+    return specs;
+  } catch (error) {
+    console.error('Error fetching Gelato print specs:', error);
+    return null;
   }
 }
 
