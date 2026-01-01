@@ -648,6 +648,9 @@ export default function ProjectEditor({
     // Check if QR already exists on active side
     const existingQR = objects.find(obj => obj.type === 'qr' && obj.sideId === activeSideId);
     
+    // Determine target side (default to active side, or switch to default if no QR exists anywhere)
+    let targetSideId = activeSideId;
+    
     // If no QR exists on any allowed side, switch to default side
     if (!existingQR) {
       const qrOnAnyAllowedSide = editorConfig.allowedSidesForQR.some(sideId => {
@@ -659,26 +662,27 @@ export default function ProjectEditor({
         // Switch to default QR side
         const defaultSide = getDefaultQrSide();
         if (defaultSide !== activeSideId) {
+          targetSideId = defaultSide;
           handleSideSwitch(defaultSide);
-          // Wait for side switch to complete
+          // Wait for side switch to complete (React state update)
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
     }
 
-    // Get current side after potential switch
-    const targetSide = printSpec.sides.find(s => s.id === activeSideId);
+    // Get current side (use targetSideId to avoid race condition)
+    const targetSide = printSpec.sides.find(s => s.id === targetSideId);
     if (!targetSide) return;
+    
+    // Get objects for the target side (after potential switch)
+    const targetSideObjects = sideStateById[targetSideId]?.objects || [];
 
     const qrUrl = getDefaultArtKeyUrl(editorConfig.artKeyUrlPlaceholder);
     let qrSize = 100; // Default QR size in pixels
     
     try {
-      // Get current side's objects (after potential switch)
-      const currentSideObjects = sideStateById[activeSideId]?.objects || [];
-      
-      // Get skeleton key to find target position
-      const skeletonKey = currentSideObjects.find(obj => obj.type === 'skeletonKey');
+      // Get skeleton key to find target position (use targetSideId)
+      const skeletonKey = targetSideObjects.find(obj => obj.type === 'skeletonKey');
       let qrX = targetSide.canvasPx.w / 2;
       let qrY = targetSide.canvasPx.h / 2;
 
@@ -708,15 +712,15 @@ export default function ProjectEditor({
       const qrDataUrl = await generateQRCode(qrUrl, qrSize, 4);
 
       // Remove existing QR on this side if any (regenerating)
-      const existingQROnSide = currentSideObjects.find(obj => obj.type === 'qr' && obj.sideId === activeSideId);
+      const existingQROnSide = targetSideObjects.find(obj => obj.type === 'qr' && obj.sideId === targetSideId);
       const filteredObjects = existingQROnSide
-        ? currentSideObjects.filter(obj => obj.id !== existingQROnSide.id)
-        : currentSideObjects;
+        ? targetSideObjects.filter(obj => obj.id !== existingQROnSide.id)
+        : targetSideObjects;
 
       const newQR: EditorObject = {
         id: `qr-${Date.now()}-${Math.random()}`,
         type: 'qr',
-        sideId: activeSideId as 'front' | 'inside' | 'back',
+        sideId: targetSideId as 'front' | 'inside' | 'back',
         url: qrUrl,
         src: qrDataUrl,
         x: qrX,
@@ -731,8 +735,8 @@ export default function ProjectEditor({
       setSideStateById((prev) => {
         const newState = {
           ...prev,
-          [activeSideId]: {
-            ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+          [targetSideId]: {
+            ...prev[targetSideId] || { objects: [], selectedId: undefined, template: undefined },
             objects: [...filteredObjects, newQR],
             selectedId: newQR.id,
           },
