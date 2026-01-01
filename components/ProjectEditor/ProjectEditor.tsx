@@ -104,7 +104,10 @@ export default function ProjectEditor({
   const assets = useAssetStore((state) => state.assets);
 
   // Get print spec with error handling
-  const printSpecResult: PrintSpecResult = printSpecId
+  // Priority: gelatoVariantUid > printSpecId > productSlug
+  const printSpecResult: PrintSpecResult = gelatoVariantUid
+    ? getPrintSpecForProduct(productSlug || 'unknown', undefined, gelatoVariantUid)
+    : printSpecId
     ? getPrintSpecForProduct(printSpecId)
     : productSlug
     ? getPrintSpecForProduct(productSlug)
@@ -1580,9 +1583,10 @@ export default function ProjectEditor({
                 <p>This product format requires a specific print specification that hasn't been configured yet.</p>
                 <p className="mt-2">Export and continue actions are disabled until this is resolved.</p>
               </div>
-              {productSlug && (
+              {(productSlug || gelatoVariantUid) && (
                 <div className="text-xs text-gray-400 bg-gray-100 p-3 rounded mb-4">
-                  <p className="font-mono">Product: {productSlug}</p>
+                  {productSlug && <p className="font-mono">Product: {productSlug}</p>}
+                  {gelatoVariantUid && <p className="font-mono">Variant UID: {gelatoVariantUid}</p>}
                   {printSpecId && <p className="font-mono">Spec ID: {printSpecId}</p>}
                 </div>
               )}
