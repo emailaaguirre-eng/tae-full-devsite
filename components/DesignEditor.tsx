@@ -419,22 +419,23 @@ export default function DesignEditor({
 
     try {
       // Step 2: Create HTMLImageElement and wait for onload
-      const imgElement = document.createElement('img');
+      // Clear variable naming: htmlImgElement for HTML element, fabricImg for Fabric object
+      const htmlImgElement = document.createElement('img');
       
       // Step 3: Handle different src types
       if (asset.src.startsWith('data:')) {
         // Data URL - no CORS needed
         if (isDev) console.log('[CANVAS] Loading data URL image...');
-        imgElement.src = asset.src;
+        htmlImgElement.src = asset.src;
       } else if (asset.src.startsWith('blob:')) {
         // Object URL - no CORS needed
         if (isDev) console.log('[CANVAS] Loading object URL image...');
-        imgElement.src = asset.src;
+        htmlImgElement.src = asset.src;
       } else {
         // External URL - may need CORS
         if (isDev) console.log('[CANVAS] Loading external URL image...');
-        imgElement.crossOrigin = 'anonymous';
-        imgElement.src = asset.src;
+        htmlImgElement.crossOrigin = 'anonymous';
+        htmlImgElement.src = asset.src;
       }
 
       // Wait for image to load
@@ -443,18 +444,18 @@ export default function DesignEditor({
           reject(new Error('Image load timeout after 10 seconds'));
         }, 10000);
 
-        imgElement.onload = () => {
+        htmlImgElement.onload = () => {
           clearTimeout(timeout);
           if (isDev) console.log('[CANVAS] Image loaded:', {
-            naturalWidth: imgElement.naturalWidth,
-            naturalHeight: imgElement.naturalHeight,
-            width: imgElement.width,
-            height: imgElement.height
+            naturalWidth: htmlImgElement.naturalWidth,
+            naturalHeight: htmlImgElement.naturalHeight,
+            width: htmlImgElement.width,
+            height: htmlImgElement.height
           });
           resolve();
         };
 
-        imgElement.onerror = (error) => {
+        htmlImgElement.onerror = (error) => {
           clearTimeout(timeout);
           if (isDev) console.error('[CANVAS] Image load error:', error);
           reject(new Error('Failed to load image'));
@@ -463,6 +464,7 @@ export default function DesignEditor({
 
       // Step 4: Create fabric.Image from loaded element
       // In fabric.js v6, we can use fromURL with the data URL or create from element
+      // Clear variable naming: fabricImg for the Fabric.Image instance
       if (isDev) console.log('[CANVAS] Creating fabric.Image from element...');
       
       let fabricImg: fabric.Image;
@@ -472,9 +474,9 @@ export default function DesignEditor({
         fabricImg = await fabric.Image.fromURL(asset.src);
         if (isDev) console.log('[CANVAS] Created fabric.Image via fromURL');
       } catch (err) {
-        // Fallback: create from element
+        // Fallback: create from element (using htmlImgElement, not imgElement)
         if (isDev) console.log('[CANVAS] fromURL failed, creating from element...');
-        fabricImg = new fabric.Image(imgElement, {
+        fabricImg = new fabric.Image(htmlImgElement, {
           selectable: true,
           evented: true,
           lockMovementX: false,
@@ -503,8 +505,8 @@ export default function DesignEditor({
       // Ensure dimensions are set
       if (!fabricImg.width || !fabricImg.height) {
         fabricImg.set({
-          width: imgElement.naturalWidth || 100,
-          height: imgElement.naturalHeight || 100
+          width: htmlImgElement.naturalWidth || 100,
+          height: htmlImgElement.naturalHeight || 100
         });
       }
 
@@ -543,8 +545,25 @@ export default function DesignEditor({
       canvas.add(fabricImg);
       
       // Step 8: Bring to front to ensure it's not behind background rects
-      // This ensures the image is on the active layer and visible
-      canvas.bringToFront(fabricImg);
+      // Fabric.js v6 API: Use canvas.bringObjectToFront() or fabricImg.bringToFront()
+      // Add guard to prevent errors if method doesn't exist
+      try {
+        if (typeof canvas.bringObjectToFront === 'function') {
+          // Preferred: canvas method (fabric.js v6)
+          canvas.bringObjectToFront(fabricImg);
+          if (isDev) console.log('[CANVAS] Brought to front via canvas.bringObjectToFront()');
+        } else if (typeof fabricImg.bringToFront === 'function') {
+          // Fallback: object method (if available)
+          fabricImg.bringToFront();
+          if (isDev) console.log('[CANVAS] Brought to front via fabricImg.bringToFront()');
+        } else {
+          // If neither method exists, skip (image will still be added)
+          if (isDev) console.warn('[CANVAS] bringToFront methods not available, skipping (image still added)');
+        }
+      } catch (bringToFrontError) {
+        // Guard: Don't fail if bringToFront doesn't work
+        if (isDev) console.warn('[CANVAS] Error bringing to front (non-fatal):', bringToFrontError);
+      }
       
       // Step 9: Make it the active/selected object
       canvas.setActiveObject(fabricImg);
