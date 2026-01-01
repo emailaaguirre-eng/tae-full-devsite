@@ -1114,10 +1114,29 @@ export default function ProjectEditor({
         {/* Filled image with clipping */}
         {frameFill.assetSrc && (
           <Group
-            clipX={contentX - frameX}
-            clipY={contentY - frameY}
-            clipWidth={contentWidth}
-            clipHeight={frameDef.shape === 'circle' ? contentWidth : imageHeight}
+            clipFunc={(ctx) => {
+              if (frameDef.shape === 'circle') {
+                const radius = Math.min(contentWidth, imageHeight) / 2;
+                ctx.beginPath();
+                ctx.arc(
+                  contentX - frameX + radius,
+                  contentY - frameY + radius,
+                  radius,
+                  0,
+                  Math.PI * 2
+                );
+                ctx.clip();
+              } else {
+                ctx.beginPath();
+                ctx.rect(
+                  contentX - frameX,
+                  contentY - frameY,
+                  contentWidth,
+                  imageHeight
+                );
+                ctx.clip();
+              }
+            }}
           >
             <Group
               x={contentX - frameX}
