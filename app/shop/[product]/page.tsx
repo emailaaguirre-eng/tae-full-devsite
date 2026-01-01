@@ -863,7 +863,7 @@ export default function ProductPage() {
           </ErrorBoundary>
         )}
 
-        {/* Step 3: ArtKey Transition */}
+        {/* Step 3: Export Preview & ArtKey Transition */}
         {currentStep === 3 && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
@@ -872,19 +872,57 @@ export default function ProductPage() {
                 Design Complete!
               </h2>
               <p className="text-lg text-brand-dark mb-8">
-                Your design has been saved. Continue to the ArtKey Portal to add digital experiences.
+                Review your exported design{exportedSides.length > 1 ? ' sides' : ''} before proceeding.
               </p>
+              
+              {/* Export Preview Thumbnails */}
+              {exportedSides.length > 0 && (
+                <div className="mb-8">
+                  <h3 className="text-xl font-semibold text-brand-darkest mb-4">
+                    Exported {exportedSides.length > 1 ? 'Sides' : 'Design'}
+                  </h3>
+                  <div className={`grid gap-4 ${exportedSides.length === 1 ? 'grid-cols-1 max-w-md mx-auto' : 'grid-cols-1 sm:grid-cols-3'}`}>
+                    {exportedSides.map((exportItem, idx) => (
+                      <div key={idx} className="bg-white rounded-lg shadow-md p-4 border border-gray-200">
+                        <div className="aspect-square mb-3 bg-gray-100 rounded-lg overflow-hidden">
+                          <img
+                            src={exportItem.dataUrl}
+                            alt={`${exportItem.sideId} side`}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          <p className="font-semibold capitalize">{exportItem.sideId}</p>
+                          <p className="text-xs text-gray-500">
+                            {Math.round(exportItem.width)} × {Math.round(exportItem.height)} px
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <div className="bg-brand-lightest rounded-xl p-6 mb-8">
                 <p className="text-brand-darkest">
                   <strong>ArtKey ID:</strong> {artkeyId}
                 </p>
               </div>
-              <button
-                onClick={goToArtKeyEditor}
-                className="px-8 py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark transition-colors"
-              >
-                Continue to ArtKey Portal
-              </button>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <button
+                  onClick={() => setCurrentStep(2)}
+                  className="px-8 py-4 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 transition-colors"
+                >
+                  Back to Editor
+                </button>
+                <button
+                  onClick={goToArtKeyEditor}
+                  className="px-8 py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark transition-colors"
+                >
+                  Continue to ArtKey Portal
+                </button>
+              </div>
             </div>
           </div>
         )}
