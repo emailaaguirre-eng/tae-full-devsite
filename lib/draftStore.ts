@@ -33,6 +33,16 @@ async function openDB(): Promise<IDBDatabase | null> {
   });
 }
 
+export interface PersistedAsset {
+  id: string;
+  name: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  dataUrl: string;
+  bytesApprox: number;
+}
+
 export interface DraftData {
   version: number;
   productSlug: string;
@@ -51,8 +61,13 @@ export interface DraftData {
     selectedId?: string;
     template?: any;
   }>;
+  persistedAssets?: PersistedAsset[];
+  assetsPartial?: boolean; // true if some assets couldn't be persisted due to size cap
   updatedAt: number;
 }
+
+// Size cap constant (60MB default)
+export const DRAFT_ASSETS_SIZE_CAP = 60 * 1024 * 1024; // 60MB in bytes
 
 /**
  * Save draft to IndexedDB

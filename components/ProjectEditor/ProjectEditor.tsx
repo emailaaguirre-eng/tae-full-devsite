@@ -187,6 +187,44 @@ export default function ProjectEditor({
     if (!printSpec || !productSlug) return;
 
     try {
+      // Get assets from store and convert to persisted format
+      const currentAssets = assets;
+      const { DRAFT_ASSETS_SIZE_CAP } = await import('@/lib/draftStore');
+      
+      let persistedAssets: PersistedAsset[] = [];
+      let assetsPartial = false;
+      let totalBytes = 0;
+
+      for (const asset of currentAssets) {
+        // Skip if already a data URL (from restore) or if we can't persist it
+        if (!asset.dataUrl) {
+          // This asset wasn't converted to data URL (shouldn't happen, but handle gracefully)
+          assetsPartial = true;
+          continue;
+        }
+
+        const assetBytes = asset.bytesApprox || 0;
+        
+        // Check size cap
+        if (totalBytes + assetBytes > DRAFT_ASSETS_SIZE_CAP) {
+          assetsPartial = true;
+          console.warn(`[ProjectEditor] Asset ${asset.name} exceeds size cap, skipping persistence`);
+          continue;
+        }
+
+        persistedAssets.push({
+          id: asset.id,
+          name: asset.name,
+          mimeType: asset.mimeType,
+          width: asset.width,
+          height: asset.height,
+          dataUrl: asset.dataUrl,
+          bytesApprox: assetBytes,
+        });
+
+        totalBytes += assetBytes;
+      }
+
       const draftData: DraftData = {
         version: 1,
         productSlug,
@@ -201,11 +239,21 @@ export default function ProjectEditor({
           showQRTarget,
         },
         sideStateById: JSON.parse(JSON.stringify(sideStateById)), // Deep clone to remove refs
+        persistedAssets,
+        assetsPartial,
         updatedAt: Date.now(),
       };
 
       const draftKey = getDraftKey(productSlug);
       await saveDraft(draftKey, draftData);
+
+      // Update assetsPartial state if needed
+      if (assetsPartial && persistedAssets.length < currentAssets.length) {
+        setAssetsPartial(true);
+        console.warn('[ProjectEditor] Some assets were too large to persist locally');
+      } else {
+        setAssetsPartial(false);
+      }
     } catch (error) {
       console.warn('[ProjectEditor] Autosave failed:', error);
       // Fail gracefully - editor continues to work
@@ -1510,6 +1558,7 @@ export default function ProjectEditor({
           onRestore={handleRestoreDraft}
           onDismiss={() => setShowDraftBanner(false)}
           onClear={handleClearDraft}
+          assetsPartial={assetsPartial}
         />
       )}
 
