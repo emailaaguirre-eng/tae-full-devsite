@@ -1,17 +1,22 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Image as KonvaImage, Rect, Line, Transformer } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Rect, Line, Transformer } from 'react-konva';
 import useImage from 'use-image';
-import { Download, X, Eye, EyeOff } from 'lucide-react';
+import { Download, X, Eye, EyeOff, Type } from 'lucide-react';
 import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
 import { getPrintSpecForProduct, getPrintSide, type PrintSpec, type PrintSide, type PrintSpecResult } from '@/lib/printSpecs';
+import { DEFAULT_FONT, DEFAULT_FONT_WEIGHT } from '@/lib/editorFonts';
+import LabelInspector from './LabelInspector';
+import { getAllSkeletonKeys, getSkeletonKey, type SkeletonKeyDefinition } from '@/lib/skeletonKeys';
+import { generateQRCode, getDefaultArtKeyUrl } from '@/lib/qr';
 
 // Editor object type matching requirements
 interface EditorObject {
   id: string;
-  type: 'image';
-  src: string;
+  type: 'image' | 'text' | 'skeletonKey' | 'qr';
+  src?: string; // For images, skeleton keys (SVG data URL)
+  text?: string; // For text labels
   x: number;
   y: number;
   scaleX: number;
@@ -19,6 +24,20 @@ interface EditorObject {
   rotation: number;
   width?: number; // Optional: original width for reference
   height?: number; // Optional: original height for reference
+  // Text properties
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: number;
+  fill?: string;
+  // Skeleton Key properties
+  keyId?: string; // Skeleton key definition ID
+  opacity?: number; // For skeleton key overlay
+  locked?: boolean; // For skeleton key
+  // QR properties
+  sideId?: 'front' | 'inside' | 'back'; // For QR
+  url?: string; // QR code URL
+  size?: number; // QR code size (square)
+  // locked is also used for QR (cannot delete if qrRequired)
 }
 
 interface SideState {
@@ -26,9 +45,20 @@ interface SideState {
   selectedId?: string;
 }
 
+export interface ProjectEditorConfig {
+  productSlug: string;
+  printSpecId?: string;
+  qrRequired: boolean;
+  allowedSidesForQR: Array<'front' | 'inside' | 'back'>;
+  qrPlacementMode: 'fixed' | 'flexible';
+  defaultSkeletonKeyId?: string;
+  artKeyUrlPlaceholder?: string;
+}
+
 interface ProjectEditorProps {
   printSpecId?: string; // Optional: if not provided, will use default
   productSlug?: string; // Product slug for spec lookup
+  config?: Partial<ProjectEditorConfig>; // ArtKey configuration
   onComplete?: (exportData: { 
     productSlug?: string;
     printSpecId?: string;
@@ -51,6 +81,10 @@ export default function ProjectEditor({
   const [showSafe, setShowSafe] = useState(true);
   const [showFold, setShowFold] = useState(false);
   const [includeGuidesInExport, setIncludeGuidesInExport] = useState(false);
+  const [showQRTarget, setShowQRTarget] = useState(true);
+  const [selectedSkeletonKeyId, setSelectedSkeletonKeyId] = useState<string | null>(
+    editorConfig.defaultSkeletonKeyId || null
+  );
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
   const imageRefs = useRef<Record<string, any>>({});
@@ -95,6 +129,7 @@ export default function ProjectEditor({
   const currentSideState = sideStateById[activeSideId] || { objects: [], selectedId: undefined };
   const objects = currentSideState.objects;
   const selectedId = currentSideState.selectedId;
+  const selectedObject = selectedId ? objects.find(obj => obj.id === selectedId) : null;
 
   // Stage dimensions from print spec
   const STAGE_WIDTH = currentSide?.canvasPx.w || 1800;
@@ -245,9 +280,11 @@ export default function ProjectEditor({
                 scaleX: node.scaleX(),
                 scaleY: node.scaleY(),
                 rotation: node.rotation(),
-                // Update width/height if stored
+                // Update width/height if stored (for images)
                 width: obj.width ? obj.width * node.scaleX() : undefined,
                 height: obj.height ? obj.height * node.scaleY() : undefined,
+                // Update fontSize for text objects
+                fontSize: obj.type === 'text' && obj.fontSize ? obj.fontSize * node.scaleX() : obj.fontSize,
               }
             : obj
         ),
@@ -257,6 +294,53 @@ export default function ProjectEditor({
     // Reset scale after transform (Konva stores transform in scaleX/Y)
     node.scaleX(1);
     node.scaleY(1);
+  };
+
+  // Handle label inspector updates
+  const handleLabelUpdate = (updates: Partial<EditorObject>) => {
+    if (!selectedId) return;
+    
+    setSideStateById((prev) => ({
+      ...prev,
+      [activeSideId]: {
+        ...prev[activeSideId] || { objects: [], selectedId: undefined },
+        objects: (prev[activeSideId]?.objects || []).map((obj) =>
+          obj.id === selectedId ? { ...obj, ...updates } : obj
+        ),
+      },
+    }));
+  };
+
+  // Add text label to canvas
+  const handleAddTextLabel = () => {
+    if (!currentSide) return;
+
+    const centerX = currentSide.canvasPx.w / 2;
+    const centerY = currentSide.canvasPx.h / 2;
+
+    const newTextObject: EditorObject = {
+      id: `text-${Date.now()}-${Math.random()}`,
+      type: 'text',
+      text: 'New Label',
+      x: centerX,
+      y: centerY,
+      scaleX: 1,
+      scaleY: 1,
+      rotation: 0,
+      fontFamily: DEFAULT_FONT,
+      fontSize: 24,
+      fontWeight: DEFAULT_FONT_WEIGHT,
+      fill: '#000000',
+    };
+
+    setSideStateById((prev) => ({
+      ...prev,
+      [activeSideId]: {
+        ...prev[activeSideId] || { objects: [], selectedId: undefined },
+        objects: [...(prev[activeSideId]?.objects || []), newTextObject],
+        selectedId: newTextObject.id,
+      },
+    }));
   };
 
   // Handle side switch
@@ -444,8 +528,10 @@ export default function ProjectEditor({
 
   // Image Component
   const ImageComponent = ({ object }: { object: EditorObject }) => {
+    if (!object.src) return null;
+    
     // Only set crossOrigin for external URLs, not for blob: or data: URLs
-    const crossOrigin = image.url.startsWith('blob:') || image.url.startsWith('data:')
+    const crossOrigin = object.src.startsWith('blob:') || object.src.startsWith('data:')
       ? undefined
       : 'anonymous';
     const [img, status] = useImage(object.src, crossOrigin);
@@ -701,9 +787,30 @@ export default function ProjectEditor({
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Your Images</h3>
-          <p className="text-xs text-gray-500 mb-4">Click an image to add it to the canvas</p>
+        <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
+          {/* Add Text Label Button */}
+          <div className="p-4 border-b border-gray-200">
+            <button
+              onClick={handleAddTextLabel}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors"
+            >
+              <Type className="w-4 h-4" />
+              Add Text Label
+            </button>
+          </div>
+
+          {/* Label Inspector */}
+          {selectedObject && selectedObject.type === 'text' && (
+            <LabelInspector
+              selectedObject={selectedObject}
+              onUpdate={handleLabelUpdate}
+            />
+          )}
+
+          {/* Asset Library */}
+          <div className="p-4 flex-1 overflow-y-auto">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Your Images</h3>
+            <p className="text-xs text-gray-500 mb-4">Click an image to add it to the canvas</p>
 
           {assets.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
@@ -729,14 +836,15 @@ export default function ProjectEditor({
             </div>
           )}
 
-          {/* Debug Info */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-600">
-              <div>Assets in store: {assets.length}</div>
-              <div>Images on canvas: {images.length}</div>
-              <div>Selected: {selectedId || 'none'}</div>
-            </div>
-          )}
+            {/* Debug Info */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-600">
+                <div>Assets in store: {assets.length}</div>
+                <div>Objects on canvas: {objects.length}</div>
+                <div>Selected: {selectedId || 'none'}</div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Canvas Area */}
@@ -837,9 +945,12 @@ export default function ProjectEditor({
                 )}
 
                 {/* Objects */}
-                {objects.map((object) => (
-                  <ImageComponent key={object.id} object={object} />
-                ))}
+                {objects.map((object) => {
+                  if (object.type === 'text') {
+                    return <TextComponent key={object.id} object={object} />;
+                  }
+                  return <ImageComponent key={object.id} object={object} />;
+                })}
 
                 {/* Transformer */}
                 <Transformer
