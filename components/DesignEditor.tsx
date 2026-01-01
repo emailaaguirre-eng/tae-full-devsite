@@ -31,6 +31,16 @@ interface DesignOutput {
   productSize: string;
 }
 
+// Asset type for uploaded images
+interface UploadedAsset {
+  id: string;
+  name: string;
+  mimeType: string;
+  src: string; // data URL, object URL, or persisted URL
+  file?: File; // Original file (for cleanup)
+  objectUrl?: string; // If using URL.createObjectURL, store for cleanup
+}
+
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
@@ -49,11 +59,22 @@ export default function DesignEditor({
   
   // State
   const [activeTab, setActiveTab] = useState<'images' | 'text' | 'labels' | 'shapes'>('images');
-  const [uploadedImages, setUploadedImages] = useState<string[]>(initialImages);
+  const [uploadedAssets, setUploadedAssets] = useState<UploadedAsset[]>(() => 
+    initialImages.map((src, i) => ({
+      id: `initial-${i}`,
+      name: `Image ${i + 1}`,
+      mimeType: 'image/jpeg',
+      src
+    }))
+  );
   const [zoom, setZoom] = useState(100);
   const [selectedObject, setSelectedObject] = useState<fabric.Object | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+  
+  // Dev mode flag
+  const isDev = process.env.NODE_ENV === 'development';
   
   // Text settings
   const [textSettings, setTextSettings] = useState({
@@ -118,6 +139,18 @@ export default function DesignEditor({
       console.error('Error initializing canvas:', error);
     }
   }, [canvasWidth, canvasHeight]);
+
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      uploadedAssets.forEach(asset => {
+        if (asset.objectUrl) {
+          URL.revokeObjectURL(asset.objectUrl);
+          if (isDev) console.log('[CLEANUP] Revoked object URL:', asset.objectUrl);
+        }
+      });
+    };
+  }, [uploadedAssets, isDev]);
 
   // Draw printable area guides
   const drawPrintableArea = (canvas: fabric.Canvas) => {
@@ -307,87 +340,245 @@ export default function DesignEditor({
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
-
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          const dataUrl = event.target.result as string;
-          setUploadedImages(prev => [...prev, dataUrl]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const addImageToCanvas = async (imageUrl: string) => {
-    if (!fabricCanvasRef.current) {
-      alert('Canvas not ready. Please wait a moment.');
+    if (!files) {
+      if (isDev) console.log('[UPLOAD] No files selected');
       return;
     }
 
+    if (isDev) console.log('[UPLOAD] Files selected:', files.length);
+
+    Array.from(files).forEach((file, index) => {
+      if (isDev) console.log(`[UPLOAD] Processing file ${index + 1}:`, file.name, file.type, `${(file.size / 1024).toFixed(2)}KB`);
+
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          const dataUrl = event.target.result as string;
+          const asset: UploadedAsset = {
+            id: `asset-${Date.now()}-${index}`,
+            name: file.name,
+            mimeType: file.type || 'image/jpeg',
+            src: dataUrl,
+            file: file
+          };
+          
+          if (isDev) console.log(`[UPLOAD] Asset stored:`, {
+            id: asset.id,
+            name: asset.name,
+            mimeType: asset.mimeType,
+            srcLength: asset.src.length,
+            srcPreview: asset.src.substring(0, 50) + '...'
+          });
+          
+          setUploadedAssets(prev => [...prev, asset]);
+        }
+      };
+      
+      reader.onerror = (error) => {
+        console.error('[UPLOAD] FileReader error:', error);
+        alert(`Failed to read file: ${file.name}`);
+      };
+      
+      reader.readAsDataURL(file);
+    });
+    
+    // Reset input to allow re-uploading same file
+    e.target.value = '';
+  };
+
+  /**
+   * Add uploaded image asset to canvas
+   * This is the single, clear function that bridges uploads to canvas
+   */
+  const addUploadedImageToCanvas = async (asset: UploadedAsset) => {
+    // Step 1: Guard against null canvas
+    if (!fabricCanvasRef.current) {
+      const errorMsg = 'Canvas not ready. Please wait a moment.';
+      if (isDev) console.error('[CANVAS]', errorMsg);
+      alert(errorMsg);
+      return;
+    }
+
+    const canvas = fabricCanvasRef.current;
+    
+    if (isDev) {
+      console.log('[CANVAS] addUploadedImageToCanvas called:', {
+        assetId: asset.id,
+        assetName: asset.name,
+        srcType: asset.src.startsWith('data:') ? 'data URL' : asset.src.startsWith('blob:') ? 'object URL' : 'persisted URL',
+        srcLength: asset.src.length
+      });
+    }
+
     try {
-      const canvas = fabricCanvasRef.current;
-      console.log('Adding image to canvas:', imageUrl.substring(0, 50) + '...');
+      // Step 2: Create HTMLImageElement and wait for onload
+      const imgElement = document.createElement('img');
       
-      // Check if it's a data URL (starts with data:)
-      const isDataUrl = imageUrl.startsWith('data:');
-      
-      let img: fabric.Image;
-      
-      if (isDataUrl) {
-        // For data URLs, use fabric.Image.fromURL which works with data URLs in v6
-        console.log('Loading data URL image...');
-        img = await fabric.Image.fromURL(imageUrl);
-        console.log('Data URL image loaded, dimensions:', img.width, img.height);
+      // Step 3: Handle different src types
+      if (asset.src.startsWith('data:')) {
+        // Data URL - no CORS needed
+        if (isDev) console.log('[CANVAS] Loading data URL image...');
+        imgElement.src = asset.src;
+      } else if (asset.src.startsWith('blob:')) {
+        // Object URL - no CORS needed
+        if (isDev) console.log('[CANVAS] Loading object URL image...');
+        imgElement.src = asset.src;
       } else {
-        // For regular URLs, use fromURL with CORS
-        console.log('Loading external URL image...');
-        img = await fabric.Image.fromURL(imageUrl, { 
-          crossOrigin: 'anonymous' 
+        // External URL - may need CORS
+        if (isDev) console.log('[CANVAS] Loading external URL image...');
+        imgElement.crossOrigin = 'anonymous';
+        imgElement.src = asset.src;
+      }
+
+      // Wait for image to load
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Image load timeout after 10 seconds'));
+        }, 10000);
+
+        imgElement.onload = () => {
+          clearTimeout(timeout);
+          if (isDev) console.log('[CANVAS] Image loaded:', {
+            naturalWidth: imgElement.naturalWidth,
+            naturalHeight: imgElement.naturalHeight,
+            width: imgElement.width,
+            height: imgElement.height
+          });
+          resolve();
+        };
+
+        imgElement.onerror = (error) => {
+          clearTimeout(timeout);
+          if (isDev) console.error('[CANVAS] Image load error:', error);
+          reject(new Error('Failed to load image'));
+        };
+      });
+
+      // Step 4: Create fabric.Image from loaded element
+      // In fabric.js v6, we can use fromURL with the data URL or create from element
+      if (isDev) console.log('[CANVAS] Creating fabric.Image from element...');
+      
+      let fabricImg: fabric.Image;
+      
+      // Try using fromURL first (works with data URLs in v6)
+      try {
+        fabricImg = await fabric.Image.fromURL(asset.src);
+        if (isDev) console.log('[CANVAS] Created fabric.Image via fromURL');
+      } catch (err) {
+        // Fallback: create from element
+        if (isDev) console.log('[CANVAS] fromURL failed, creating from element...');
+        fabricImg = new fabric.Image(imgElement, {
+          selectable: true,
+          evented: true,
+          lockMovementX: false,
+          lockMovementY: false,
+          lockRotation: false,
+          lockScalingX: false,
+          lockScalingY: false,
+          opacity: 1,
         });
-        console.log('External URL image loaded, dimensions:', img.width, img.height);
       }
       
-      // Ensure image has dimensions
-      if (!img.width || !img.height) {
-        console.warn('Image has no dimensions, using defaults');
-        img.set({ width: 100, height: 100 });
+      // Set interactive properties
+      fabricImg.set({
+        selectable: true,
+        evented: true,
+        lockMovementX: false,
+        lockMovementY: false,
+        lockRotation: false,
+        lockScalingX: false,
+        lockScalingY: false,
+        opacity: 1,
+      });
+
+      // Ensure dimensions are set
+      if (!fabricImg.width || !fabricImg.height) {
+        fabricImg.set({
+          width: imgElement.naturalWidth || 100,
+          height: imgElement.naturalHeight || 100
+        });
       }
-      
-      // Calculate scale to fit 40% of canvas
+
+      // Step 5: Compute initial scale to fit canvas bounds (60-80% max)
+      const maxWidth = canvas.width! * 0.7;
+      const maxHeight = canvas.height! * 0.7;
       const scale = Math.min(
-        (canvas.width! * 0.4) / (img.width || 100),
-        (canvas.height! * 0.4) / (img.height || 100)
+        maxWidth / (fabricImg.width || 100),
+        maxHeight / (fabricImg.height || 100)
       );
 
-      console.log('Setting image properties, scale:', scale);
+      // Ensure scale is valid (not 0, not negative)
+      const finalScale = Math.max(0.1, Math.min(scale, 2)); // Clamp between 0.1 and 2
 
-      img.set({
+      if (isDev) console.log('[CANVAS] Calculated scale:', {
+        originalScale: scale,
+        finalScale: finalScale,
+        imageSize: { width: fabricImg.width, height: fabricImg.height },
+        canvasSize: { width: canvas.width, height: canvas.height },
+        maxSize: { width: maxWidth, height: maxHeight }
+      });
+
+      // Step 6: Set image properties
+      fabricImg.set({
         left: canvas.width! / 2,
         top: canvas.height! / 2,
         originX: 'center',
         originY: 'center',
-        scaleX: scale,
-        scaleY: scale,
+        scaleX: finalScale,
+        scaleY: finalScale,
+        opacity: 1, // Ensure visible
       });
 
-      console.log('Adding image to canvas...');
-      canvas.add(img);
-      canvas.setActiveObject(img);
-      canvas.renderAll();
+      // Step 7: Add to canvas layer
+      if (isDev) console.log('[CANVAS] Adding image to canvas...');
+      canvas.add(fabricImg);
+      
+      // Step 8: Bring to front and make active
+      canvas.bringToFront(fabricImg);
+      canvas.setActiveObject(fabricImg);
+      
+      // Step 9: Trigger render/update
+      canvas.requestRenderAll();
+      
+      // Step 10: Save state for undo/redo
       saveState();
-      console.log('Image successfully added to canvas');
+
+      if (isDev) {
+        console.log('[CANVAS] Image successfully added to canvas:', {
+          objectCount: canvas.getObjects().length,
+          imageId: fabricImg.id || 'no-id',
+          imagePosition: { left: fabricImg.left, top: fabricImg.top },
+          imageScale: { scaleX: fabricImg.scaleX, scaleY: fabricImg.scaleY }
+        });
+      }
     } catch (error) {
-      console.error('Error adding image:', error);
-      console.error('Error details:', {
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        imageUrl: imageUrl.substring(0, 100)
-      });
-      alert(`Failed to add image to canvas: ${error instanceof Error ? error.message : 'Unknown error'}\n\nCheck browser console for details.`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (isDev) {
+        console.error('[CANVAS] Error adding image:', error);
+        console.error('[CANVAS] Error details:', {
+          message: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+          asset: {
+            id: asset.id,
+            name: asset.name,
+            srcType: asset.src.substring(0, 20)
+          }
+        });
+      }
+      alert(`Failed to add image to canvas: ${errorMessage}\n\nCheck browser console for details.`);
     }
+  };
+
+  // Legacy function for backward compatibility (maps string to asset)
+  const addImageToCanvas = async (imageUrl: string) => {
+    const asset: UploadedAsset = {
+      id: `legacy-${Date.now()}`,
+      name: 'Uploaded Image',
+      mimeType: 'image/jpeg',
+      src: imageUrl
+    };
+    await addUploadedImageToCanvas(asset);
   };
 
   // =============================================================================
@@ -679,18 +870,21 @@ export default function DesignEditor({
                   <p className="text-xs text-gray-500 mt-2">JPG, PNG, BMP</p>
                 </div>
 
-                {uploadedImages.length > 0 && (
+                {uploadedAssets.length > 0 && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 mb-2">Your Images</h3>
                     <p className="text-xs text-gray-500 mb-2">Click an image to add it to the canvas</p>
                     <div className="grid grid-cols-2 gap-2">
-                      {uploadedImages.map((img, i) => (
+                      {uploadedAssets.map((asset) => (
                         <button
-                          key={i}
-                          onClick={() => addImageToCanvas(img)}
+                          key={asset.id}
+                          onClick={() => {
+                            if (isDev) console.log('[UI] Image clicked, adding to canvas:', asset.id);
+                            addUploadedImageToCanvas(asset);
+                          }}
                           className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-all hover:shadow-md relative group"
                         >
-                          <img src={img} alt={`Upload ${i + 1}`} className="w-full h-full object-cover" />
+                          <img src={asset.src} alt={asset.name} className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                             <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded">
                               Add to Canvas
@@ -699,6 +893,31 @@ export default function DesignEditor({
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+                
+                {/* Debug Panel (Dev Only) */}
+                {isDev && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <button
+                      onClick={() => setShowDebugPanel(!showDebugPanel)}
+                      className="text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      {showDebugPanel ? '▼' : '▶'} Debug Info
+                    </button>
+                    {showDebugPanel && (
+                      <div className="mt-2 text-xs text-gray-600 space-y-1">
+                        <div>Assets: {uploadedAssets.length}</div>
+                        <div>Canvas Objects: {fabricCanvasRef.current?.getObjects().length || 0}</div>
+                        <div className="max-h-32 overflow-y-auto">
+                          {uploadedAssets.map(asset => (
+                            <div key={asset.id} className="truncate">
+                              {asset.name} ({asset.id.substring(0, 8)})
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
