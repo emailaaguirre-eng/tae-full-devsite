@@ -478,6 +478,55 @@ export default function ProjectEditor({
     );
   };
 
+  // Show error state if PrintSpec is missing for card products
+  if (printSpecError) {
+    return (
+      <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
+        {/* Header */}
+        <div className="bg-gray-800 text-white px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h2 className="text-xl font-bold">Project Editor</h2>
+            {onClose && (
+              <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded">
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Error Message */}
+        <div className="flex-1 flex items-center justify-center bg-gray-100">
+          <div className="max-w-md mx-auto p-8 bg-white rounded-lg shadow-lg border-2 border-red-500">
+            <div className="text-center">
+              <div className="text-6xl mb-4">⚠️</div>
+              <h3 className="text-2xl font-bold text-red-600 mb-4">Print Configuration Error</h3>
+              <p className="text-gray-700 mb-6">{printSpecError}</p>
+              <div className="text-sm text-gray-500 mb-6">
+                <p className="font-semibold mb-2">What this means:</p>
+                <p>This product format requires a specific print specification that hasn't been configured yet.</p>
+                <p className="mt-2">Export and continue actions are disabled until this is resolved.</p>
+              </div>
+              {productSlug && (
+                <div className="text-xs text-gray-400 bg-gray-100 p-3 rounded mb-4">
+                  <p className="font-mono">Product: {productSlug}</p>
+                  {printSpecId && <p className="font-mono">Spec ID: {printSpecId}</p>}
+                </div>
+              )}
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="px-6 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors"
+                >
+                  Go Back
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
       <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
       {/* Header */}
