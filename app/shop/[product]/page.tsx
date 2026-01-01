@@ -149,10 +149,41 @@ const printMaterials = [
   { name: 'Metal', price: 35.00 },
 ];
 
+// Variant option types
+interface VariantOption {
+  name: string;
+  description?: string;
+}
+
+interface NormalizedVariant {
+  uid: string;
+  name: string;
+  price: number;
+  size: string | null;
+  material: string | null;
+  paper: string | null;
+  frame: string | null;
+  foil: string | null;
+  attributes: Record<string, any>;
+}
+
+interface VariantsData {
+  sizes: VariantOption[];
+  materials: VariantOption[];
+  frames?: VariantOption[];
+  foilColors?: VariantOption[];
+  variants: NormalizedVariant[];
+}
+
 export default function ProductPage() {
   const params = useParams();
   const router = useRouter();
   const productType = params.product as string;
+  
+  // Variants API state
+  const [variantsData, setVariantsData] = useState<VariantsData | null>(null);
+  const [variantsLoading, setVariantsLoading] = useState(true);
+  const [variantsError, setVariantsError] = useState<string | null>(null);
   
   // State
   const [currentStep, setCurrentStep] = useState(0); // 0=options, 1=upload, 2=design, 3=artkey, 4=complete
@@ -166,22 +197,118 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]); // Legacy, kept for compatibility
   const [artkeyId, setArtkeyId] = useState<string | null>(null);
+  
+  // Variant matching state
+  const [selectedVariant, setSelectedVariant] = useState<NormalizedVariant | null>(null);
+  const [gelatoVariantUid, setGelatoVariantUid] = useState<string | null>(null);
 
   const info = productInfo[productType] || productInfo.card;
-  const sizes = sizeOptions[productType] || sizeOptions.card;
   const isPrint = productType === 'print';
   const isCardType = ['card', 'postcard', 'invitation', 'announcement'].includes(productType);
+  
+  // Use variants data if available, otherwise fallback to hardcoded (for error state)
+  const sizes = variantsData?.sizes || sizeOptions[productType] || sizeOptions.card;
+  const paperTypesList = variantsData?.materials || paperTypes;
+  const printMaterialsList = variantsData?.materials || printMaterials;
+  const frameColorsList = variantsData?.frames || frameColors;
+  const foilColorsList = variantsData?.foilColors || foilColors;
+
+  // Fetch variants on mount
+  useEffect(() => {
+    const fetchVariants = async () => {
+      setVariantsLoading(true);
+      setVariantsError(null);
+      
+      try {
+        const response = await fetch(`/api/gelato/variants?productType=${productType}`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch variants: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        setVariantsData(data);
+      } catch (error: any) {
+        console.error('Error fetching variants:', error);
+        setVariantsError(error.message || 'Failed to load product options');
+        // Keep hardcoded options as fallback
+      } finally {
+        setVariantsLoading(false);
+      }
+    };
+
+    fetchVariants();
+  }, [productType]);
+
+  // Match variant based on current selections
+  useEffect(() => {
+    if (!variantsData?.variants || variantsData.variants.length === 0) {
+      setSelectedVariant(null);
+      setGelatoVariantUid(null);
+      return;
+    }
+
+    // Build match criteria from selections
+    const matchCriteria: Partial<NormalizedVariant> = {};
+    
+    if (selectedSize) matchCriteria.size = selectedSize;
+    if (isPrint && selectedMaterial) matchCriteria.material = selectedMaterial;
+    if (isCardType && selectedPaper) matchCriteria.paper = selectedPaper;
+    if (isPrint && isFramed && selectedFrame) matchCriteria.frame = selectedFrame;
+    if (isCardType && hasFoil && selectedFoil) matchCriteria.foil = selectedFoil;
+    else if (isCardType && hasFoil === false) matchCriteria.foil = null;
+
+    // Find matching variant
+    const matchedVariant = variantsData.variants.find((variant) => {
+      // Check all criteria match
+      if (matchCriteria.size && variant.size !== matchCriteria.size) return false;
+      if (matchCriteria.material && variant.material !== matchCriteria.material) return false;
+      if (matchCriteria.paper && variant.paper !== matchCriteria.paper) return false;
+      if (matchCriteria.frame !== undefined) {
+        if (matchCriteria.frame === null && variant.frame !== null) return false;
+        if (matchCriteria.frame !== null && variant.frame !== matchCriteria.frame) return false;
+      }
+      if (matchCriteria.foil !== undefined) {
+        if (matchCriteria.foil === null && variant.foil !== null) return false;
+        if (matchCriteria.foil !== null && variant.foil !== matchCriteria.foil) return false;
+      }
+      return true;
+    });
+
+    if (matchedVariant) {
+      setSelectedVariant(matchedVariant);
+      setGelatoVariantUid(matchedVariant.uid);
+      
+      // Log in dev mode
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[ProductPage] Matched variant:', {
+          uid: matchedVariant.uid,
+          name: matchedVariant.name,
+          price: matchedVariant.price,
+          selections: matchCriteria,
+        });
+      }
+    } else {
+      setSelectedVariant(null);
+      setGelatoVariantUid(null);
+    }
+  }, [variantsData, selectedSize, selectedMaterial, selectedPaper, selectedFrame, selectedFoil, isFramed, hasFoil, isPrint, isCardType]);
 
   // Calculate total price
   const calculateTotal = () => {
+    // If we have a matched variant, use its price
+    if (selectedVariant) {
+      return (selectedVariant.price * quantity).toFixed(2);
+    }
+    
+    // Fallback to hardcoded pricing if no variant match
     let total = 0;
     
-    const sizeOption = sizes.find(s => s.name === selectedSize);
-    if (sizeOption) total += sizeOption.price;
+    const sizeOption = sizes.find((s: any) => s.name === selectedSize);
+    if (sizeOption && 'price' in sizeOption) total += sizeOption.price;
     
     if (isPrint) {
-      const material = printMaterials.find(m => m.name === selectedMaterial);
-      if (material) total += material.price;
+      const material = printMaterials.find((m: any) => m.name === selectedMaterial);
+      if (material && 'price' in material) total += material.price;
       
       if (isFramed && selectedFrame) {
         total += 25.00; // Frame base price
@@ -189,12 +316,12 @@ export default function ProductPage() {
     }
     
     if (isCardType) {
-      const paper = paperTypes.find(p => p.name === selectedPaper);
-      if (paper) total += paper.price;
+      const paper = paperTypes.find((p: any) => p.name === selectedPaper);
+      if (paper && 'price' in paper) total += paper.price;
       
       if (hasFoil && selectedFoil) {
-        const foil = foilColors.find(f => f.name === selectedFoil);
-        if (foil) total += foil.price;
+        const foil = foilColors.find((f: any) => f.name === selectedFoil);
+        if (foil && 'price' in foil) total += foil.price;
       }
     }
     
@@ -203,13 +330,33 @@ export default function ProductPage() {
 
   // Check if can proceed
   const canProceed = () => {
+    // Basic selection checks
     if (!selectedSize) return false;
     if (isPrint && !selectedMaterial) return false;
     if (isPrint && isFramed === null) return false;
     if (isPrint && isFramed && !selectedFrame) return false;
     if (isCardType && !selectedPaper) return false;
     if (isCardType && hasFoil && !selectedFoil) return false;
+    
+    // If using variants API, must have a matched variant
+    if (variantsData && !selectedVariant) {
+      return false;
+    }
+    
     return true;
+  };
+  
+  // Check if current selection combination is invalid
+  const hasInvalidCombination = () => {
+    if (!variantsData || variantsData.variants.length === 0) return false;
+    // If we have selections but no matched variant, it's invalid
+    return !selectedVariant && (
+      selectedSize !== null ||
+      selectedMaterial !== null ||
+      selectedPaper !== null ||
+      selectedFrame !== null ||
+      selectedFoil !== null
+    );
   };
 
   // Handle image upload - now uses shared asset store
@@ -506,14 +653,64 @@ export default function ProductPage() {
                 Choose Your Options
               </h2>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Options Column */}
-                <div className="lg:col-span-2 space-y-8">
-                  {/* Size Selection */}
-                  <div>
-                    <h3 className="text-lg font-semibold text-brand-darkest mb-4">Select Size</h3>
-                    <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
-                      {sizes.map((size) => (
+              {/* Loading State */}
+              {variantsLoading && (
+                <div className="text-center py-12">
+                  <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-brand-dark">Loading options...</p>
+                </div>
+              )}
+
+              {/* Error State */}
+              {variantsError && !variantsLoading && (
+                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 mb-8">
+                  <div className="flex items-start gap-4">
+                    <div className="text-2xl">⚠️</div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-yellow-800 mb-2">Unable to load product options</h3>
+                      <p className="text-yellow-700 text-sm mb-4">{variantsError}</p>
+                      <button
+                        onClick={() => {
+                          setVariantsLoading(true);
+                          setVariantsError(null);
+                          fetch(`/api/gelato/variants?productType=${productType}`)
+                            .then(res => res.json())
+                            .then(data => {
+                              setVariantsData(data);
+                              setVariantsLoading(false);
+                            })
+                            .catch(err => {
+                              setVariantsError(err.message);
+                              setVariantsLoading(false);
+                            });
+                        }}
+                        className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-yellow-600 text-xs mt-4">Using default options. Some features may be limited.</p>
+                </div>
+              )}
+
+              {/* Invalid Combination Message */}
+              {hasInvalidCombination() && (
+                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6">
+                  <p className="text-red-800 font-semibold">⚠️ This combination isn't available.</p>
+                  <p className="text-red-700 text-sm mt-1">Please select different options.</p>
+                </div>
+              )}
+
+              {!variantsLoading && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Options Column */}
+                  <div className="lg:col-span-2 space-y-8">
+                    {/* Size Selection */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Select Size</h3>
+                      <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
+                        {sizes.map((size: any) => (
                         <button
                           key={size.name}
                           onClick={() => setSelectedSize(size.name)}
@@ -535,7 +732,7 @@ export default function ProductPage() {
                     <div>
                       <h3 className="text-lg font-semibold text-brand-darkest mb-4">Paper Type</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {paperTypes.map((paper) => (
+                        {paperTypesList.map((paper: any) => (
                           <button
                             key={paper.name}
                             onClick={() => setSelectedPaper(paper.name)}
@@ -546,10 +743,14 @@ export default function ProductPage() {
                             }`}
                           >
                             <div className="font-bold text-brand-darkest text-sm">{paper.name}</div>
-                            <div className="text-xs text-brand-dark">{paper.description}</div>
-                            <div className="text-sm text-brand-dark mt-1">
-                              {paper.price === 0 ? 'Included' : `+$${paper.price.toFixed(2)}`}
-                            </div>
+                            {paper.description && (
+                              <div className="text-xs text-brand-dark">{paper.description}</div>
+                            )}
+                            {paper.price !== undefined && (
+                              <div className="text-sm text-brand-dark mt-1">
+                                {paper.price === 0 ? 'Included' : `+$${paper.price.toFixed(2)}`}
+                              </div>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -561,7 +762,7 @@ export default function ProductPage() {
                     <div>
                       <h3 className="text-lg font-semibold text-brand-darkest mb-4">Material</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {printMaterials.map((material) => (
+                        {printMaterialsList.map((material: any) => (
                           <button
                             key={material.name}
                             onClick={() => setSelectedMaterial(material.name)}
@@ -572,9 +773,11 @@ export default function ProductPage() {
                             }`}
                           >
                             <div className="font-bold text-brand-darkest">{material.name}</div>
-                            <div className="text-sm text-brand-dark">
-                              {material.price === 0 ? 'Included' : `+$${material.price.toFixed(2)}`}
-                            </div>
+                            {material.price !== undefined && (
+                              <div className="text-sm text-brand-dark">
+                                {material.price === 0 ? 'Included' : `+$${material.price.toFixed(2)}`}
+                              </div>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -613,7 +816,7 @@ export default function ProductPage() {
                       {/* FOIL COLOR SAMPLES */}
                       {hasFoil && (
                         <div className="grid grid-cols-4 gap-4">
-                          {foilColors.map((foil) => (
+                          {foilColorsList.map((foil: any) => (
                             <button
                               key={foil.name}
                               onClick={() => setSelectedFoil(foil.name)}
@@ -624,16 +827,20 @@ export default function ProductPage() {
                               }`}
                             >
                               {/* COLOR SAMPLE CIRCLE */}
-                              <div
-                                className="w-12 h-12 rounded-full mx-auto mb-2 shadow-inner"
-                                style={{ background: foil.color }}
-                              />
+                              {foil.color && (
+                                <div
+                                  className="w-12 h-12 rounded-full mx-auto mb-2 shadow-inner"
+                                  style={{ background: foil.color }}
+                                />
+                              )}
                               <div className="font-bold text-brand-darkest text-sm text-center">
                                 {foil.name}
                               </div>
-                              <div className="text-xs text-brand-dark text-center">
-                                +${foil.price.toFixed(2)}
-                              </div>
+                              {foil.price !== undefined && (
+                                <div className="text-xs text-brand-dark text-center">
+                                  +${foil.price.toFixed(2)}
+                                </div>
+                              )}
                             </button>
                           ))}
                         </div>
@@ -673,7 +880,7 @@ export default function ProductPage() {
                       {/* FRAME COLOR SAMPLES */}
                       {isFramed && (
                         <div className="grid grid-cols-5 gap-4">
-                          {frameColors.map((frame) => (
+                          {frameColorsList.map((frame: any) => (
                             <button
                               key={frame.name}
                               onClick={() => setSelectedFrame(frame.name)}
@@ -684,13 +891,15 @@ export default function ProductPage() {
                               }`}
                             >
                               {/* COLOR SAMPLE SQUARE (like a frame) */}
-                              <div
-                                className="w-12 h-12 rounded mx-auto mb-2 shadow-md"
-                                style={{
-                                  background: frame.color,
-                                  border: `3px solid ${frame.border}`,
-                                }}
-                              />
+                              {frame.color && (
+                                <div
+                                  className="w-12 h-12 rounded mx-auto mb-2 shadow-md"
+                                  style={{
+                                    background: frame.color,
+                                    border: frame.border ? `3px solid ${frame.border}` : undefined,
+                                  }}
+                                />
+                              )}
                               <div className="font-bold text-brand-darkest text-xs text-center">
                                 {frame.name}
                               </div>
@@ -743,6 +952,11 @@ export default function ProductPage() {
                         <div>Foil: {hasFoil ? (selectedFoil || 'Select color') : 'None'}</div>
                       )}
                       <div>Quantity: {quantity}</div>
+                      {process.env.NODE_ENV === 'development' && gelatoVariantUid && (
+                        <div className="text-xs text-white/60 mt-2 pt-2 border-t border-white/20">
+                          Gelato UID: <code className="text-xs break-all">{gelatoVariantUid}</code>
+                        </div>
+                      )}
                     </div>
                     <div className="border-t border-white/20 pt-4 mb-6">
                       <div className="flex justify-between text-xl font-bold">
@@ -754,9 +968,16 @@ export default function ProductPage() {
                       onClick={() => setCurrentStep(1)}
                       disabled={!canProceed()}
                       className="w-full py-4 bg-white text-brand-darkest rounded-lg font-bold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title={!canProceed() ? (hasInvalidCombination() ? 'This combination isn\'t available' : 'Please complete all required options') : ''}
                     >
                       Continue to Upload Image
                     </button>
+                    {hasInvalidCombination() && (
+                      <p className="text-red-300 text-xs mt-2 text-center">⚠️ This combination isn't available</p>
+                    )}
+                    {hasInvalidCombination() && (
+                      <p className="text-red-300 text-xs mt-2 text-center">⚠️ This combination isn't available</p>
+                    )}
                   </div>
                 </div>
               </div>

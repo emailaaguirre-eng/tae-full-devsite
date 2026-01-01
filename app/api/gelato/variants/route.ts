@@ -63,6 +63,7 @@ async function fetchGelatoVariants(productType: string): Promise<any> {
 
 /**
  * Parses Gelato API response into our format
+ * Returns both categorized options AND full variant list for matching
  */
 function parseGelatoVariants(data: any, productType: string) {
   const variants = data.variants || [];
@@ -70,51 +71,81 @@ function parseGelatoVariants(data: any, productType: string) {
   const result: any = {
     sizes: [],
     materials: [],
+    variants: [], // Full variant list for matching
   };
 
   variants.forEach((variant: GelatoVariant) => {
     // Parse variant attributes to categorize
     const attrs = variant.attributes || {};
     
+    // Normalize variant data with consistent fields
+    const normalizedVariant = {
+      uid: variant.uid,
+      name: variant.name,
+      price: variant.price || 0,
+      // Normalized option fields for matching
+      size: attrs.size || attrs.dimensions || null,
+      material: attrs.material || attrs.paper || attrs.finish || null,
+      paper: attrs.paper || attrs.material || null, // For cards
+      frame: attrs.frame || attrs.frameColor || (attrs.framed ? 'Standard' : null) || null,
+      foil: attrs.foil || attrs.foilColor || null,
+      // Keep raw attributes for reference
+      attributes: attrs,
+    };
+    
+    result.variants.push(normalizedVariant);
+    
     // Size variants
-    if (attrs.size || attrs.dimensions) {
-      result.sizes.push({
-        name: attrs.size || attrs.dimensions || variant.name,
-        price: variant.price || 0,
-        gelatoUid: variant.uid,
-      });
+    if (normalizedVariant.size) {
+      const existingSize = result.sizes.find((s: any) => s.name === normalizedVariant.size);
+      if (!existingSize) {
+        result.sizes.push({
+          name: normalizedVariant.size,
+          // Price will be determined by matching variant
+        });
+      }
     }
     
     // Material/paper variants
-    if (attrs.material || attrs.paper || attrs.finish) {
-      result.materials.push({
-        name: attrs.material || attrs.paper || variant.name,
-        price: variant.price || 0,
-        gelatoUid: variant.uid,
-        description: attrs.description || '',
-      });
+    if (normalizedVariant.material || normalizedVariant.paper) {
+      const materialName = normalizedVariant.paper || normalizedVariant.material;
+      const existingMaterial = result.materials.find((m: any) => m.name === materialName);
+      if (!existingMaterial) {
+        result.materials.push({
+          name: materialName,
+          description: attrs.description || '',
+        });
+      }
     }
     
     // Frame variants (for prints)
-    if (productType === 'print' && (attrs.frame || attrs.framed)) {
+    if (productType === 'print' && normalizedVariant.frame) {
       if (!result.frames) result.frames = [];
-      result.frames.push({
-        name: attrs.frameColor || attrs.frame || 'Standard',
-        price: variant.price || 0,
-        gelatoUid: variant.uid,
-      });
+      const existingFrame = result.frames.find((f: any) => f.name === normalizedVariant.frame);
+      if (!existingFrame) {
+        result.frames.push({
+          name: normalizedVariant.frame,
+        });
+      }
     }
     
     // Foil variants (for cards)
-    if ((productType === 'card' || productType === 'invitation' || productType === 'announcement') && attrs.foil) {
+    if ((productType === 'card' || productType === 'invitation' || productType === 'announcement') && normalizedVariant.foil) {
       if (!result.foilColors) result.foilColors = [];
-      result.foilColors.push({
-        name: attrs.foilColor || attrs.foil || 'Gold',
-        price: variant.price || 0,
-        gelatoUid: variant.uid,
-      });
+      const existingFoil = result.foilColors.find((f: any) => f.name === normalizedVariant.foil);
+      if (!existingFoil) {
+        result.foilColors.push({
+          name: normalizedVariant.foil,
+        });
+      }
     }
   });
+
+  // Sort options for consistent display
+  result.sizes.sort((a: any, b: any) => a.name.localeCompare(b.name));
+  result.materials.sort((a: any, b: any) => a.name.localeCompare(b.name));
+  if (result.frames) result.frames.sort((a: any, b: any) => a.name.localeCompare(b.name));
+  if (result.foilColors) result.foilColors.sort((a: any, b: any) => a.name.localeCompare(b.name));
 
   return result;
 }
