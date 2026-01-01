@@ -329,6 +329,7 @@ export default function DesignEditor({
 
     try {
       const canvas = fabricCanvasRef.current;
+      console.log('Adding image to canvas:', imageUrl.substring(0, 50) + '...');
       
       // Check if it's a data URL (starts with data:)
       const isDataUrl = imageUrl.startsWith('data:');
@@ -336,22 +337,23 @@ export default function DesignEditor({
       let img: fabric.Image;
       
       if (isDataUrl) {
-        // For data URLs, create image element first, then convert to fabric image
-        // Data URLs don't need crossOrigin
-        const imgElement = document.createElement('img');
-        
-        await new Promise<void>((resolve, reject) => {
-          imgElement.onload = () => resolve();
-          imgElement.onerror = () => reject(new Error('Failed to load image'));
-          imgElement.src = imageUrl;
-        });
-        
-        img = new fabric.Image(imgElement);
+        // For data URLs, use fabric.Image.fromURL which works with data URLs in v6
+        console.log('Loading data URL image...');
+        img = await fabric.Image.fromURL(imageUrl);
+        console.log('Data URL image loaded, dimensions:', img.width, img.height);
       } else {
-        // For regular URLs, use fromURL but handle CORS properly
+        // For regular URLs, use fromURL with CORS
+        console.log('Loading external URL image...');
         img = await fabric.Image.fromURL(imageUrl, { 
           crossOrigin: 'anonymous' 
         });
+        console.log('External URL image loaded, dimensions:', img.width, img.height);
+      }
+      
+      // Ensure image has dimensions
+      if (!img.width || !img.height) {
+        console.warn('Image has no dimensions, using defaults');
+        img.set({ width: 100, height: 100 });
       }
       
       // Calculate scale to fit 40% of canvas
@@ -359,6 +361,8 @@ export default function DesignEditor({
         (canvas.width! * 0.4) / (img.width || 100),
         (canvas.height! * 0.4) / (img.height || 100)
       );
+
+      console.log('Setting image properties, scale:', scale);
 
       img.set({
         left: canvas.width! / 2,
@@ -369,13 +373,20 @@ export default function DesignEditor({
         scaleY: scale,
       });
 
+      console.log('Adding image to canvas...');
       canvas.add(img);
       canvas.setActiveObject(img);
       canvas.renderAll();
       saveState();
+      console.log('Image successfully added to canvas');
     } catch (error) {
       console.error('Error adding image:', error);
-      alert(`Failed to add image to canvas: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        imageUrl: imageUrl.substring(0, 100)
+      });
+      alert(`Failed to add image to canvas: ${error instanceof Error ? error.message : 'Unknown error'}\n\nCheck browser console for details.`);
     }
   };
 
