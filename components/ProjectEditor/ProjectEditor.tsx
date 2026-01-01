@@ -1772,38 +1772,39 @@ export default function ProjectEditor({
               </p>
 
               {assets.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <p className="text-sm">Upload images above to start</p>
-              <p className="text-xs mt-2">Go back to Step 1 and upload images first</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {assets.map((asset) => (
-                <button
-                  key={asset.id}
-                  onClick={() => handleThumbnailClick(asset)}
-                  className="w-full aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-all hover:shadow-md relative group"
-                >
-                  <img src={asset.src} alt={asset.name} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                    <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded">
-                      Add to Canvas
-                    </span>
-                  </div>
-                </button>
-              ))}
-              </div>
+                <div className="text-center py-8 text-gray-400">
+                  <p className="text-sm">Upload images above to start</p>
+                  <p className="text-xs mt-2">Go back to Step 1 and upload images first</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {assets.map((asset) => (
+                    <button
+                      key={asset.id}
+                      onClick={() => handleThumbnailClick(asset)}
+                      className="w-full aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-all hover:shadow-md relative group"
+                    >
+                      <img src={asset.src} alt={asset.name} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded">
+                          Add to Canvas
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               )}
 
               {/* Debug Info */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-600">
-                <div>Assets in store: {assets.length}</div>
-                <div>Objects on canvas: {objects.length}</div>
-                <div>Selected: {selectedId || 'none'}</div>
-              </div>
-            )}
-          </div>
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-600">
+                  <div>Assets in store: {assets.length}</div>
+                  <div>Objects on canvas: {objects.length}</div>
+                  <div>Selected: {selectedId || 'none'}</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Canvas Area */}
