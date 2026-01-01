@@ -556,16 +556,26 @@ export default function ProjectEditor({
             <>
               <button
                 onClick={handleExportActiveSide}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 flex items-center gap-2"
-                title={`Export ${activeSideId} side`}
+                disabled={!!printSpecError}
+                className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
+                  printSpecError
+                    ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+                title={printSpecError || `Export ${activeSideId} side`}
               >
                 <Download className="w-4 h-4" />
                 Export {activeSideId.charAt(0).toUpperCase() + activeSideId.slice(1)}
               </button>
               <button
                 onClick={handleExportAllSides}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center gap-2"
-                title="Export all sides"
+                disabled={!!printSpecError}
+                className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
+                  printSpecError
+                    ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+                title={printSpecError || 'Export all sides'}
               >
                 <Download className="w-4 h-4" />
                 Export All
@@ -574,7 +584,13 @@ export default function ProjectEditor({
           ) : (
             <button
               onClick={handleExportActiveSide}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 flex items-center gap-2"
+              disabled={!!printSpecError}
+              className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
+                printSpecError
+                  ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  : 'bg-green-600 text-white hover:bg-green-700'
+              }`}
+              title={printSpecError || 'Export PNG'}
             >
               <Download className="w-4 h-4" />
               Export PNG
