@@ -40,9 +40,25 @@ interface EditorObject {
   // locked is also used for QR (cannot delete if qrRequired)
 }
 
+interface FrameFillState {
+  frameId: string;
+  assetSrc?: string;
+  offsetX: number;
+  offsetY: number;
+  zoom: number;
+  rotation: number;
+}
+
+interface TemplateState {
+  templateId: string;
+  activeFrameId?: string;
+  frames: FrameFillState[];
+}
+
 interface SideState {
   objects: EditorObject[];
   selectedId?: string;
+  template?: TemplateState;
 }
 
 export interface ProjectEditorConfig {
@@ -110,6 +126,7 @@ export default function ProjectEditor({
         initialStates[side.id] = {
           objects: [],
           selectedId: undefined,
+          template: undefined,
         };
       });
       setSideStateById(initialStates);
@@ -577,13 +594,87 @@ export default function ProjectEditor({
     }));
   };
 
+  // Template handlers
+  const handleSelectTemplate = (templateId: string) => {
+    const template = getCollageTemplate(templateId);
+    if (!template || !currentSide) return;
+
+    const frames: FrameFillState[] = template.frames.map(frame => ({
+      frameId: frame.id,
+      assetSrc: undefined,
+      offsetX: 0,
+      offsetY: 0,
+      zoom: 1.0,
+      rotation: 0,
+    }));
+
+    setSideStateById((prev) => ({
+      ...prev,
+      [activeSideId]: {
+        ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+        template: {
+          templateId,
+          activeFrameId: frames[0]?.frameId,
+          frames,
+        },
+      },
+    }));
+  };
+
+  const handleClearTemplate = () => {
+    setSideStateById((prev) => ({
+      ...prev,
+      [activeSideId]: {
+        ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+        template: undefined,
+      },
+    }));
+  };
+
+  const handleSelectFrame = (frameId: string) => {
+    if (!templateState) return;
+
+    setSideStateById((prev) => ({
+      ...prev,
+      [activeSideId]: {
+        ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+        template: {
+          ...templateState,
+          activeFrameId: frameId,
+        },
+      },
+    }));
+  };
+
+  const handleFillFrame = (assetSrc: string) => {
+    if (!templateState?.activeFrameId) return;
+    handleThumbnailClick({ id: '', name: '', mimeType: '', width: 0, height: 0, src: assetSrc, origin: 'uploader' });
+  };
+
+  const onUpdateFrameFill = (frameId: string, updates: Partial<FrameFillState>) => {
+    if (!templateState) return;
+
+    setSideStateById((prev) => ({
+      ...prev,
+      [activeSideId]: {
+        ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+        template: {
+          ...templateState,
+          frames: templateState.frames.map(f =>
+            f.frameId === frameId ? { ...f, ...updates } : f
+          ),
+        },
+      },
+    }));
+  };
+
   // Handle side switch
   const handleSideSwitch = (sideId: string) => {
     // Clear selection on current side before switching
     setSideStateById((prev) => ({
       ...prev,
       [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined },
+        ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
         selectedId: undefined,
       },
     }));
@@ -594,7 +685,7 @@ export default function ProjectEditor({
     // Ensure new side has state
     setSideStateById((prev) => ({
       ...prev,
-      [sideId]: prev[sideId] || { objects: [], selectedId: undefined },
+      [sideId]: prev[sideId] || { objects: [], selectedId: undefined, template: undefined },
     }));
   };
 
