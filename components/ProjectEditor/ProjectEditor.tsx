@@ -243,31 +243,28 @@ export default function ProjectEditor({
 
   // Handle side switch
   const handleSideSwitch = (sideId: string) => {
-    setActiveSideId(sideId);
-    // Clear selection when switching sides
+    // Clear selection on current side before switching
     setSideScenes((prev) => ({
       ...prev,
-      [sideId]: {
-        ...prev[sideId] || { images: [], selectedId: null },
+      [activeSideId]: {
+        ...prev[activeSideId],
         selectedId: null,
       },
     }));
+    
+    // Switch to new side
+    setActiveSideId(sideId);
+    
+    // Ensure new side has scene state
+    setSideScenes((prev) => ({
+      ...prev,
+      [sideId]: prev[sideId] || { images: [], selectedId: null },
+    }));
   };
 
-  // Export single side
-  const exportSide = async (sideId: string): Promise<{ side: string; dataUrl: string; blob: Blob } | null> => {
-    if (!stageRef.current || !printSpec) return null;
-
-    const side = getPrintSide(printSpec, sideId as 'front' | 'inside' | 'back');
-    if (!side) return null;
-
-    // Temporarily switch to this side to render it
-    const wasActiveSide = activeSideId;
-    if (wasActiveSide !== sideId) {
-      setActiveSideId(sideId);
-      // Wait for render
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
+  // Export single side (must be called when that side is active)
+  const exportCurrentSide = async (): Promise<{ side: string; dataUrl: string; blob: Blob } | null> => {
+    if (!stageRef.current || !currentSide) return null;
 
     try {
       const stage = stageRef.current.getStage();
@@ -288,8 +285,8 @@ export default function ProjectEditor({
 
       const dataUrl = stage.toDataURL({
         pixelRatio: 1,
-        width: side.canvasPx.w,
-        height: side.canvasPx.h,
+        width: currentSide.canvasPx.w,
+        height: currentSide.canvasPx.h,
       });
 
       // Restore guide visibility
@@ -303,29 +300,20 @@ export default function ProjectEditor({
       const response = await fetch(dataUrl);
       const blob = await response.blob();
 
-      // Restore active side if we switched
-      if (wasActiveSide !== sideId) {
-        setActiveSideId(wasActiveSide);
-      }
-
       return {
-        side: sideId,
+        side: activeSideId,
         dataUrl,
         blob,
       };
     } catch (error) {
-      console.error(`[ProjectEditor] Export error for side ${sideId}:`, error);
-      // Restore active side if we switched
-      if (wasActiveSide !== sideId) {
-        setActiveSideId(wasActiveSide);
-      }
+      console.error(`[ProjectEditor] Export error for side ${activeSideId}:`, error);
       return null;
     }
   };
 
   // Export active side
   const handleExportActiveSide = async () => {
-    const result = await exportSide(activeSideId);
+    const result = await exportCurrentSide();
     if (result) {
       if (onComplete) {
         onComplete([result]);
@@ -356,13 +344,26 @@ export default function ProjectEditor({
     }
 
     const results: { side: string; dataUrl: string; blob: Blob }[] = [];
+    const originalActiveSide = activeSideId;
     
+    // Export each side by switching to it
     for (const side of printSpec.sides) {
-      const result = await exportSide(side.id);
+      // Switch to this side
+      setActiveSideId(side.id);
+      
+      // Wait for render to complete
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      
+      // Export current side
+      const result = await exportCurrentSide();
       if (result) {
         results.push(result);
       }
     }
+
+    // Restore original active side
+    setActiveSideId(originalActiveSide);
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     if (results.length > 0) {
       if (onComplete) {
