@@ -16,65 +16,16 @@ import { generateQRCode, getDefaultArtKeyUrl } from '@/lib/qr';
 import { getCollageTemplate, getAllCollageTemplates, type CollageTemplate } from '@/lib/collageTemplates';
 import { saveDraft, loadDraft, deleteDraft, getDraftKey, type DraftData, type PersistedAsset, DRAFT_ASSETS_SIZE_CAP } from '@/lib/draftStore';
 
-// Editor object type matching requirements
-export interface EditorObject {
-  id: string;
-  type: 'image' | 'text' | 'skeletonKey' | 'qr';
-  src?: string; // For images, skeleton keys (SVG data URL)
-  text?: string; // For text labels
-  x: number;
-  y: number;
-  scaleX: number;
-  scaleY: number;
-  rotation: number;
-  width?: number; // Optional: original width for reference
-  height?: number; // Optional: original height for reference
-  // Text properties
-  fontFamily?: string;
-  fontSize?: number;
-  fontWeight?: number;
-  fill?: string;
-  // Skeleton Key properties
-  keyId?: string; // Skeleton key definition ID
-  opacity?: number; // For skeleton key overlay
-  locked?: boolean; // For skeleton key
-  // QR properties
-  sideId?: 'front' | 'inside' | 'back'; // For QR
-  url?: string; // QR code URL
-  size?: number; // QR code size (square)
-  // locked is also used for QR (cannot delete if qrRequired)
-}
+// Import types from shared types file to avoid circular dependencies
+import type { EditorObject, ProjectEditorConfig } from './types';
 
-interface FrameFillState {
-  frameId: string;
-  assetSrc?: string;
-  offsetX: number;
-  offsetY: number;
-  zoom: number;
-  rotation: number;
-}
+// Re-export for backward compatibility
+export type { EditorObject, ProjectEditorConfig, FrameFillState, TemplateState, SideState } from './types';
 
-interface TemplateState {
-  templateId: string;
-  activeFrameId?: string;
-  frames: FrameFillState[];
-}
+// Import additional types
+import type { FrameFillState, TemplateState, SideState } from './types';
 
-interface SideState {
-  objects: EditorObject[];
-  selectedId?: string;
-  template?: TemplateState;
-}
-
-export interface ProjectEditorConfig {
-  productSlug: string;
-  printSpecId?: string;
-  qrRequired: boolean;
-  allowedSidesForQR: Array<'front' | 'inside' | 'back'>;
-  qrPlacementMode: 'fixed' | 'flexible';
-  defaultSkeletonKeyId?: string;
-  artKeyUrlPlaceholder?: string;
-}
+// ProjectEditorConfig is now imported from ./types
 
 interface ProjectEditorProps {
   printSpecId?: string; // Optional: if not provided, will use default

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Layout, X, ZoomIn, ZoomOut, RotateCw, Move, Maximize2 } from 'lucide-react';
 import { getAllCollageTemplates, getCollageTemplate, type CollageTemplate } from '@/lib/collageTemplates';
-import type { TemplateState, FrameFillState } from './ProjectEditor';
+import type { TemplateState, FrameFillState } from './types';
 
 interface TemplatesPanelProps {
   templateMode: boolean;

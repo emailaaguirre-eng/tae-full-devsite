@@ -2,7 +2,41 @@
 
 import { QrCode, CheckCircle2, AlertTriangle, Move, Lock } from 'lucide-react';
 import { getAllSkeletonKeys, getSkeletonKey, type SkeletonKeyDefinition } from '@/lib/skeletonKeys';
-import type { EditorObject, ProjectEditorConfig } from './ProjectEditor';
+
+// Define types inline to avoid circular dependency
+interface EditorObject {
+  id: string;
+  type: 'image' | 'text' | 'skeletonKey' | 'qr';
+  src?: string;
+  text?: string;
+  x: number;
+  y: number;
+  scaleX: number;
+  scaleY: number;
+  rotation: number;
+  width?: number;
+  height?: number;
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: number;
+  fill?: string;
+  keyId?: string;
+  opacity?: number;
+  locked?: boolean;
+  sideId?: 'front' | 'inside' | 'back';
+  url?: string;
+  size?: number;
+}
+
+interface ProjectEditorConfig {
+  productSlug: string;
+  printSpecId?: string;
+  qrRequired: boolean;
+  allowedSidesForQR: Array<'front' | 'inside' | 'back'>;
+  qrPlacementMode: 'fixed' | 'flexible';
+  defaultSkeletonKeyId?: string;
+  artKeyUrlPlaceholder?: string;
+}
 
 interface ArtKeyPanelProps {
   config: ProjectEditorConfig;
@@ -115,7 +149,7 @@ export default function ArtKeyPanel({
               className="w-4 h-4"
             />
             <span>Show QR target guide</span>
-          </div>
+          </label>
         </div>
       )}
 

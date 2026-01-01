@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { EDITOR_FONTS, DEFAULT_FONT, DEFAULT_FONT_WEIGHT, isScriptFont, type EditorFont } from '@/lib/editorFonts';
-import type { EditorObject } from './ProjectEditor';
+import type { EditorObject } from './types';
 
 interface LabelInspectorProps {
   selectedObject: EditorObject | null;
