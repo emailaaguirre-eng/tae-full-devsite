@@ -104,4 +104,9 @@ function getAssetStore() {
       return total + (asset.bytesApprox || 0);
     }, 0);
   },
-}));
+    }));
+  }
+  return storeInstance;
+}
+
+export const useAssetStore = getAssetStore();
