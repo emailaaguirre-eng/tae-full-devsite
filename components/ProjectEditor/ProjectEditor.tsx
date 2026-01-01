@@ -165,6 +165,21 @@ export default function ProjectEditor({
     }
   }, [selectedId, activeSideId]); // Include activeSideId to update when switching sides
 
+  // Handle keyboard delete
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+        e.preventDefault();
+        handleDeleteObject(selectedId);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedId, activeSideId, objects, editorConfig]);
+
   // Handle thumbnail click - add image to canvas
   const handleThumbnailClick = (asset: UploadedAsset) => {
     console.log('[ProjectEditor] Thumbnail clicked:', asset.id, asset.name);
@@ -431,10 +446,12 @@ export default function ProjectEditor({
           const targetSize = Math.min(targetW, targetH) * 0.9;
           qrX = targetX + (targetW / 2) - (targetSize / 2);
           qrY = targetY + (targetH / 2) - (targetSize / 2);
+          // Update QR size to match target
+          qrSize = targetSize;
         }
       }
 
-      // Remove existing QR on this side if any
+      // Remove existing QR on this side if any (only if not required or if regenerating)
       const existingQR = objects.find(obj => obj.type === 'qr' && obj.sideId === activeSideId);
       const filteredObjects = existingQR
         ? objects.filter(obj => obj.id !== existingQR.id)
