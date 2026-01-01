@@ -1046,50 +1046,60 @@ export default function ProjectEditor({
             />
             <span>Include guides</span>
           </label>
-          {printSpec && printSpec.sides.length > 1 ? (
-            <>
+          {(() => {
+            const qrCheck = checkQRRequired();
+            const isBlocked = !!printSpecError || !qrCheck.isValid;
+            const blockReason = printSpecError 
+              ? printSpecError 
+              : !qrCheck.isValid 
+                ? `ArtKey QR required on ${qrCheck.missingSides.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')}`
+                : '';
+
+            return printSpec && printSpec.sides.length > 1 ? (
+              <>
+                <button
+                  onClick={handleExportActiveSide}
+                  disabled={isBlocked}
+                  className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
+                    isBlocked
+                      ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                  title={blockReason || `Export ${activeSideId} side`}
+                >
+                  <Download className="w-4 h-4" />
+                  Export {activeSideId.charAt(0).toUpperCase() + activeSideId.slice(1)}
+                </button>
+                <button
+                  onClick={handleExportAllSides}
+                  disabled={isBlocked}
+                  className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
+                    isBlocked
+                      ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                  title={blockReason || 'Export all sides'}
+                >
+                  <Download className="w-4 h-4" />
+                  Export All
+                </button>
+              </>
+            ) : (
               <button
                 onClick={handleExportActiveSide}
-                disabled={!!printSpecError}
+                disabled={isBlocked}
                 className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
-                  printSpecError
+                  isBlocked
                     ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
                     : 'bg-green-600 text-white hover:bg-green-700'
                 }`}
-                title={printSpecError || `Export ${activeSideId} side`}
+                title={blockReason || 'Export PNG'}
               >
                 <Download className="w-4 h-4" />
-                Export {activeSideId.charAt(0).toUpperCase() + activeSideId.slice(1)}
+                Export PNG
               </button>
-              <button
-                onClick={handleExportAllSides}
-                disabled={!!printSpecError}
-                className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
-                  printSpecError
-                    ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-                title={printSpecError || 'Export all sides'}
-              >
-                <Download className="w-4 h-4" />
-                Export All
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={handleExportActiveSide}
-              disabled={!!printSpecError}
-              className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
-                printSpecError
-                  ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                  : 'bg-green-600 text-white hover:bg-green-700'
-              }`}
-              title={printSpecError || 'Export PNG'}
-            >
-              <Download className="w-4 h-4" />
-              Export PNG
-            </button>
-          )}
+            );
+          })()}
         </div>
       </div>
 
