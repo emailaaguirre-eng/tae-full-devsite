@@ -743,13 +743,13 @@ export default function ProductPage() {
                 disabled={uploadedImages.length === 0}
                 className="w-full py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Continue to Design Editor
+                Continue to Project Editor
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 2: Design Editor */}
+        {/* Step 2: Project Editor */}
         {currentStep === 2 && (
           <ErrorBoundary
             fallback={
@@ -757,10 +757,10 @@ export default function ProductPage() {
                 <div className="max-w-2xl w-full bg-white rounded-2xl shadow-lg p-8 text-center">
                   <div className="text-6xl mb-4">⚠️</div>
                   <h2 className="text-2xl font-bold text-brand-darkest mb-4 font-playfair">
-                    Design Editor Error
+                    Project Editor Error
                   </h2>
                   <p className="text-brand-dark mb-6">
-                    The Design Editor failed to load. This may be due to a browser compatibility issue or missing dependencies.
+                    The Project Editor failed to load. This may be due to a browser compatibility issue or missing dependencies.
                   </p>
                   <div className="space-y-3">
                     <button
@@ -780,28 +780,10 @@ export default function ProductPage() {
               </div>
             }
           >
-            <div className="w-full">
-              {uploadedImages.length === 0 ? (
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                    <p className="text-yellow-800 mb-4">Please upload at least one image first.</p>
-                    <button
-                      onClick={() => setCurrentStep(1)}
-                      className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
-                    >
-                      Go Back to Upload
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <ProjectEditorWrapper
-                  productType={productType}
-                  uploadedImages={uploadedImages}
-                  onComplete={handleProjectEditorComplete}
-                  onClose={() => setCurrentStep(1)}
-                />
-              )}
-            </div>
+            <ProjectEditor
+              onComplete={handleProjectEditorComplete}
+              onClose={() => setCurrentStep(1)}
+            />
           </ErrorBoundary>
         )}
 
