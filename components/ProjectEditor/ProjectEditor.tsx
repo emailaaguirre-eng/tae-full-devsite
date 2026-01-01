@@ -260,14 +260,18 @@ export default function ProjectEditor({
       });
 
       // Add object to current side's state
-      setSideStateById((prev) => ({
-        ...prev,
-        [activeSideId]: {
-          ...prev[activeSideId] || { objects: [], selectedId: undefined },
-          objects: [...(prev[activeSideId]?.objects || []), newObject],
-          selectedId: newObject.id,
-        },
-      }));
+      setSideStateById((prev) => {
+        const newState = {
+          ...prev,
+          [activeSideId]: {
+            ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+            objects: [...(prev[activeSideId]?.objects || []), newObject],
+            selectedId: newObject.id,
+          },
+        };
+        scheduleAutosave();
+        return newState;
+      });
     };
     img.onerror = () => {
       console.error('[ProjectEditor] Failed to load image:', asset.src);
@@ -540,14 +544,18 @@ export default function ProjectEditor({
         locked: editorConfig.qrRequired && editorConfig.qrPlacementMode === 'fixed',
       };
 
-      setSideStateById((prev) => ({
-        ...prev,
-        [activeSideId]: {
-          ...prev[activeSideId] || { objects: [], selectedId: undefined },
-          objects: [...filteredObjects, newQR],
-          selectedId: newQR.id,
-        },
-      }));
+      setSideStateById((prev) => {
+        const newState = {
+          ...prev,
+          [activeSideId]: {
+            ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+            objects: [...filteredObjects, newQR],
+            selectedId: newQR.id,
+          },
+        };
+        scheduleAutosave();
+        return newState;
+      });
     } catch (error) {
       console.error('[ProjectEditor] Failed to generate QR code:', error);
       alert('Failed to generate QR code. Please try again.');
@@ -622,28 +630,36 @@ export default function ProjectEditor({
   };
 
   const handleClearTemplate = () => {
-    setSideStateById((prev) => ({
-      ...prev,
-      [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-        template: undefined,
-      },
-    }));
+    setSideStateById((prev) => {
+      const newState = {
+        ...prev,
+        [activeSideId]: {
+          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+          template: undefined,
+        },
+      };
+      scheduleAutosave();
+      return newState;
+    });
   };
 
   const handleSelectFrame = (frameId: string) => {
     if (!templateState) return;
 
-    setSideStateById((prev) => ({
-      ...prev,
-      [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-        template: {
-          ...templateState,
-          activeFrameId: frameId,
+    setSideStateById((prev) => {
+      const newState = {
+        ...prev,
+        [activeSideId]: {
+          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+          template: {
+            ...templateState,
+            activeFrameId: frameId,
+          },
         },
-      },
-    }));
+      };
+      scheduleAutosave();
+      return newState;
+    });
   };
 
   const handleFillFrame = (assetSrc: string) => {
@@ -654,18 +670,22 @@ export default function ProjectEditor({
   const onUpdateFrameFill = (frameId: string, updates: Partial<FrameFillState>) => {
     if (!templateState) return;
 
-    setSideStateById((prev) => ({
-      ...prev,
-      [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-        template: {
-          ...templateState,
-          frames: templateState.frames.map(f =>
-            f.frameId === frameId ? { ...f, ...updates } : f
-          ),
+    setSideStateById((prev) => {
+      const newState = {
+        ...prev,
+        [activeSideId]: {
+          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
+          template: {
+            ...templateState,
+            frames: templateState.frames.map(f =>
+              f.frameId === frameId ? { ...f, ...updates } : f
+            ),
+          },
         },
-      },
-    }));
+      };
+      scheduleAutosave();
+      return newState;
+    });
   };
 
   // Handle side switch
