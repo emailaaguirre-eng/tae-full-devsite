@@ -438,16 +438,44 @@ export default function ProjectEditor({
 
   // Add QR code to canvas
   const handleAddQR = async () => {
-    if (!currentSide) return;
+    if (!printSpec) return;
+
+    // Check if QR already exists on active side
+    const existingQR = objects.find(obj => obj.type === 'qr' && obj.sideId === activeSideId);
+    
+    // If no QR exists on any allowed side, switch to default side
+    if (!existingQR) {
+      const qrOnAnyAllowedSide = editorConfig.allowedSidesForQR.some(sideId => {
+        const sideState = sideStateById[sideId] || { objects: [], selectedId: undefined };
+        return sideState.objects.some(obj => obj.type === 'qr' && obj.sideId === sideId);
+      });
+
+      if (!qrOnAnyAllowedSide) {
+        // Switch to default QR side
+        const defaultSide = getDefaultQrSide();
+        if (defaultSide !== activeSideId) {
+          handleSideSwitch(defaultSide);
+          // Wait for side switch to complete
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+    }
+
+    // Get current side after potential switch
+    const targetSide = printSpec.sides.find(s => s.id === activeSideId);
+    if (!targetSide) return;
 
     const qrUrl = getDefaultArtKeyUrl(editorConfig.artKeyUrlPlaceholder);
     let qrSize = 100; // Default QR size in pixels
     
     try {
+      // Get current side's objects (after potential switch)
+      const currentSideObjects = sideStateById[activeSideId]?.objects || [];
+      
       // Get skeleton key to find target position
-      const skeletonKey = objects.find(obj => obj.type === 'skeletonKey');
-      let qrX = currentSide.canvasPx.w / 2;
-      let qrY = currentSide.canvasPx.h / 2;
+      const skeletonKey = currentSideObjects.find(obj => obj.type === 'skeletonKey');
+      let qrX = targetSide.canvasPx.w / 2;
+      let qrY = targetSide.canvasPx.h / 2;
 
       if (skeletonKey && skeletonKey.keyId) {
         const keyDef = getSkeletonKey(skeletonKey.keyId);
@@ -474,11 +502,11 @@ export default function ProjectEditor({
 
       const qrDataUrl = await generateQRCode(qrUrl, qrSize, 4);
 
-      // Remove existing QR on this side if any (only if not required or if regenerating)
-      const existingQR = objects.find(obj => obj.type === 'qr' && obj.sideId === activeSideId);
-      const filteredObjects = existingQR
-        ? objects.filter(obj => obj.id !== existingQR.id)
-        : objects;
+      // Remove existing QR on this side if any (regenerating)
+      const existingQROnSide = currentSideObjects.find(obj => obj.type === 'qr' && obj.sideId === activeSideId);
+      const filteredObjects = existingQROnSide
+        ? currentSideObjects.filter(obj => obj.id !== existingQROnSide.id)
+        : currentSideObjects;
 
       const newQR: EditorObject = {
         id: `qr-${Date.now()}-${Math.random()}`,
@@ -627,24 +655,49 @@ export default function ProjectEditor({
     }
   };
 
-  // Check if QR is required and missing
+  // Get default QR side (inside > back > front > first side)
+  const getDefaultQrSide = (): string => {
+    if (!printSpec) return 'front';
+    
+    if (editorConfig.allowedSidesForQR.includes('inside')) {
+      return 'inside';
+    }
+    if (editorConfig.allowedSidesForQR.includes('back')) {
+      return 'back';
+    }
+    if (editorConfig.allowedSidesForQR.includes('front')) {
+      return 'front';
+    }
+    
+    // Fallback to first side in printSpec
+    return printSpec.sides[0]?.id || 'front';
+  };
+
+  // Check if QR is required and missing (QR must exist on AT LEAST ONE allowed side)
   const checkQRRequired = (): { isValid: boolean; missingSides: string[] } => {
     if (!editorConfig.qrRequired || !printSpec) {
       return { isValid: true, missingSides: [] };
     }
 
-    const missingSides: string[] = [];
-    for (const side of printSpec.sides) {
-      if (editorConfig.allowedSidesForQR.includes(side.id as 'front' | 'inside' | 'back')) {
-        const sideState = sideStateById[side.id] || { objects: [], selectedId: undefined };
-        const hasQR = sideState.objects.some(obj => obj.type === 'qr' && obj.sideId === side.id);
-        if (!hasQR) {
-          missingSides.push(side.id);
-        }
+    // Check if QR exists on ANY allowed side
+    let hasQROnAnyAllowedSide = false;
+    const allowedSides = editorConfig.allowedSidesForQR;
+    
+    for (const sideId of allowedSides) {
+      const sideState = sideStateById[sideId] || { objects: [], selectedId: undefined };
+      const hasQR = sideState.objects.some(obj => obj.type === 'qr' && obj.sideId === sideId);
+      if (hasQR) {
+        hasQROnAnyAllowedSide = true;
+        break; // Found QR on at least one allowed side, that's enough
       }
     }
 
-    return { isValid: missingSides.length === 0, missingSides };
+    if (hasQROnAnyAllowedSide) {
+      return { isValid: true, missingSides: [] };
+    }
+
+    // QR is missing on all allowed sides
+    return { isValid: false, missingSides: allowedSides };
   };
 
   // Export active side
