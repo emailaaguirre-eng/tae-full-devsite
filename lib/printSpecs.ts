@@ -50,7 +50,7 @@ export const printSpecs: Record<string, PrintSpec> = {
         trimPx: inchesToPx(0.125),
         safePx: inchesToPx(0.25),
         foldLines: [
-          { x1: inchesToPx(5), y1: 0, x2: inchesToPx(5), y2: inchesToPx(7) }, // Vertical fold
+          { x1: inchesToPx(5), y1: 0, x2: inchesToPx(5), y2: inchesToPx(7) }, // Vertical fold at right edge (fold to inside)
         ],
       },
       {
@@ -59,6 +59,10 @@ export const printSpecs: Record<string, PrintSpec> = {
         bleedPx: inchesToPx(0.125),
         trimPx: inchesToPx(0.125),
         safePx: inchesToPx(0.25),
+        foldLines: [
+          { x1: 0, y1: 0, x2: 0, y2: inchesToPx(7) }, // Vertical fold at left edge (fold from front)
+          { x1: inchesToPx(5), y1: 0, x2: inchesToPx(5), y2: inchesToPx(7) }, // Vertical fold at right edge (fold to back)
+        ],
       },
       {
         id: 'back',
@@ -66,6 +70,9 @@ export const printSpecs: Record<string, PrintSpec> = {
         bleedPx: inchesToPx(0.125),
         trimPx: inchesToPx(0.125),
         safePx: inchesToPx(0.25),
+        foldLines: [
+          { x1: 0, y1: 0, x2: 0, y2: inchesToPx(7) }, // Vertical fold at left edge (fold from inside)
+        ],
       },
     ],
   },

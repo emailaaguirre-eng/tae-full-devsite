@@ -63,7 +63,7 @@ export default function ProjectEditor({
   const [showBleed, setShowBleed] = useState(false);
   const [showTrim, setShowTrim] = useState(false);
   const [showSafe, setShowSafe] = useState(true);
-  const [showFold, setShowFold] = useState(false);
+  const [showFold, setShowFold] = useState(true); // Default to showing fold lines for cards
   const [includeGuidesInExport, setIncludeGuidesInExport] = useState(false);
   const [showQRTarget, setShowQRTarget] = useState(true);
   const [selectedSkeletonKeyId, setSelectedSkeletonKeyId] = useState<string | null>(
