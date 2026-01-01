@@ -704,14 +704,6 @@ export default function ProductPage() {
                   </div>
                 </div>
               )}
-
-              <button
-                onClick={() => setCurrentStep(2)}
-                disabled={uploadedImages.length === 0}
-                className="w-full py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Continue to Design Editor
-              </button>
             </div>
           </div>
         )}
