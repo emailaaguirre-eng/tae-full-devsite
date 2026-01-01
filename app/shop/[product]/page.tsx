@@ -29,7 +29,7 @@ const productInfo: Record<string, { title: string; description: string; icon: st
   card: {
     title: 'Greeting Cards',
     description: 'Beautiful cards for birthdays, holidays, thank yous, and everyday moments.',
-    icon: '💌',
+    icon: '≡ƒÆî',
     examples: [
       'Birthday celebrations',
       'Thank you notes',
@@ -41,7 +41,7 @@ const productInfo: Record<string, { title: string; description: string; icon: st
   postcard: {
     title: 'Postcards',
     description: 'Share memories and moments with custom postcards.',
-    icon: '📮',
+    icon: '≡ƒô«',
     examples: [
       'Travel memories',
       'Event announcements',
@@ -53,7 +53,7 @@ const productInfo: Record<string, { title: string; description: string; icon: st
   invitation: {
     title: 'Invitations',
     description: 'Elegant invitations for weddings, parties, and special events.',
-    icon: '💒',
+    icon: '≡ƒÆÆ',
     examples: [
       'Wedding invitations',
       'Birthday parties',
@@ -65,7 +65,7 @@ const productInfo: Record<string, { title: string; description: string; icon: st
   announcement: {
     title: 'Announcements',
     description: 'Share your news with beautifully designed announcements.',
-    icon: '📢',
+    icon: '≡ƒôó',
     examples: [
       'Birth announcements',
       'Engagement news',
@@ -77,7 +77,7 @@ const productInfo: Record<string, { title: string; description: string; icon: st
   print: {
     title: 'Wall Art',
     description: 'Transform your photos into stunning wall art with prints, canvas, and frames.',
-    icon: '🖼️',
+    icon: '≡ƒû╝∩╕Å',
     examples: [
       'Family portraits',
       'Landscape photography',
@@ -668,7 +668,7 @@ export default function ProductPage() {
               {variantsError && !variantsLoading && (
                 <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 mb-8">
                   <div className="flex items-start gap-4">
-                    <div className="text-2xl">⚠️</div>
+                    <div className="text-2xl">ΓÜá∩╕Å</div>
                     <div className="flex-1">
                       <h3 className="font-semibold text-yellow-800 mb-2">Unable to load product options</h3>
                       <p className="text-yellow-700 text-sm mb-4">{variantsError}</p>
@@ -700,7 +700,7 @@ export default function ProductPage() {
               {/* Invalid Combination Message */}
               {hasInvalidCombination() && (
                 <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6">
-                  <p className="text-red-800 font-semibold">⚠️ This combination isn't available.</p>
+                  <p className="text-red-800 font-semibold">ΓÜá∩╕Å This combination isn't available.</p>
                   <p className="text-red-700 text-sm mt-1">Please select different options.</p>
                 </div>
               )}
@@ -976,11 +976,12 @@ export default function ProductPage() {
                       Continue to Upload Image
                     </button>
                     {hasInvalidCombination() && (
-                      <p className="text-red-300 text-xs mt-2 text-center">⚠️ This combination isn't available</p>
+                      <p className="text-red-300 text-xs mt-2 text-center">ΓÜá∩╕Å This combination isn't available</p>
                     )}
                   </div>
                 </div>
               </div>
+              )}
             </div>
           </div>
         )}
@@ -1011,7 +1012,7 @@ export default function ProductPage() {
                   id="image-upload"
                 />
                 <label htmlFor="image-upload" className="cursor-pointer block">
-                  <div className="text-5xl mb-4">📷</div>
+                  <div className="text-5xl mb-4">≡ƒô╖</div>
                   <p className="text-lg text-brand-dark mb-2">Click to upload images</p>
                   <p className="text-sm text-brand-dark">JPG, PNG, or BMP format</p>
                 </label>
@@ -1064,7 +1065,7 @@ export default function ProductPage() {
             fallback={
               <div className="min-h-screen bg-brand-lightest flex items-center justify-center p-8">
                 <div className="max-w-2xl w-full bg-white rounded-2xl shadow-lg p-8 text-center">
-                  <div className="text-6xl mb-4">⚠️</div>
+                  <div className="text-6xl mb-4">ΓÜá∩╕Å</div>
                   <h2 className="text-2xl font-bold text-brand-darkest mb-4 font-playfair">
                     Project Editor Error
                   </h2>
@@ -1119,7 +1120,7 @@ export default function ProductPage() {
         {currentStep === 3 && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-              <div className="text-6xl mb-6">✨</div>
+              <div className="text-6xl mb-6">Γ£¿</div>
               <h2 className="text-3xl font-bold text-brand-darkest mb-4 font-playfair">
                 Design Complete!
               </h2>
@@ -1146,7 +1147,7 @@ export default function ProductPage() {
                         <div className="text-sm text-gray-600">
                           <p className="font-semibold capitalize">{exportItem.sideId}</p>
                           <p className="text-xs text-gray-500">
-                            {Math.round(exportItem.width)} × {Math.round(exportItem.height)} px
+                            {Math.round(exportItem.width)} ├ù {Math.round(exportItem.height)} px
                           </p>
                         </div>
                       </div>
@@ -1183,7 +1184,7 @@ export default function ProductPage() {
         {currentStep === 4 && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-              <div className="text-6xl mb-6">🎉</div>
+              <div className="text-6xl mb-6">≡ƒÄë</div>
               <h1 className="text-4xl font-bold text-brand-darkest mb-4 font-playfair">
                 Your Order is Ready!
               </h1>
