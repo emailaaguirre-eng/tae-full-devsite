@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Rect, Line, Transformer } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Rect, Line, Transformer, Group, Circle } from 'react-konva';
 import useImage from 'use-image';
 import { Download, X, Eye, EyeOff, Type } from 'lucide-react';
 import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
@@ -1052,6 +1052,128 @@ export default function ProjectEditor({
     );
   };
 
+  // Template Frame Component
+  const FrameComponent = ({ frameDef, frameFill, isActive }: { 
+    frameDef: any; 
+    frameFill: FrameFillState; 
+    isActive: boolean;
+  }) => {
+    if (!currentSide) return null;
+
+    // Calculate frame position and size relative to safe zone
+    const safeWidth = currentSide.canvasPx.w - (currentSide.safePx * 2);
+    const safeHeight = currentSide.canvasPx.h - (currentSide.safePx * 2);
+    const frameX = currentSide.safePx + (safeWidth * frameDef.xPct);
+    const frameY = currentSide.safePx + (safeHeight * frameDef.yPct);
+    const frameWidth = safeWidth * frameDef.wPct;
+    const frameHeight = safeHeight * frameDef.hPct;
+    const padding = frameDef.paddingPct ? Math.min(frameWidth, frameHeight) * frameDef.paddingPct : 0;
+    const contentX = frameX + padding;
+    const contentY = frameY + padding;
+    const contentWidth = frameWidth - (padding * 2);
+    const contentHeight = frameHeight - (padding * 2);
+
+    // Polaroid: add bottom margin
+    const isPolaroid = frameDef.shape === 'polaroid';
+    const polaroidBottomMargin = isPolaroid ? frameHeight * 0.15 : 0;
+    const imageHeight = isPolaroid ? contentHeight - polaroidBottomMargin : contentHeight;
+
+    return (
+      <Group
+        x={frameX}
+        y={frameY}
+        rotation={frameDef.rotation || 0}
+      >
+        {/* Frame border */}
+        {frameDef.shape === 'circle' ? (
+          <Circle
+            x={frameWidth / 2}
+            y={frameHeight / 2}
+            radius={Math.min(frameWidth, frameHeight) / 2}
+            fill="transparent"
+            stroke={isActive ? '#3b82f6' : (frameDef.stroke || '#e5e7eb')}
+            strokeWidth={isActive ? 3 : (frameDef.strokeWidth || 2)}
+            onClick={() => handleSelectFrame(frameFill.frameId)}
+            onTap={() => handleSelectFrame(frameFill.frameId)}
+          />
+        ) : (
+          <Rect
+            x={0}
+            y={0}
+            width={frameWidth}
+            height={frameHeight}
+            fill={isPolaroid ? '#ffffff' : 'transparent'}
+            stroke={isActive ? '#3b82f6' : (frameDef.stroke || '#e5e7eb')}
+            strokeWidth={isActive ? 3 : (frameDef.strokeWidth || 2)}
+            cornerRadius={frameDef.cornerRadiusPct ? Math.min(frameWidth, frameHeight) * frameDef.cornerRadiusPct : 0}
+            onClick={() => handleSelectFrame(frameFill.frameId)}
+            onTap={() => handleSelectFrame(frameFill.frameId)}
+          />
+        )}
+
+        {/* Filled image with clipping */}
+        {frameFill.assetSrc && (
+          <Group
+            clipX={contentX - frameX}
+            clipY={contentY - frameY}
+            clipWidth={contentWidth}
+            clipHeight={frameDef.shape === 'circle' ? contentWidth : imageHeight}
+          >
+            <Group
+              x={contentX - frameX}
+              y={contentY - frameY}
+            >
+              {(() => {
+                const [img, status] = useImage(frameFill.assetSrc);
+                if (status !== 'loaded' || !img) return null;
+
+                // Calculate image transform
+                const imgAspect = img.width / img.height;
+                const frameAspect = contentWidth / imageHeight;
+                const baseScale = frameFill.zoom;
+                
+                // Scale to cover frame
+                const scale = imgAspect > frameAspect
+                  ? (imageHeight / img.height) * baseScale
+                  : (contentWidth / img.width) * baseScale;
+
+                const scaledWidth = img.width * scale;
+                const scaledHeight = img.height * scale;
+
+                // Center + offset
+                const centerX = contentWidth / 2;
+                const centerY = imageHeight / 2;
+                const imgX = centerX - (scaledWidth / 2) + frameFill.offsetX;
+                const imgY = centerY - (scaledHeight / 2) + frameFill.offsetY;
+
+                return (
+                  <KonvaImage
+                    image={img}
+                    x={imgX}
+                    y={imgY}
+                    width={scaledWidth}
+                    height={scaledHeight}
+                    rotation={frameFill.rotation}
+                    draggable={isActive && templateMode}
+                    onDragEnd={(e) => {
+                      const node = e.target;
+                      const newOffsetX = node.x() - centerX + (scaledWidth / 2);
+                      const newOffsetY = node.y() - centerY + (scaledHeight / 2);
+                      onUpdateFrameFill(frameFill.frameId, {
+                        offsetX: newOffsetX,
+                        offsetY: newOffsetY,
+                      });
+                    }}
+                  />
+                );
+              })()}
+            </Group>
+          </Group>
+        )}
+      </Group>
+    );
+  };
+
   // QR Component
   const QRComponent = ({ object }: { object: EditorObject }) => {
     const qrRef = useRef<any>(null);
@@ -1339,10 +1461,14 @@ export default function ProjectEditor({
             onToggleQRTarget={() => setShowQRTarget(!showQRTarget)}
           />
 
-          {/* Asset Library */}
-          <div className="p-4 flex-1 overflow-y-auto">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Your Images</h3>
-            <p className="text-xs text-gray-500 mb-4">Click an image to add it to the canvas</p>
+          {activeTab === 'assets' && (
+            <div className="p-4 flex-1 overflow-y-auto">
+              <h3 className="text-sm font-semibold text-gray-900 mb-4">Your Images</h3>
+              <p className="text-xs text-gray-500 mb-4">
+                {templateMode && templateState?.activeFrameId
+                  ? 'Click an image to fill the active frame'
+                  : 'Click an image to add it to the canvas'}
+              </p>
 
           {assets.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
