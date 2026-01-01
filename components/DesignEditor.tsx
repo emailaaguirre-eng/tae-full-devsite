@@ -141,6 +141,12 @@ export default function DesignEditor({
   }, [canvasWidth, canvasHeight]);
 
   // Cleanup object URLs on unmount
+  // SAFE PATTERN: Only revoke on unmount or asset removal
+  // NEVER revoke immediately after setting img.src - Fabric needs the URL for rendering
+  // We revoke here because:
+  // 1. Component is unmounting (safe to clean up)
+  // 2. OR asset is being removed (no longer needed)
+  // Currently we use data URLs (not object URLs), but this handles future object URL usage
   useEffect(() => {
     return () => {
       uploadedAssets.forEach(asset => {
@@ -480,7 +486,8 @@ export default function DesignEditor({
         });
       }
       
-      // Set interactive properties
+      // Set interactive properties (fabric.js v6)
+      // Ensure object is selectable, evented, and not excluded from export
       fabricImg.set({
         selectable: true,
         evented: true,
@@ -490,6 +497,7 @@ export default function DesignEditor({
         lockScalingX: false,
         lockScalingY: false,
         opacity: 1,
+        excludeFromExport: false, // Ensure it's included in exports
       });
 
       // Ensure dimensions are set
@@ -530,26 +538,76 @@ export default function DesignEditor({
         opacity: 1, // Ensure visible
       });
 
-      // Step 7: Add to canvas layer
+      // Step 7: Add to canvas layer (fabric.js v6 API)
       if (isDev) console.log('[CANVAS] Adding image to canvas...');
       canvas.add(fabricImg);
       
-      // Step 8: Bring to front and make active
+      // Step 8: Bring to front to ensure it's not behind background rects
+      // This ensures the image is on the active layer and visible
       canvas.bringToFront(fabricImg);
+      
+      // Step 9: Make it the active/selected object
       canvas.setActiveObject(fabricImg);
       
-      // Step 9: Trigger render/update
+      // Verify it's actually on the canvas (fabric.js v6)
+      const allObjects = canvas.getObjects();
+      if (!allObjects.includes(fabricImg)) {
+        throw new Error('Failed to add image to canvas - object not found in canvas objects');
+      }
+      
+      // Step 10: Trigger render/update (fabric.js v6 API)
+      // requestRenderAll() is the correct method for v6 (renderAll() also works but requestRenderAll is preferred)
       canvas.requestRenderAll();
       
-      // Step 10: Save state for undo/redo
+      // Step 11: Verify object is actually on canvas and selectable
+      const objects = canvas.getObjects();
+      const isOnCanvas = objects.includes(fabricImg);
+      if (!isOnCanvas) {
+        throw new Error('Image was not added to canvas');
+      }
+      
+      // Verify selectability and visibility
+      if (!fabricImg.selectable || !fabricImg.evented) {
+        if (isDev) console.warn('[CANVAS] Image may not be selectable, re-setting properties...');
+        fabricImg.set({ selectable: true, evented: true });
+        canvas.requestRenderAll();
+      }
+      
+      // Ensure opacity is not 0 (would make it invisible)
+      if (fabricImg.opacity === 0) {
+        if (isDev) console.warn('[CANVAS] Image opacity is 0, setting to 1...');
+        fabricImg.set({ opacity: 1 });
+        canvas.requestRenderAll();
+      }
+      
+      // Step 12: Save state for undo/redo
       saveState();
+
+      // Step 13: Safe to revoke object URL now (if using one)
+      // IMPORTANT: Only revoke AFTER image is fully loaded and added to canvas
+      // Fabric.js may need the URL for rendering, so we wait until after canvas.add() and requestRenderAll()
+      // SAFE PATTERN: Revoke after canvas operations complete
+      // Currently we use data URLs (not object URLs), but this handles future object URL usage
+      if (asset.objectUrl && asset.src.startsWith('blob:')) {
+        // For object URLs, we can revoke after adding to canvas
+        // But only if we're sure Fabric has the image data cached
+        // Since we're using data URLs currently, this is a safety check
+        // In the future, if we switch to object URLs, we could revoke here:
+        // URL.revokeObjectURL(asset.objectUrl);
+        // For now, we keep it for potential re-use and clean up on unmount
+        if (isDev) console.log('[CANVAS] Object URL would be safe to revoke here (but keeping for now)');
+      }
 
       if (isDev) {
         console.log('[CANVAS] Image successfully added to canvas:', {
           objectCount: canvas.getObjects().length,
           imageId: fabricImg.id || 'no-id',
           imagePosition: { left: fabricImg.left, top: fabricImg.top },
-          imageScale: { scaleX: fabricImg.scaleX, scaleY: fabricImg.scaleY }
+          imageScale: { scaleX: fabricImg.scaleX, scaleY: fabricImg.scaleY },
+          isSelectable: fabricImg.selectable,
+          isEvented: fabricImg.evented,
+          opacity: fabricImg.opacity,
+          isOnCanvas: isOnCanvas
         });
       }
     } catch (error) {
