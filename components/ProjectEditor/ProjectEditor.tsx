@@ -165,10 +165,133 @@ export default function ProjectEditor({
     : undefined;
 
   // Get current side's state
-  const currentSideState = sideStateById[activeSideId] || { objects: [], selectedId: undefined };
+  const currentSideState = sideStateById[activeSideId] || { objects: [], selectedId: undefined, template: undefined };
   const objects = currentSideState.objects;
   const selectedId = currentSideState.selectedId;
   const selectedObject = selectedId ? objects.find(obj => obj.id === selectedId) : null;
+  const templateState = currentSideState.template;
+
+  // Debounced autosave function
+  const scheduleAutosave = () => {
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    autosaveTimeoutRef.current = setTimeout(async () => {
+      await performAutosave();
+    }, 750);
+  };
+
+  // Perform autosave
+  const performAutosave = async () => {
+    if (!printSpec || !productSlug) return;
+
+    try {
+      const draftData: DraftData = {
+        version: 1,
+        productSlug,
+        printSpecId: printSpec.id,
+        activeSideId,
+        includeGuides: includeGuidesInExport,
+        guideVisibility: {
+          showBleed,
+          showTrim,
+          showSafe,
+          showFold,
+          showQRTarget,
+        },
+        sideStateById: JSON.parse(JSON.stringify(sideStateById)), // Deep clone to remove refs
+        updatedAt: Date.now(),
+      };
+
+      const draftKey = getDraftKey(productSlug);
+      await saveDraft(draftKey, draftData);
+    } catch (error) {
+      console.warn('[ProjectEditor] Autosave failed:', error);
+      // Fail gracefully - editor continues to work
+    }
+  };
+
+  // Load draft on mount
+  useEffect(() => {
+    const loadDraftOnMount = async () => {
+      if (!productSlug) return;
+
+      try {
+        const draftKey = getDraftKey(productSlug);
+        const draft = await loadDraft(draftKey);
+        
+        if (draft) {
+          setDraftFound(true);
+          setShowDraftBanner(true);
+        }
+      } catch (error) {
+        console.warn('[ProjectEditor] Failed to check for draft:', error);
+        // Fail gracefully - editor continues to work
+      }
+    };
+
+    loadDraftOnMount();
+  }, [productSlug]);
+
+  // Restore draft
+  const handleRestoreDraft = async () => {
+    if (!productSlug) return;
+
+    try {
+      const draftKey = getDraftKey(productSlug);
+      const draft = await loadDraft(draftKey);
+      
+      if (draft && printSpec) {
+        // Restore state
+        setActiveSideId(draft.activeSideId);
+        setIncludeGuidesInExport(draft.includeGuides);
+        setShowBleed(draft.guideVisibility.showBleed);
+        setShowTrim(draft.guideVisibility.showTrim);
+        setShowSafe(draft.guideVisibility.showSafe);
+        setShowFold(draft.guideVisibility.showFold);
+        setShowQRTarget(draft.guideVisibility.showQRTarget);
+        setSideStateById(draft.sideStateById);
+        
+        setShowDraftBanner(false);
+        console.log('[ProjectEditor] Draft restored');
+      }
+    } catch (error) {
+      console.warn('[ProjectEditor] Failed to restore draft:', error);
+      alert('Failed to restore draft. Please try again.');
+    }
+  };
+
+  // Clear draft
+  const handleClearDraft = async () => {
+    if (!productSlug) return;
+
+    try {
+      const draftKey = getDraftKey(productSlug);
+      await deleteDraft(draftKey);
+      
+      // Reset editor state
+      if (printSpec) {
+        const initialStates: Record<string, SideState> = {};
+        printSpec.sides.forEach((side) => {
+          initialStates[side.id] = {
+            objects: [],
+            selectedId: undefined,
+            template: undefined,
+          };
+        });
+        setSideStateById(initialStates);
+        setActiveSideId(printSpec.sides[0]?.id || 'front');
+      }
+      
+      setShowDraftBanner(false);
+      setDraftFound(false);
+      console.log('[ProjectEditor] Draft cleared');
+    } catch (error) {
+      console.warn('[ProjectEditor] Failed to clear draft:', error);
+      alert('Failed to clear draft. Please try again.');
+    }
+  };
 
   // Stage dimensions from print spec
   const STAGE_WIDTH = currentSide?.canvasPx.w || 1800;
