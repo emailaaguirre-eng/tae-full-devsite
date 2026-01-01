@@ -197,6 +197,7 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]); // Legacy, kept for compatibility
   const [artkeyId, setArtkeyId] = useState<string | null>(null);
+  const [exportedSides, setExportedSides] = useState<Array<{ sideId: string; dataUrl: string; width: number; height: number }>>([]);
   
   // Variant matching state
   const [selectedVariant, setSelectedVariant] = useState<NormalizedVariant | null>(null);
@@ -414,7 +415,9 @@ export default function ProductPage() {
     }
 
     // Reset input
-    e.target.value = '';
+    if (typeof e.target !== 'undefined' && e.target) {
+      e.target.value = '';
+    }
   };
 
   // Handle design complete from ProjectEditor - save design and navigate to ArtKey editor

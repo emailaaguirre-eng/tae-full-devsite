@@ -53,9 +53,10 @@ export const config = {
      * - api (API routes)
      * - favicon.ico, robots.txt, sitemap.xml (static files)
      * - images, fonts (static directories)
-     * - files with extensions (images, fonts, etc.)
+     * 
+     * Simplified pattern - Next.js will handle exclusions in middleware function
      */
-    '/((?!_next/static|_next/image|_next/webpack|_next/data|api|favicon.ico|robots.txt|sitemap.xml|images|fonts|.*\\.(ico|png|jpg|jpeg|gif|svg|webp|woff|woff2|ttf|eot)).*)',
+    '/((?!_next|api|favicon|robots|sitemap|images|fonts).*)',
   ],
 };
 
