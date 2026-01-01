@@ -14,7 +14,7 @@ import DraftBanner from './DraftBanner';
 import { getAllSkeletonKeys, getSkeletonKey, type SkeletonKeyDefinition } from '@/lib/skeletonKeys';
 import { generateQRCode, getDefaultArtKeyUrl } from '@/lib/qr';
 import { getCollageTemplate, getAllCollageTemplates, type CollageTemplate } from '@/lib/collageTemplates';
-import { saveDraft, loadDraft, deleteDraft, getDraftKey, type DraftData } from '@/lib/draftStore';
+import { saveDraft, loadDraft, deleteDraft, getDraftKey, type DraftData, type PersistedAsset, DRAFT_ASSETS_SIZE_CAP } from '@/lib/draftStore';
 
 // Editor object type matching requirements
 interface EditorObject {
