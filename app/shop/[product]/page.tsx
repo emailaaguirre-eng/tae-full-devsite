@@ -8,19 +8,19 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
-// Dynamic import for Design Editor
-const DesignEditor = dynamic(() => import('@/components/DesignEditor'), {
+// Dynamic import for Project Editor (Konva-based)
+const ProjectEditor = dynamic(() => import('@/components/ProjectEditor/ProjectEditor'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-96">
       <div className="text-center">
         <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full mx-auto mb-4"></div>
-        <p className="text-brand-dark">Loading Design Editor...</p>
+        <p className="text-brand-dark">Loading Project Editor...</p>
       </div>
     </div>
   ),
   onError: (error) => {
-    console.error('Failed to load Design Editor:', error);
+    console.error('Failed to load Project Editor:', error);
   },
 });
 
@@ -761,12 +761,10 @@ export default function ProductPage() {
                   </div>
                 </div>
               ) : (
-                <DesignEditor
-                  productType={productType as 'canvas' | 'print' | 'card' | 'poster' | 'photobook'}
-                  productSize={getCanvasSize()}
-                  onComplete={handleDesignComplete}
-                  initialImages={uploadedImages}
-                  frameColor={isFramed && selectedFrame ? selectedFrame : undefined}
+                <ProjectEditorWrapper
+                  productType={productType}
+                  uploadedImages={uploadedImages}
+                  onComplete={handleProjectEditorComplete}
                   onClose={() => setCurrentStep(1)}
                 />
               )}
