@@ -377,28 +377,51 @@ export default function ProjectEditor({
       img.src = svgUrl;
     });
 
-    // Calculate position from percentage
-    const x = (currentSide.canvasPx.w * keyDef.defaultPositionPct.xPct) - (img.width * keyDef.defaultScale / 2);
-    const y = (currentSide.canvasPx.h * keyDef.defaultPositionPct.yPct) - (img.height * keyDef.defaultScale / 2);
+    // Scale skeleton key to fit print spec dimensions
+    // SVG is 500x700, but we need to scale it to match currentSide dimensions
+    const svgAspectRatio = 500 / 700; // width/height
+    const sideAspectRatio = currentSide.canvasPx.w / currentSide.canvasPx.h;
+    
+    let scaledWidth: number;
+    let scaledHeight: number;
+    
+    if (svgAspectRatio > sideAspectRatio) {
+      // SVG is wider - fit to width
+      scaledWidth = currentSide.canvasPx.w * 0.9; // 90% of print area width
+      scaledHeight = scaledWidth / svgAspectRatio;
+    } else {
+      // SVG is taller - fit to height
+      scaledHeight = currentSide.canvasPx.h * 0.9; // 90% of print area height
+      scaledWidth = scaledHeight * svgAspectRatio;
+    }
 
-    // Remove existing skeleton key on this side if any
+    // Calculate position from percentage (centered)
+    const x = (currentSide.canvasPx.w * keyDef.defaultPositionPct.xPct) - (scaledWidth / 2);
+    const y = (currentSide.canvasPx.h * keyDef.defaultPositionPct.yPct) - (scaledHeight / 2);
+
+    // Remove existing skeleton key on this side if any (only one skeleton key per side)
     const existingKey = objects.find(obj => obj.type === 'skeletonKey');
     const filteredObjects = existingKey 
       ? objects.filter(obj => obj.id !== existingKey.id)
       : objects;
+      
+    // Clean up old object URL if exists
+    if (existingKey && existingKey.src && existingKey.src.startsWith('blob:')) {
+      URL.revokeObjectURL(existingKey.src);
+    }
 
     const newSkeletonKey: EditorObject = {
       id: `skeleton-${Date.now()}-${Math.random()}`,
       type: 'skeletonKey',
       keyId: keyId,
       src: svgUrl,
-      x: Math.max(0, Math.min(x, currentSide.canvasPx.w - img.width * keyDef.defaultScale)),
-      y: Math.max(0, Math.min(y, currentSide.canvasPx.h - img.height * keyDef.defaultScale)),
-      scaleX: keyDef.defaultScale,
-      scaleY: keyDef.defaultScale,
+      x: Math.max(0, Math.min(x, currentSide.canvasPx.w - scaledWidth)),
+      y: Math.max(0, Math.min(y, currentSide.canvasPx.h - scaledHeight)),
+      scaleX: 1,
+      scaleY: 1,
       rotation: 0,
-      width: img.width,
-      height: img.height,
+      width: scaledWidth,
+      height: scaledHeight,
       opacity: 0.3,
       locked: false,
     };
