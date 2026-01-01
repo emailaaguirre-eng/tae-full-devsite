@@ -1504,6 +1504,15 @@ export default function ProjectEditor({
 
   return (
       <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
+      {/* Draft Banner */}
+      {showDraftBanner && (
+        <DraftBanner
+          onRestore={handleRestoreDraft}
+          onDismiss={() => setShowDraftBanner(false)}
+          onClear={handleClearDraft}
+        />
+      )}
+
       {/* Header */}
       <div className="bg-gray-800 text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
