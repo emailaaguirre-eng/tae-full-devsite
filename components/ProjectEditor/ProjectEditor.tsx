@@ -244,7 +244,6 @@ export default function ProjectEditor({
       if (draft && printSpec) {
         // Restore assets first (so they're available when state is restored)
         if (draft.persistedAssets && draft.persistedAssets.length > 0) {
-          const { useAssetStore } = await import('@/lib/assetStore');
           const { clearAssets, addAssetFromPersisted } = useAssetStore.getState();
           
           // Clear existing assets
@@ -1477,8 +1476,8 @@ export default function ProjectEditor({
     );
   };
 
-  // Show error state if PrintSpec is missing for card products
-  if (printSpecError) {
+  // Show error state if PrintSpec is missing or has an error
+  if (printSpecError || !printSpec) {
     return (
       <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
         {/* Draft Banner */}
@@ -1509,7 +1508,9 @@ export default function ProjectEditor({
             <div className="text-center">
               <div className="text-6xl mb-4">⚠️</div>
               <h3 className="text-2xl font-bold text-red-600 mb-4">Print Configuration Error</h3>
-              <p className="text-gray-700 mb-6">{printSpecError}</p>
+              <p className="text-gray-700 mb-6">
+                {printSpecError || 'Print specification is missing. Unable to initialize editor.'}
+              </p>
               <div className="text-sm text-gray-500 mb-6">
                 <p className="font-semibold mb-2">What this means:</p>
                 <p>This product format requires a specific print specification that hasn't been configured yet.</p>
