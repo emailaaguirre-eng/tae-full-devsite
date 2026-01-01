@@ -27,24 +27,7 @@ interface AssetStore {
   getTotalBytes: () => number;
 }
 
-// Lazy initialization to prevent SSR issues
-let storeInstance: ReturnType<typeof create<AssetStore>> | null = null;
-
-function getAssetStore() {
-  if (typeof window === 'undefined') {
-    // Return a mock store for SSR
-    return {
-      assets: [],
-      addAsset: () => {},
-      addAssetFromPersisted: () => {},
-      removeAsset: () => {},
-      clearAssets: () => {},
-      getTotalBytes: () => 0,
-    } as any;
-  }
-  
-  if (!storeInstance) {
-    storeInstance = create<AssetStore>((set, get) => ({
+export const useAssetStore = create<AssetStore>((set, get) => ({
   assets: [],
 
   addAsset: (asset) => {
@@ -104,9 +87,4 @@ function getAssetStore() {
       return total + (asset.bytesApprox || 0);
     }, 0);
   },
-    }));
-  }
-  return storeInstance;
-}
-
-export const useAssetStore = getAssetStore();
+}));
