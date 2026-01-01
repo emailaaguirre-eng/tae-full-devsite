@@ -1,3 +1,5 @@
+'use client';
+
 // Draft Store for Project Editor
 // Persists editor state to IndexedDB for draft recovery
 
