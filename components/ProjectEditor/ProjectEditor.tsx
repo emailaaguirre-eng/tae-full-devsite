@@ -9,6 +9,7 @@ import { projectEditorStore, type UploadedAsset, type KonvaObject } from '@/lib/
 import { getPrintSpec, type PrintSide } from '@/lib/printSpecs';
 import { X, Undo2, Redo2, Trash2, Eye, EyeOff } from 'lucide-react';
 import AssetPanel from './AssetPanel';
+import ImageObject from './ImageObject';
 
 interface ProjectEditorProps {
   printSpecId?: string;
@@ -29,59 +30,6 @@ export default function ProjectEditor({
   const transformerRef = useRef<any>(null);
   const imageRefs = useRef<Record<string, KonvaImageType>>({});
 
-  // Image Object Component (separate component for proper hooks usage)
-  const ImageObject = React.memo(({
-    obj,
-    asset,
-    isSelected,
-    onSelect,
-    onDragEnd,
-    onTransformEnd,
-    onImageLoad,
-  }: {
-    obj: KonvaObject;
-    asset: UploadedAsset;
-    isSelected: boolean;
-    onSelect: () => void;
-    onDragEnd: (e: any) => void;
-    onTransformEnd: (e: any) => void;
-    onImageLoad: (image: KonvaImageType) => void;
-  }) => {
-    const [image] = useImage(asset.src);
-    const imageRef = useRef<KonvaImageType>(null);
-
-    useEffect(() => {
-      if (imageRef.current && image) {
-        imageRef.current.image(image);
-        imageRef.current.getLayer()?.batchDraw();
-        onImageLoad(imageRef.current);
-      }
-    }, [image, onImageLoad]);
-
-    return (
-      <KonvaImage
-        ref={(node) => {
-          if (node) {
-            imageRef.current = node;
-            imageRefs.current[obj.id] = node;
-          }
-        }}
-        image={image}
-        x={obj.x}
-        y={obj.y}
-        width={obj.width}
-        height={obj.height}
-        rotation={obj.rotation}
-        scaleX={obj.scaleX}
-        scaleY={obj.scaleY}
-        draggable
-        onClick={onSelect}
-        onTap={onSelect}
-        onDragEnd={onDragEnd}
-        onTransformEnd={onTransformEnd}
-      />
-    );
-  });
 
   // Subscribe to store changes
   useEffect(() => {
@@ -365,6 +313,7 @@ export default function ProjectEditor({
                         onDragEnd={(e) => handleDragEnd(obj.id, e)}
                         onTransformEnd={(e) => handleTransformEnd(obj.id, e)}
                         onImageLoad={(image) => handleImageLoad(obj.id, image)}
+                        imageRefs={imageRefs}
                       />
                     );
                   }
