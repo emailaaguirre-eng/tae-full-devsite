@@ -213,53 +213,58 @@ export default function ProductPage() {
   };
 
   // Handle image upload - now uses shared asset store
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
     // Import dynamically to avoid SSR issues
-    import('@/lib/assetStore').then(({ useAssetStore }) => {
-      const { addAsset } = useAssetStore.getState();
+    const { useAssetStore } = await import('@/lib/assetStore');
+    const { addAsset } = useAssetStore.getState();
 
-      Array.from(files).forEach((file) => {
-        if (!file.type.startsWith('image/')) return;
+    // Process each file
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) {
+        alert(`${file.name} is not an image file. Please upload an image.`);
+        continue;
+      }
 
-        // Create object URL for fast preview
-        const objectUrl = URL.createObjectURL(file);
-
-        // Load image to get dimensions
-        const img = new window.Image();
-        img.onload = () => {
-          const asset = {
-            id: `asset-${Date.now()}-${Math.random()}`,
-            name: file.name,
-            mimeType: file.type,
-            width: img.naturalWidth,
-            height: img.naturalHeight,
-            src: objectUrl,
-            origin: 'uploader' as const,
-            objectUrl,
-            file,
-          };
-
-          addAsset(asset);
-
-          // Also add to legacy state for backward compatibility
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            if (event.target?.result) {
-              setUploadedImages((prev) => [...prev, event.target.result as string]);
-            }
-          };
-          reader.readAsDataURL(file);
-        };
-        img.onerror = () => {
-          console.error('Failed to load image:', file.name);
-          URL.revokeObjectURL(objectUrl);
-        };
-        img.src = objectUrl;
+      // Convert file to data URL
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
-    });
+
+      // Calculate approximate bytes (use file.size if available, otherwise estimate from data URL)
+      const bytesApprox = file.size || Math.round((dataUrl.length * 3) / 4);
+
+      // Load image to get dimensions
+      const img = new window.Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+
+      const asset = {
+        id: `asset-${Date.now()}-${Math.random()}`,
+        name: file.name,
+        mimeType: file.type,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+        src: dataUrl, // Use data URL as src (not blob URL)
+        origin: 'uploader' as const,
+        dataUrl,
+        bytesApprox,
+        file, // Keep file reference for potential cleanup
+      };
+
+      addAsset(asset);
+
+      // Also add to legacy state for backward compatibility
+      setUploadedImages((prev) => [...prev, dataUrl]);
+    }
 
     // Reset input
     e.target.value = '';

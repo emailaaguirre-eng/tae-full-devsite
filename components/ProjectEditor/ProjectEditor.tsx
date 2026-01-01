@@ -272,6 +272,7 @@ export default function ProjectEditor({
         if (draft) {
           setDraftFound(true);
           setShowDraftBanner(true);
+          setAssetsPartial(draft.assetsPartial || false);
         }
       } catch (error) {
         console.warn('[ProjectEditor] Failed to check for draft:', error);
@@ -291,6 +292,20 @@ export default function ProjectEditor({
       const draft = await loadDraft(draftKey);
       
       if (draft && printSpec) {
+        // Restore assets first (so they're available when state is restored)
+        if (draft.persistedAssets && draft.persistedAssets.length > 0) {
+          const { useAssetStore } = await import('@/lib/assetStore');
+          const { clearAssets, addAssetFromPersisted } = useAssetStore.getState();
+          
+          // Clear existing assets
+          clearAssets();
+          
+          // Restore persisted assets
+          draft.persistedAssets.forEach((persisted) => {
+            addAssetFromPersisted(persisted);
+          });
+        }
+
         // Restore state
         setActiveSideId(draft.activeSideId);
         setIncludeGuidesInExport(draft.includeGuides);
@@ -300,6 +315,9 @@ export default function ProjectEditor({
         setShowFold(draft.guideVisibility.showFold);
         setShowQRTarget(draft.guideVisibility.showQRTarget);
         setSideStateById(draft.sideStateById);
+        
+        // Update assetsPartial state
+        setAssetsPartial(draft.assetsPartial || false);
         
         setShowDraftBanner(false);
         console.log('[ProjectEditor] Draft restored');
