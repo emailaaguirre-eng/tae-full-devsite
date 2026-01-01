@@ -418,11 +418,9 @@ export default function ProjectEditor({
     if (!currentSide) return;
 
     const qrUrl = getDefaultArtKeyUrl(editorConfig.artKeyUrlPlaceholder);
-    const qrSize = 100; // Default QR size in pixels
+    let qrSize = 100; // Default QR size in pixels
     
     try {
-      const qrDataUrl = await generateQRCode(qrUrl, qrSize, 4);
-      
       // Get skeleton key to find target position
       const skeletonKey = objects.find(obj => obj.type === 'skeletonKey');
       let qrX = currentSide.canvasPx.w / 2;
@@ -450,6 +448,8 @@ export default function ProjectEditor({
           qrSize = targetSize;
         }
       }
+
+      const qrDataUrl = await generateQRCode(qrUrl, qrSize, 4);
 
       // Remove existing QR on this side if any (only if not required or if regenerating)
       const existingQR = objects.find(obj => obj.type === 'qr' && obj.sideId === activeSideId);
