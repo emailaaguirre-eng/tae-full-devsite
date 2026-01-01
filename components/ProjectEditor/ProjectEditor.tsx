@@ -205,12 +205,15 @@ export default function ProjectEditor({
 
     try {
       const stage = stageRef.current.getStage();
-      const layer = stage.findOne('Layer');
+      const layer = stage.getLayers()[0]; // Get the first layer
       
       // Temporarily hide guides if not including in export
       const guideObjects: any[] = [];
       if (!includeGuidesInExport && layer) {
-        layer.find('.guide-overlay').forEach((node: any) => {
+        // Find all guide overlays by name
+        layer.find((node: any) => {
+          return node.name() === 'guide-overlay';
+        }).forEach((node: any) => {
           node.visible(false);
           guideObjects.push(node);
         });
