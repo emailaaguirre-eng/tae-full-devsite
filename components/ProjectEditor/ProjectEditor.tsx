@@ -5,7 +5,7 @@ import { Stage, Layer, Image as KonvaImage, Rect, Line, Transformer } from 'reac
 import useImage from 'use-image';
 import { Download, X, Eye, EyeOff } from 'lucide-react';
 import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
-import { getPrintSpecForProduct, getPrintSide, type PrintSpec, type PrintSide } from '@/lib/printSpecs';
+import { getPrintSpecForProduct, getPrintSide, type PrintSpec, type PrintSide, type PrintSpecResult } from '@/lib/printSpecs';
 
 interface CanvasImage {
   id: string;
@@ -50,12 +50,15 @@ export default function ProjectEditor({
   // Get assets from shared store
   const assets = useAssetStore((state) => state.assets);
 
-  // Get print spec
-  const printSpec: PrintSpec | undefined = printSpecId
+  // Get print spec with error handling
+  const printSpecResult: PrintSpecResult = printSpecId
     ? getPrintSpecForProduct(printSpecId)
     : productSlug
     ? getPrintSpecForProduct(productSlug)
-    : getPrintSpec('poster_simple'); // Default fallback
+    : { spec: getPrintSpec('poster_simple') }; // Default fallback for posters
+
+  const printSpec = printSpecResult.spec;
+  const printSpecError = printSpecResult.error;
 
   // Initialize side scenes if not already initialized
   useEffect(() => {
@@ -314,6 +317,11 @@ export default function ProjectEditor({
 
   // Export active side
   const handleExportActiveSide = async () => {
+    if (printSpecError || !printSpec) {
+      alert(printSpecError || 'Print spec not available');
+      return;
+    }
+
     const result = await exportCurrentSide();
     if (result) {
       if (onComplete) {
@@ -339,8 +347,8 @@ export default function ProjectEditor({
 
   // Export all sides
   const handleExportAllSides = async () => {
-    if (!printSpec) {
-      alert('No print spec available');
+    if (printSpecError || !printSpec) {
+      alert(printSpecError || 'No print spec available');
       return;
     }
 

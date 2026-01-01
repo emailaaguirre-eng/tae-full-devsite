@@ -79,9 +79,21 @@ export function getPrintSide(spec: PrintSpec, sideId: 'front' | 'inside' | 'back
   return spec.sides.find((s) => s.id === sideId);
 }
 
+// Result type for print spec lookup
+export interface PrintSpecResult {
+  spec: PrintSpec | undefined;
+  error?: string; // Error message if spec is required but missing
+}
+
+// Card-like products that REQUIRE explicit PrintSpec mapping
+const CARD_PRODUCTS = ['card', 'invitation', 'announcement'];
+
 // Map product slug/type to print spec ID
 // This is a simple mapping - can be enhanced later with variationId support
-export function getPrintSpecForProduct(productSlugOrId: string, variationId?: string): PrintSpec | undefined {
+export function getPrintSpecForProduct(
+  productSlugOrId: string,
+  variationId?: string
+): PrintSpecResult {
   const mapping: Record<string, string> = {
     poster: 'poster_simple',
     print: 'poster_simple',
@@ -91,7 +103,27 @@ export function getPrintSpecForProduct(productSlugOrId: string, variationId?: st
     postcard: 'poster_simple', // Postcards use simple poster spec
   };
 
-  const specId = mapping[productSlugOrId] || 'poster_simple';
-  return getPrintSpec(specId);
+  const specId = mapping[productSlugOrId];
+
+  // For card products, require explicit mapping
+  if (CARD_PRODUCTS.includes(productSlugOrId) && !specId) {
+    return {
+      spec: undefined,
+      error: `This card format (${productSlugOrId}) isn't configured for print yet. Please contact support.`,
+    };
+  }
+
+  // For posters and other products, fallback to poster_simple
+  const finalSpecId = specId || 'poster_simple';
+  const spec = getPrintSpec(finalSpecId);
+
+  if (!spec) {
+    return {
+      spec: undefined,
+      error: `Print spec "${finalSpecId}" not found.`,
+    };
+  }
+
+  return { spec };
 }
 
