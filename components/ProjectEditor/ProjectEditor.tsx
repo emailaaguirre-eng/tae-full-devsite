@@ -8,8 +8,13 @@ import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
 import { getPrintSpecForProduct, getPrintSide, type PrintSpec, type PrintSide, type PrintSpecResult } from '@/lib/printSpecs';
 import { DEFAULT_FONT, DEFAULT_FONT_WEIGHT } from '@/lib/editorFonts';
 import LabelInspector from './LabelInspector';
+import ArtKeyPanel from './ArtKeyPanel';
+import TemplatesPanel from './TemplatesPanel';
+import DraftBanner from './DraftBanner';
 import { getAllSkeletonKeys, getSkeletonKey, type SkeletonKeyDefinition } from '@/lib/skeletonKeys';
 import { generateQRCode, getDefaultArtKeyUrl } from '@/lib/qr';
+import { getCollageTemplate, getAllCollageTemplates, type CollageTemplate } from '@/lib/collageTemplates';
+import { saveDraft, loadDraft, deleteDraft, getDraftKey, type DraftData } from '@/lib/draftStore';
 
 // Editor object type matching requirements
 interface EditorObject {
@@ -86,9 +91,21 @@ interface ProjectEditorProps {
 export default function ProjectEditor({ 
   printSpecId, 
   productSlug,
+  config,
   onComplete, 
   onClose 
 }: ProjectEditorProps) {
+  // Merge config with defaults
+  const editorConfig: ProjectEditorConfig = {
+    productSlug: productSlug || config?.productSlug || 'unknown',
+    printSpecId: printSpecId || config?.printSpecId,
+    qrRequired: config?.qrRequired || false,
+    allowedSidesForQR: config?.allowedSidesForQR || ['front'],
+    qrPlacementMode: config?.qrPlacementMode || 'flexible',
+    defaultSkeletonKeyId: config?.defaultSkeletonKeyId,
+    artKeyUrlPlaceholder: config?.artKeyUrlPlaceholder,
+  };
+
   // Per-side scene state: Record<SideId, SideState>
   const [sideStateById, setSideStateById] = useState<Record<string, SideState>>({});
   const [activeSideId, setActiveSideId] = useState<string>('front');
@@ -101,6 +118,11 @@ export default function ProjectEditor({
   const [selectedSkeletonKeyId, setSelectedSkeletonKeyId] = useState<string | null>(
     editorConfig.defaultSkeletonKeyId || null
   );
+  const [templateMode, setTemplateMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<'assets' | 'templates'>('assets');
+  const [draftFound, setDraftFound] = useState(false);
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const stageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
   const imageRefs = useRef<Record<string, any>>({});
