@@ -17,7 +17,7 @@ import { getCollageTemplate, getAllCollageTemplates, type CollageTemplate } from
 import { saveDraft, loadDraft, deleteDraft, getDraftKey, type DraftData, type PersistedAsset, DRAFT_ASSETS_SIZE_CAP } from '@/lib/draftStore';
 
 // Editor object type matching requirements
-interface EditorObject {
+export interface EditorObject {
   id: string;
   type: 'image' | 'text' | 'skeletonKey' | 'qr';
   src?: string; // For images, skeleton keys (SVG data URL)

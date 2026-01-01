@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from 'react';
 import { QrCode, CheckCircle2, AlertTriangle, Move, Lock } from 'lucide-react';
 import { getAllSkeletonKeys, getSkeletonKey, type SkeletonKeyDefinition } from '@/lib/skeletonKeys';
-import type { EditorObject } from './ProjectEditor';
-import type { ProjectEditorConfig } from './ProjectEditor';
+import type { EditorObject, ProjectEditorConfig } from './ProjectEditor';
 
 interface ArtKeyPanelProps {
   config: ProjectEditorConfig;
