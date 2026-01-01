@@ -211,11 +211,12 @@ export default function ProjectEditor({
       const guideObjects: any[] = [];
       if (!includeGuidesInExport && layer) {
         // Find all guide overlays by name
-        layer.find((node: any) => {
-          return node.name() === 'guide-overlay';
-        }).forEach((node: any) => {
-          node.visible(false);
-          guideObjects.push(node);
+        const allNodes = layer.getChildren();
+        allNodes.forEach((node: any) => {
+          if (node.name() === 'guide-overlay') {
+            node.visible(false);
+            guideObjects.push(node);
+          }
         });
         layer.draw();
       }
@@ -347,7 +348,48 @@ export default function ProjectEditor({
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          {/* Guide Toggles */}
+          <button
+            onClick={() => setShowBleed(!showBleed)}
+            className={`p-2 rounded ${showBleed ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
+            title="Toggle Bleed Guide"
+          >
+            {showBleed ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => setShowTrim(!showTrim)}
+            className={`p-2 rounded ${showTrim ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
+            title="Toggle Trim Guide"
+          >
+            {showTrim ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => setShowSafe(!showSafe)}
+            className={`p-2 rounded ${showSafe ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
+            title="Toggle Safe Zone Guide"
+          >
+            {showSafe ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          </button>
+          {currentSide?.foldLines && currentSide.foldLines.length > 0 && (
+            <button
+              onClick={() => setShowFold(!showFold)}
+              className={`p-2 rounded ${showFold ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
+              title="Toggle Fold Lines"
+            >
+              {showFold ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            </button>
+          )}
+          <div className="h-6 w-px bg-gray-600 mx-2" />
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeGuidesInExport}
+              onChange={(e) => setIncludeGuidesInExport(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <span>Include guides</span>
+          </label>
           <button
             onClick={handleExport}
             className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 flex items-center gap-2"
