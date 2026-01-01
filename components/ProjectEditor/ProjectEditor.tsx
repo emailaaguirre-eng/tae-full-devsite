@@ -1586,7 +1586,7 @@ export default function ProjectEditor({
   }
 
   return (
-      <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
+    <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
       {/* Draft Banner */}
       {showDraftBanner && (
         <DraftBanner

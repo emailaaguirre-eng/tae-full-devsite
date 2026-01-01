@@ -1,20 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { projectEditorStore, type UploadedAsset, type KonvaObject } from '@/lib/projectEditorStore';
-import { getPrintSpec } from '@/lib/printSpecs';
+import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
+// import { getPrintSpec } from '@/lib/printSpecs';
 import { Upload } from 'lucide-react';
 
 export default function AssetPanel() {
-  const [state, setState] = useState(projectEditorStore.getState());
+  const assets = useAssetStore((state) => state.assets);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const unsubscribe = projectEditorStore.subscribe(() => {
-      setState(projectEditorStore.getState());
-    });
-    return unsubscribe;
-  }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -40,7 +33,7 @@ export default function AssetPanel() {
           file,
         };
 
-        projectEditorStore.addAsset(asset);
+        useAssetStore.getState().addAsset(asset);
       };
       img.src = objectUrl;
     });
@@ -52,57 +45,9 @@ export default function AssetPanel() {
   };
 
   const handleThumbnailClick = (asset: UploadedAsset) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[AssetPanel] Thumbnail clicked:', asset.id, asset.name);
-    }
-
-    const printSpec = getPrintSpec(state.printSpecId);
-    const currentSide = printSpec?.sides.find((s) => s.id === state.currentSide);
-    
-    if (!currentSide) {
-      console.error('[AssetPanel] No current side found');
-      return;
-    }
-
-    // Calculate placement: centered, scaled to 80% of print area
-    const printAreaWidth = currentSide.canvasPx.w - currentSide.safePx * 2;
-    const printAreaHeight = currentSide.canvasPx.h - currentSide.safePx * 2;
-    
-    const maxWidth = printAreaWidth * 0.8;
-    const maxHeight = printAreaHeight * 0.8;
-    
-    const scale = Math.min(maxWidth / asset.width, maxHeight / asset.height);
-    const scaledWidth = asset.width * scale;
-    const scaledHeight = asset.height * scale;
-    
-    // Center in print area
-    const x = currentSide.safePx + (printAreaWidth - scaledWidth) / 2;
-    const y = currentSide.safePx + (printAreaHeight - scaledHeight) / 2;
-
-    const object: KonvaObject = {
-      id: `obj-${Date.now()}-${Math.random()}`,
-      type: 'image',
-      x,
-      y,
-      width: scaledWidth,
-      height: scaledHeight,
-      rotation: 0,
-      scaleX: 1,
-      scaleY: 1,
-      assetId: asset.id,
-    };
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[AssetPanel] Adding object to canvas:', {
-        objectId: object.id,
-        position: { x, y },
-        size: { width: scaledWidth, height: scaledHeight },
-        asset: { id: asset.id, name: asset.name },
-      });
-    }
-
-    projectEditorStore.addObject(object);
-    projectEditorStore.setSelectedObject(object.id);
+    // Note: AssetPanel is not currently used - assets are managed in ProjectEditor
+    // This file may be removed or refactored
+    console.warn('[AssetPanel] Thumbnail click not implemented - use ProjectEditor instead');
   };
 
   return (
@@ -127,9 +72,9 @@ export default function AssetPanel() {
         <p className="text-xs text-gray-500 mb-4">JPG, PNG, BMP</p>
 
         {/* Thumbnails */}
-        {state.assets.length > 0 ? (
+        {assets.length > 0 ? (
           <div className="grid grid-cols-2 gap-2">
-            {state.assets.map((asset) => (
+            {assets.map((asset) => (
               <button
                 key={asset.id}
                 onClick={() => handleThumbnailClick(asset)}
@@ -156,9 +101,7 @@ export default function AssetPanel() {
       {/* Debug Info */}
       {process.env.NODE_ENV === 'development' && (
         <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-600">
-          <div>Assets: {state.assets.length}</div>
-          <div>Objects: {state.sides[state.currentSide].length}</div>
-          <div>Side: {state.currentSide}</div>
+          <div>Assets: {assets.length}</div>
         </div>
       )}
     </div>

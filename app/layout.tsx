@@ -42,7 +42,7 @@ const libreBaskerville = Libre_Baskerville({
   subsets: ["latin"],
   variable: "--font-libre-baskerville",
   display: "swap",
-  weight: ["400", "600"],
+  weight: ["400", "700"],
 });
 
 const lora = Lora({
