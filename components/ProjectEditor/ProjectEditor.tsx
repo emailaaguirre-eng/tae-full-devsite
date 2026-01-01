@@ -1480,8 +1480,8 @@ export default function ProjectEditor({
     );
   };
 
-  // Show error state if PrintSpec is missing or has an error
-  if (printSpecError || !printSpec) {
+  // Show error state if PrintSpec is missing, has an error, or currentSide is invalid
+  if (printSpecError || !printSpec || !currentSide) {
     return (
       <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
         {/* Draft Banner */}
@@ -1513,7 +1513,7 @@ export default function ProjectEditor({
               <div className="text-6xl mb-4">⚠️</div>
               <h3 className="text-2xl font-bold text-red-600 mb-4">Print Configuration Error</h3>
               <p className="text-gray-700 mb-6">
-                {printSpecError || 'Print specification is missing. Unable to initialize editor.'}
+                {printSpecError || (!printSpec ? 'Print specification is missing. Unable to initialize editor.' : 'Current side is invalid. Please refresh the page.')}
               </p>
               <div className="text-sm text-gray-500 mb-6">
                 <p className="font-semibold mb-2">What this means:</p>
