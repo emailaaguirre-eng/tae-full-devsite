@@ -40,7 +40,7 @@ export default function ArtKeyPanel({
   
   // Check if skeleton key exists on current side
   const skeletonKeyOnCurrentSide = objects.find(
-    obj => obj.type === 'skeletonKey' && obj.keyId === selectedSkeletonKeyId
+    obj => obj.type === 'skeletonKey'
   );
   
   // Check if QR is required for this side
