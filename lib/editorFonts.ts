@@ -17,10 +17,18 @@ export const EDITOR_FONTS: EditorFont[] = [
   { family: 'Cinzel', displayName: 'Cinzel', category: 'serif', weights: [400, 600] },
   { family: 'EB Garamond', displayName: 'EB Garamond', category: 'serif', weights: [400, 600] },
   
-  // Clean Sans-serif fonts
+  // Simple Sans-serif fonts (clean & readable)
+  { family: 'Open Sans', displayName: 'Open Sans', category: 'sans', weights: [400, 600, 700] },
+  { family: 'Lato', displayName: 'Lato', category: 'sans', weights: [400, 700] },
+  { family: 'Roboto', displayName: 'Roboto', category: 'sans', weights: [400, 500, 700] },
+  { family: 'Source Sans 3', displayName: 'Source Sans', category: 'sans', weights: [400, 600] },
+  { family: 'Work Sans', displayName: 'Work Sans', category: 'sans', weights: [400, 600] },
+  
+  // Modern Sans-serif fonts
   { family: 'Montserrat', displayName: 'Montserrat', category: 'sans', weights: [400, 600, 700] },
   { family: 'Raleway', displayName: 'Raleway', category: 'sans', weights: [400, 600] },
   { family: 'Josefin Sans', displayName: 'Josefin Sans', category: 'sans', weights: [400, 600] },
+  { family: 'Poppins', displayName: 'Poppins', category: 'sans', weights: [400, 600] },
   
   // Elegant Script/Calligraphy fonts (for wedding invitations)
   { family: 'Great Vibes', displayName: 'Great Vibes', category: 'script', weights: [400] },

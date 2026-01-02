@@ -6,9 +6,18 @@ import {
   Lora,
   Cinzel,
   EB_Garamond,
+  // Simple Sans fonts
+  Open_Sans,
+  Lato,
+  Roboto,
+  Source_Sans_3,
+  Work_Sans,
+  // Modern Sans fonts
   Montserrat,
   Raleway,
   Josefin_Sans,
+  Poppins,
+  // Script fonts
   Great_Vibes,
   Alex_Brush,
   Allura,
@@ -63,7 +72,43 @@ const ebGaramond = EB_Garamond({
   weight: ["400", "600"],
 });
 
-// Clean Sans fonts
+// Simple Sans fonts (clean & readable)
+const openSans = Open_Sans({
+  subsets: ["latin"],
+  variable: "--font-open-sans",
+  display: "swap",
+  weight: ["400", "600", "700"],
+});
+
+const lato = Lato({
+  subsets: ["latin"],
+  variable: "--font-lato",
+  display: "swap",
+  weight: ["400", "700"],
+});
+
+const roboto = Roboto({
+  subsets: ["latin"],
+  variable: "--font-roboto",
+  display: "swap",
+  weight: ["400", "500", "700"],
+});
+
+const sourceSans3 = Source_Sans_3({
+  subsets: ["latin"],
+  variable: "--font-source-sans",
+  display: "swap",
+  weight: ["400", "600"],
+});
+
+const workSans = Work_Sans({
+  subsets: ["latin"],
+  variable: "--font-work-sans",
+  display: "swap",
+  weight: ["400", "600"],
+});
+
+// Modern Sans fonts
 const montserrat = Montserrat({
   subsets: ["latin"],
   variable: "--font-montserrat",
@@ -81,6 +126,13 @@ const raleway = Raleway({
 const josefinSans = Josefin_Sans({
   subsets: ["latin"],
   variable: "--font-josefin-sans",
+  display: "swap",
+  weight: ["400", "600"],
+});
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  variable: "--font-poppins",
   display: "swap",
   weight: ["400", "600"],
 });
@@ -153,9 +205,15 @@ export default function RootLayout({
       ${lora.variable}
       ${cinzel.variable}
       ${ebGaramond.variable}
+      ${openSans.variable}
+      ${lato.variable}
+      ${roboto.variable}
+      ${sourceSans3.variable}
+      ${workSans.variable}
       ${montserrat.variable}
       ${raleway.variable}
       ${josefinSans.variable}
+      ${poppins.variable}
       ${greatVibes.variable}
       ${alexBrush.variable}
       ${allura.variable}
