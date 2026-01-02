@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
-import { testConnection as testWooCommerce } from '@/lib/woocommerce';
 
 /**
- * Test connections to WordPress, WooCommerce, and Gelato
- * GET /api/admin/test-connections?service=wordpress|woocommerce|gelato|all
+ * Test connections to WordPress and Gelato
+ * GET /api/admin/test-connections?service=wordpress|gelato|all
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -11,14 +10,13 @@ export async function GET(request: Request) {
 
   const results: {
     wordpress?: any;
-    woocommerce?: any;
     gelato?: any;
     timestamp: string;
   } = {
     timestamp: new Date().toISOString(),
   };
 
-  // Test WordPress Connection (with authentication)
+  // Test WordPress Connection
   if (service === 'all' || service === 'wordpress') {
     try {
       const wpApiBase = process.env.WP_API_BASE || 
@@ -31,39 +29,31 @@ export async function GET(request: Request) {
       if (!wpApiBase) {
         results.wordpress = {
           success: false,
-          message: 'WordPress API base URL not configured (WP_API_BASE or NEXT_PUBLIC_WORDPRESS_URL)',
+          message: 'WordPress API base URL not configured',
           configured: false,
         };
       } else if (!wpAppUser || !wpAppPass) {
         results.wordpress = {
           success: false,
-          message: 'WordPress Application Password not configured (WP_APP_USER and WP_APP_PASS)',
+          message: 'WordPress Application Password not configured',
           configured: false,
           apiBase: wpApiBase,
         };
       } else {
-        // Test unauthenticated endpoint first
-        const publicTest = await fetch(`${wpApiBase}`, {
-          next: { revalidate: 0 },
-        });
-
+        const publicTest = await fetch(`${wpApiBase}`, { next: { revalidate: 0 } });
         if (!publicTest.ok) {
           results.wordpress = {
             success: false,
-            message: `WordPress REST API not accessible: ${publicTest.status} ${publicTest.statusText}`,
+            message: `WordPress REST API not accessible: ${publicTest.status}`,
             configured: true,
             apiBase: wpApiBase,
           };
         } else {
-          // Test authenticated endpoint
           const authString = Buffer.from(`${wpAppUser}:${wpAppPass}`).toString('base64');
           const authTest = await fetch(`${wpApiBase}/wp/v2/users/me`, {
-            headers: {
-              'Authorization': `Basic ${authString}`,
-            },
+            headers: { 'Authorization': `Basic ${authString}` },
             next: { revalidate: 0 },
           });
-
           if (authTest.ok) {
             const userData = await authTest.json();
             results.wordpress = {
@@ -77,7 +67,7 @@ export async function GET(request: Request) {
           } else {
             results.wordpress = {
               success: false,
-              message: `WordPress authentication failed: ${authTest.status} ${authTest.statusText}`,
+              message: `WordPress authentication failed: ${authTest.status}`,
               configured: true,
               apiBase: wpApiBase,
               authenticated: false,
@@ -90,49 +80,6 @@ export async function GET(request: Request) {
         success: false,
         message: `WordPress connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         configured: true,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  // Test WooCommerce Connection
-  if (service === 'all' || service === 'woocommerce') {
-    try {
-      const wcResult = await testWooCommerce();
-      
-      // Get product count if connection is successful
-      let productCount = 0;
-      if (wcResult.success) {
-        try {
-          const { getWooCommerceProducts } = await import('@/lib/wordpress');
-          const products = await getWooCommerceProducts(0); // Fetch all products
-          if (Array.isArray(products)) {
-            productCount = products.length;
-          }
-        } catch (productError) {
-          console.error('Error fetching product count:', productError);
-        }
-      }
-      
-      results.woocommerce = {
-        ...wcResult,
-        configured: !!(process.env.WOOCOMMERCE_CONSUMER_KEY && 
-                      process.env.WOOCOMMERCE_CONSUMER_SECRET &&
-                      (process.env.NEXT_PUBLIC_WOOCOMMERCE_URL || process.env.NEXT_PUBLIC_WORDPRESS_URL)),
-        productCount: productCount > 0 ? productCount : undefined,
-      };
-      
-      // Enhance message with product count if available
-      if (wcResult.success && productCount > 0) {
-        results.woocommerce.message = `${wcResult.message} Found ${productCount} published product${productCount !== 1 ? 's' : ''}.`;
-      }
-    } catch (error) {
-      results.woocommerce = {
-        success: false,
-        message: `WooCommerce connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        configured: !!(process.env.WOOCOMMERCE_CONSUMER_KEY && 
-                      process.env.WOOCOMMERCE_CONSUMER_SECRET),
-        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -146,11 +93,10 @@ export async function GET(request: Request) {
       if (!gelatoApiKey) {
         results.gelato = {
           success: false,
-          message: 'Gelato API key not configured (GELATO_API_KEY)',
+          message: 'Gelato API key not configured',
           configured: false,
         };
       } else {
-        // Test Gelato Product API connection by checking products endpoint
         const testResponse = await fetch(`${gelatoProductApiUrl}/products`, {
           method: 'GET',
           headers: {
@@ -161,22 +107,18 @@ export async function GET(request: Request) {
         });
 
         if (testResponse.ok) {
-          const data = await testResponse.json();
           results.gelato = {
             success: true,
-            message: 'Gelato Product API connection successful',
+            message: 'Gelato API connection successful',
             configured: true,
             apiUrl: gelatoProductApiUrl,
-            productsAvailable: Array.isArray(data) ? data.length : 'N/A',
           };
         } else {
-          const errorText = await testResponse.text();
           results.gelato = {
             success: false,
-            message: `Gelato Product API connection failed: ${testResponse.status} ${testResponse.statusText}`,
+            message: `Gelato API connection failed: ${testResponse.status}`,
             configured: true,
             apiUrl: gelatoProductApiUrl,
-            error: errorText.substring(0, 200), // Limit error text length
           };
         }
       }
@@ -184,27 +126,21 @@ export async function GET(request: Request) {
       results.gelato = {
         success: false,
         message: `Gelato connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        configured: !!(process.env.GELATO_API_KEY),
-        error: error instanceof Error ? error.message : 'Unknown error',
+        configured: !!process.env.GELATO_API_KEY,
       };
     }
   }
 
-  // Calculate overall status
   const allResults = Object.values(results).filter(
     (r) => r && typeof r === 'object' && 'success' in r
   ) as Array<{ success: boolean }>;
-  const allSuccess = allResults.length > 0 && allResults.every((r) => r.success);
-  const allConfigured = allResults.every((r) => 'configured' in r && r.configured);
 
   return NextResponse.json({
     ...results,
     summary: {
-      allSuccess,
-      allConfigured,
+      allSuccess: allResults.every((r) => r.success),
       totalServices: allResults.length,
       successfulServices: allResults.filter((r) => r.success).length,
     },
   });
 }
-
