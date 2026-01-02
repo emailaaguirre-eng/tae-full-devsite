@@ -595,7 +595,7 @@ export default function ProductPage() {
                   id="image-upload"
                 />
                 <label htmlFor="image-upload" className="cursor-pointer block">
-                  <div className="text-5xl mb-4">≡ƒô╖</div>
+                  <div className="text-5xl mb-4">{'\uD83D\uDCF7'}</div>
                   <p className="text-lg text-brand-dark mb-2">Click to upload images</p>
                   <p className="text-sm text-brand-dark">JPG, PNG, or BMP format</p>
                 </label>
@@ -648,7 +648,7 @@ export default function ProductPage() {
             fallback={
               <div className="min-h-screen bg-brand-lightest flex items-center justify-center p-8">
                 <div className="max-w-2xl w-full bg-white rounded-2xl shadow-lg p-8 text-center">
-                  <div className="text-6xl mb-4">ΓÜá∩╕Å</div>
+                  <div className="text-6xl mb-4">{'\u26A0\uFE0F'}</div>
                   <h2 className="text-2xl font-bold text-brand-darkest mb-4 font-playfair">
                     Project Editor Error
                   </h2>
@@ -704,7 +704,7 @@ export default function ProductPage() {
         {currentStep === 3 && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-              <div className="text-6xl mb-6">Γ£¿</div>
+              <div className="text-6xl mb-6">{'\u2705'}</div>
               <h2 className="text-3xl font-bold text-brand-darkest mb-4 font-playfair">
                 Design Complete!
               </h2>
@@ -768,7 +768,7 @@ export default function ProductPage() {
         {currentStep === 4 && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-              <div className="text-6xl mb-6">≡ƒÄë</div>
+              <div className="text-6xl mb-6">{'\uD83C\uDF89'}</div>
               <h1 className="text-4xl font-bold text-brand-darkest mb-4 font-playfair">
                 Your Order is Ready!
               </h1>
