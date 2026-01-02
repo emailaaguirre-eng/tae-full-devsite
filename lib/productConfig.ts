@@ -179,10 +179,23 @@ const FOIL_OPTIONS: ProductOption[] = [
     gelatoValue: 'silver',
     priceModifier: 8,
   },
+  {
+    id: 'rose-gold',
+    name: 'Rose Gold',
+    description: 'Warm pink-gold shimmer',
+    swatch: '#E8B4B8',
+    gelatoValue: 'rose-gold',
+    priceModifier: 8,
+  },
+  {
+    id: 'copper',
+    name: 'Copper',
+    description: 'Rich copper metallic',
+    swatch: '#B87333',
+    gelatoValue: 'copper',
+    priceModifier: 8,
+  },
 ];
-
-// Note: Rose Gold and Copper foil may not be available on all Gelato products
-// Add them back when verified in Gelato catalog
 
 // ============================================================================
 // Frame Options (for prints)

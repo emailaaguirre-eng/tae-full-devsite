@@ -18,6 +18,7 @@ export const EDITOR_FONTS: EditorFont[] = [
   
   // Sans-serif fonts
   { family: 'Montserrat', displayName: 'Montserrat', category: 'sans', weights: [400, 600, 700] },
+  { family: 'Nunito Sans', displayName: 'Nunito Sans', category: 'sans', weights: [400, 600, 700] },
   { family: 'Inter', displayName: 'Inter', category: 'sans', weights: [400, 600] },
   { family: 'Poppins', displayName: 'Poppins', category: 'sans', weights: [400, 600] },
   { family: 'Raleway', displayName: 'Raleway', category: 'sans', weights: [400, 600] },

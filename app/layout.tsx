@@ -28,6 +28,7 @@ const nunitoSans = Nunito_Sans({
   subsets: ["latin"],
   variable: "--font-nunito",
   display: "swap",
+  weight: ["400", "600", "700"],
 });
 
 // Editor fonts - Serif
