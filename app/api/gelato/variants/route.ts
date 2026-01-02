@@ -4,28 +4,15 @@ import { NextRequest, NextResponse } from 'next/server';
 const GELATO_PRODUCT_API_URL = process.env.GELATO_PRODUCT_API_URL || 'https://product.gelatoapis.com/v3';
 const GELATO_API_KEY = process.env.GELATO_API_KEY || '';
 
-interface GelatoVariant {
-  uid: string;
-  name: string;
-  price: number;
-  attributes?: Record<string, any>;
-}
-
-interface GelatoProduct {
-  uid: string;
-  name: string;
-  variants: GelatoVariant[];
-}
-
 /**
- * Maps Gelato product types to their UIDs
+ * Maps our product types to Gelato catalog UIDs
  */
-const PRODUCT_TYPE_MAP: Record<string, string> = {
-  print: 'prints_pt_cl',
-  card: 'cards_cl_dtc_prt_pt',
-  postcard: 'postcards_cl_dtc_prt_pt',
-  invitation: 'invitations_cl_dtc_prt_pt',
-  announcement: 'announcements_cl_dtc_prt_pt',
+const CATALOG_MAP: Record<string, string> = {
+  card: 'cards',
+  postcard: 'cards',
+  invitation: 'cards',
+  announcement: 'cards',
+  print: 'posters',
 };
 
 /**
@@ -98,130 +85,104 @@ function getFallbackOptions(productType: string) {
 }
 
 /**
- * Fetches product variants from Gelato API
- * Returns null on error (caller should handle gracefully)
+ * Fetches catalog info from Gelato API to get available attributes
  */
-async function fetchGelatoVariants(productType: string): Promise<any> {
-  const productUid = PRODUCT_TYPE_MAP[productType];
-  if (!productUid) {
-    return null;
+async function fetchCatalogInfo(catalogUid: string): Promise<any> {
+  const response = await fetch(`${GELATO_PRODUCT_API_URL}/catalogs/${catalogUid}`, {
+    headers: {
+      'X-API-KEY': GELATO_API_KEY,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gelato API error: ${response.status}`);
   }
 
-  try {
-    const response = await fetch(`${GELATO_PRODUCT_API_URL}/products/${productUid}/variants`, {
-      headers: {
-        'X-API-KEY': GELATO_API_KEY,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error');
-      throw new Error(`Gelato API error: ${response.status} - ${errorText.substring(0, 100)}`);
-    }
-
-    const data = await response.json();
-    return parseGelatoVariants(data, productType);
-  } catch (error: any) {
-    console.error('[GELATO_VARIANTS_ERROR]', { productType, message: error.message });
-    return null;
-  }
+  return await response.json();
 }
 
 /**
- * Parses Gelato API response into our format
- * Returns both categorized options AND full variant list for matching
+ * Searches products in a catalog
  */
-function parseGelatoVariants(data: any, productType: string) {
-  const variants = data.variants || [];
-  
-  const result: any = {
-    sizes: [],
-    materials: [],
-    variants: [], // Full variant list for matching
-  };
-
-  variants.forEach((variant: GelatoVariant) => {
-    // Parse variant attributes to categorize
-    const attrs = variant.attributes || {};
-    
-    // Normalize variant data with consistent fields
-    const normalizedVariant = {
-      uid: variant.uid,
-      name: variant.name,
-      price: variant.price || 0,
-      // Normalized option fields for matching
-      size: attrs.size || attrs.dimensions || null,
-      material: attrs.material || attrs.paper || attrs.finish || null,
-      paper: attrs.paper || attrs.material || null, // For cards
-      frame: attrs.frame || attrs.frameColor || (attrs.framed ? 'Standard' : null) || null,
-      foil: attrs.foil || attrs.foilColor || null,
-      // Keep raw attributes for reference
-      attributes: attrs,
-    };
-    
-    result.variants.push(normalizedVariant);
-    
-    // Size variants
-    if (normalizedVariant.size) {
-      const existingSize = result.sizes.find((s: any) => s.name === normalizedVariant.size);
-      if (!existingSize) {
-        result.sizes.push({
-          name: normalizedVariant.size,
-          // Price will be determined by matching variant
-        });
-      }
-    }
-    
-    // Material/paper variants
-    if (normalizedVariant.material || normalizedVariant.paper) {
-      const materialName = normalizedVariant.paper || normalizedVariant.material;
-      const existingMaterial = result.materials.find((m: any) => m.name === materialName);
-      if (!existingMaterial) {
-        result.materials.push({
-          name: materialName,
-          description: attrs.description || '',
-        });
-      }
-    }
-    
-    // Frame variants (for prints)
-    if (productType === 'print' && normalizedVariant.frame) {
-      if (!result.frames) result.frames = [];
-      const existingFrame = result.frames.find((f: any) => f.name === normalizedVariant.frame);
-      if (!existingFrame) {
-        result.frames.push({
-          name: normalizedVariant.frame,
-        });
-      }
-    }
-    
-    // Foil variants (for cards)
-    if ((productType === 'card' || productType === 'invitation' || productType === 'announcement') && normalizedVariant.foil) {
-      if (!result.foilColors) result.foilColors = [];
-      const existingFoil = result.foilColors.find((f: any) => f.name === normalizedVariant.foil);
-      if (!existingFoil) {
-        result.foilColors.push({
-          name: normalizedVariant.foil,
-        });
-      }
-    }
+async function searchCatalogProducts(catalogUid: string, filters?: any): Promise<any> {
+  const response = await fetch(`${GELATO_PRODUCT_API_URL}/catalogs/${catalogUid}/products:search`, {
+    method: 'POST',
+    headers: {
+      'X-API-KEY': GELATO_API_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      limit: 100,
+      offset: 0,
+      ...filters,
+    }),
   });
 
-  // Sort options for consistent display
-  result.sizes.sort((a: any, b: any) => a.name.localeCompare(b.name));
-  result.materials.sort((a: any, b: any) => a.name.localeCompare(b.name));
-  if (result.frames) result.frames.sort((a: any, b: any) => a.name.localeCompare(b.name));
-  if (result.foilColors) result.foilColors.sort((a: any, b: any) => a.name.localeCompare(b.name));
+  if (!response.ok) {
+    throw new Error(`Gelato API error: ${response.status}`);
+  }
 
-  return result;
+  return await response.json();
+}
+
+/**
+ * Transforms Gelato catalog data into our options format
+ */
+function transformCatalogToOptions(catalogInfo: any, productsData: any, productType: string) {
+  const options: any = {
+    sizes: [],
+    materials: [],
+    papers: [],
+    frames: [],
+    foilColors: [],
+  };
+
+  // Extract options from catalog attributes
+  if (catalogInfo.productAttributes) {
+    for (const attr of catalogInfo.productAttributes) {
+      const attrName = attr.productAttributeUid?.toLowerCase() || '';
+      const values = attr.values || [];
+
+      if (attrName.includes('format') || attrName.includes('size')) {
+        options.sizes = values.map((v: any) => ({
+          name: v.title || v.productAttributeValueUid,
+          value: v.productAttributeValueUid,
+          price: 0, // Price would come from pricing API
+        }));
+      } else if (attrName.includes('paper') || attrName.includes('material')) {
+        const targetArray = productType === 'print' ? options.materials : options.papers;
+        values.forEach((v: any) => {
+          targetArray.push({
+            name: v.title || v.productAttributeValueUid,
+            value: v.productAttributeValueUid,
+            price: 0,
+          });
+        });
+      } else if (attrName.includes('coating') || attrName.includes('finish')) {
+        // Add to materials or papers based on product type
+        const targetArray = productType === 'print' ? options.materials : options.papers;
+        values.forEach((v: any) => {
+          if (!targetArray.find((x: any) => x.value === v.productAttributeValueUid)) {
+            targetArray.push({
+              name: v.title || v.productAttributeValueUid,
+              value: v.productAttributeValueUid,
+              price: 0,
+            });
+          }
+        });
+      }
+    }
+  }
+
+  return options;
 }
 
 export async function GET(request: NextRequest) {
-  // Stable error response schema
   const errorResponse = (error: string) => ({
     ok: false,
     error,
+    source: 'error',
     variants: [],
     sizes: [],
     materials: [],
@@ -234,27 +195,17 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const productType = searchParams.get('productType');
 
-    // Validate productType parameter
     if (!productType) {
       return NextResponse.json(errorResponse('productType parameter is required'));
     }
 
-    // Validate productType is known
-    if (!PRODUCT_TYPE_MAP[productType]) {
+    const catalogUid = CATALOG_MAP[productType];
+    if (!catalogUid) {
       return NextResponse.json(errorResponse(`Unknown product type: ${productType}`));
     }
 
-    // Validate GELATO_API_KEY
     if (!GELATO_API_KEY || GELATO_API_KEY.trim() === '') {
-      console.error('[GELATO_VARIANTS_ERROR]', { productType, error: 'Missing GELATO_API_KEY' });
-      return NextResponse.json(errorResponse('Missing GELATO_API_KEY'));
-    }
-
-    // Fetch variants from Gelato
-    const variants = await fetchGelatoVariants(productType);
-    
-    if (!variants) {
-      // fetchGelatoVariants returns null on error - use fallback options
+      console.error('[GELATO_VARIANTS]', { productType, error: 'Missing GELATO_API_KEY' });
       const fallback = getFallbackOptions(productType);
       return NextResponse.json({
         ok: true,
@@ -264,26 +215,47 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Success response with stable schema
-    return NextResponse.json({
-      ok: true,
-      variants: variants.variants || [],
-      sizes: variants.sizes || [],
-      materials: variants.materials || [],
-      papers: variants.papers || [],
-      frames: variants.frames || [],
-      foilColors: variants.foilColors || [],
-    });
+    try {
+      // Fetch catalog info and products from Gelato
+      const [catalogInfo, productsData] = await Promise.all([
+        fetchCatalogInfo(catalogUid),
+        searchCatalogProducts(catalogUid),
+      ]);
+
+      const options = transformCatalogToOptions(catalogInfo, productsData, productType);
+
+      // If we got empty options, use fallback
+      if (options.sizes.length === 0 && options.materials.length === 0 && options.papers.length === 0) {
+        const fallback = getFallbackOptions(productType);
+        return NextResponse.json({
+          ok: true,
+          source: 'gelato-with-fallback',
+          catalogUid,
+          variants: productsData.products || [],
+          ...fallback,
+        });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        source: 'gelato',
+        catalogUid,
+        variants: productsData.products || [],
+        ...options,
+      });
+    } catch (apiError: any) {
+      console.error('[GELATO_VARIANTS]', { productType, catalogUid, error: apiError.message });
+      const fallback = getFallbackOptions(productType);
+      return NextResponse.json({
+        ok: true,
+        source: 'fallback',
+        error: apiError.message,
+        variants: [],
+        ...fallback,
+      });
+    }
   } catch (error: any) {
-    const searchParams = request.nextUrl.searchParams;
-    const productType = searchParams.get('productType') || 'unknown';
-    const status = error.status || 'unknown';
-    const message = error.message || 'Unknown error';
-    
-    console.error('[GELATO_VARIANTS_ERROR]', { productType, status, message });
-    
-    // Always return 200 with error schema (never 500)
-    return NextResponse.json(errorResponse(`Failed to fetch variants: ${message.substring(0, 100)}`));
+    console.error('[GELATO_VARIANTS_ERROR]', { error: error.message });
+    return NextResponse.json(errorResponse(error.message || 'Internal server error'));
   }
 }
-
