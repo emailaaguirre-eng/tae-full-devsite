@@ -1,22 +1,26 @@
 import type { Metadata } from "next";
 import { 
   Playfair_Display, 
-  Nunito_Sans,
   Cormorant_Garamond,
   Libre_Baskerville,
   Lora,
   Cinzel,
+  EB_Garamond,
   Montserrat,
-  Inter,
-  Poppins,
   Raleway,
-  Dancing_Script,
+  Josefin_Sans,
   Great_Vibes,
-  Pacifico,
+  Alex_Brush,
+  Allura,
+  Tangerine,
+  Pinyon_Script,
+  Sacramento,
+  Satisfy,
 } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/contexts/CartContext";
 
+// Elegant Serif fonts
 const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-playfair",
@@ -24,14 +28,6 @@ const playfairDisplay = Playfair_Display({
   weight: ["400", "600", "700"],
 });
 
-const nunitoSans = Nunito_Sans({
-  subsets: ["latin"],
-  variable: "--font-nunito",
-  display: "swap",
-  weight: ["400", "600", "700"],
-});
-
-// Editor fonts - Serif
 const cormorantGaramond = Cormorant_Garamond({
   subsets: ["latin"],
   variable: "--font-cormorant-garamond",
@@ -60,26 +56,19 @@ const cinzel = Cinzel({
   weight: ["400", "600"],
 });
 
-// Editor fonts - Sans
+const ebGaramond = EB_Garamond({
+  subsets: ["latin"],
+  variable: "--font-eb-garamond",
+  display: "swap",
+  weight: ["400", "600"],
+});
+
+// Clean Sans fonts
 const montserrat = Montserrat({
   subsets: ["latin"],
   variable: "--font-montserrat",
   display: "swap",
   weight: ["400", "600", "700"],
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-  weight: ["400", "600"],
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  variable: "--font-poppins",
-  display: "swap",
-  weight: ["400", "600"],
 });
 
 const raleway = Raleway({
@@ -89,14 +78,14 @@ const raleway = Raleway({
   weight: ["400", "600"],
 });
 
-// Editor fonts - Script
-const dancingScript = Dancing_Script({
+const josefinSans = Josefin_Sans({
   subsets: ["latin"],
-  variable: "--font-dancing-script",
+  variable: "--font-josefin-sans",
   display: "swap",
-  weight: ["400"],
+  weight: ["400", "600"],
 });
 
+// Elegant Script/Calligraphy fonts (for wedding invitations)
 const greatVibes = Great_Vibes({
   subsets: ["latin"],
   variable: "--font-great-vibes",
@@ -104,9 +93,44 @@ const greatVibes = Great_Vibes({
   weight: ["400"],
 });
 
-const pacifico = Pacifico({
+const alexBrush = Alex_Brush({
   subsets: ["latin"],
-  variable: "--font-pacifico",
+  variable: "--font-alex-brush",
+  display: "swap",
+  weight: ["400"],
+});
+
+const allura = Allura({
+  subsets: ["latin"],
+  variable: "--font-allura",
+  display: "swap",
+  weight: ["400"],
+});
+
+const tangerine = Tangerine({
+  subsets: ["latin"],
+  variable: "--font-tangerine",
+  display: "swap",
+  weight: ["400", "700"],
+});
+
+const pinyonScript = Pinyon_Script({
+  subsets: ["latin"],
+  variable: "--font-pinyon-script",
+  display: "swap",
+  weight: ["400"],
+});
+
+const sacramento = Sacramento({
+  subsets: ["latin"],
+  variable: "--font-sacramento",
+  display: "swap",
+  weight: ["400"],
+});
+
+const satisfy = Satisfy({
+  subsets: ["latin"],
+  variable: "--font-satisfy",
   display: "swap",
   weight: ["400"],
 });
@@ -124,18 +148,21 @@ export default function RootLayout({
   return (
     <html lang="en" className={`
       ${playfairDisplay.variable} 
-      ${nunitoSans.variable}
       ${cormorantGaramond.variable}
       ${libreBaskerville.variable}
       ${lora.variable}
       ${cinzel.variable}
+      ${ebGaramond.variable}
       ${montserrat.variable}
-      ${inter.variable}
-      ${poppins.variable}
       ${raleway.variable}
-      ${dancingScript.variable}
+      ${josefinSans.variable}
       ${greatVibes.variable}
-      ${pacifico.variable}
+      ${alexBrush.variable}
+      ${allura.variable}
+      ${tangerine.variable}
+      ${pinyonScript.variable}
+      ${sacramento.variable}
+      ${satisfy.variable}
     `}>
       <body className="antialiased">
         <CartProvider>
