@@ -37,26 +37,59 @@ function getFallbackOptions(productType: string) {
     case 'invitation':
     case 'announcement':
       return {
-        sizes: [{ name: '4x6' }, { name: '5x7' }, { name: '6x9' }],
+        sizes: [
+          { name: '4x6', price: 12.99 },
+          { name: '5x7', price: 15.99 },
+          { name: '6x9', price: 19.99 },
+        ],
         materials: [],
-        papers: [{ name: 'Premium Cardstock' }, { name: 'Matte Cardstock' }, { name: 'Linen Cardstock' }],
+        papers: [
+          { name: 'Premium Cardstock', price: 0 },
+          { name: 'Matte Cardstock', price: 0 },
+          { name: 'Linen Cardstock', price: 2.00 },
+        ],
         frames: [],
-        foilColors: [{ name: 'Gold' }, { name: 'Silver' }, { name: 'Rose Gold' }],
+        foilColors: [
+          { name: 'Gold', price: 5.00 },
+          { name: 'Silver', price: 5.00 },
+          { name: 'Rose Gold', price: 6.00 },
+        ],
       };
     case 'postcard':
       return {
-        sizes: [{ name: '4x6' }, { name: '5x7' }, { name: '6x9' }],
+        sizes: [
+          { name: '4x6', price: 8.99 },
+          { name: '5x7', price: 10.99 },
+          { name: '6x9', price: 14.99 },
+        ],
         materials: [],
-        papers: [{ name: 'Premium Cardstock' }, { name: 'Matte Cardstock' }],
+        papers: [
+          { name: 'Premium Cardstock', price: 0 },
+          { name: 'Matte Cardstock', price: 0 },
+        ],
         frames: [],
         foilColors: [],
       };
     case 'print':
       return {
-        sizes: [{ name: '5x7' }, { name: '8x10' }, { name: '11x14' }, { name: '16x20' }, { name: '24x36' }],
-        materials: [{ name: 'Glossy' }, { name: 'Matte' }, { name: 'Canvas' }],
+        sizes: [
+          { name: '5x7', price: 9.99 },
+          { name: '8x10', price: 14.99 },
+          { name: '11x14', price: 24.99 },
+          { name: '16x20', price: 39.99 },
+          { name: '24x36', price: 89.99 },
+        ],
+        materials: [
+          { name: 'Glossy', price: 0 },
+          { name: 'Matte', price: 2.00 },
+          { name: 'Canvas', price: 15.00 },
+        ],
         papers: [],
-        frames: [{ name: 'Black' }, { name: 'White' }, { name: 'Silver' }],
+        frames: [
+          { name: 'Black', price: 0 },
+          { name: 'White', price: 5.00 },
+          { name: 'Silver', price: 6.00 },
+        ],
         foilColors: [],
       };
     default:
