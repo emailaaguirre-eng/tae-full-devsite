@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { EDITOR_FONTS, DEFAULT_FONT, DEFAULT_FONT_WEIGHT, isScriptFont, type EditorFont } from '@/lib/editorFonts';
+import { ALL_BORDER_DESIGNS, BORDER_CATEGORIES, getBordersByCategory, type BorderDesign } from '@/lib/borderDesigns';
 import type { EditorObject } from './types';
 
 // Foil color options with gradients for preview
@@ -31,6 +32,8 @@ export default function LabelInspector({ selectedObject, onUpdate }: LabelInspec
   const [borderWidth, setBorderWidth] = useState(selectedObject?.borderWidth || 2);
   const [borderColor, setBorderColor] = useState(selectedObject?.borderColor || '#000000');
   const [borderPadding, setBorderPadding] = useState(selectedObject?.borderPadding || 10);
+  const [borderDesignId, setBorderDesignId] = useState(selectedObject?.borderDesignId || '');
+  const [selectedBorderCategory, setSelectedBorderCategory] = useState<string>('classic');
   
   // Foil state
   const [foilEnabled, setFoilEnabled] = useState(selectedObject?.foilEnabled || false);
@@ -51,6 +54,7 @@ export default function LabelInspector({ selectedObject, onUpdate }: LabelInspec
       setBorderWidth(selectedObject.borderWidth || 2);
       setBorderColor(selectedObject.borderColor || '#000000');
       setBorderPadding(selectedObject.borderPadding || 10);
+      setBorderDesignId(selectedObject.borderDesignId || '');
       // Foil
       setFoilEnabled(selectedObject.foilEnabled || false);
       setFoilColor(selectedObject.foilColor || 'gold');
@@ -239,6 +243,69 @@ export default function LabelInspector({ selectedObject, onUpdate }: LabelInspec
               <option value="ornate">Ornate (Decorative)</option>
             </select>
           </div>
+
+          {/* Ornate Border Design Picker */}
+          {borderStyle === 'ornate' && (
+            <div className="bg-gray-50 rounded-lg p-3 space-y-3">
+              <label className="block text-xs font-semibold text-gray-800">Choose Design</label>
+              
+              {/* Category Tabs */}
+              <div className="flex flex-wrap gap-1">
+                {BORDER_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedBorderCategory(cat.id)}
+                    className={`px-2 py-1 text-[10px] rounded transition-colors ${
+                      selectedBorderCategory === cat.id
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                  >
+                    {cat.icon} {cat.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Border Design Grid */}
+              <div className="grid grid-cols-3 gap-2">
+                {getBordersByCategory(selectedBorderCategory as BorderDesign['category']).map((design) => (
+                  <button
+                    key={design.id}
+                    onClick={() => {
+                      setBorderDesignId(design.id);
+                      setBorderColor(design.previewColor);
+                      onUpdate({ borderDesignId: design.id, borderColor: design.previewColor });
+                    }}
+                    className={`p-2 rounded-lg border-2 transition-all ${
+                      borderDesignId === design.id
+                        ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-200'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                    title={design.description}
+                  >
+                    {/* Preview box with border style */}
+                    <div 
+                      className="w-full h-10 rounded flex items-center justify-center text-[8px] text-gray-500"
+                      style={{ 
+                        border: `2px solid ${design.previewColor}`,
+                        borderStyle: design.cssStyle?.borderStyle === 'double' ? 'double' : 'solid',
+                      }}
+                    >
+                      Aa
+                    </div>
+                    <span className="text-[9px] text-gray-600 mt-1 block truncate">{design.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Selected design info */}
+              {borderDesignId && (
+                <div className="text-[10px] text-gray-500 italic">
+                  {ALL_BORDER_DESIGNS.find(d => d.id === borderDesignId)?.description}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Border Width */}
           <div>
