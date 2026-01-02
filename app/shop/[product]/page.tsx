@@ -29,7 +29,7 @@ const productInfo: Record<string, { title: string; description: string; icon: st
   card: {
     title: 'Greeting Cards',
     description: 'Beautiful cards for birthdays, holidays, thank yous, and everyday moments.',
-    icon: '≡ƒÆî',
+    icon: '\u{1F48C}',
     examples: [
       'Birthday celebrations',
       'Thank you notes',
@@ -41,7 +41,7 @@ const productInfo: Record<string, { title: string; description: string; icon: st
   postcard: {
     title: 'Postcards',
     description: 'Share memories and moments with custom postcards.',
-    icon: '≡ƒô«',
+    icon: '\u{1F4EE}',
     examples: [
       'Travel memories',
       'Event announcements',
@@ -53,7 +53,7 @@ const productInfo: Record<string, { title: string; description: string; icon: st
   invitation: {
     title: 'Invitations',
     description: 'Elegant invitations for weddings, parties, and special events.',
-    icon: '≡ƒÆÆ',
+    icon: '\u{1F389}',
     examples: [
       'Wedding invitations',
       'Birthday parties',
@@ -65,7 +65,7 @@ const productInfo: Record<string, { title: string; description: string; icon: st
   announcement: {
     title: 'Announcements',
     description: 'Share your news with beautifully designed announcements.',
-    icon: '≡ƒôó',
+    icon: '\u{1F4E2}',
     examples: [
       'Birth announcements',
       'Engagement news',
@@ -77,7 +77,7 @@ const productInfo: Record<string, { title: string; description: string; icon: st
   print: {
     title: 'Wall Art',
     description: 'Transform your photos into stunning wall art with prints, canvas, and frames.',
-    icon: '≡ƒû╝∩╕Å',
+    icon: '\u{1F5BC}',
     examples: [
       'Family portraits',
       'Landscape photography',

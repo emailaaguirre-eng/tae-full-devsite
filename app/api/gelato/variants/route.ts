@@ -29,6 +29,42 @@ const PRODUCT_TYPE_MAP: Record<string, string> = {
 };
 
 /**
+ * Fallback options when Gelato API is unavailable
+ */
+function getFallbackOptions(productType: string) {
+  switch (productType) {
+    case 'card':
+    case 'invitation':
+    case 'announcement':
+      return {
+        sizes: [{ name: '4x6' }, { name: '5x7' }, { name: '6x9' }],
+        materials: [],
+        papers: [{ name: 'Premium Cardstock' }, { name: 'Matte Cardstock' }, { name: 'Linen Cardstock' }],
+        frames: [],
+        foilColors: [{ name: 'Gold' }, { name: 'Silver' }, { name: 'Rose Gold' }],
+      };
+    case 'postcard':
+      return {
+        sizes: [{ name: '4x6' }, { name: '5x7' }, { name: '6x9' }],
+        materials: [],
+        papers: [{ name: 'Premium Cardstock' }, { name: 'Matte Cardstock' }],
+        frames: [],
+        foilColors: [],
+      };
+    case 'print':
+      return {
+        sizes: [{ name: '5x7' }, { name: '8x10' }, { name: '11x14' }, { name: '16x20' }, { name: '24x36' }],
+        materials: [{ name: 'Glossy' }, { name: 'Matte' }, { name: 'Canvas' }],
+        papers: [],
+        frames: [{ name: 'Black' }, { name: 'White' }, { name: 'Silver' }],
+        foilColors: [],
+      };
+    default:
+      return { sizes: [], materials: [], papers: [], frames: [], foilColors: [] };
+  }
+}
+
+/**
  * Fetches product variants from Gelato API
  * Returns null on error (caller should handle gracefully)
  */
@@ -185,8 +221,14 @@ export async function GET(request: NextRequest) {
     const variants = await fetchGelatoVariants(productType);
     
     if (!variants) {
-      // fetchGelatoVariants returns null on error
-      return NextResponse.json(errorResponse('Failed to fetch variants from Gelato API'));
+      // fetchGelatoVariants returns null on error - use fallback options
+      const fallback = getFallbackOptions(productType);
+      return NextResponse.json({
+        ok: true,
+        source: 'fallback',
+        variants: [],
+        ...fallback,
+      });
     }
 
     // Success response with stable schema
