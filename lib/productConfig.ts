@@ -281,6 +281,13 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
         options: CARD_PAPERS,
       },
       {
+        id: 'foil',
+        name: 'Foil Accent',
+        description: 'Add a metallic foil accent to your design',
+        required: true,
+        options: FOIL_OPTIONS,
+      },
+      {
         id: 'orientation',
         name: 'Orientation',
         required: true,
@@ -352,6 +359,13 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
         options: CARD_PAPERS,
       },
       {
+        id: 'foil',
+        name: 'Foil Accent',
+        description: 'Add a metallic foil accent to your design',
+        required: true,
+        options: FOIL_OPTIONS,
+      },
+      {
         id: 'orientation',
         name: 'Orientation',
         required: true,
@@ -386,6 +400,13 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
         name: 'Paper',
         required: true,
         options: CARD_PAPERS,
+      },
+      {
+        id: 'foil',
+        name: 'Foil Accent',
+        description: 'Add a metallic foil accent to your design',
+        required: true,
+        options: FOIL_OPTIONS,
       },
       {
         id: 'orientation',
