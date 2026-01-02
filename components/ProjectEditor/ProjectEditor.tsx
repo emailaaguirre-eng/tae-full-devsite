@@ -401,21 +401,24 @@ export default function ProjectEditor({
   const STAGE_HEIGHT = currentSide?.canvasPx.h || 2400;
   
   // Calculate display scale to fit viewport
-  const [displayScale, setDisplayScale] = useState(0.4);
+  const [displayScale, setDisplayScale] = useState(0.5);
   
   useEffect(() => {
     if (!currentSide || typeof window === 'undefined') return;
     
-    // Use more viewport space for the canvas
-    const maxDisplayWidth = window.innerWidth * 0.55; // 55% of viewport width
-    const maxDisplayHeight = window.innerHeight * 0.75; // 75% of viewport height
+    // Calculate available space (accounting for sidebar ~200px and padding)
+    const sidebarWidth = 220;
+    const padding = 64; // 32px on each side
+    const availableWidth = window.innerWidth - sidebarWidth - padding;
+    const availableHeight = window.innerHeight - 120; // Account for header and padding
     
-    const scaleX = maxDisplayWidth / currentSide.canvasPx.w;
-    const scaleY = maxDisplayHeight / currentSide.canvasPx.h;
-    // Allow slightly higher scale for better visibility, cap at 0.6 for performance
-    const scale = Math.min(scaleX, scaleY, 0.6);
+    const scaleX = availableWidth / currentSide.canvasPx.w;
+    const scaleY = availableHeight / currentSide.canvasPx.h;
+    // Use the smaller scale to fit, but allow up to 1.0 for smaller canvases
+    const scale = Math.min(scaleX, scaleY, 1.0);
     
-    setDisplayScale(Math.max(scale, 0.25)); // Minimum scale of 0.25
+    // Ensure minimum visibility
+    setDisplayScale(Math.max(scale, 0.3));
   }, [currentSide]);
 
   // Update transformer when selection changes
