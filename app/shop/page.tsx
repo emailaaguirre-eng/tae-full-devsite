@@ -4,39 +4,18 @@ import React from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { PRODUCT_CATALOG, getProductSlugs } from '@/lib/productConfig';
 
-const products = [
-  {
-    id: 'card',
-    name: 'Cards',
-    description: 'Greeting cards for any occasion',
-    icon: '💌',
-  },
-  {
-    id: 'postcard',
-    name: 'Postcards',
-    description: 'Share moments with postcards',
-    icon: '📮',
-  },
-  {
-    id: 'invitation',
-    name: 'Invitations',
-    description: 'Elegant invitations for events',
-    icon: '💒',
-  },
-  {
-    id: 'announcement',
-    name: 'Announcements',
-    description: 'Share your news beautifully',
-    icon: '📢',
-  },
-  {
-    id: 'print',
-    name: 'Wall Art',
-    description: 'Prints, canvas, and framed art',
-    icon: '🖼️',
-  },
-];
+// Get products from productConfig for consistency
+const products = getProductSlugs().map(slug => {
+  const config = PRODUCT_CATALOG[slug];
+  return {
+    id: slug,
+    name: config.name,
+    description: config.description,
+    icon: config.icon,
+  };
+});
 
 export default function ShopPage() {
   return (
