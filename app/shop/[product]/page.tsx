@@ -42,235 +42,60 @@ const foilSwatches: Record<string, { color: string }> = {
   'copper': { color: 'linear-gradient(135deg, #B87333 0%, #DA8A47 30%, #CD7F32 70%, #A05A2C 100%)' },
 };
 
-// Variant option types
-interface VariantOption {
-  name: string;
-  description?: string;
-}
-
-interface NormalizedVariant {
-  uid: string;
-  name: string;
-  price: number;
-  size: string | null;
-  material: string | null;
-  paper: string | null;
-  frame: string | null;
-  foil: string | null;
-  attributes: Record<string, any>;
-}
-
-interface VariantsData {
-  sizes: VariantOption[];
-  materials: VariantOption[];
-  frames?: VariantOption[];
-  foilColors?: VariantOption[];
-  variants: NormalizedVariant[];
-}
+// Base prices by product type (used when Gelato API doesn't return prices)
+const BASE_PRICES: Record<string, number> = {
+  card: 12.99,
+  postcard: 8.99,
+  invitation: 14.99,
+  announcement: 12.99,
+  print: 9.99,
+};
 
 export default function ProductPage() {
   const params = useParams();
   const router = useRouter();
   const productType = params.product as string;
   
-  // Variants API state
-  const [variantsData, setVariantsData] = useState<VariantsData | null>(null);
-  const [variantsLoading, setVariantsLoading] = useState(true);
-  const [variantsError, setVariantsError] = useState<string | null>(null);
+  // Get product config from productConfig.ts
+  const productConfig = getProductConfig(productType);
   
   // State
   const [currentStep, setCurrentStep] = useState(0); // 0=options, 1=upload, 2=design, 3=artkey, 4=complete
-  const [selectedSize, setSelectedSize] = useState<string | null>(null);
-  const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
-  const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null);
-  const [isFramed, setIsFramed] = useState<boolean | null>(null);
-  const [selectedFrame, setSelectedFrame] = useState<string | null>(null);
-  const [hasFoil, setHasFoil] = useState<boolean | null>(null);
-  const [selectedFoil, setSelectedFoil] = useState<string | null>(null);
+  const [selections, setSelections] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]); // Legacy, kept for compatibility
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [artkeyId, setArtkeyId] = useState<string | null>(null);
   const [exportedSides, setExportedSides] = useState<Array<{ sideId: string; dataUrl: string; width: number; height: number }>>([]);
   
-  // Variant matching state
-  const [selectedVariant, setSelectedVariant] = useState<NormalizedVariant | null>(null);
-  const [gelatoVariantUid, setGelatoVariantUid] = useState<string | null>(null);
-
-  const info = productInfo[productType] || productInfo.card;
+  // Derived state
   const isPrint = productType === 'print';
   const isCardType = ['card', 'postcard', 'invitation', 'announcement'].includes(productType);
   
-  // Use variants data if available, otherwise fallback to hardcoded (for error state)
-  // Always use safe defaults to prevent .length on undefined
-  const sizes = variantsData?.sizes ?? sizeOptions[productType] ?? sizeOptions.card;
-  const paperTypesList = variantsData?.materials ?? paperTypes;
-  const printMaterialsList = variantsData?.materials ?? printMaterials;
-  const frameColorsList = variantsData?.frames ?? frameColors;
-  const foilColorsList = variantsData?.foilColors ?? foilColors;
-
-  // Fetch variants on mount
-  useEffect(() => {
-    const fetchVariants = async () => {
-      setVariantsLoading(true);
-      setVariantsError(null);
-      
-      try {
-        const response = await fetch(`/api/gelato/variants?productType=${productType}`);
-        
-        // Handle network errors
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => 'Network error');
-          throw new Error(`Failed to fetch variants: ${response.status} ${errorText.substring(0, 100)}`);
-        }
-        
-        const data = await response.json();
-        
-        // Handle API error response (ok:false)
-        if (data.ok === false) {
-          setVariantsData(null);
-          setVariantsError(data.error || 'Failed to load product options');
-          return;
-        }
-        
-        // Success - set variants data
-        setVariantsData(data);
-      } catch (error: any) {
-        console.error('Error fetching variants:', error);
-        setVariantsData(null);
-        setVariantsError(error.message || 'Failed to load product options');
-        // Keep hardcoded options as fallback
-      } finally {
-        setVariantsLoading(false);
-      }
-    };
-
-    fetchVariants();
-  }, [productType]);
-
-  // Match variant based on current selections
-  useEffect(() => {
-    // Safe access with defaults
-    const variants = variantsData?.variants ?? [];
-    
-    if (variants.length === 0) {
-      setSelectedVariant(null);
-      setGelatoVariantUid(null);
-      return;
-    }
-
-    // Build match criteria from selections
-    const matchCriteria: Partial<NormalizedVariant> = {};
-    
-    if (selectedSize) matchCriteria.size = selectedSize;
-    if (isPrint && selectedMaterial) matchCriteria.material = selectedMaterial;
-    if (isCardType && selectedPaper) matchCriteria.paper = selectedPaper;
-    if (isPrint && isFramed && selectedFrame) matchCriteria.frame = selectedFrame;
-    if (isCardType && hasFoil && selectedFoil) matchCriteria.foil = selectedFoil;
-    else if (isCardType && hasFoil === false) matchCriteria.foil = null;
-
-    // Find matching variant
-    const matchedVariant = variants.find((variant) => {
-      // Check all criteria match
-      if (matchCriteria.size && variant.size !== matchCriteria.size) return false;
-      if (matchCriteria.material && variant.material !== matchCriteria.material) return false;
-      if (matchCriteria.paper && variant.paper !== matchCriteria.paper) return false;
-      if (matchCriteria.frame !== undefined) {
-        if (matchCriteria.frame === null && variant.frame !== null) return false;
-        if (matchCriteria.frame !== null && variant.frame !== matchCriteria.frame) return false;
-      }
-      if (matchCriteria.foil !== undefined) {
-        if (matchCriteria.foil === null && variant.foil !== null) return false;
-        if (matchCriteria.foil !== null && variant.foil !== matchCriteria.foil) return false;
-      }
-      return true;
-    });
-
-    if (matchedVariant) {
-      setSelectedVariant(matchedVariant);
-      setGelatoVariantUid(matchedVariant.uid);
-      
-      // Log in dev mode
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[ProductPage] Matched variant:', {
-          uid: matchedVariant.uid,
-          name: matchedVariant.name,
-          price: matchedVariant.price,
-          selections: matchCriteria,
-        });
-      }
-    } else {
-      setSelectedVariant(null);
-      setGelatoVariantUid(null);
-    }
-  }, [variantsData, selectedSize, selectedMaterial, selectedPaper, selectedFrame, selectedFoil, isFramed, hasFoil, isPrint, isCardType]);
-
-  // Calculate total price
-  const calculateTotal = () => {
-    // If we have a matched variant, use its price
-    if (selectedVariant) {
-      return (selectedVariant.price * quantity).toFixed(2);
-    }
-    
-    // Fallback to hardcoded pricing if no variant match
-    let total = 0;
-    
-    const sizeOption = sizes.find((s: any) => s.name === selectedSize);
-    if (sizeOption && 'price' in sizeOption) total += sizeOption.price;
-    
-    if (isPrint) {
-      const material = printMaterials.find((m: any) => m.name === selectedMaterial);
-      if (material && 'price' in material) total += material.price;
-      
-      if (isFramed && selectedFrame) {
-        total += 25.00; // Frame base price
-      }
-    }
-    
-    if (isCardType) {
-      const paper = paperTypes.find((p: any) => p.name === selectedPaper);
-      if (paper && 'price' in paper) total += paper.price;
-      
-      if (hasFoil && selectedFoil) {
-        const foil = foilColors.find((f: any) => f.name === selectedFoil);
-        if (foil && 'price' in foil) total += foil.price;
-      }
-    }
-    
-    return (total * quantity).toFixed(2);
-  };
-
-  // Check if can proceed
-  const canProceed = () => {
-    // Basic selection checks
-    if (!selectedSize) return false;
-    if (isPrint && !selectedMaterial) return false;
-    if (isPrint && isFramed === null) return false;
-    if (isPrint && isFramed && !selectedFrame) return false;
-    if (isCardType && !selectedPaper) return false;
-    if (isCardType && hasFoil && !selectedFoil) return false;
-    
-    // If using variants API, must have a matched variant
-    const variants = variantsData?.variants ?? [];
-    if (variants.length > 0 && !selectedVariant) {
-      return false;
-    }
-    
-    return true;
-  };
+  // Build Gelato product UID from selections
+  const gelatoProductUid = productConfig ? buildGelatoProductUid(productType, selections) : null;
   
-  // Check if current selection combination is invalid
-  const hasInvalidCombination = () => {
-    // Safe access with defaults
-    const variants = variantsData?.variants ?? [];
-    if (variants.length === 0) return false;
-    // If we have selections but no matched variant, it's invalid
-    return !selectedVariant && (
-      selectedSize !== null ||
-      selectedMaterial !== null ||
-      selectedPaper !== null ||
-      selectedFrame !== null ||
-      selectedFoil !== null
-    );
+  // Validate selections
+  const validation = productConfig ? validateSelections(productType, selections) : { valid: false, missing: [] };
+  
+  // Calculate total price
+  const basePrice = BASE_PRICES[productType] || 12.99;
+  const totalPrice = productConfig ? calculatePrice(basePrice, productType, selections) * quantity : basePrice * quantity;
+  
+  // Helper to update a selection
+  const updateSelection = (groupId: string, optionId: string) => {
+    setSelections(prev => ({ ...prev, [groupId]: optionId }));
+  };
+
+  // Log in dev mode when selections change
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && gelatoProductUid) {
+      console.log('[ProductPage] Gelato Product UID:', gelatoProductUid, 'Selections:', selections);
+    }
+  }, [gelatoProductUid, selections]);
+
+  // Check if can proceed (all required options selected)
+  const canProceed = () => {
+    return validation.valid;
   };
 
   // Handle image upload - now uses shared asset store
@@ -467,14 +292,9 @@ export default function ProductPage() {
         },
         productInfo: {
           productType,
-          selectedSize,
-          selectedPaper,
-          selectedMaterial,
-          selectedFrame,
-          selectedFoil,
-          isFramed,
-          hasFoil,
+          selections,
           quantity,
+          gelatoProductUid,
         },
         timestamp: new Date().toISOString(),
       };
@@ -508,10 +328,21 @@ export default function ProductPage() {
 
   // Get canvas size for design editor
   const getCanvasSize = () => {
-    if (!selectedSize) return { width: 800, height: 600, name: 'Default' };
-    const [w, h] = selectedSize.split('x').map(Number);
-    const scale = 100;
-    return { width: w * scale, height: h * scale, name: selectedSize };
+    const sizeId = selections.size;
+    if (!sizeId) return { width: 800, height: 600, name: 'Default' };
+    // Parse size from option name (e.g., "5x7" or "A5")
+    const sizeOption = productConfig?.optionGroups
+      .find(g => g.id === 'size')?.options
+      .find(o => o.id === sizeId);
+    const sizeName = sizeOption?.name || sizeId;
+    // Try to extract dimensions from name like "5x7" or "A5 (5.8" × 8.3")"
+    const match = sizeName.match(/(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)/);
+    if (match) {
+      const [, w, h] = match;
+      const scale = 100;
+      return { width: parseFloat(w) * scale, height: parseFloat(h) * scale, name: sizeName };
+    }
+    return { width: 800, height: 600, name: sizeName };
   };
 
   return (
@@ -541,27 +372,29 @@ export default function ProductPage() {
             </div>
 
             {/* Product Info */}
-            <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-              <div className="flex items-start gap-6">
-                <div className="text-6xl">{info.icon}</div>
-                <div className="flex-1">
-                  <h1 className="text-4xl font-bold text-brand-darkest mb-4 font-playfair">
-                    {info.title}
-                  </h1>
-                  <p className="text-lg text-brand-dark mb-6">{info.description}</p>
-                  <div>
-                    <h3 className="text-xl font-semibold text-brand-darkest mb-3 font-playfair">
-                      Perfect For:
-                    </h3>
-                    <ul className="list-disc list-inside space-y-1 text-brand-dark">
-                      {info.examples.map((example, idx) => (
-                        <li key={idx}>{example}</li>
-                      ))}
-                    </ul>
+            {productConfig && (
+              <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+                <div className="flex items-start gap-6">
+                  <div className="text-6xl">{productConfig.icon}</div>
+                  <div className="flex-1">
+                    <h1 className="text-4xl font-bold text-brand-darkest mb-4 font-playfair">
+                      {productConfig.name}
+                    </h1>
+                    <p className="text-lg text-brand-dark mb-6">{productConfig.description}</p>
+                    <div>
+                      <h3 className="text-xl font-semibold text-brand-darkest mb-3 font-playfair">
+                        Perfect For:
+                      </h3>
+                      <ul className="list-disc list-inside space-y-1 text-brand-dark">
+                        {productConfig.examples.map((example, idx) => (
+                          <li key={idx}>{example}</li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Options Section */}
             <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -569,331 +402,140 @@ export default function ProductPage() {
                 Choose Your Options
               </h2>
 
-              {/* Loading State */}
-              {variantsLoading && (
-                <div className="text-center py-12">
-                  <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full mx-auto mb-4"></div>
-                  <p className="text-brand-dark">Loading options...</p>
-                </div>
-              )}
-
-              {/* Error State */}
-              {variantsError && !variantsLoading && (
-                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-6 mb-8">
-                  <div className="flex items-start gap-4">
-                    <div className="text-2xl">ΓÜá∩╕Å</div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-yellow-800 mb-2">Unable to load product options</h3>
-                      <p className="text-yellow-700 text-sm mb-4">{variantsError}</p>
-                      <button
-                        onClick={() => {
-                          setVariantsLoading(true);
-                          setVariantsError(null);
-                          fetch(`/api/gelato/variants?productType=${productType}`)
-                            .then(res => res.json())
-                            .then(data => {
-                              setVariantsData(data);
-                              setVariantsLoading(false);
-                            })
-                            .catch(err => {
-                              setVariantsError(err.message);
-                              setVariantsLoading(false);
-                            });
-                        }}
-                        className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-yellow-600 text-xs mt-4">Using default options. Some features may be limited.</p>
-                </div>
-              )}
-
-              {/* Invalid Combination Message */}
-              {hasInvalidCombination() && (
-                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6">
-                  <p className="text-red-800 font-semibold">ΓÜá∩╕Å This combination isn't available.</p>
-                  <p className="text-red-700 text-sm mt-1">Please select different options.</p>
-                </div>
-              )}
-
-              {!variantsLoading && (
+              {productConfig && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Options Column */}
                   <div className="lg:col-span-2 space-y-8">
-                    {/* Size Selection */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Select Size</h3>
-                      <div className="grid grid-cols-3 md:grid-cols-5 gap-4">
-                        {sizes.map((size: any) => (
-                        <button
-                          key={size.name}
-                          onClick={() => setSelectedSize(size.name)}
-                          className={`p-4 rounded-xl border-2 transition-all text-center ${
-                            selectedSize === size.name
-                              ? 'border-brand-darkest bg-brand-lightest shadow-md'
-                              : 'border-brand-light hover:border-brand-medium'
-                          }`}
-                        >
-                          <div className="font-bold text-brand-darkest">{size.name}"</div>
-                          <div className="text-sm text-brand-dark">${size.price.toFixed(2)}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Paper Type (for cards) */}
-                  {isCardType && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Paper Type</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {paperTypesList.map((paper: any) => (
-                          <button
-                            key={paper.name}
-                            onClick={() => setSelectedPaper(paper.name)}
-                            className={`p-4 rounded-xl border-2 transition-all text-left ${
-                              selectedPaper === paper.name
-                                ? 'border-brand-darkest bg-brand-lightest shadow-md'
-                                : 'border-brand-light hover:border-brand-medium'
-                            }`}
-                          >
-                            <div className="font-bold text-brand-darkest text-sm">{paper.name}</div>
-                            {paper.description && (
-                              <div className="text-xs text-brand-dark">{paper.description}</div>
-                            )}
-                            {paper.price !== undefined && (
-                              <div className="text-sm text-brand-dark mt-1">
-                                {paper.price === 0 ? 'Included' : `+$${paper.price.toFixed(2)}`}
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Material (for prints) */}
-                  {isPrint && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Material</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {printMaterialsList.map((material: any) => (
-                          <button
-                            key={material.name}
-                            onClick={() => setSelectedMaterial(material.name)}
-                            className={`p-4 rounded-xl border-2 transition-all text-left ${
-                              selectedMaterial === material.name
-                                ? 'border-brand-darkest bg-brand-lightest shadow-md'
-                                : 'border-brand-light hover:border-brand-medium'
-                            }`}
-                          >
-                            <div className="font-bold text-brand-darkest">{material.name}</div>
-                            {material.price !== undefined && (
-                              <div className="text-sm text-brand-dark">
-                                {material.price === 0 ? 'Included' : `+$${material.price.toFixed(2)}`}
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Foil Options (for cards) */}
-                  {isCardType && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Add Foil Accent?</h3>
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <button
-                          onClick={() => { setHasFoil(false); setSelectedFoil(null); }}
-                          className={`p-4 rounded-xl border-2 transition-all ${
-                            hasFoil === false
-                              ? 'border-brand-darkest bg-brand-lightest shadow-md'
-                              : 'border-brand-light hover:border-brand-medium'
-                          }`}
-                        >
-                          <div className="font-bold text-brand-darkest">No Foil</div>
-                          <div className="text-sm text-brand-dark">Standard printing</div>
-                        </button>
-                        <button
-                          onClick={() => setHasFoil(true)}
-                          className={`p-4 rounded-xl border-2 transition-all ${
-                            hasFoil === true
-                              ? 'border-brand-darkest bg-brand-lightest shadow-md'
-                              : 'border-brand-light hover:border-brand-medium'
-                          }`}
-                        >
-                          <div className="font-bold text-brand-darkest">Add Foil</div>
-                          <div className="text-sm text-brand-dark">Metallic accent</div>
-                        </button>
-                      </div>
-
-                      {/* FOIL COLOR SAMPLES */}
-                      {hasFoil && (
-                        <div className="grid grid-cols-4 gap-4">
-                          {foilColorsList.map((foil: any) => (
+                    {/* Dynamic Option Groups from productConfig */}
+                    {productConfig.optionGroups.map((group) => (
+                      <div key={group.id}>
+                        <h3 className="text-lg font-semibold text-brand-darkest mb-2">{group.name}</h3>
+                        {group.description && (
+                          <p className="text-sm text-brand-dark mb-4">{group.description}</p>
+                        )}
+                        <div className={`grid gap-4 ${
+                          group.id === 'size' ? 'grid-cols-2 md:grid-cols-4' :
+                          group.id === 'orientation' ? 'grid-cols-2' :
+                          'grid-cols-2 md:grid-cols-3'
+                        }`}>
+                          {group.options.map((option) => (
                             <button
-                              key={foil.name}
-                              onClick={() => setSelectedFoil(foil.name)}
-                              className={`p-4 rounded-xl border-2 transition-all ${
-                                selectedFoil === foil.name
+                              key={option.id}
+                              onClick={() => updateSelection(group.id, option.id)}
+                              className={`p-4 rounded-xl border-2 transition-all text-left ${
+                                selections[group.id] === option.id
                                   ? 'border-brand-darkest bg-brand-lightest shadow-md'
                                   : 'border-brand-light hover:border-brand-medium'
                               }`}
                             >
-                              {/* COLOR SAMPLE CIRCLE */}
-                              {foil.color && (
+                              {/* Color swatch for frame/foil options */}
+                              {option.swatch && option.swatch !== 'transparent' && (
                                 <div
-                                  className="w-12 h-12 rounded-full mx-auto mb-2 shadow-inner"
-                                  style={{ background: foil.color }}
+                                  className="w-10 h-10 rounded-full mx-auto mb-2 shadow-inner border border-gray-200"
+                                  style={{ background: foilSwatches[option.id]?.color || option.swatch }}
                                 />
                               )}
-                              <div className="font-bold text-brand-darkest text-sm text-center">
-                                {foil.name}
-                              </div>
-                              {foil.price !== undefined && (
-                                <div className="text-xs text-brand-dark text-center">
-                                  +${foil.price.toFixed(2)}
-                                </div>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Frame Options (for prints) */}
-                  {isPrint && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Framing</h3>
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <button
-                          onClick={() => { setIsFramed(false); setSelectedFrame(null); }}
-                          className={`p-4 rounded-xl border-2 transition-all ${
-                            isFramed === false
-                              ? 'border-brand-darkest bg-brand-lightest shadow-md'
-                              : 'border-brand-light hover:border-brand-medium'
-                          }`}
-                        >
-                          <div className="font-bold text-brand-darkest">Unframed</div>
-                          <div className="text-sm text-brand-dark">Print only</div>
-                        </button>
-                        <button
-                          onClick={() => setIsFramed(true)}
-                          className={`p-4 rounded-xl border-2 transition-all ${
-                            isFramed === true
-                              ? 'border-brand-darkest bg-brand-lightest shadow-md'
-                              : 'border-brand-light hover:border-brand-medium'
-                          }`}
-                        >
-                          <div className="font-bold text-brand-darkest">Framed</div>
-                          <div className="text-sm text-brand-dark">+$25.00</div>
-                        </button>
-                      </div>
-
-                      {/* FRAME COLOR SAMPLES */}
-                      {isFramed && (
-                        <div className="grid grid-cols-5 gap-4">
-                          {frameColorsList.map((frame: any) => (
-                            <button
-                              key={frame.name}
-                              onClick={() => setSelectedFrame(frame.name)}
-                              className={`p-4 rounded-xl border-2 transition-all ${
-                                selectedFrame === frame.name
-                                  ? 'border-brand-darkest bg-brand-lightest shadow-md'
-                                  : 'border-brand-light hover:border-brand-medium'
-                              }`}
-                            >
-                              {/* COLOR SAMPLE SQUARE (like a frame) */}
-                              {frame.color && (
+                              {/* Frame swatch */}
+                              {group.id === 'frame' && option.id !== 'none' && frameSwatches[option.id] && (
                                 <div
-                                  className="w-12 h-12 rounded mx-auto mb-2 shadow-md"
+                                  className="w-10 h-10 rounded mx-auto mb-2 shadow-md"
                                   style={{
-                                    background: frame.color,
-                                    border: frame.border ? `3px solid ${frame.border}` : undefined,
+                                    background: frameSwatches[option.id].color,
+                                    border: `3px solid ${frameSwatches[option.id].border}`,
                                   }}
                                 />
                               )}
-                              <div className="font-bold text-brand-darkest text-xs text-center">
-                                {frame.name}
-                              </div>
+                              <div className="font-bold text-brand-darkest text-sm">{option.name}</div>
+                              {option.description && (
+                                <div className="text-xs text-brand-dark mt-1">{option.description}</div>
+                              )}
+                              {option.priceModifier !== undefined && option.priceModifier !== 0 && (
+                                <div className="text-xs text-brand-dark mt-1">
+                                  +${option.priceModifier.toFixed(2)}
+                                </div>
+                              )}
+                              {option.priceModifier === 0 && group.id !== 'size' && group.id !== 'orientation' && (
+                                <div className="text-xs text-brand-dark mt-1">Included</div>
+                              )}
                             </button>
                           ))}
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    ))}
 
-                  {/* Quantity */}
-                  <div>
-                    <h3 className="text-lg font-semibold text-brand-darkest mb-4">Quantity</h3>
-                    <div className="flex items-center gap-4">
-                      <button
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="w-12 h-12 rounded-lg border-2 border-brand-light hover:border-brand-medium font-bold text-xl"
-                      >
-                        -
-                      </button>
-                      <input
-                        type="number"
-                        min="1"
-                        value={quantity}
-                        onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-20 text-center text-lg font-semibold border-2 border-brand-light rounded-lg py-2"
-                      />
-                      <button
-                        onClick={() => setQuantity(quantity + 1)}
-                        className="w-12 h-12 rounded-lg border-2 border-brand-light hover:border-brand-medium font-bold text-xl"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Order Summary Sidebar */}
-                <div className="lg:col-span-1">
-                  <div className="sticky top-24 bg-brand-darkest text-white rounded-2xl p-6">
-                    <h3 className="text-xl font-bold mb-4">Order Summary</h3>
-                    <div className="space-y-2 text-sm mb-4">
-                      {selectedSize && <div>Size: {selectedSize}"</div>}
-                      {selectedPaper && <div>Paper: {selectedPaper}</div>}
-                      {selectedMaterial && <div>Material: {selectedMaterial}</div>}
-                      {isFramed !== null && (
-                        <div>Frame: {isFramed ? (selectedFrame || 'Select color') : 'Unframed'}</div>
-                      )}
-                      {hasFoil !== null && (
-                        <div>Foil: {hasFoil ? (selectedFoil || 'Select color') : 'None'}</div>
-                      )}
-                      <div>Quantity: {quantity}</div>
-                      {process.env.NODE_ENV === 'development' && gelatoVariantUid && (
-                        <div className="text-xs text-white/60 mt-2 pt-2 border-t border-white/20">
-                          Gelato UID: <code className="text-xs break-all">{gelatoVariantUid}</code>
-                        </div>
-                      )}
-                    </div>
-                    <div className="border-t border-white/20 pt-4 mb-6">
-                      <div className="flex justify-between text-xl font-bold">
-                        <span>Total:</span>
-                        <span>${calculateTotal()}</span>
+                    {/* Quantity */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-brand-darkest mb-4">Quantity</h3>
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                          className="w-12 h-12 rounded-lg border-2 border-brand-light hover:border-brand-medium font-bold text-xl"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min="1"
+                          value={quantity}
+                          onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-20 text-center text-lg font-semibold border-2 border-brand-light rounded-lg py-2"
+                        />
+                        <button
+                          onClick={() => setQuantity(quantity + 1)}
+                          className="w-12 h-12 rounded-lg border-2 border-brand-light hover:border-brand-medium font-bold text-xl"
+                        >
+                          +
+                        </button>
                       </div>
                     </div>
-                    <button
-                      onClick={() => setCurrentStep(1)}
-                      disabled={!canProceed()}
-                      className="w-full py-4 bg-white text-brand-darkest rounded-lg font-bold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title={!canProceed() ? (hasInvalidCombination() ? 'This combination isn\'t available' : 'Please complete all required options') : ''}
-                    >
-                      Continue to Upload Image
-                    </button>
-                    {hasInvalidCombination() && (
-                      <p className="text-red-300 text-xs mt-2 text-center">ΓÜá∩╕Å This combination isn't available</p>
-                    )}
+                  </div>
+
+                  {/* Order Summary Sidebar */}
+                  <div className="lg:col-span-1">
+                    <div className="sticky top-24 bg-brand-darkest text-white rounded-2xl p-6">
+                      <h3 className="text-xl font-bold mb-4">Order Summary</h3>
+                      <div className="space-y-2 text-sm mb-4">
+                        {productConfig.optionGroups.map((group) => {
+                          const selectedOption = group.options.find(o => o.id === selections[group.id]);
+                          return selectedOption ? (
+                            <div key={group.id}>
+                              {group.name}: {selectedOption.name}
+                            </div>
+                          ) : (
+                            <div key={group.id} className="text-white/60">
+                              {group.name}: <span className="italic">Select...</span>
+                            </div>
+                          );
+                        })}
+                        <div>Quantity: {quantity}</div>
+                        {process.env.NODE_ENV === 'development' && gelatoProductUid && (
+                          <div className="text-xs text-white/60 mt-2 pt-2 border-t border-white/20">
+                            Gelato UID: <code className="text-xs break-all">{gelatoProductUid}</code>
+                          </div>
+                        )}
+                      </div>
+                      <div className="border-t border-white/20 pt-4 mb-6">
+                        <div className="flex justify-between text-xl font-bold">
+                          <span>Total:</span>
+                          <span>${totalPrice.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setCurrentStep(1)}
+                        disabled={!canProceed()}
+                        className="w-full py-4 bg-white text-brand-darkest rounded-lg font-bold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title={!canProceed() ? 'Please complete all required options' : ''}
+                      >
+                        Continue to Upload Image
+                      </button>
+                      {!validation.valid && validation.missing.length > 0 && (
+                        <p className="text-white/60 text-xs mt-2 text-center">
+                          Please select: {validation.missing.join(', ')}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
               )}
             </div>
           </div>
@@ -955,16 +597,16 @@ export default function ProductPage() {
 
               <button
                 onClick={() => {
-                  // Prevent Step 2 if no selected variant (invalid combo)
-                  if (variantsData && !selectedVariant) {
-                    alert('Please select a valid combination of options before continuing.');
+                  // Prevent Step 2 if options not complete
+                  if (!validation.valid) {
+                    alert(`Please select: ${validation.missing.join(', ')}`);
                     return;
                   }
                   setCurrentStep(2);
                 }}
-                disabled={uploadedImages.length === 0 || (variantsData && !selectedVariant)}
+                disabled={uploadedImages.length === 0 || !validation.valid}
                 className="w-full py-4 bg-brand-darkest text-white rounded-lg font-bold hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title={variantsData && !selectedVariant ? 'Please select a valid combination of options' : ''}
+                title={!validation.valid ? `Please select: ${validation.missing.join(', ')}` : ''}
               >
                 Continue to Project Editor
               </button>
@@ -1005,16 +647,16 @@ export default function ProductPage() {
           >
             <ProjectEditor
               productSlug={productType}
-              gelatoVariantUid={gelatoVariantUid || undefined}
-              selectedVariant={selectedVariant ? {
-                uid: selectedVariant.uid,
-                size: selectedVariant.size,
-                material: selectedVariant.material,
-                paper: selectedVariant.paper,
-                frame: selectedVariant.frame,
-                foil: selectedVariant.foil,
-                price: selectedVariant.price,
-              } : undefined}
+              gelatoVariantUid={gelatoProductUid || undefined}
+              selectedVariant={{
+                uid: gelatoProductUid || '',
+                size: selections.size || null,
+                material: selections.material || null,
+                paper: selections.paper || null,
+                frame: selections.frame || null,
+                foil: null, // Foil removed for now
+                price: totalPrice,
+              }}
               config={{
                 productSlug: productType,
                 qrRequired: isCardType && quantity > 1, // Require QR for card products with quantity > 1
@@ -1102,7 +744,7 @@ export default function ProductPage() {
                 Your Order is Ready!
               </h1>
               <p className="text-lg text-brand-dark mb-8">
-                Your {info.title} with ArtKey Portal is ready for checkout.
+                Your {productConfig?.name || 'Product'} with ArtKey Portal is ready for checkout.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
