@@ -21,9 +21,9 @@ export interface PrintSpec {
 // DPI constant
 const DPI = 300;
 
-// Helper to convert inches to pixels
+// Helper to convert inches to pixels at 300 DPI
 function inchesToPx(inches: number): number {
-  return (inches / 25.4) * DPI;
+  return Math.round(inches * DPI);
 }
 
 // Print Specs
