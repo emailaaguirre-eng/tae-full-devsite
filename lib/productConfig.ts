@@ -47,30 +47,38 @@ export interface ProductConfig {
 }
 
 // ============================================================================
-// Size Options (shared across products)
+// Size Options - Based on actual Gelato catalog
+// Gelato uses metric (A6, A5) and some US sizes (5x7)
 // ============================================================================
 
 const CARD_SIZES: ProductOption[] = [
   { 
-    id: '4x6', 
-    name: '4" × 6"', 
-    description: 'Classic postcard size',
-    gelatoValue: '4x6',
+    id: 'a6', 
+    name: 'A6 (4.1" × 5.8")', 
+    description: 'Compact greeting card',
+    gelatoValue: 'a6',
     priceModifier: 0 
   },
   { 
     id: '5x7', 
     name: '5" × 7"', 
-    description: 'Standard greeting card',
+    description: 'Classic US greeting card',
     gelatoValue: '5x7',
-    priceModifier: 3 
+    priceModifier: 2 
   },
   { 
-    id: 'a7', 
-    name: '5.25" × 7.25" (A7)', 
-    description: 'Fits A7 envelopes',
-    gelatoValue: 'a7',
+    id: 'a5', 
+    name: 'A5 (5.8" × 8.3")', 
+    description: 'Large greeting card',
+    gelatoValue: 'a5',
     priceModifier: 4 
+  },
+  { 
+    id: 'square', 
+    name: 'Square (5.5" × 5.5")', 
+    description: 'Modern square format',
+    gelatoValue: 'square-140',
+    priceModifier: 3 
   },
 ];
 
@@ -84,41 +92,26 @@ const PRINT_SIZES: ProductOption[] = [
 ];
 
 // ============================================================================
-// Paper/Material Options
+// Paper/Material Options - Based on actual Gelato catalog
+// Gelato offers 350gsm papers for cards
 // ============================================================================
 
 const CARD_PAPERS: ProductOption[] = [
   {
-    id: 'premium-matte',
-    name: 'Premium Matte',
-    description: 'Smooth, elegant finish with no glare',
+    id: 'matte',
+    name: 'Matte',
+    description: '350gsm uncoated, elegant finish',
     image: '/images/papers/matte.jpg',
-    gelatoValue: '100-lb-cover-uncoated',
+    gelatoValue: '350-gsm-uncoated',
     priceModifier: 0,
   },
   {
-    id: 'semi-gloss',
-    name: 'Semi-Gloss',
-    description: 'Subtle shine, vibrant colors',
-    image: '/images/papers/semi-gloss.jpg',
-    gelatoValue: '100-lb-cover-coated-silk',
+    id: 'silk',
+    name: 'Silk (Semi-Gloss)',
+    description: '350gsm coated silk, vibrant colors',
+    image: '/images/papers/silk.jpg',
+    gelatoValue: '350-gsm-coated-silk',
     priceModifier: 0,
-  },
-  {
-    id: 'pearl',
-    name: 'Pearl Shimmer',
-    description: 'Luxurious pearlescent sheen',
-    image: '/images/papers/pearl.jpg',
-    gelatoValue: '100-lb-cover-pearl',
-    priceModifier: 2,
-  },
-  {
-    id: 'linen',
-    name: 'Linen Texture',
-    description: 'Classic textured finish',
-    image: '/images/papers/linen.jpg',
-    gelatoValue: '100-lb-cover-linen',
-    priceModifier: 3,
   },
 ];
 
@@ -158,14 +151,15 @@ const PRINT_MATERIALS: ProductOption[] = [
 ];
 
 // ============================================================================
-// Foil Options
+// Foil Options - Note: Foil availability varies by Gelato product
+// Check Gelato catalog for actual foil support on specific products
 // ============================================================================
 
 const FOIL_OPTIONS: ProductOption[] = [
   {
     id: 'none',
     name: 'No Foil',
-    description: 'Standard printing',
+    description: 'Standard full-color printing',
     swatch: 'transparent',
     priceModifier: 0,
   },
@@ -173,39 +167,22 @@ const FOIL_OPTIONS: ProductOption[] = [
     id: 'gold',
     name: 'Gold Foil',
     description: 'Elegant gold accents',
-    image: '/images/foils/gold.jpg',
     swatch: '#D4AF37',
     gelatoValue: 'gold',
-    priceModifier: 5,
+    priceModifier: 8,
   },
   {
     id: 'silver',
     name: 'Silver Foil',
     description: 'Sleek silver highlights',
-    image: '/images/foils/silver.jpg',
     swatch: '#C0C0C0',
     gelatoValue: 'silver',
-    priceModifier: 5,
-  },
-  {
-    id: 'rose-gold',
-    name: 'Rose Gold Foil',
-    description: 'Warm, romantic shimmer',
-    image: '/images/foils/rose-gold.jpg',
-    swatch: '#B76E79',
-    gelatoValue: 'rose-gold',
-    priceModifier: 6,
-  },
-  {
-    id: 'copper',
-    name: 'Copper Foil',
-    description: 'Rich, warm metallic',
-    image: '/images/foils/copper.jpg',
-    swatch: '#B87333',
-    gelatoValue: 'copper',
-    priceModifier: 6,
+    priceModifier: 8,
   },
 ];
+
+// Note: Rose Gold and Copper foil may not be available on all Gelato products
+// Add them back when verified in Gelato catalog
 
 // ============================================================================
 // Frame Options (for prints)
@@ -299,16 +276,9 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       },
       {
         id: 'paper',
-        name: 'Paper Type',
+        name: 'Paper',
         required: true,
         options: CARD_PAPERS,
-      },
-      {
-        id: 'foil',
-        name: 'Foil Accent',
-        description: 'Add metallic foil highlights to your design',
-        required: false,
-        options: FOIL_OPTIONS,
       },
       {
         id: 'orientation',
@@ -338,13 +308,13 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
         id: 'size',
         name: 'Size',
         required: true,
-        options: CARD_SIZES.filter(s => ['4x6', '5x7'].includes(s.id)),
+        options: CARD_SIZES.filter(s => ['a6', '5x7'].includes(s.id)),
       },
       {
         id: 'paper',
-        name: 'Paper Type',
+        name: 'Paper',
         required: true,
-        options: CARD_PAPERS.filter(p => ['premium-matte', 'semi-gloss'].includes(p.id)),
+        options: CARD_PAPERS,
       },
       {
         id: 'orientation',
@@ -366,7 +336,7 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
     description: 'Beautiful invitations for special events',
     icon: '\uD83C\uDF89', // 🎉
     gelatoCatalog: 'cards',
-    gelatoProductBase: 'invitations',
+    gelatoProductBase: 'cards', // Gelato uses same catalog for invitations
     printSpecId: 'greeting_card_bifold',
     optionGroups: [
       {
@@ -377,16 +347,9 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       },
       {
         id: 'paper',
-        name: 'Paper Type',
+        name: 'Paper',
         required: true,
         options: CARD_PAPERS,
-      },
-      {
-        id: 'foil',
-        name: 'Foil Accent',
-        description: 'Add elegant metallic accents',
-        required: false,
-        options: FOIL_OPTIONS,
       },
       {
         id: 'orientation',
@@ -409,7 +372,7 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
     description: 'Share your news beautifully',
     icon: '\uD83D\uDCE2', // 📢
     gelatoCatalog: 'cards',
-    gelatoProductBase: 'announcements',
+    gelatoProductBase: 'cards', // Gelato uses same catalog
     printSpecId: 'greeting_card_bifold',
     optionGroups: [
       {
@@ -420,15 +383,9 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       },
       {
         id: 'paper',
-        name: 'Paper Type',
+        name: 'Paper',
         required: true,
         options: CARD_PAPERS,
-      },
-      {
-        id: 'foil',
-        name: 'Foil Accent',
-        required: false,
-        options: FOIL_OPTIONS,
       },
       {
         id: 'orientation',
@@ -537,7 +494,9 @@ export function calculatePrice(
  * Build Gelato product UID from selections
  * 
  * Gelato product UIDs follow patterns like:
- * cards_pf_{format}_pt_{paper-type}_cl_{color}_hor
+ * cards_pf_{format}_pt_{paper-type}_cl_{color}_{orientation}
+ * 
+ * Example: cards_pf_a5_pt_350-gsm-coated-silk_cl_4-4_ver
  * 
  * This function maps our UI selections to valid Gelato UIDs
  */
@@ -548,56 +507,48 @@ export function buildGelatoProductUid(
   const config = getProductConfig(productSlug);
   if (!config) return null;
 
-  // Get Gelato values from selections
-  const sizeOption = config.optionGroups
-    .find(g => g.id === 'size')?.options
-    .find(o => o.id === selections.size);
-  
-  const paperOption = config.optionGroups
-    .find(g => g.id === 'paper')?.options
-    .find(o => o.id === selections.paper);
-
-  const materialOption = config.optionGroups
-    .find(g => g.id === 'material')?.options
-    .find(o => o.id === selections.material);
-
-  const orientationOption = config.optionGroups
-    .find(g => g.id === 'orientation')?.options
-    .find(o => o.id === selections.orientation);
-
-  const foilOption = config.optionGroups
-    .find(g => g.id === 'foil')?.options
-    .find(o => o.id === selections.foil);
-
-  const frameOption = config.optionGroups
-    .find(g => g.id === 'frame')?.options
-    .find(o => o.id === selections.frame);
+  // Helper to find option value
+  const getOptionValue = (groupId: string): string | undefined => {
+    const group = config.optionGroups.find(g => g.id === groupId);
+    const option = group?.options.find(o => o.id === selections[groupId]);
+    return option?.gelatoValue;
+  };
 
   // Build UID based on product type
   switch (productSlug) {
     case 'card':
     case 'invitation':
-    case 'announcement':
+    case 'announcement': {
+      // Folded cards pattern: cards_pf_{size}_pt_{paper}_cl_4-4_{orientation}
+      const size = getOptionValue('size') || 'a5';
+      const paper = getOptionValue('paper') || '350-gsm-coated-silk';
+      const orient = getOptionValue('orientation') || 'ver';
+      const color = '4-4'; // Full color both sides (front+back of folded card)
+      
+      return `cards_pf_${size}_pt_${paper}_cl_${color}_${orient}`;
+    }
+
     case 'postcard': {
-      // Pattern: cards_pf_{size}_pt_{paper}_cl_4-4_{orientation}
-      const size = sizeOption?.gelatoValue || '5x7';
-      const paper = paperOption?.gelatoValue || '100-lb-cover-uncoated';
-      const orient = orientationOption?.gelatoValue || 'hor';
+      // Flat postcards pattern: same as cards but single-sided option
+      const size = getOptionValue('size') || 'a6';
+      const paper = getOptionValue('paper') || '350-gsm-coated-silk';
+      const orient = getOptionValue('orientation') || 'hor';
       const color = '4-4'; // Full color both sides
       
       return `cards_pf_${size}_pt_${paper}_cl_${color}_${orient}`;
     }
 
     case 'print': {
-      // Pattern: posters_pf_{size}_pt_{material}_cl_4-0_{orientation}
-      const size = sizeOption?.gelatoValue || '8x10';
-      const material = materialOption?.gelatoValue || 'matte';
-      const orient = orientationOption?.gelatoValue || 'ver';
+      // Posters pattern: posters_pf_{size}_pt_{material}_cl_4-0_{orientation}
+      const size = getOptionValue('size') || '8x10';
+      const material = getOptionValue('material') || 'matte';
+      const orient = getOptionValue('orientation') || 'ver';
       const color = '4-0'; // Full color front only
       
-      // If framed, use different pattern
-      if (frameOption && frameOption.id !== 'none') {
-        const frame = frameOption.gelatoValue;
+      const frame = getOptionValue('frame');
+      
+      // If framed, use framed_posters pattern
+      if (frame && frame !== 'none') {
         return `framed_posters_pf_${size}_pt_${material}_fr_${frame}_cl_${color}_${orient}`;
       }
       

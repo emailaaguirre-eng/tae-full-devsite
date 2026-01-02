@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { PRODUCT_CATALOG, getProductConfig, buildGelatoProductUid, calculatePrice, validateSelections } from '@/lib/productConfig';
 
 // Dynamic import for Project Editor (Konva-based)
 const ProjectEditor = dynamic(() => import('@/components/ProjectEditor/ProjectEditor'), {
@@ -24,130 +25,22 @@ const ProjectEditor = dynamic(() => import('@/components/ProjectEditor/ProjectEd
   },
 });
 
-// Product information
-const productInfo: Record<string, { title: string; description: string; icon: string; examples: string[] }> = {
-  card: {
-    title: 'Greeting Cards',
-    description: 'Beautiful cards for birthdays, holidays, thank yous, and everyday moments.',
-    icon: '\u{1F48C}',
-    examples: [
-      'Birthday celebrations',
-      'Thank you notes',
-      'Holiday greetings',
-      'Get well wishes',
-      'Congratulations',
-    ],
-  },
-  postcard: {
-    title: 'Postcards',
-    description: 'Share memories and moments with custom postcards.',
-    icon: '\u{1F4EE}',
-    examples: [
-      'Travel memories',
-      'Event announcements',
-      'Save the dates',
-      'Business promotions',
-      'Art prints',
-    ],
-  },
-  invitation: {
-    title: 'Invitations',
-    description: 'Elegant invitations for weddings, parties, and special events.',
-    icon: '\u{1F389}',
-    examples: [
-      'Wedding invitations',
-      'Birthday parties',
-      'Baby showers',
-      'Graduation celebrations',
-      'Corporate events',
-    ],
-  },
-  announcement: {
-    title: 'Announcements',
-    description: 'Share your news with beautifully designed announcements.',
-    icon: '\u{1F4E2}',
-    examples: [
-      'Birth announcements',
-      'Engagement news',
-      'Moving announcements',
-      'Business launches',
-      'Graduation announcements',
-    ],
-  },
-  print: {
-    title: 'Wall Art',
-    description: 'Transform your photos into stunning wall art with prints, canvas, and frames.',
-    icon: '\u{1F5BC}',
-    examples: [
-      'Family portraits',
-      'Landscape photography',
-      'Abstract art',
-      'Pet photos',
-      'Memory collages',
-    ],
-  },
+// Frame color swatches for UI display
+const frameSwatches: Record<string, { color: string; border: string }> = {
+  'black': { color: '#1a1a1a', border: '#333333' },
+  'white': { color: '#FFFFFF', border: '#CCCCCC' },
+  'natural': { color: 'linear-gradient(135deg, #DEB887 0%, #D2B48C 50%, #C4A575 100%)', border: '#A0825A' },
+  'walnut': { color: 'linear-gradient(135deg, #5D432C 0%, #8B6914 50%, #4A3520 100%)', border: '#3D2817' },
 };
 
-// Frame color options with actual color values
-const frameColors = [
-  { name: 'Black', color: '#000000', border: '#333333' },
-  { name: 'White', color: '#FFFFFF', border: '#CCCCCC' },
-  { name: 'Silver', color: 'linear-gradient(135deg, #C0C0C0 0%, #E8E8E8 50%, #A0A0A0 100%)', border: '#888888' },
-  { name: 'Gold', color: 'linear-gradient(135deg, #D4AF37 0%, #F5D76E 50%, #C5A028 100%)', border: '#B8960C' },
-  { name: 'Natural Wood', color: 'linear-gradient(135deg, #DEB887 0%, #D2B48C 50%, #C4A575 100%)', border: '#A0825A' },
-];
-
-// Foil color options with actual color values
-const foilColors = [
-  { name: 'Gold', color: 'linear-gradient(135deg, #FFD700 0%, #FFF8DC 30%, #DAA520 70%, #B8860B 100%)', price: 5.00 },
-  { name: 'Silver', color: 'linear-gradient(135deg, #C0C0C0 0%, #FFFFFF 30%, #A9A9A9 70%, #808080 100%)', price: 5.00 },
-  { name: 'Rose Gold', color: 'linear-gradient(135deg, #E8B4B8 0%, #FFE4E1 30%, #DDA0A0 70%, #C48888 100%)', price: 6.00 },
-  { name: 'Copper', color: 'linear-gradient(135deg, #B87333 0%, #DA8A47 30%, #CD7F32 70%, #A05A2C 100%)', price: 5.00 },
-];
-
-// Size options by product type
-const sizeOptions: Record<string, { name: string; price: number }[]> = {
-  card: [
-    { name: '4x6', price: 12.99 },
-    { name: '5x7', price: 15.99 },
-    { name: '6x9', price: 19.99 },
-  ],
-  postcard: [
-    { name: '4x6', price: 10.99 },
-    { name: '5x7', price: 13.99 },
-  ],
-  invitation: [
-    { name: '5x7', price: 18.99 },
-    { name: '6x9', price: 24.99 },
-  ],
-  announcement: [
-    { name: '4x6', price: 14.99 },
-    { name: '5x7', price: 17.99 },
-  ],
-  print: [
-    { name: '5x7', price: 9.99 },
-    { name: '8x10', price: 14.99 },
-    { name: '11x14', price: 24.99 },
-    { name: '16x20', price: 39.99 },
-    { name: '24x36', price: 89.99 },
-  ],
+// Foil color swatches for UI display  
+const foilSwatches: Record<string, { color: string }> = {
+  'none': { color: 'transparent' },
+  'gold': { color: 'linear-gradient(135deg, #FFD700 0%, #FFF8DC 30%, #DAA520 70%, #B8860B 100%)' },
+  'silver': { color: 'linear-gradient(135deg, #C0C0C0 0%, #FFFFFF 30%, #A9A9A9 70%, #808080 100%)' },
+  'rose-gold': { color: 'linear-gradient(135deg, #E8B4B8 0%, #FFE4E1 30%, #DDA0A0 70%, #C48888 100%)' },
+  'copper': { color: 'linear-gradient(135deg, #B87333 0%, #DA8A47 30%, #CD7F32 70%, #A05A2C 100%)' },
 };
-
-// Paper types for cards
-const paperTypes = [
-  { name: 'Premium Cardstock', description: '350gsm coated silk', price: 0 },
-  { name: 'Matte Cardstock', description: '350gsm matte finish', price: 0 },
-  { name: 'Linen Cardstock', description: '350gsm textured linen', price: 2.00 },
-  { name: 'Recycled', description: '350gsm eco-friendly', price: 0 },
-];
-
-// Materials for prints
-const printMaterials = [
-  { name: 'Glossy Paper', price: 0 },
-  { name: 'Matte Paper', price: 2.00 },
-  { name: 'Canvas', price: 15.00 },
-  { name: 'Metal', price: 35.00 },
-];
 
 // Variant option types
 interface VariantOption {
