@@ -7,9 +7,10 @@ interface DraftBannerProps {
   onDismiss: () => void;
   onClear: () => void;
   assetsPartial?: boolean;
+  variantMismatch?: boolean;
 }
 
-export default function DraftBanner({ onRestore, onDismiss, onClear, assetsPartial }: DraftBannerProps) {
+export default function DraftBanner({ onRestore, onDismiss, onClear, assetsPartial, variantMismatch }: DraftBannerProps) {
   return (
     <>
       <div className="bg-blue-50 border-b border-blue-200 px-6 py-3 flex items-center justify-between">
