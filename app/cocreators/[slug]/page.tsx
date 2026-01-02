@@ -46,80 +46,9 @@ export default function CoCreatorPage({ params }: CoCreatorPageProps) {
   const typedCocreators = cocreators as CoCreator[];
   const cocreator = slug ? typedCocreators.find((c) => c.slug === slug) : undefined;
 
-  // Fetch products from WooCommerce for this co-creator (for future use)
-  const [wooProducts, setWooProducts] = useState<Array<{
-    id: number;
-    name: string;
-    price: string;
-    images?: Array<{ src: string; alt: string }>;
-    permalink?: string;
-  }>>([]);
-  const [loading, setLoading] = useState(true);
+  // Product fetching removed - no longer using WooCommerce
+  // Products are now managed via Gelato API and shop pages
   const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string; title?: string } | null>(null);
-
-  useEffect(() => {
-    if (!cocreator) {
-      setLoading(false);
-      return;
-    }
-
-    // Fetch products related to this co-creator
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch('/api/products?limit=100');
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Filter products by co-creator association
-          // WooCommerce products should have a category, tag, or meta field matching the co-creator
-          const cocreatorNameLower = cocreator.name.toLowerCase();
-          const cocreatorSlugLower = cocreator.slug.toLowerCase();
-          
-          const filteredProducts = data.filter((product: any) => {
-            // Method 1: Check product categories
-            const categories = product.categories || [];
-            const categoryMatch = categories.some((cat: any) => {
-              if (typeof cat === 'object') {
-                return cat.slug?.toLowerCase() === cocreatorSlugLower || 
-                       cat.name?.toLowerCase() === cocreatorNameLower ||
-                       cat.name?.toLowerCase().includes(cocreatorNameLower.split(' ')[0]);
-              }
-              return false;
-            });
-            
-            // Method 2: Check product tags
-            const tags = product.tags || [];
-            const tagMatch = tags.some((tag: any) => {
-              if (typeof tag === 'object') {
-                return tag.slug?.toLowerCase() === cocreatorSlugLower || 
-                       tag.name?.toLowerCase() === cocreatorNameLower ||
-                       tag.name?.toLowerCase().includes(cocreatorNameLower.split(' ')[0]);
-              }
-              return false;
-            });
-            
-            // Method 3: Check custom meta fields
-            const metaData = product.meta_data || [];
-            const metaMatch = metaData.some((meta: any) => 
-              (meta.key === '_artist_slug' && String(meta.value).toLowerCase() === cocreatorSlugLower) ||
-              (meta.key === '_artist_name' && String(meta.value).toLowerCase() === cocreatorNameLower) ||
-              (meta.key === 'artist' && String(meta.value).toLowerCase() === cocreatorSlugLower) ||
-              (meta.key === '_cocreator_slug' && String(meta.value).toLowerCase() === cocreatorSlugLower)
-            );
-            
-            return categoryMatch || tagMatch || metaMatch;
-          });
-          
-          setWooProducts(filteredProducts);
-        }
-      } catch (error) {
-        console.error('Error fetching products:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, [cocreator]);
 
   // Handle escape key to close expanded image
   useEffect(() => {
@@ -292,52 +221,16 @@ export default function CoCreatorPage({ params }: CoCreatorPageProps) {
               {cocreator.slug === 'kimber-cross' ? 'TheAE Collaboration' : 'Available ArtWork'}
             </h2>
             
-            {loading ? (
-              <div className="text-center py-12">
-                <p className="text-brand-dark">Loading {cocreator.slug === 'kimber-cross' ? 'collaboration' : 'ArtWork'}...</p>
-              </div>
-            ) : wooProducts.length > 0 ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {wooProducts.map((product) => {
-                  const productImage = product.images && product.images.length > 0 
-                    ? product.images[0].src 
-                    : '';
-                  const price = product.price || '0.00';
-                  
-                  return (
-                    <div key={product.id} className="bg-brand-lightest rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 border border-brand-light">
-                      <div className="relative h-48 w-full bg-gradient-to-br from-brand-light to-brand-medium">
-                        <Image
-                          src={productImage}
-                          alt={product.name}
-                          fill
-                          className="object-contain"
-                          unoptimized={productImage.includes('theartfulexperience.com')}
-                        />
-                      </div>
-                      <div className="p-5">
-                        <h3 className="font-bold text-brand-darkest mb-2 font-playfair">{product.name}</h3>
-                        <p className="text-brand-dark font-semibold mb-3">${price}</p>
-                        <Link
-                          href={`/customize?product_id=${product.id}&product_name=${encodeURIComponent(product.name)}&price=${product.price}`}
-                          className="inline-block bg-brand-medium text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-brand-dark transition-all shadow-md hover:shadow-lg"
-                        >
-                          Customize →
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-brand-lightest rounded-2xl">
-                <p className="text-brand-dark">
-                  {cocreator.slug === 'kimber-cross' 
-                    ? 'Collaboration ArtWork coming soon.' 
-                    : 'Available ArtWork coming soon.'}
-                </p>
-              </div>
-            )}
+            <div className="text-center py-12 bg-brand-lightest rounded-2xl">
+              <p className="text-brand-dark">
+                {cocreator.slug === 'kimber-cross' 
+                  ? 'Collaboration ArtWork coming soon.' 
+                  : 'Available ArtWork coming soon.'}
+              </p>
+              <p className="text-sm text-brand-medium mt-4">
+                Visit our <Link href="/shop" className="text-brand-dark hover:underline">shop</Link> to see available products.
+              </p>
+            </div>
           </div>
         </div>
       </section>

@@ -46,88 +46,9 @@ export default function ArtistPage({ params }: ArtistPageProps) {
   const typedArtists = artists as Artist[];
   const artist = slug ? typedArtists.find((a) => a.slug === slug) : undefined;
 
-  // Fetch products from WooCommerce for this artist
-  // Hooks must be called before any conditional returns
-  const [wooProducts, setWooProducts] = useState<Array<{
-    id: number;
-    name: string;
-    price: string;
-    images?: Array<{ src: string; alt: string }>;
-    permalink?: string;
-  }>>([]);
-  const [loading, setLoading] = useState(true);
+  // Product fetching removed - no longer using WooCommerce
+  // Products are now managed via Gelato API and shop pages
   const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string; title?: string } | null>(null);
-
-  useEffect(() => {
-    if (!artist) {
-      setLoading(false);
-      return;
-    }
-
-    const fetchProducts = async () => {
-      try {
-        // Fetch all products (we'll filter by artist association client-side)
-        const response = await fetch('/api/products?limit=100');
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Filter products by artist association
-          // WooCommerce products should have a category, tag, or meta field matching the artist
-          const artistNameLower = artist.name.toLowerCase();
-          const artistSlugLower = artist.slug.toLowerCase();
-          
-          const filteredProducts = data.filter((product: any) => {
-            // Method 1: Check product categories (WooCommerce categories should match artist slug)
-            // Categories can be objects with id, name, slug, or just IDs
-            const categories = product.categories || [];
-            const categoryMatch = categories.some((cat: any) => {
-              if (typeof cat === 'object') {
-                return cat.slug?.toLowerCase() === artistSlugLower || 
-                       cat.name?.toLowerCase() === artistNameLower ||
-                       cat.name?.toLowerCase().includes(artistNameLower.split(' ')[0]); // First name match
-              }
-              return false;
-            });
-            
-            // Method 2: Check product tags
-            const tags = product.tags || [];
-            const tagMatch = tags.some((tag: any) => {
-              if (typeof tag === 'object') {
-                return tag.slug?.toLowerCase() === artistSlugLower || 
-                       tag.name?.toLowerCase() === artistNameLower ||
-                       tag.name?.toLowerCase().includes(artistNameLower.split(' ')[0]);
-              }
-              return false;
-            });
-            
-            // Method 3: Check custom meta fields (if you add _artist_slug or _artist_name meta in WooCommerce)
-            const metaData = product.meta_data || [];
-            const metaMatch = metaData.some((meta: any) => 
-              (meta.key === '_artist_slug' && String(meta.value).toLowerCase() === artistSlugLower) ||
-              (meta.key === '_artist_name' && String(meta.value).toLowerCase() === artistNameLower) ||
-              (meta.key === 'artist' && String(meta.value).toLowerCase() === artistSlugLower)
-            );
-            
-            // Method 4: Fallback - check product name (only for Deanna Lankin as temporary measure)
-            // Remove this once products are properly categorized in WooCommerce
-            const nameMatch = artist.slug === 'deanna-lankin' && (
-              product.name?.toLowerCase().includes('first light') || 
-              product.name?.toLowerCase().includes('facing the storm')
-            );
-            
-            return categoryMatch || tagMatch || metaMatch || nameMatch;
-          });
-          
-          setWooProducts(filteredProducts);
-        }
-      } catch (error) {
-        console.error('Error fetching products:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, [artist]);
 
   // Handle escape key to close expanded image
   useEffect(() => {
@@ -269,52 +190,16 @@ export default function ArtistPage({ params }: ArtistPageProps) {
               {artist.slug === 'bryant-colman' ? 'Available Photography' : 'Available ArtWork'}
             </h2>
             
-            {loading ? (
-              <div className="text-center py-12">
-                <p className="text-brand-dark">Loading {artist.slug === 'bryant-colman' ? 'photography' : 'ArtWork'}...</p>
-              </div>
-            ) : wooProducts.length > 0 ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {wooProducts.map((product) => {
-                  const productImage = product.images && product.images.length > 0 
-                    ? product.images[0].src 
-                    : 'https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/IMG_8704-e1751264048493.jpg';
-                  const price = product.price || '0.00';
-                  
-                  return (
-                    <div key={product.id} className="bg-brand-lightest rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 border border-brand-light">
-                      <div className="relative h-48 w-full bg-gradient-to-br from-brand-light to-brand-medium">
-                        <Image
-                          src={productImage}
-                          alt={product.name}
-                          fill
-                          className="object-contain"
-                          unoptimized={productImage.includes('theartfulexperience.com')}
-                        />
-                      </div>
-                      <div className="p-5">
-                        <h3 className="font-bold text-brand-darkest mb-2 font-playfair">{product.name}</h3>
-                        <p className="text-brand-dark font-semibold mb-3">${price}</p>
-                        <Link
-                          href={`/customize?product_id=${product.id}&product_name=${encodeURIComponent(product.name)}&price=${product.price}`}
-                          className="inline-block bg-brand-medium text-white px-5 py-2 rounded-full text-sm font-semibold hover:bg-brand-dark transition-all shadow-md hover:shadow-lg"
-                        >
-                          Customize →
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-brand-lightest rounded-2xl">
-                <p className="text-brand-dark">
-                  {artist.slug === 'bryant-colman' 
-                    ? 'Available photography coming soon.' 
-                    : 'Available ArtWork coming soon.'}
-                </p>
-              </div>
-            )}
+            <div className="text-center py-12 bg-brand-lightest rounded-2xl">
+              <p className="text-brand-dark">
+                {artist.slug === 'bryant-colman' 
+                  ? 'Available photography coming soon.' 
+                  : 'Available ArtWork coming soon.'}
+              </p>
+              <p className="text-sm text-brand-medium mt-4">
+                Visit our <Link href="/shop" className="text-brand-dark hover:underline">shop</Link> to see available products.
+              </p>
+            </div>
           </div>
         </div>
       </section>

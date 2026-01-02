@@ -93,13 +93,7 @@ export async function GET(request: Request) {
     );
   }
 
-  // Test WooCommerce
-  if (results.tests.restApi.success) {
-    results.tests.woocommerce = await testEndpoint(
-      'WooCommerce Products',
-      `${wpApiBase}/wc/store/v1/products?per_page=1`
-    );
-  }
+  // WooCommerce test removed - no longer using WooCommerce
 
   // Calculate overall status
   const allTests = Object.values(results.tests);

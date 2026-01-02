@@ -162,24 +162,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     }
   }, [fromShop]);
 
-  // Load product info to check if QR code is needed
-  useEffect(() => {
-    if (productId) {
-      fetch(`/api/woocommerce/products/${productId}`)
-        .then(res => res.json())
-        .then(data => {
-          setProductInfo(data);
-          // Load saved skeleton key and QR position if editing existing ArtKey
-          if (data.customizations?.skeleton_key) {
-            setSkeletonKey(data.customizations.skeleton_key);
-          }
-          if (data.customizations?.qr_position) {
-            setQrPosition(data.customizations.qr_position);
-          }
-        })
-        .catch(err => console.error('Failed to load product info:', err));
-    }
-  }, [productId]);
+  // Product info loading removed - no longer using WooCommerce
+  // QR code requirements are now determined by product type and quantity in the shop flow
 
   // Load existing ArtKey if provided
   useEffect(() => {

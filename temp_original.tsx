@@ -208,12 +208,11 @@ export default function ProductPage() {
   const isCardType = ['card', 'postcard', 'invitation', 'announcement'].includes(productType);
   
   // Use variants data if available, otherwise fallback to hardcoded (for error state)
-  // Always use safe defaults to prevent .length on undefined
-  const sizes = variantsData?.sizes ?? sizeOptions[productType] ?? sizeOptions.card;
-  const paperTypesList = variantsData?.materials ?? paperTypes;
-  const printMaterialsList = variantsData?.materials ?? printMaterials;
-  const frameColorsList = variantsData?.frames ?? frameColors;
-  const foilColorsList = variantsData?.foilColors ?? foilColors;
+  const sizes = variantsData?.sizes || sizeOptions[productType] || sizeOptions.card;
+  const paperTypesList = variantsData?.materials || paperTypes;
+  const printMaterialsList = variantsData?.materials || printMaterials;
+  const frameColorsList = variantsData?.frames || frameColors;
+  const foilColorsList = variantsData?.foilColors || foilColors;
 
   // Fetch variants on mount
   useEffect(() => {
@@ -223,27 +222,14 @@ export default function ProductPage() {
       
       try {
         const response = await fetch(`/api/gelato/variants?productType=${productType}`);
-        
-        // Handle network errors
         if (!response.ok) {
-          const errorText = await response.text().catch(() => 'Network error');
-          throw new Error(`Failed to fetch variants: ${response.status} ${errorText.substring(0, 100)}`);
+          throw new Error(`Failed to fetch variants: ${response.statusText}`);
         }
         
         const data = await response.json();
-        
-        // Handle API error response (ok:false)
-        if (data.ok === false) {
-          setVariantsData(null);
-          setVariantsError(data.error || 'Failed to load product options');
-          return;
-        }
-        
-        // Success - set variants data
         setVariantsData(data);
       } catch (error: any) {
         console.error('Error fetching variants:', error);
-        setVariantsData(null);
         setVariantsError(error.message || 'Failed to load product options');
         // Keep hardcoded options as fallback
       } finally {
@@ -256,10 +242,7 @@ export default function ProductPage() {
 
   // Match variant based on current selections
   useEffect(() => {
-    // Safe access with defaults
-    const variants = variantsData?.variants ?? [];
-    
-    if (variants.length === 0) {
+    if (!variantsData?.variants || variantsData.variants.length === 0) {
       setSelectedVariant(null);
       setGelatoVariantUid(null);
       return;
@@ -276,7 +259,7 @@ export default function ProductPage() {
     else if (isCardType && hasFoil === false) matchCriteria.foil = null;
 
     // Find matching variant
-    const matchedVariant = variants.find((variant) => {
+    const matchedVariant = variantsData.variants.find((variant) => {
       // Check all criteria match
       if (matchCriteria.size && variant.size !== matchCriteria.size) return false;
       if (matchCriteria.material && variant.material !== matchCriteria.material) return false;
@@ -357,8 +340,7 @@ export default function ProductPage() {
     if (isCardType && hasFoil && !selectedFoil) return false;
     
     // If using variants API, must have a matched variant
-    const variants = variantsData?.variants ?? [];
-    if (variants.length > 0 && !selectedVariant) {
+    if (variantsData && !selectedVariant) {
       return false;
     }
     
@@ -367,9 +349,7 @@ export default function ProductPage() {
   
   // Check if current selection combination is invalid
   const hasInvalidCombination = () => {
-    // Safe access with defaults
-    const variants = variantsData?.variants ?? [];
-    if (variants.length === 0) return false;
+    if (!variantsData || variantsData.variants.length === 0) return false;
     // If we have selections but no matched variant, it's invalid
     return !selectedVariant && (
       selectedSize !== null ||
@@ -1001,7 +981,6 @@ export default function ProductPage() {
                   </div>
                 </div>
               </div>
-              )}
             </div>
           </div>
         )}

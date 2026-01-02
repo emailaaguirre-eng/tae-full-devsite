@@ -141,7 +141,7 @@ export async function GET(request: Request) {
   if (service === 'all' || service === 'gelato') {
     try {
       const gelatoApiKey = process.env.GELATO_API_KEY;
-      const gelatoApiUrl = process.env.GELATO_API_URL || 'https://order.gelatoapis.com/v4';
+      const gelatoProductApiUrl = process.env.GELATO_PRODUCT_API_URL || 'https://product.gelatoapis.com/v3';
 
       if (!gelatoApiKey) {
         results.gelato = {
@@ -150,8 +150,8 @@ export async function GET(request: Request) {
           configured: false,
         };
       } else {
-        // Test Gelato API connection by checking catalog or products endpoint
-        const testResponse = await fetch(`${gelatoApiUrl}/catalog/products`, {
+        // Test Gelato Product API connection by checking products endpoint
+        const testResponse = await fetch(`${gelatoProductApiUrl}/products`, {
           method: 'GET',
           headers: {
             'X-API-KEY': gelatoApiKey,
@@ -164,18 +164,18 @@ export async function GET(request: Request) {
           const data = await testResponse.json();
           results.gelato = {
             success: true,
-            message: 'Gelato API connection successful',
+            message: 'Gelato Product API connection successful',
             configured: true,
-            apiUrl: gelatoApiUrl,
+            apiUrl: gelatoProductApiUrl,
             productsAvailable: Array.isArray(data) ? data.length : 'N/A',
           };
         } else {
           const errorText = await testResponse.text();
           results.gelato = {
             success: false,
-            message: `Gelato API connection failed: ${testResponse.status} ${testResponse.statusText}`,
+            message: `Gelato Product API connection failed: ${testResponse.status} ${testResponse.statusText}`,
             configured: true,
-            apiUrl: gelatoApiUrl,
+            apiUrl: gelatoProductApiUrl,
             error: errorText.substring(0, 200), // Limit error text length
           };
         }

@@ -7,7 +7,7 @@
  */
 
 const GELATO_API_KEY = process.env.GELATO_API_KEY;
-const GELATO_API_URL = process.env.GELATO_API_URL || 'https://order.gelatoapis.com/v4';
+const GELATO_PRODUCT_API_URL = process.env.GELATO_PRODUCT_API_URL || 'https://product.gelatoapis.com/v3';
 
 // DPI constant for conversion
 const DPI = 300;
@@ -38,7 +38,7 @@ export async function fetchGelatoProductRaw(productUid: string) {
   }
 
   try {
-    const response = await fetch(`${GELATO_API_URL}/products/${productUid}`, {
+    const response = await fetch(`${GELATO_PRODUCT_API_URL}/products/${productUid}`, {
       headers: {
         'X-API-KEY': GELATO_API_KEY,
         'Content-Type': 'application/json',

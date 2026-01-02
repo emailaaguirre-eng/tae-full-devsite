@@ -4,20 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import galleryData from "@/content/gallery.json";
 
-interface WooCommerceProduct {
-  id: number;
-  name: string;
-  price: string;
-  regular_price?: string;
-  sale_price?: string;
-  images?: Array<{ src: string; alt: string }>;
-  description?: string;
-  short_description?: string;
-  average_rating?: string;
-  rating_count?: number;
-  on_sale?: boolean;
-  permalink?: string;
-}
+// WooCommerceProduct interface removed - no longer using WooCommerce
 
 interface Artist {
   name: string;

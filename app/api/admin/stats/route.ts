@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { getWooCommerceProducts } from '@/lib/wordpress';
 
 /**
  * Get admin dashboard statistics
@@ -26,26 +25,11 @@ export async function GET() {
       }
     }).length;
     
-    // Get WooCommerce product count
-    let totalProducts = 0;
-    let productsError = null;
-    
-    try {
-      // Fetch all products (limit 0 = fetch all)
-      const products = await getWooCommerceProducts(0);
-      if (Array.isArray(products)) {
-        totalProducts = products.length;
-      }
-    } catch (error) {
-      productsError = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error fetching product count:', error);
-    }
-    
+    // Product count removed - no longer using WooCommerce
     return NextResponse.json({
       totalArtKeys,
       totalDemos,
-      totalProducts,
-      productsError,
+      totalProducts: 0, // Products now managed via Gelato API, not WooCommerce
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

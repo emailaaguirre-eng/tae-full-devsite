@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Gelato API configuration
-const GELATO_API_BASE = process.env.GELATO_API_BASE || 'https://api.gelato.com/v4';
+const GELATO_PRODUCT_API_URL = process.env.GELATO_PRODUCT_API_URL || 'https://product.gelatoapis.com/v3';
 const GELATO_API_KEY = process.env.GELATO_API_KEY || '';
 
 /**
@@ -24,9 +24,9 @@ async function fetchProductByUid(productUid: string): Promise<any> {
   }
 
   try {
-    const response = await fetch(`${GELATO_API_BASE}/products/${productUid}`, {
+    const response = await fetch(`${GELATO_PRODUCT_API_URL}/products/${productUid}`, {
       headers: {
-        'Authorization': `Bearer ${GELATO_API_KEY}`,
+        'X-API-KEY': GELATO_API_KEY,
         'Content-Type': 'application/json',
       },
     });
@@ -62,9 +62,9 @@ async function fetchVariantByUid(variantUid: string): Promise<any> {
 
   try {
     // Try variant endpoint (may not exist)
-    const response = await fetch(`${GELATO_API_BASE}/variants/${variantUid}`, {
+    const response = await fetch(`${GELATO_PRODUCT_API_URL}/variants/${variantUid}`, {
       headers: {
-        'Authorization': `Bearer ${GELATO_API_KEY}`,
+        'X-API-KEY': GELATO_API_KEY,
         'Content-Type': 'application/json',
       },
     });
@@ -99,9 +99,9 @@ async function fetchProductVariants(productUid: string): Promise<any> {
   }
 
   try {
-    const response = await fetch(`${GELATO_API_BASE}/products/${productUid}/variants`, {
+    const response = await fetch(`${GELATO_PRODUCT_API_URL}/products/${productUid}/variants`, {
       headers: {
-        'Authorization': `Bearer ${GELATO_API_KEY}`,
+        'X-API-KEY': GELATO_API_KEY,
         'Content-Type': 'application/json',
       },
     });
