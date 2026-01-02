@@ -4,6 +4,14 @@ import { useState, useEffect } from 'react';
 import { EDITOR_FONTS, DEFAULT_FONT, DEFAULT_FONT_WEIGHT, isScriptFont, type EditorFont } from '@/lib/editorFonts';
 import type { EditorObject } from './types';
 
+// Foil color options with gradients for preview
+const FOIL_COLORS = [
+  { id: 'gold', name: 'Gold', gradient: 'linear-gradient(135deg, #FFD700 0%, #FFF8DC 30%, #DAA520 70%, #B8860B 100%)' },
+  { id: 'silver', name: 'Silver', gradient: 'linear-gradient(135deg, #C0C0C0 0%, #FFFFFF 30%, #A9A9A9 70%, #808080 100%)' },
+  { id: 'rose-gold', name: 'Rose Gold', gradient: 'linear-gradient(135deg, #E8B4B8 0%, #FFE4E1 30%, #DDA0A0 70%, #C48888 100%)' },
+  { id: 'copper', name: 'Copper', gradient: 'linear-gradient(135deg, #B87333 0%, #DA8A47 30%, #CD7F32 70%, #A05A2C 100%)' },
+];
+
 interface LabelInspectorProps {
   selectedObject: EditorObject | null;
   onUpdate: (updates: Partial<EditorObject>) => void;
@@ -16,6 +24,18 @@ export default function LabelInspector({ selectedObject, onUpdate }: LabelInspec
   const [fontWeight, setFontWeight] = useState(selectedObject?.fontWeight || DEFAULT_FONT_WEIGHT);
   const [fill, setFill] = useState(selectedObject?.fill || '#000000');
   const [showScriptWarning, setShowScriptWarning] = useState(false);
+  
+  // Border state
+  const [borderEnabled, setBorderEnabled] = useState(selectedObject?.borderEnabled || false);
+  const [borderStyle, setBorderStyle] = useState(selectedObject?.borderStyle || 'solid');
+  const [borderWidth, setBorderWidth] = useState(selectedObject?.borderWidth || 2);
+  const [borderColor, setBorderColor] = useState(selectedObject?.borderColor || '#000000');
+  const [borderPadding, setBorderPadding] = useState(selectedObject?.borderPadding || 10);
+  
+  // Foil state
+  const [foilEnabled, setFoilEnabled] = useState(selectedObject?.foilEnabled || false);
+  const [foilColor, setFoilColor] = useState(selectedObject?.foilColor || 'gold');
+  const [foilTarget, setFoilTarget] = useState(selectedObject?.foilTarget || 'text');
 
   // Update local state when selected object changes
   useEffect(() => {
@@ -25,6 +45,16 @@ export default function LabelInspector({ selectedObject, onUpdate }: LabelInspec
       setFontSize(selectedObject.fontSize || 24);
       setFontWeight(selectedObject.fontWeight || DEFAULT_FONT_WEIGHT);
       setFill(selectedObject.fill || '#000000');
+      // Border
+      setBorderEnabled(selectedObject.borderEnabled || false);
+      setBorderStyle(selectedObject.borderStyle || 'solid');
+      setBorderWidth(selectedObject.borderWidth || 2);
+      setBorderColor(selectedObject.borderColor || '#000000');
+      setBorderPadding(selectedObject.borderPadding || 10);
+      // Foil
+      setFoilEnabled(selectedObject.foilEnabled || false);
+      setFoilColor(selectedObject.foilColor || 'gold');
+      setFoilTarget(selectedObject.foilTarget || 'text');
     }
   }, [selectedObject]);
 
@@ -168,6 +198,187 @@ export default function LabelInspector({ selectedObject, onUpdate }: LabelInspec
           />
         </div>
       </div>
+
+      {/* Divider */}
+      <div className="border-t border-gray-200 pt-4 mt-4">
+        <h4 className="text-xs font-semibold text-gray-900 mb-3">Border Options</h4>
+      </div>
+
+      {/* Border Toggle */}
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-gray-700">Enable Border</label>
+        <button
+          onClick={() => {
+            const newValue = !borderEnabled;
+            setBorderEnabled(newValue);
+            onUpdate({ borderEnabled: newValue });
+          }}
+          className={`w-10 h-6 rounded-full transition-colors ${borderEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+        >
+          <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${borderEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+        </button>
+      </div>
+
+      {borderEnabled && (
+        <>
+          {/* Border Style */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Border Style</label>
+            <select
+              value={borderStyle}
+              onChange={(e) => {
+                const newStyle = e.target.value as 'solid' | 'double' | 'dashed' | 'ornate';
+                setBorderStyle(newStyle);
+                onUpdate({ borderStyle: newStyle });
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="solid">Solid</option>
+              <option value="double">Double</option>
+              <option value="dashed">Dashed</option>
+              <option value="ornate">Ornate (Decorative)</option>
+            </select>
+          </div>
+
+          {/* Border Width */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Border Width: {borderWidth}px
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={borderWidth}
+              onChange={(e) => {
+                const newWidth = Number(e.target.value);
+                setBorderWidth(newWidth);
+                onUpdate({ borderWidth: newWidth });
+              }}
+              className="w-full"
+            />
+          </div>
+
+          {/* Border Color */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Border Color</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={borderColor}
+                onChange={(e) => {
+                  setBorderColor(e.target.value);
+                  onUpdate({ borderColor: e.target.value });
+                }}
+                className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
+              />
+              <input
+                type="text"
+                value={borderColor}
+                onChange={(e) => {
+                  setBorderColor(e.target.value);
+                  onUpdate({ borderColor: e.target.value });
+                }}
+                className="flex-1 px-2 py-1 border border-gray-300 rounded-md text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Border Padding */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Padding: {borderPadding}px
+            </label>
+            <input
+              type="range"
+              min="5"
+              max="40"
+              value={borderPadding}
+              onChange={(e) => {
+                const newPadding = Number(e.target.value);
+                setBorderPadding(newPadding);
+                onUpdate({ borderPadding: newPadding });
+              }}
+              className="w-full"
+            />
+          </div>
+        </>
+      )}
+
+      {/* Foil Section */}
+      <div className="border-t border-gray-200 pt-4 mt-4">
+        <h4 className="text-xs font-semibold text-gray-900 mb-3">✨ Foil Accent</h4>
+      </div>
+
+      {/* Foil Toggle */}
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-gray-700">Apply Foil</label>
+        <button
+          onClick={() => {
+            const newValue = !foilEnabled;
+            setFoilEnabled(newValue);
+            onUpdate({ foilEnabled: newValue });
+          }}
+          className={`w-10 h-6 rounded-full transition-colors ${foilEnabled ? 'bg-amber-500' : 'bg-gray-300'}`}
+        >
+          <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${foilEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+        </button>
+      </div>
+
+      {foilEnabled && (
+        <>
+          {/* Foil Color Selection */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">Foil Color</label>
+            <div className="grid grid-cols-4 gap-2">
+              {FOIL_COLORS.map((foil) => (
+                <button
+                  key={foil.id}
+                  onClick={() => {
+                    setFoilColor(foil.id as any);
+                    onUpdate({ foilColor: foil.id as any });
+                  }}
+                  className={`p-1 rounded-lg border-2 transition-all ${
+                    foilColor === foil.id ? 'border-blue-600 ring-2 ring-blue-200' : 'border-gray-200'
+                  }`}
+                >
+                  <div
+                    className="w-full h-8 rounded"
+                    style={{ background: foil.gradient }}
+                    title={foil.name}
+                  />
+                  <span className="text-[10px] text-gray-600">{foil.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Foil Target */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Apply Foil To</label>
+            <select
+              value={foilTarget}
+              onChange={(e) => {
+                const newTarget = e.target.value as 'text' | 'border' | 'both';
+                setFoilTarget(newTarget);
+                onUpdate({ foilTarget: newTarget });
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            >
+              <option value="text">Text Only</option>
+              <option value="border">Border Only</option>
+              <option value="both">Text + Border</option>
+            </select>
+          </div>
+
+          {/* Foil Preview Indicator */}
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-2">
+            <p className="text-xs text-amber-800">
+              ✨ This element will be printed with {foilColor} foil on the {foilTarget === 'both' ? 'text and border' : foilTarget}.
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }

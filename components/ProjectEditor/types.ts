@@ -3,7 +3,7 @@
 
 export interface EditorObject {
   id: string;
-  type: 'image' | 'text' | 'skeletonKey' | 'qr';
+  type: 'image' | 'text' | 'skeletonKey' | 'qr' | 'border';
   src?: string; // For images, skeleton keys (SVG data URL)
   text?: string; // For text labels
   x: number;
@@ -18,6 +18,17 @@ export interface EditorObject {
   fontSize?: number;
   fontWeight?: number;
   fill?: string;
+  // Text/Label border properties
+  borderEnabled?: boolean;
+  borderStyle?: 'solid' | 'double' | 'dashed' | 'ornate';
+  borderWidth?: number;
+  borderColor?: string;
+  borderPadding?: number; // Padding between text and border
+  backgroundColor?: string; // Optional background fill
+  // Foil properties (for print production)
+  foilEnabled?: boolean;
+  foilColor?: 'gold' | 'silver' | 'rose-gold' | 'copper';
+  foilTarget?: 'text' | 'border' | 'both'; // What gets the foil effect
   // Skeleton Key properties
   keyId?: string; // Skeleton key definition ID
   opacity?: number; // For skeleton key overlay
@@ -26,6 +37,8 @@ export interface EditorObject {
   sideId?: 'front' | 'inside' | 'back'; // For QR
   url?: string; // QR code URL
   size?: number; // QR code size (square)
+  // Decorative border properties
+  borderDesignId?: string; // For pre-designed border frames
 }
 
 export interface ProjectEditorConfig {

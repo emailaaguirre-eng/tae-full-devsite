@@ -1224,34 +1224,65 @@ export default function ProjectEditor({
     }
   };
 
-  // Text Component
+  // Text Component with Border and Foil support
   const TextComponent = ({ object }: { object: EditorObject }) => {
+    const groupRef = useRef<any>(null);
     const textRef = useRef<any>(null);
+    const [textWidth, setTextWidth] = useState(0);
+    const [textHeight, setTextHeight] = useState(0);
 
     useEffect(() => {
-      if (textRef.current) {
-        imageRefs.current[object.id] = textRef.current;
+      if (groupRef.current) {
+        imageRefs.current[object.id] = groupRef.current;
       }
     }, [object.id]);
 
     useEffect(() => {
-      if (textRef.current && selectedId === object.id && transformerRef.current) {
-        transformerRef.current.nodes([textRef.current]);
+      if (groupRef.current && selectedId === object.id && transformerRef.current) {
+        transformerRef.current.nodes([groupRef.current]);
         transformerRef.current.getLayer()?.batchDraw();
       }
     }, [selectedId, object.id]);
 
+    // Measure text dimensions for border
+    useEffect(() => {
+      if (textRef.current) {
+        setTextWidth(textRef.current.width());
+        setTextHeight(textRef.current.height());
+      }
+    }, [object.text, object.fontSize, object.fontFamily]);
+
+    const padding = object.borderPadding || 10;
+    const borderWidth = object.borderWidth || 2;
+    const hasBorder = object.borderEnabled;
+    const hasFoil = object.foilEnabled;
+    
+    // Get foil color for visual preview
+    const getFoilPreviewColor = () => {
+      switch (object.foilColor) {
+        case 'gold': return '#D4AF37';
+        case 'silver': return '#C0C0C0';
+        case 'rose-gold': return '#E8B4B8';
+        case 'copper': return '#B87333';
+        default: return '#D4AF37';
+      }
+    };
+
+    // Determine fill color based on foil settings
+    const textFill = hasFoil && (object.foilTarget === 'text' || object.foilTarget === 'both')
+      ? getFoilPreviewColor()
+      : (object.fill || '#000000');
+    
+    const borderStroke = hasFoil && (object.foilTarget === 'border' || object.foilTarget === 'both')
+      ? getFoilPreviewColor()
+      : (object.borderColor || '#000000');
+
     return (
-      <KonvaText
-        ref={textRef}
+      <Group
+        ref={groupRef}
         id={object.id}
         x={object.x}
         y={object.y}
-        text={object.text || 'Text'}
-        fontSize={object.fontSize || 24}
-        fontFamily={object.fontFamily || 'Arial'}
-        fontStyle={object.fontWeight === 700 ? 'bold' : 'normal'}
-        fill={object.fill || '#000000'}
         rotation={object.rotation || 0}
         scaleX={object.scaleX || 1}
         scaleY={object.scaleY || 1}
@@ -1276,7 +1307,55 @@ export default function ProjectEditor({
           });
           triggerAutosave();
         }}
-      />
+      >
+        {/* Border Rectangle (behind text) */}
+        {hasBorder && (
+          <Rect
+            x={-padding}
+            y={-padding}
+            width={textWidth + padding * 2}
+            height={textHeight + padding * 2}
+            stroke={borderStroke}
+            strokeWidth={borderWidth}
+            dash={object.borderStyle === 'dashed' ? [8, 4] : undefined}
+            fill={object.backgroundColor || 'transparent'}
+            cornerRadius={object.borderStyle === 'ornate' ? 8 : 0}
+          />
+        )}
+        {/* Double border inner line */}
+        {hasBorder && object.borderStyle === 'double' && (
+          <Rect
+            x={-padding + borderWidth + 3}
+            y={-padding + borderWidth + 3}
+            width={textWidth + (padding - borderWidth - 3) * 2}
+            height={textHeight + (padding - borderWidth - 3) * 2}
+            stroke={borderStroke}
+            strokeWidth={borderWidth}
+          />
+        )}
+        {/* Foil indicator shimmer effect */}
+        {hasFoil && (
+          <Rect
+            x={-padding - 2}
+            y={-padding - 2}
+            width={textWidth + padding * 2 + 4}
+            height={textHeight + padding * 2 + 4}
+            stroke={getFoilPreviewColor()}
+            strokeWidth={1}
+            dash={[4, 4]}
+            opacity={0.6}
+          />
+        )}
+        {/* Text */}
+        <KonvaText
+          ref={textRef}
+          text={object.text || 'Text'}
+          fontSize={object.fontSize || 24}
+          fontFamily={object.fontFamily || 'Arial'}
+          fontStyle={object.fontWeight === 700 ? 'bold' : 'normal'}
+          fill={textFill}
+        />
+      </Group>
     );
   };
 
