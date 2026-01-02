@@ -91,6 +91,9 @@ export default function ProjectEditor({
   );
   const [templateMode, setTemplateMode] = useState(false);
   const [activeTab, setActiveTab] = useState<'assets' | 'templates'>('assets');
+  const [editorOrientation, setEditorOrientation] = useState<'portrait' | 'landscape'>(
+    selectedVariant?.orientation || 'portrait'
+  );
   const [draftFound, setDraftFound] = useState(false);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [assetsPartial, setAssetsPartial] = useState(false);
@@ -114,8 +117,8 @@ export default function ProjectEditor({
       // Determine product type for spec generation
       const productType = productSlug as 'card' | 'postcard' | 'invitation' | 'announcement' | 'print';
       const sizeId = selectedVariant.size;
-      // Use orientation from variant or default to portrait
-      const orientation: 'portrait' | 'landscape' = selectedVariant.orientation || 'portrait';
+      // Use editor orientation state (can be toggled by user)
+      const orientation: 'portrait' | 'landscape' = editorOrientation;
       
       try {
         const dynamicSpec = generatePrintSpecForSize(productType, sizeId, orientation);
@@ -137,7 +140,7 @@ export default function ProjectEditor({
       return getPrintSpecForProduct(productSlug);
     }
     return { spec: undefined, error: 'No print specification available.' };
-  }, [selectedVariant?.size, selectedVariant?.orientation, productSlug, gelatoVariantUid, printSpecId]);
+  }, [selectedVariant?.size, editorOrientation, productSlug, gelatoVariantUid, printSpecId]);
 
   const printSpec = printSpecResult.spec;
   const printSpecError = printSpecResult.error;
@@ -1221,6 +1224,62 @@ export default function ProjectEditor({
     }
   };
 
+  // Text Component
+  const TextComponent = ({ object }: { object: EditorObject }) => {
+    const textRef = useRef<any>(null);
+
+    useEffect(() => {
+      if (textRef.current) {
+        imageRefs.current[object.id] = textRef.current;
+      }
+    }, [object.id]);
+
+    useEffect(() => {
+      if (textRef.current && selectedId === object.id && transformerRef.current) {
+        transformerRef.current.nodes([textRef.current]);
+        transformerRef.current.getLayer()?.batchDraw();
+      }
+    }, [selectedId, object.id]);
+
+    return (
+      <KonvaText
+        ref={textRef}
+        id={object.id}
+        x={object.x}
+        y={object.y}
+        text={object.text || 'Text'}
+        fontSize={object.fontSize || 24}
+        fontFamily={object.fontFamily || 'Arial'}
+        fontStyle={object.fontWeight === 700 ? 'bold' : 'normal'}
+        fill={object.fill || '#000000'}
+        rotation={object.rotation || 0}
+        scaleX={object.scaleX || 1}
+        scaleY={object.scaleY || 1}
+        draggable
+        onClick={() => setSelectedId(object.id)}
+        onTap={() => setSelectedId(object.id)}
+        onDragEnd={(e) => {
+          updateObject(object.id, {
+            x: e.target.x(),
+            y: e.target.y(),
+          });
+          triggerAutosave();
+        }}
+        onTransformEnd={(e) => {
+          const node = e.target;
+          updateObject(object.id, {
+            x: node.x(),
+            y: node.y(),
+            scaleX: node.scaleX(),
+            scaleY: node.scaleY(),
+            rotation: node.rotation(),
+          });
+          triggerAutosave();
+        }}
+      />
+    );
+  };
+
   // Image Component
   const ImageComponent = ({ object }: { object: EditorObject }) => {
     if (!object.src) return null;
@@ -1711,6 +1770,18 @@ export default function ProjectEditor({
               {showFold ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
             </button>
           )}
+          <div className="h-6 w-px bg-gray-600 mx-2" />
+          {/* Orientation Toggle */}
+          <button
+            onClick={() => setEditorOrientation(prev => prev === 'portrait' ? 'landscape' : 'portrait')}
+            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium flex items-center gap-2"
+            title="Toggle Orientation"
+          >
+            <span className={`inline-block transition-transform ${editorOrientation === 'landscape' ? 'rotate-90' : ''}`}>
+              📄
+            </span>
+            <span>{editorOrientation === 'portrait' ? 'Portrait' : 'Landscape'}</span>
+          </button>
           <div className="h-6 w-px bg-gray-600 mx-2" />
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input
