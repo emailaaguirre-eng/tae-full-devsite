@@ -401,19 +401,21 @@ export default function ProjectEditor({
   const STAGE_HEIGHT = currentSide?.canvasPx.h || 2400;
   
   // Calculate display scale to fit viewport
-  const [displayScale, setDisplayScale] = useState(0.3);
+  const [displayScale, setDisplayScale] = useState(0.4);
   
   useEffect(() => {
     if (!currentSide || typeof window === 'undefined') return;
     
-    const maxDisplayWidth = window.innerWidth * 0.7;
-    const maxDisplayHeight = window.innerHeight * 0.8;
+    // Use more viewport space for the canvas
+    const maxDisplayWidth = window.innerWidth * 0.55; // 55% of viewport width
+    const maxDisplayHeight = window.innerHeight * 0.75; // 75% of viewport height
     
     const scaleX = maxDisplayWidth / currentSide.canvasPx.w;
     const scaleY = maxDisplayHeight / currentSide.canvasPx.h;
-    const scale = Math.min(scaleX, scaleY, 1); // Don't scale up
+    // Allow slightly higher scale for better visibility, cap at 0.6 for performance
+    const scale = Math.min(scaleX, scaleY, 0.6);
     
-    setDisplayScale(scale);
+    setDisplayScale(Math.max(scale, 0.25)); // Minimum scale of 0.25
   }, [currentSide]);
 
   // Update transformer when selection changes
@@ -1859,8 +1861,8 @@ export default function ProjectEditor({
           <div className="bg-white p-4 rounded-lg shadow-lg">
             <Stage
               ref={stageRef}
-              width={STAGE_WIDTH}
-              height={STAGE_HEIGHT}
+              width={STAGE_WIDTH * displayScale}
+              height={STAGE_HEIGHT * displayScale}
               scaleX={displayScale}
               scaleY={displayScale}
               onClick={(e) => {
