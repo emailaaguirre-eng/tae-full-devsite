@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Gelato API configuration
-const GELATO_API_BASE = process.env.GELATO_API_BASE || 'https://api.gelato.com/v4';
+const GELATO_PRODUCT_API_URL = process.env.GELATO_PRODUCT_API_URL || 'https://product.gelatoapis.com/v3';
 const GELATO_API_KEY = process.env.GELATO_API_KEY || '';
 
 interface GelatoVariant {
@@ -30,34 +30,32 @@ const PRODUCT_TYPE_MAP: Record<string, string> = {
 
 /**
  * Fetches product variants from Gelato API
+ * Returns null on error (caller should handle gracefully)
  */
 async function fetchGelatoVariants(productType: string): Promise<any> {
-  if (!GELATO_API_KEY) {
-    throw new Error('GELATO_API_KEY not configured');
-  }
-
   const productUid = PRODUCT_TYPE_MAP[productType];
   if (!productUid) {
-    throw new Error(`Unknown product type: ${productType}`);
+    return null;
   }
 
   try {
-    const response = await fetch(`${GELATO_API_BASE}/products/${productUid}/variants`, {
+    const response = await fetch(`${GELATO_PRODUCT_API_URL}/products/${productUid}/variants`, {
       headers: {
-        'Authorization': `Bearer ${GELATO_API_KEY}`,
+        'X-API-KEY': GELATO_API_KEY,
         'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Gelato API error: ${response.status}`);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      throw new Error(`Gelato API error: ${response.status} - ${errorText.substring(0, 100)}`);
     }
 
     const data = await response.json();
     return parseGelatoVariants(data, productType);
-  } catch (error) {
-    console.error('Error fetching Gelato variants:', error);
-    throw error;
+  } catch (error: any) {
+    console.error('[GELATO_VARIANTS_ERROR]', { productType, message: error.message });
+    return null;
   }
 }
 
@@ -151,25 +149,66 @@ function parseGelatoVariants(data: any, productType: string) {
 }
 
 export async function GET(request: NextRequest) {
+  // Stable error response schema
+  const errorResponse = (error: string) => ({
+    ok: false,
+    error,
+    variants: [],
+    sizes: [],
+    materials: [],
+    papers: [],
+    frames: [],
+    foilColors: [],
+  });
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const productType = searchParams.get('productType');
 
+    // Validate productType parameter
     if (!productType) {
-      return NextResponse.json(
-        { error: 'productType parameter is required' },
-        { status: 400 }
-      );
+      return NextResponse.json(errorResponse('productType parameter is required'));
     }
 
+    // Validate productType is known
+    if (!PRODUCT_TYPE_MAP[productType]) {
+      return NextResponse.json(errorResponse(`Unknown product type: ${productType}`));
+    }
+
+    // Validate GELATO_API_KEY
+    if (!GELATO_API_KEY || GELATO_API_KEY.trim() === '') {
+      console.error('[GELATO_VARIANTS_ERROR]', { productType, error: 'Missing GELATO_API_KEY' });
+      return NextResponse.json(errorResponse('Missing GELATO_API_KEY'));
+    }
+
+    // Fetch variants from Gelato
     const variants = await fetchGelatoVariants(productType);
-    return NextResponse.json(variants);
+    
+    if (!variants) {
+      // fetchGelatoVariants returns null on error
+      return NextResponse.json(errorResponse('Failed to fetch variants from Gelato API'));
+    }
+
+    // Success response with stable schema
+    return NextResponse.json({
+      ok: true,
+      variants: variants.variants || [],
+      sizes: variants.sizes || [],
+      materials: variants.materials || [],
+      papers: variants.papers || [],
+      frames: variants.frames || [],
+      foilColors: variants.foilColors || [],
+    });
   } catch (error: any) {
-    console.error('Gelato variants API error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch variants' },
-      { status: 500 }
-    );
+    const searchParams = request.nextUrl.searchParams;
+    const productType = searchParams.get('productType') || 'unknown';
+    const status = error.status || 'unknown';
+    const message = error.message || 'Unknown error';
+    
+    console.error('[GELATO_VARIANTS_ERROR]', { productType, status, message });
+    
+    // Always return 200 with error schema (never 500)
+    return NextResponse.json(errorResponse(`Failed to fetch variants: ${message.substring(0, 100)}`));
   }
 }
 
