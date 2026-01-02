@@ -1964,6 +1964,30 @@ export default function ProjectEditor({
             onToggleQRTarget={() => setShowQRTarget(!showQRTarget)}
           />
 
+          {/* Tab Buttons */}
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('assets')}
+              className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+                activeTab === 'assets'
+                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              📷 Your Images
+            </button>
+            <button
+              onClick={() => setActiveTab('templates')}
+              className={`flex-1 py-3 px-4 text-sm font-medium transition-colors ${
+                activeTab === 'templates'
+                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              🖼️ Templates
+            </button>
+          </div>
+
           {activeTab === 'assets' && (
             <div className="p-4 flex-1 overflow-y-auto">
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Your Images</h3>
@@ -2006,6 +2030,20 @@ export default function ProjectEditor({
                 </div>
               )}
             </div>
+          )}
+
+          {activeTab === 'templates' && (
+            <TemplatesPanel
+              templateMode={templateMode}
+              templateState={currentSideState?.template}
+              activeSideId={activeSideId}
+              onToggleTemplateMode={() => setTemplateMode(!templateMode)}
+              onSelectTemplate={handleSelectTemplate}
+              onClearTemplate={handleClearTemplate}
+              onSelectFrame={handleSelectFrame}
+              onFillFrame={handleFillFrame}
+              onUpdateFrameFill={onUpdateFrameFill}
+            />
           )}
         </div>
 
