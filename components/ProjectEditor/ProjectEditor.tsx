@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Rect, Line, Transformer, Group, Circle } from 'react-konva';
 import useImage from 'use-image';
 import { Download, X, Eye, EyeOff, Type } from 'lucide-react';
 import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
-import { getPrintSpecForProduct, getPrintSide, type PrintSpec, type PrintSide, type PrintSpecResult } from '@/lib/printSpecs';
+import { getPrintSpecForProduct, getPrintSide, generatePrintSpecForSize, type PrintSpec, type PrintSide, type PrintSpecResult } from '@/lib/printSpecs';
 import { DEFAULT_FONT, DEFAULT_FONT_WEIGHT } from '@/lib/editorFonts';
 import LabelInspector from './LabelInspector';
 import ArtKeyPanel from './ArtKeyPanel';
@@ -35,6 +35,7 @@ interface ProjectEditorProps {
   selectedVariant?: { // Selected variant data
     uid: string;
     size?: string | null;
+    orientation?: 'portrait' | 'landscape';
     material?: string | null;
     paper?: string | null;
     frame?: string | null;
@@ -104,14 +105,39 @@ export default function ProjectEditor({
   const assets = useAssetStore((state) => state.assets);
 
   // Get print spec with error handling
-  // Priority: gelatoVariantUid > printSpecId > productSlug
-  const printSpecResult: PrintSpecResult = gelatoVariantUid
-    ? getPrintSpecForProduct(productSlug || 'unknown', undefined, gelatoVariantUid)
-    : printSpecId
-    ? getPrintSpecForProduct(printSpecId)
-    : productSlug
-    ? getPrintSpecForProduct(productSlug)
-    : { spec: getPrintSpec('poster_simple') }; // Default fallback for posters
+  // Priority: 
+  // 1. If selectedVariant has size, generate dynamic spec based on size
+  // 2. gelatoVariantUid > printSpecId > productSlug (legacy fallback)
+  const printSpecResult: PrintSpecResult = useMemo(() => {
+    // NEW: Dynamic spec based on selected size and orientation
+    if (selectedVariant?.size && productSlug) {
+      // Determine product type for spec generation
+      const productType = productSlug as 'card' | 'postcard' | 'invitation' | 'announcement' | 'print';
+      const sizeId = selectedVariant.size;
+      // Use orientation from variant or default to portrait
+      const orientation: 'portrait' | 'landscape' = selectedVariant.orientation || 'portrait';
+      
+      try {
+        const dynamicSpec = generatePrintSpecForSize(productType, sizeId, orientation);
+        return { spec: dynamicSpec };
+      } catch (e) {
+        console.error('[ProjectEditor] Failed to generate dynamic spec:', e);
+        // Fall through to legacy resolution
+      }
+    }
+    
+    // Legacy fallback: gelatoVariantUid > printSpecId > productSlug
+    if (gelatoVariantUid) {
+      return getPrintSpecForProduct(productSlug || 'unknown', undefined, gelatoVariantUid);
+    }
+    if (printSpecId) {
+      return getPrintSpecForProduct(printSpecId);
+    }
+    if (productSlug) {
+      return getPrintSpecForProduct(productSlug);
+    }
+    return { spec: undefined, error: 'No print specification available.' };
+  }, [selectedVariant?.size, selectedVariant?.orientation, productSlug, gelatoVariantUid, printSpecId]);
 
   const printSpec = printSpecResult.spec;
   const printSpecError = printSpecResult.error;

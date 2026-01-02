@@ -416,49 +416,77 @@ export default function ProductPage() {
                         <div className={`grid gap-4 ${
                           group.id === 'size' ? 'grid-cols-2 md:grid-cols-4' :
                           group.id === 'orientation' ? 'grid-cols-2' :
+                          group.id === 'frame' || group.id === 'foil' ? 'grid-cols-2 md:grid-cols-4' :
                           'grid-cols-2 md:grid-cols-3'
                         }`}>
-                          {group.options.map((option) => (
-                            <button
-                              key={option.id}
-                              onClick={() => updateSelection(group.id, option.id)}
-                              className={`p-4 rounded-xl border-2 transition-all text-left ${
-                                selections[group.id] === option.id
-                                  ? 'border-brand-darkest bg-brand-lightest shadow-md'
-                                  : 'border-brand-light hover:border-brand-medium'
-                              }`}
-                            >
-                              {/* Color swatch for frame/foil options */}
-                              {option.swatch && option.swatch !== 'transparent' && (
-                                <div
-                                  className="w-10 h-10 rounded-full mx-auto mb-2 shadow-inner border border-gray-200"
-                                  style={{ background: foilSwatches[option.id]?.color || option.swatch }}
-                                />
-                              )}
-                              {/* Frame swatch */}
-                              {group.id === 'frame' && option.id !== 'none' && frameSwatches[option.id] && (
-                                <div
-                                  className="w-10 h-10 rounded mx-auto mb-2 shadow-md"
-                                  style={{
-                                    background: frameSwatches[option.id].color,
-                                    border: `3px solid ${frameSwatches[option.id].border}`,
-                                  }}
-                                />
-                              )}
-                              <div className="font-bold text-brand-darkest text-sm">{option.name}</div>
-                              {option.description && (
-                                <div className="text-xs text-brand-dark mt-1">{option.description}</div>
-                              )}
-                              {option.priceModifier !== undefined && option.priceModifier !== 0 && (
-                                <div className="text-xs text-brand-dark mt-1">
-                                  +${option.priceModifier.toFixed(2)}
-                                </div>
-                              )}
-                              {option.priceModifier === 0 && group.id !== 'size' && group.id !== 'orientation' && (
-                                <div className="text-xs text-brand-dark mt-1">Included</div>
-                              )}
-                            </button>
-                          ))}
+                          {group.options.map((option) => {
+                            const isSelected = selections[group.id] === option.id;
+                            const hasColorSwatch = option.swatch && option.swatch !== 'transparent';
+                            const isFrame = group.id === 'frame' && option.id !== 'none';
+                            const isFoil = group.id === 'foil' && option.id !== 'none';
+                            
+                            return (
+                              <button
+                                key={option.id}
+                                onClick={() => updateSelection(group.id, option.id)}
+                                className={`p-4 rounded-xl border-2 transition-all text-center ${
+                                  isSelected
+                                    ? 'border-brand-darkest bg-brand-lightest shadow-md'
+                                    : 'border-brand-light hover:border-brand-medium'
+                                }`}
+                              >
+                                {/* Frame swatch (square shape) */}
+                                {isFrame && hasColorSwatch && (
+                                  <div
+                                    className="w-12 h-12 rounded mx-auto mb-2 shadow-md border-2"
+                                    style={{
+                                      background: option.swatch,
+                                      borderColor: option.swatch === '#ffffff' ? '#ccc' : option.swatch,
+                                    }}
+                                  />
+                                )}
+                                {/* Foil swatch (circle with gradient) */}
+                                {isFoil && hasColorSwatch && (
+                                  <div
+                                    className="w-12 h-12 rounded-full mx-auto mb-2 shadow-inner border border-gray-200"
+                                    style={{ 
+                                      background: option.swatch === '#D4AF37' 
+                                        ? 'linear-gradient(135deg, #FFD700 0%, #FFF8DC 30%, #DAA520 70%, #B8860B 100%)' 
+                                        : option.swatch === '#C0C0C0'
+                                        ? 'linear-gradient(135deg, #C0C0C0 0%, #FFFFFF 30%, #A9A9A9 70%, #808080 100%)'
+                                        : option.swatch 
+                                    }}
+                                  />
+                                )}
+                                {/* Image preview for papers/materials */}
+                                {option.image && !hasColorSwatch && (
+                                  <div className="w-full h-16 rounded mb-2 bg-gray-100 overflow-hidden">
+                                    <img 
+                                      src={option.image} 
+                                      alt={option.name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        // Hide broken images
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                                <div className="font-bold text-brand-darkest text-sm">{option.name}</div>
+                                {option.description && (
+                                  <div className="text-xs text-brand-dark mt-1">{option.description}</div>
+                                )}
+                                {option.priceModifier !== undefined && option.priceModifier !== 0 && (
+                                  <div className="text-xs text-green-600 font-semibold mt-1">
+                                    +${option.priceModifier.toFixed(2)}
+                                  </div>
+                                )}
+                                {option.priceModifier === 0 && group.id !== 'size' && group.id !== 'orientation' && (
+                                  <div className="text-xs text-brand-dark mt-1">Included</div>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
@@ -651,6 +679,7 @@ export default function ProductPage() {
               selectedVariant={{
                 uid: gelatoProductUid || '',
                 size: selections.size || null,
+                orientation: (selections.orientation as 'portrait' | 'landscape') || 'portrait',
                 material: selections.material || null,
                 paper: selections.paper || null,
                 frame: selections.frame || null,

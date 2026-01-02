@@ -140,6 +140,144 @@ export function getPrintSpec(id: string): PrintSpec | undefined {
   return printSpecs[id];
 }
 
+// Size dimensions in inches (width x height)
+// For cards, this is the FOLDED size (front panel size)
+const SIZE_DIMENSIONS: Record<string, { w: number; h: number }> = {
+  'a6': { w: 4.1, h: 5.8 },      // A6 metric
+  '5x7': { w: 5, h: 7 },         // US standard
+  'a5': { w: 5.8, h: 8.3 },      // A5 metric
+  'square': { w: 5.5, h: 5.5 },  // Square
+  '4x6': { w: 4, h: 6 },         // Small postcard
+  '8x10': { w: 8, h: 10 },       // Print
+  '11x14': { w: 11, h: 14 },     // Print
+  '16x20': { w: 16, h: 20 },     // Print
+  '18x24': { w: 18, h: 24 },     // Print
+  '24x36': { w: 24, h: 36 },     // Print
+};
+
+/**
+ * Generate a dynamic print spec based on product type and size
+ * This allows print specs to adapt to user's size selection
+ */
+export function generatePrintSpecForSize(
+  productType: 'card' | 'postcard' | 'invitation' | 'announcement' | 'print',
+  sizeId: string,
+  orientation: 'portrait' | 'landscape' = 'portrait'
+): PrintSpec {
+  const dims = SIZE_DIMENSIONS[sizeId] || { w: 5, h: 7 }; // Default to 5x7
+  
+  // Apply orientation
+  const w = orientation === 'landscape' ? Math.max(dims.w, dims.h) : Math.min(dims.w, dims.h);
+  const h = orientation === 'landscape' ? Math.min(dims.w, dims.h) : Math.max(dims.w, dims.h);
+  
+  const canvasW = inchesToPx(w);
+  const canvasH = inchesToPx(h);
+  const bleed = inchesToPx(0.125);
+  const trim = inchesToPx(0.125);
+  const safe = inchesToPx(0.25);
+
+  // Card types (bifold with front, inside, back)
+  if (productType === 'card') {
+    return {
+      id: `card_${sizeId}_${orientation}`,
+      name: `Card ${sizeId.toUpperCase()} (${orientation})`,
+      folded: true,
+      sideIds: ['front', 'inside', 'back'],
+      sides: [
+        {
+          id: 'front',
+          canvasPx: { w: canvasW, h: canvasH },
+          bleedPx: bleed,
+          trimPx: trim,
+          safePx: safe,
+          foldLines: [{ x1: canvasW, y1: 0, x2: canvasW, y2: canvasH }],
+        },
+        {
+          id: 'inside',
+          canvasPx: { w: canvasW, h: canvasH },
+          bleedPx: bleed,
+          trimPx: trim,
+          safePx: safe,
+          foldLines: [
+            { x1: 0, y1: 0, x2: 0, y2: canvasH },
+            { x1: canvasW, y1: 0, x2: canvasW, y2: canvasH },
+          ],
+        },
+        {
+          id: 'back',
+          canvasPx: { w: canvasW, h: canvasH },
+          bleedPx: bleed,
+          trimPx: trim,
+          safePx: safe,
+          foldLines: [{ x1: 0, y1: 0, x2: 0, y2: canvasH }],
+        },
+      ],
+    };
+  }
+
+  // Postcard (front and back, no fold)
+  if (productType === 'postcard') {
+    return {
+      id: `postcard_${sizeId}_${orientation}`,
+      name: `Postcard ${sizeId.toUpperCase()} (${orientation})`,
+      folded: false,
+      sideIds: ['front', 'back'],
+      sides: [
+        {
+          id: 'front',
+          canvasPx: { w: canvasW, h: canvasH },
+          bleedPx: bleed,
+          trimPx: trim,
+          safePx: safe,
+        },
+        {
+          id: 'back',
+          canvasPx: { w: canvasW, h: canvasH },
+          bleedPx: bleed,
+          trimPx: trim,
+          safePx: safe,
+        },
+      ],
+    };
+  }
+
+  // Invitations and Announcements (single-sided flat)
+  if (productType === 'invitation' || productType === 'announcement') {
+    return {
+      id: `${productType}_${sizeId}_${orientation}`,
+      name: `${productType.charAt(0).toUpperCase() + productType.slice(1)} ${sizeId.toUpperCase()} (${orientation})`,
+      folded: false,
+      sideIds: ['front'],
+      sides: [
+        {
+          id: 'front',
+          canvasPx: { w: canvasW, h: canvasH },
+          bleedPx: bleed,
+          trimPx: trim,
+          safePx: safe,
+        },
+      ],
+    };
+  }
+
+  // Prints (single-sided)
+  return {
+    id: `print_${sizeId}_${orientation}`,
+    name: `Print ${sizeId.toUpperCase()} (${orientation})`,
+    folded: false,
+    sideIds: ['front'],
+    sides: [
+      {
+        id: 'front',
+        canvasPx: { w: canvasW, h: canvasH },
+        bleedPx: bleed,
+        trimPx: trim,
+        safePx: safe,
+      },
+    ],
+  };
+}
+
 export function getPrintSide(spec: PrintSpec, sideId: 'front' | 'inside' | 'back'): PrintSide | undefined {
   return spec.sides.find((s) => s.id === sideId);
 }
