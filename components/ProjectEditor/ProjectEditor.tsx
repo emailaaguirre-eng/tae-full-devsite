@@ -1,38 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Rect, Line, Transformer, Group, Circle } from 'react-konva';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Rect, Line, Transformer, Group, Ellipse } from 'react-konva';
 import useImage from 'use-image';
-import { Download, X, Eye, EyeOff, Type } from 'lucide-react';
+import { Download, X, Type, Upload, Undo, Redo, Trash2 } from 'lucide-react';
 import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
-import { getPrintSpecForProduct, getPrintSide, generatePrintSpecForSize, type PrintSpec, type PrintSide, type PrintSpecResult } from '@/lib/printSpecs';
+import { generatePrintSpecForSize, getSamplePostcardSpec, generatePrintSpecFromGelatoVariant, type PrintSpec, type PrintSide, mmToPx, DEFAULT_DPI } from '@/lib/printSpecs';
 import { DEFAULT_FONT, DEFAULT_FONT_WEIGHT } from '@/lib/editorFonts';
+import { LABEL_SHAPES, type LabelShape } from '@/lib/labelShapes';
 import LabelInspector from './LabelInspector';
-import ArtKeyPanel from './ArtKeyPanel';
-import TemplatesPanel from './TemplatesPanel';
-import DraftBanner from './DraftBanner';
-import { getAllSkeletonKeys, getSkeletonKey, type SkeletonKeyDefinition } from '@/lib/skeletonKeys';
-import { generateQRCode, getDefaultArtKeyUrl } from '@/lib/qr';
-import { getCollageTemplate, getAllCollageTemplates, type CollageTemplate } from '@/lib/collageTemplates';
-import { saveDraft, loadDraft, deleteDraft, getDraftKey, type DraftData, type PersistedAsset, DRAFT_ASSETS_SIZE_CAP } from '@/lib/draftStore';
+import type { EditorObject, SideState } from './types';
 
-// Import types from shared types file to avoid circular dependencies
-import type { EditorObject, ProjectEditorConfig } from './types';
-
-// Re-export for backward compatibility
-export type { EditorObject, ProjectEditorConfig, FrameFillState, TemplateState, SideState } from './types';
-
-// Import additional types
-import type { FrameFillState, TemplateState, SideState } from './types';
-
-// ProjectEditorConfig is now imported from ./types
-
-interface ProjectEditorProps {
-  printSpecId?: string; // Optional: if not provided, will use default
-  productSlug?: string; // Product slug for spec lookup
-  config?: Partial<ProjectEditorConfig>; // ArtKey configuration
-  gelatoVariantUid?: string; // Gelato variant UID from Sprint 2A
-  selectedVariant?: { // Selected variant data
+interface ProjectEditorRebuildProps {
+  printSpecId?: string;
+  productSlug?: string;
+  config?: any;
+  gelatoVariantUid?: string;
+  selectedVariant?: {
     uid: string;
     size?: string | null;
     orientation?: 'portrait' | 'landscape';
@@ -40,9 +24,10 @@ interface ProjectEditorProps {
     paper?: string | null;
     frame?: string | null;
     foil?: string | null;
+    fold?: string | null;
     price?: number;
   };
-  onComplete?: (exportData: { 
+  onComplete?: (exportData: {
     productSlug?: string;
     printSpecId?: string;
     exports: Array<{ sideId: string; dataUrl: string; width: number; height: number }>;
@@ -50,587 +35,289 @@ interface ProjectEditorProps {
   onClose?: () => void;
 }
 
-export default function ProjectEditor({ 
-  printSpecId, 
-  productSlug,
+// History for undo/redo
+interface HistoryState {
+  sideStates: Record<string, SideState>;
+  timestamp: number;
+}
+
+export default function ProjectEditor({
+  printSpecId,
+  productSlug = 'card',
   config,
   gelatoVariantUid,
   selectedVariant,
-  onComplete, 
-  onClose 
-}: ProjectEditorProps) {
-  // Log Gelato variant in dev mode
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[GELATO_VARIANT]', { gelatoVariantUid, selectedVariant });
-    }
-  }, [gelatoVariantUid, selectedVariant]);
-
-  // Merge config with defaults
-  const editorConfig: ProjectEditorConfig = {
-    productSlug: productSlug || config?.productSlug || 'unknown',
-    printSpecId: printSpecId || config?.printSpecId,
-    qrRequired: config?.qrRequired || false,
-    allowedSidesForQR: config?.allowedSidesForQR || ['front'],
-    qrPlacementMode: config?.qrPlacementMode || 'flexible',
-    defaultSkeletonKeyId: config?.defaultSkeletonKeyId,
-    artKeyUrlPlaceholder: config?.artKeyUrlPlaceholder,
-  };
-
-  // Per-side scene state: Record<SideId, SideState>
-  const [sideStateById, setSideStateById] = useState<Record<string, SideState>>({});
+  onComplete,
+  onClose,
+}: ProjectEditorRebuildProps) {
+  // Core state
+  const [sideStates, setSideStates] = useState<Record<string, SideState>>({});
   const [activeSideId, setActiveSideId] = useState<string>('front');
-  const [showBleed, setShowBleed] = useState(false);
-  const [showTrim, setShowTrim] = useState(false);
-  const [showSafe, setShowSafe] = useState(true);
-  const [showFold, setShowFold] = useState(true); // Default to showing fold lines for cards
-  const [includeGuidesInExport, setIncludeGuidesInExport] = useState(false);
-  const [showQRTarget, setShowQRTarget] = useState(true);
-  const [selectedSkeletonKeyId, setSelectedSkeletonKeyId] = useState<string | null>(
-    editorConfig.defaultSkeletonKeyId || null
-  );
-  const [templateMode, setTemplateMode] = useState(false);
-  const [activeTab, setActiveTab] = useState<'assets' | 'templates'>('assets');
+  const [selectedId, setSelectedId] = useState<string | undefined>();
+  
+  // History for undo/redo
+  const [history, setHistory] = useState<HistoryState[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const maxHistory = 50;
+  
+  // Refs
+  const transformerRef = useRef<any>(null);
+  const nodeRefs = useRef<Record<string, any>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const stageRef = useRef<any>(null);
+  
+  // SPRINT 2: State for orientation (can be toggled in editor)
   const [editorOrientation, setEditorOrientation] = useState<'portrait' | 'landscape'>(
     selectedVariant?.orientation || 'portrait'
   );
-  const [draftFound, setDraftFound] = useState(false);
-  const [showDraftBanner, setShowDraftBanner] = useState(false);
-  const [assetsPartial, setAssetsPartial] = useState(false);
-  const [restoredGelatoVariantUid, setRestoredGelatoVariantUid] = useState<string | null>(null);
-  const [restoredSelectedVariant, setRestoredSelectedVariant] = useState<any>(null);
-  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const stageRef = useRef<any>(null);
-  const transformerRef = useRef<any>(null);
-  const imageRefs = useRef<Record<string, any>>({});
-
-  // Get assets from shared store
-  const assets = useAssetStore((state) => state.assets);
-
-  // Get print spec with error handling
-  // Priority: 
-  // 1. If selectedVariant has size, generate dynamic spec based on size
-  // 2. gelatoVariantUid > printSpecId > productSlug (legacy fallback)
-  const printSpecResult: PrintSpecResult = useMemo(() => {
-    // NEW: Dynamic spec based on selected size and orientation
-    if (selectedVariant?.size && productSlug) {
-      // Determine product type for spec generation
-      const productType = productSlug as 'card' | 'postcard' | 'invitation' | 'announcement' | 'print';
-      const sizeId = selectedVariant.size;
-      // Use editor orientation state (can be toggled by user)
-      const orientation: 'portrait' | 'landscape' = editorOrientation;
-      
+  
+  // SPRINT 2: State for Gelato variant data
+  const [gelatoVariantData, setGelatoVariantData] = useState<{
+    uid: string;
+    trimMm: { w: number; h: number };
+    productUid: string;
+  } | null>(null);
+  
+  // SPRINT 2: Lock spec to productUid once selected (prevents spec changes)
+  const [lockedProductUid, setLockedProductUid] = useState<string | null>(null);
+  const [lockedVariantUid, setLockedVariantUid] = useState<string | null>(null);
+  
+  // Fetch Gelato variant data if gelatoVariantUid is provided
+  useEffect(() => {
+    if (gelatoVariantUid && !gelatoVariantData) {
+      fetch(`/api/gelato/variant/${gelatoVariantUid}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.trimMm) {
+            setGelatoVariantData({
+              uid: data.uid,
+              trimMm: data.trimMm,
+              productUid: data.productUid,
+            });
+          }
+        })
+        .catch(err => console.error('[ProjectEditor] Failed to fetch variant:', err));
+    }
+  }, [gelatoVariantUid, gelatoVariantData]);
+  
+  // Get print spec from Gelato variant or generate dynamically
+  // SPRINT 2: Prefer Gelato variant data over hardcoded sizes
+  const printSpec = useMemo<PrintSpec | null>(() => {
+    const productType = productSlug as 'card' | 'postcard' | 'invitation' | 'announcement' | 'print';
+    const orientation = editorOrientation;
+    const foldOption = (selectedVariant?.fold === 'bifold' ? 'bifold' : 'flat') as 'bifold' | 'flat';
+    
+    // SPRINT 2: Use Gelato variant dimensions if available
+    if (gelatoVariantData && gelatoVariantUid) {
       try {
-        const dynamicSpec = generatePrintSpecForSize(productType, sizeId, orientation);
-        return { spec: dynamicSpec };
+        const spec = generatePrintSpecFromGelatoVariant(
+          gelatoVariantUid,
+          productType,
+          gelatoVariantData.trimMm,
+          orientation,
+          foldOption
+        );
+        return spec;
       } catch (e) {
-        console.error('[ProjectEditor] Failed to generate dynamic spec:', e);
-        // Fall through to legacy resolution
+        console.error('[ProjectEditor] Failed to generate spec from Gelato variant:', e);
       }
     }
     
-    // Legacy fallback: gelatoVariantUid > printSpecId > productSlug
-    if (gelatoVariantUid) {
-      return getPrintSpecForProduct(productSlug || 'unknown', undefined, gelatoVariantUid);
+    // Fallback: Use size-based generation
+    if (selectedVariant?.size) {
+      try {
+        const spec = generatePrintSpecForSize(productType, selectedVariant.size, orientation, foldOption);
+        return spec;
+      } catch (e) {
+        console.error('[ProjectEditor] Failed to generate print spec:', e);
+      }
     }
-    if (printSpecId) {
-      return getPrintSpecForProduct(printSpecId);
-    }
-    if (productSlug) {
-      return getPrintSpecForProduct(productSlug);
-    }
-    return { spec: undefined, error: 'No print specification available.' };
-  }, [selectedVariant?.size, editorOrientation, productSlug, gelatoVariantUid, printSpecId]);
-
-  const printSpec = printSpecResult.spec;
-  const printSpecError = printSpecResult.error;
-
-  // Initialize side states if not already initialized
+    
+    // Final fallback: Sample spec
+    return getSamplePostcardSpec();
+  }, [productSlug, selectedVariant?.size, selectedVariant?.fold, gelatoVariantData, gelatoVariantUid, editorOrientation, lockedVariantUid, lockedProductUid]);
+  
+  // Initialize side states
+  const initializedRef = useRef(false);
   useEffect(() => {
-    if (printSpec && Object.keys(sideStateById).length === 0) {
+    if (printSpec && !initializedRef.current) {
       const initialStates: Record<string, SideState> = {};
       printSpec.sides.forEach((side) => {
         initialStates[side.id] = {
           objects: [],
           selectedId: undefined,
-          template: undefined,
         };
       });
-      setSideStateById(initialStates);
-      // Set active side to first side (ensure it matches a valid side)
-      if (printSpec.sides.length > 0) {
-        const firstSideId = printSpec.sides[0].id;
-        setActiveSideId(firstSideId);
-      }
+      setSideStates(initialStates);
+      setActiveSideId(printSpec.sides[0].id);
+      initializedRef.current = true;
+      // Don't save initial empty state to history - only save user actions
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [printSpec]); // Only depend on printSpec, not sideStateById to avoid re-initialization
-
-  // Ensure activeSideId matches a valid side in printSpec
-  useEffect(() => {
-    if (printSpec && printSpec.sides.length > 0) {
-      const validSideIds = printSpec.sides.map(s => s.id);
-      if (!validSideIds.includes(activeSideId)) {
-        // activeSideId doesn't match any side, reset to first side
-        setActiveSideId(printSpec.sides[0].id);
-      }
-    }
-  }, [printSpec, activeSideId]);
-
-  const currentSide: PrintSide | undefined = printSpec
-    ? getPrintSide(printSpec, activeSideId as 'front' | 'inside' | 'back')
-    : undefined;
-
-  // Get current side's state
-  const currentSideState = sideStateById[activeSideId] || { objects: [], selectedId: undefined, template: undefined };
-  const objects = currentSideState.objects;
-  const selectedId = currentSideState.selectedId;
-  const selectedObject = selectedId ? objects.find(obj => obj.id === selectedId) : null;
-  const templateState = currentSideState.template;
-
-  // Debounced autosave function
-  const scheduleAutosave = () => {
-    if (autosaveTimeoutRef.current) {
-      clearTimeout(autosaveTimeoutRef.current);
-    }
-
-    autosaveTimeoutRef.current = setTimeout(async () => {
-      await performAutosave();
-    }, 750);
-  };
-
-  // Perform autosave
-  const performAutosave = async () => {
-    if (!printSpec || !productSlug) return;
-
-    try {
-      // Get assets from store and convert to persisted format
-      const currentAssets = assets;
-      
-      let persistedAssets: PersistedAsset[] = [];
-      let assetsPartial = false;
-      let totalBytes = 0;
-
-      for (const asset of currentAssets) {
-        // Skip if already a data URL (from restore) or if we can't persist it
-        if (!asset.dataUrl) {
-          // This asset wasn't converted to data URL (shouldn't happen, but handle gracefully)
-          assetsPartial = true;
-          continue;
-        }
-
-        const assetBytes = asset.bytesApprox || 0;
-        
-        // Check size cap
-        if (totalBytes + assetBytes > DRAFT_ASSETS_SIZE_CAP) {
-          assetsPartial = true;
-          console.warn(`[ProjectEditor] Asset ${asset.name} exceeds size cap, skipping persistence`);
-          continue;
-        }
-
-        persistedAssets.push({
-          id: asset.id,
-          name: asset.name,
-          mimeType: asset.mimeType,
-          width: asset.width,
-          height: asset.height,
-          dataUrl: asset.dataUrl,
-          bytesApprox: assetBytes,
-        });
-
-        totalBytes += assetBytes;
-      }
-
-      const draftData: DraftData = {
-        version: 1,
-        productSlug,
-        printSpecId: printSpec.id,
-        activeSideId,
-        includeGuides: includeGuidesInExport,
-        guideVisibility: {
-          showBleed,
-          showTrim,
-          showSafe,
-          showFold,
-          showQRTarget,
-        },
-        sideStateById: JSON.parse(JSON.stringify(sideStateById)), // Deep clone to remove refs
-        persistedAssets,
-        assetsPartial,
-        gelatoVariantUid: gelatoVariantUid || undefined,
-        selectedVariant: selectedVariant ? {
-          uid: selectedVariant.uid,
-          size: selectedVariant.size,
-          material: selectedVariant.material,
-          paper: selectedVariant.paper,
-          frame: selectedVariant.frame,
-          foil: selectedVariant.foil,
-          price: selectedVariant.price,
-        } : undefined,
-        updatedAt: Date.now(),
-      };
-
-      const draftKey = getDraftKey(productSlug);
-      await saveDraft(draftKey, draftData);
-
-      // Update assetsPartial state if needed
-      if (assetsPartial && persistedAssets.length < currentAssets.length) {
-        setAssetsPartial(true);
-        console.warn('[ProjectEditor] Some assets were too large to persist locally');
-      } else {
-        setAssetsPartial(false);
-      }
-    } catch (error) {
-      console.warn('[ProjectEditor] Autosave failed:', error);
-      // Fail gracefully - editor continues to work
-    }
-  };
-
-  // Load draft on mount
-  useEffect(() => {
-    const loadDraftOnMount = async () => {
-      if (!productSlug) return;
-
-      try {
-        const draftKey = getDraftKey(productSlug);
-        const draft = await loadDraft(draftKey);
-        
-        if (draft) {
-          setDraftFound(true);
-          setShowDraftBanner(true);
-          setAssetsPartial(draft.assetsPartial || false);
-          setRestoredGelatoVariantUid(draft.gelatoVariantUid || null);
-          setRestoredSelectedVariant(draft.selectedVariant || null);
-        }
-      } catch (error) {
-        console.warn('[ProjectEditor] Failed to check for draft:', error);
-        // Fail gracefully - editor continues to work
-      }
-    };
-
-    loadDraftOnMount();
-  }, [productSlug]);
-
-  // Restore draft
-  const handleRestoreDraft = async () => {
-    if (!productSlug) return;
-
-    try {
-      const draftKey = getDraftKey(productSlug);
-      const draft = await loadDraft(draftKey);
-      
-      if (draft && printSpec) {
-        // Restore assets first (so they're available when state is restored)
-        if (draft.persistedAssets && draft.persistedAssets.length > 0) {
-          const { clearAssets, addAssetFromPersisted } = useAssetStore.getState();
-          
-          // Clear existing assets
-          clearAssets();
-          
-          // Restore persisted assets
-          draft.persistedAssets.forEach((persisted) => {
-            addAssetFromPersisted(persisted);
-          });
-        }
-
-        // Restore state
-        setActiveSideId(draft.activeSideId);
-        setIncludeGuidesInExport(draft.includeGuides);
-        setShowBleed(draft.guideVisibility.showBleed);
-        setShowTrim(draft.guideVisibility.showTrim);
-        setShowSafe(draft.guideVisibility.showSafe);
-        setShowFold(draft.guideVisibility.showFold);
-        setShowQRTarget(draft.guideVisibility.showQRTarget);
-        setSideStateById(draft.sideStateById);
-        
-        // Update assetsPartial state
-        setAssetsPartial(draft.assetsPartial || false);
-        
-        // Restore Gelato variant data (for reference, not state - props come from parent)
-        setRestoredGelatoVariantUid(draft.gelatoVariantUid || null);
-        setRestoredSelectedVariant(draft.selectedVariant || null);
-        
-        setShowDraftBanner(false);
-        console.log('[ProjectEditor] Draft restored', {
-          gelatoVariantUid: draft.gelatoVariantUid,
-          selectedVariant: draft.selectedVariant,
-        });
-      }
-    } catch (error) {
-      console.warn('[ProjectEditor] Failed to restore draft:', error);
-      alert('Failed to restore draft. Please try again.');
-    }
-  };
-
-  // Clear draft
-  const handleClearDraft = async () => {
-    if (!productSlug) return;
-
-    try {
-      const draftKey = getDraftKey(productSlug);
-      await deleteDraft(draftKey);
-      
-      // Reset editor state
-      if (printSpec) {
-        const initialStates: Record<string, SideState> = {};
-        printSpec.sides.forEach((side) => {
-          initialStates[side.id] = {
-            objects: [],
-            selectedId: undefined,
-            template: undefined,
-          };
-        });
-        setSideStateById(initialStates);
-        setActiveSideId(printSpec.sides[0]?.id || 'front');
-      }
-      
-      setShowDraftBanner(false);
-      setDraftFound(false);
-      console.log('[ProjectEditor] Draft cleared');
-    } catch (error) {
-      console.warn('[ProjectEditor] Failed to clear draft:', error);
-      alert('Failed to clear draft. Please try again.');
-    }
-  };
-
-  // Check if restored variant matches current props (dev mode warning only)
-  const hasVariantMismatch = process.env.NODE_ENV === 'development' && 
-    restoredGelatoVariantUid && 
-    gelatoVariantUid && 
-    restoredGelatoVariantUid !== gelatoVariantUid;
-
-  // Stage dimensions from print spec
-  const STAGE_WIDTH = currentSide?.canvasPx.w || 1800;
-  const STAGE_HEIGHT = currentSide?.canvasPx.h || 2400;
+  }, [printSpec]);
   
-  // Calculate display scale to fit viewport
-  const [displayScale, setDisplayScale] = useState(0.5);
+  // Save state to history
+  const saveToHistory = useCallback((states: Record<string, SideState>) => {
+    setHistory((prev) => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push({
+        sideStates: JSON.parse(JSON.stringify(states)), // Deep clone
+        timestamp: Date.now(),
+      });
+      // Limit history size
+      if (newHistory.length > maxHistory) {
+        newHistory.shift();
+        return newHistory;
+      }
+      return newHistory;
+    });
+    setHistoryIndex((prev) => Math.min(prev + 1, maxHistory - 1));
+  }, [historyIndex]);
   
+  // Undo
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setSideStates(JSON.parse(JSON.stringify(history[newIndex].sideStates)));
+    }
+  }, [history, historyIndex]);
+  
+  // Redo
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setSideStates(JSON.parse(JSON.stringify(history[newIndex].sideStates)));
+    }
+  }, [history, historyIndex]);
+  
+  // Get current side
+  const currentSide = printSpec?.sides.find(s => s.id === activeSideId);
+  const currentState = sideStates[activeSideId] || { objects: [], selectedId: undefined };
+  const objects = currentState.objects;
+  const selectedObject = selectedId ? objects.find(o => o.id === selectedId) : null;
+  
+  // Debug: Log fold lines for current side
   useEffect(() => {
-    if (!currentSide || typeof window === 'undefined') return;
-    
-    // Calculate available space (accounting for sidebar ~200px and padding)
-    const sidebarWidth = 220;
-    const padding = 64; // 32px on each side
-    const availableWidth = window.innerWidth - sidebarWidth - padding;
-    const availableHeight = window.innerHeight - 120; // Account for header and padding
-    
-    const scaleX = availableWidth / currentSide.canvasPx.w;
-    const scaleY = availableHeight / currentSide.canvasPx.h;
-    // Use the smaller scale to fit, but allow up to 1.0 for smaller canvases
-    const scale = Math.min(scaleX, scaleY, 1.0);
-    
-    // Ensure minimum visibility
-    setDisplayScale(Math.max(scale, 0.3));
-  }, [currentSide]);
-
+    if (currentSide && process.env.NODE_ENV === 'development') {
+      console.log('[ProjectEditor] Current side fold lines:', {
+        sideId: currentSide.id,
+        hasFoldLines: !!currentSide.foldLines,
+        foldLinesCount: currentSide.foldLines?.length || 0,
+        foldLines: currentSide.foldLines,
+        canvasSize: `${currentSide.canvasPx.w}x${currentSide.canvasPx.h}`,
+        printSpecId: printSpec?.id,
+        printSpecFolded: printSpec?.folded,
+      });
+    }
+  }, [currentSide, printSpec]);
+  
   // Update transformer when selection changes
   useEffect(() => {
     if (!transformerRef.current) return;
-
-    const selectedNode = selectedId ? imageRefs.current[selectedId] : null;
-
+    
+    const selectedNode = selectedId ? nodeRefs.current[selectedId] : null;
+    
     if (selectedNode) {
-      transformerRef.current.nodes([selectedNode]);
-      transformerRef.current.getLayer()?.batchDraw();
+      // Use requestAnimationFrame to ensure node is fully rendered
+      const rafId = requestAnimationFrame(() => {
+        if (transformerRef.current && selectedNode) {
+          try {
+            transformerRef.current.nodes([selectedNode]);
+            transformerRef.current.getLayer()?.batchDraw();
+            console.log('[ProjectEditor] Transformer attached to:', selectedId);
+          } catch (error) {
+            console.error('[ProjectEditor] Error attaching transformer:', error);
+          }
+        }
+      });
+      return () => cancelAnimationFrame(rafId);
     } else {
       transformerRef.current.nodes([]);
     }
-  }, [selectedId, activeSideId]); // Include activeSideId to update when switching sides
-
-  // Handle keyboard delete
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
-        e.preventDefault();
-        handleDeleteObject(selectedId);
+  }, [selectedId, activeSideId, objects]);
+  
+  // Update object
+  const updateObject = useCallback((id: string, updates: Partial<EditorObject>) => {
+    setSideStates((prev) => {
+      const newStates = { ...prev };
+      const sideState = { ...newStates[activeSideId] };
+      sideState.objects = sideState.objects.map((obj) =>
+        obj.id === id ? { ...obj, ...updates } : obj
+      );
+      newStates[activeSideId] = sideState;
+      saveToHistory(newStates);
+      return newStates;
+    });
+  }, [activeSideId, saveToHistory]);
+  
+  // Delete object
+  const deleteObject = useCallback((id: string) => {
+    setSideStates((prev) => {
+      const newStates = { ...prev };
+      const sideState = { ...newStates[activeSideId] };
+      sideState.objects = sideState.objects.filter((obj) => obj.id !== id);
+      if (sideState.selectedId === id) {
+        sideState.selectedId = undefined;
       }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [selectedId, activeSideId, objects, editorConfig]);
-
-  // Handle thumbnail click - add image to canvas
-  const handleThumbnailClick = (asset: UploadedAsset) => {
-    console.log('[ProjectEditor] Thumbnail clicked:', asset.id, asset.name);
-
-    // Create a temporary image to get dimensions (use asset dimensions if available)
-    if (typeof window === 'undefined') return;
+      newStates[activeSideId] = sideState;
+      saveToHistory(newStates);
+      return newStates;
+    });
+    setSelectedId(undefined);
+  }, [activeSideId, saveToHistory]);
+  
+  // Add image
+  const handleAddImage = useCallback((asset: UploadedAsset) => {
+    if (!currentSide) return;
+    
     const img = new window.Image();
-
-    // Set crossOrigin only for external URLs, not for blob: URLs
-    if (!asset.src.startsWith('blob:') && !asset.src.startsWith('data:')) {
-      img.crossOrigin = 'anonymous';
-    }
-
     img.onload = () => {
-      // Use asset dimensions if available, otherwise use loaded image dimensions
       const imgWidth = asset.width || img.naturalWidth;
       const imgHeight = asset.height || img.naturalHeight;
-
-      // Calculate scale to fit within SAFE zone (default) or TRIM zone
-      // Use safe zone by default to ensure content is not cut off
-      const safeAreaWidth = currentSide
-        ? currentSide.canvasPx.w - currentSide.safePx * 2
-        : STAGE_WIDTH * 0.9;
-      const safeAreaHeight = currentSide
-        ? currentSide.canvasPx.h - currentSide.safePx * 2
-        : STAGE_HEIGHT * 0.9;
       
-      const maxWidth = safeAreaWidth * 0.8; // 80% of safe area
-      const maxHeight = safeAreaHeight * 0.8;
-      const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
-
-      const scaledWidth = imgWidth * scale;
-      const scaledHeight = imgHeight * scale;
-
-      // Center in safe area
-      const x = currentSide
-        ? currentSide.safePx + (safeAreaWidth - scaledWidth) / 2
-        : (STAGE_WIDTH - scaledWidth) / 2;
-      const y = currentSide
-        ? currentSide.safePx + (safeAreaHeight - scaledHeight) / 2
-        : (STAGE_HEIGHT - scaledHeight) / 2;
-
+      // Scale to fit in safe zone
+      const safeW = currentSide.canvasPx.w - currentSide.safePx * 2;
+      const safeH = currentSide.canvasPx.h - currentSide.safePx * 2;
+      const scale = Math.min(safeW / imgWidth * 0.8, safeH / imgHeight * 0.8);
+      
       const newObject: EditorObject = {
-        id: `img-${Date.now()}-${Math.random()}`,
+        id: `img-${Date.now()}`,
         type: 'image',
         src: asset.src,
-        x,
-        y,
+        x: currentSide.safePx + (safeW - imgWidth * scale) / 2,
+        y: currentSide.safePx + (safeH - imgHeight * scale) / 2,
         scaleX: 1,
         scaleY: 1,
         rotation: 0,
-        width: scaledWidth, // Store original scaled dimensions
-        height: scaledHeight,
+        width: imgWidth * scale,
+        height: imgHeight * scale,
       };
-
-      console.log('[ProjectEditor] Adding image to canvas:', {
-        id: newObject.id,
-        assetId: asset.id,
-        side: activeSideId,
-        position: { x, y },
-        size: { width: scaledWidth, height: scaledHeight },
+      
+      setSideStates((prev) => {
+        const newStates = { ...prev };
+        const sideState = { ...newStates[activeSideId] };
+        sideState.objects = [...sideState.objects, newObject];
+        sideState.selectedId = newObject.id;
+        newStates[activeSideId] = sideState;
+        saveToHistory(newStates);
+        return newStates;
       });
-
-      // Add object to current side's state
-      setSideStateById((prev) => {
-        const newState = {
-          ...prev,
-          [activeSideId]: {
-            ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-            objects: [...(prev[activeSideId]?.objects || []), newObject],
-            selectedId: newObject.id,
-          },
-        };
-        scheduleAutosave();
-        return newState;
-      });
-    };
-    img.onerror = () => {
-      console.error('[ProjectEditor] Failed to load image:', asset.src);
-      alert(`Failed to load image: ${asset.name}`);
+      setSelectedId(newObject.id);
     };
     img.src = asset.src;
-  };
-
-  // Handle object drag end
-  const handleDragEnd = (objectId: string, e: any) => {
-    const node = e.target;
-    setSideStateById((prev) => {
-      const newState = {
-        ...prev,
-        [activeSideId]: {
-          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-          objects: (prev[activeSideId]?.objects || []).map((obj) =>
-            obj.id === objectId
-              ? {
-                  ...obj,
-                  x: node.x(),
-                  y: node.y(),
-                }
-              : obj
-          ),
-        },
-      };
-      scheduleAutosave();
-      return newState;
-    });
-  };
-
-  // Handle object transform end
-  const handleTransformEnd = (objectId: string, e: any) => {
-    const node = e.target;
-    setSideStateById((prev) => {
-      const newState = {
-        ...prev,
-        [activeSideId]: {
-          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-          objects: (prev[activeSideId]?.objects || []).map((obj) =>
-            obj.id === objectId
-              ? {
-                  ...obj,
-                  x: node.x(),
-                  y: node.y(),
-                  scaleX: node.scaleX(),
-                  scaleY: node.scaleY(),
-                  rotation: node.rotation(),
-                  // Update width/height if stored (for images)
-                  width: obj.width ? obj.width * node.scaleX() : undefined,
-                  height: obj.height ? obj.height * node.scaleY() : undefined,
-                  // Update fontSize for text objects
-                  fontSize: obj.type === 'text' && obj.fontSize ? obj.fontSize * node.scaleX() : obj.fontSize,
-                }
-              : obj
-          ),
-        },
-      };
-      scheduleAutosave();
-      return newState;
-    });
-
-    // Reset scale after transform (Konva stores transform in scaleX/Y)
-    node.scaleX(1);
-    node.scaleY(1);
-  };
-
-  // Handle label inspector updates
-  const handleLabelUpdate = (updates: Partial<EditorObject>) => {
-    if (!selectedId) return;
-    
-    setSideStateById((prev) => {
-      const newState = {
-        ...prev,
-        [activeSideId]: {
-          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-          objects: (prev[activeSideId]?.objects || []).map((obj) =>
-            obj.id === selectedId ? { ...obj, ...updates } : obj
-          ),
-        },
-      };
-      scheduleAutosave();
-      return newState;
-    });
-  };
-
-  // Add text label to canvas
-  const handleAddTextLabel = () => {
+  }, [currentSide, activeSideId, saveToHistory]);
+  
+  // Add text label
+  const handleAddText = useCallback(() => {
     if (!currentSide) return;
-
-    const centerX = currentSide.canvasPx.w / 2;
-    const centerY = currentSide.canvasPx.h / 2;
-
-    const newTextObject: EditorObject = {
-      id: `text-${Date.now()}-${Math.random()}`,
+    
+    const newObject: EditorObject = {
+      id: `text-${Date.now()}`,
       type: 'text',
-      text: 'New Label',
-      x: centerX,
-      y: centerY,
+      text: 'Your text here',
+      x: currentSide.canvasPx.w / 2,
+      y: currentSide.canvasPx.h / 2,
       scaleX: 1,
       scaleY: 1,
       rotation: 0,
@@ -639,1530 +326,640 @@ export default function ProjectEditor({
       fontWeight: DEFAULT_FONT_WEIGHT,
       fill: '#000000',
     };
-
-    setSideStateById((prev) => {
-      const newState = {
-        ...prev,
-        [activeSideId]: {
-          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-          objects: [...(prev[activeSideId]?.objects || []), newTextObject],
-          selectedId: newTextObject.id,
-        },
-      };
-      scheduleAutosave();
-      return newState;
+    
+    setSideStates((prev) => {
+      const newStates = { ...prev };
+      const sideState = { ...newStates[activeSideId] };
+      sideState.objects = [...sideState.objects, newObject];
+      sideState.selectedId = newObject.id;
+      newStates[activeSideId] = sideState;
+      saveToHistory(newStates);
+      return newStates;
     });
-  };
-
-  // Add skeleton key to canvas
-  const handleAddSkeletonKey = async (keyId: string) => {
+    setSelectedId(newObject.id);
+  }, [currentSide, activeSideId, saveToHistory]);
+  
+  // Add label shape
+  const handleAddLabelShape = useCallback((shape: LabelShape) => {
     if (!currentSide) return;
-
-    const keyDef = getSkeletonKey(keyId);
-    if (!keyDef) return;
-
-    // Convert SVG to data URL
-    const svgBlob = new Blob([keyDef.svg], { type: 'image/svg+xml;charset=utf-8' });
-    const svgUrl = URL.createObjectURL(svgBlob);
     
-    // Load SVG as image to get dimensions
-    if (typeof window === 'undefined') return;
-    const img = new window.Image();
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = svgUrl;
-    });
-
-    // Scale skeleton key to fit print spec dimensions
-    // SVG is 500x700, but we need to scale it to match currentSide dimensions
-    const svgAspectRatio = 500 / 700; // width/height
-    const sideAspectRatio = currentSide.canvasPx.w / currentSide.canvasPx.h;
-    
-    let scaledWidth: number;
-    let scaledHeight: number;
-    
-    if (svgAspectRatio > sideAspectRatio) {
-      // SVG is wider - fit to width
-      scaledWidth = currentSide.canvasPx.w * 0.9; // 90% of print area width
-      scaledHeight = scaledWidth / svgAspectRatio;
-    } else {
-      // SVG is taller - fit to height
-      scaledHeight = currentSide.canvasPx.h * 0.9; // 90% of print area height
-      scaledWidth = scaledHeight * svgAspectRatio;
-    }
-
-    // Calculate position from percentage (centered)
-    const x = (currentSide.canvasPx.w * keyDef.defaultPositionPct.xPct) - (scaledWidth / 2);
-    const y = (currentSide.canvasPx.h * keyDef.defaultPositionPct.yPct) - (scaledHeight / 2);
-
-    // Remove existing skeleton key on this side if any (only one skeleton key per side)
-    const existingKey = objects.find(obj => obj.type === 'skeletonKey');
-    const filteredObjects = existingKey 
-      ? objects.filter(obj => obj.id !== existingKey.id)
-      : objects;
-      
-    // Clean up old object URL if exists
-    if (existingKey && existingKey.src && existingKey.src.startsWith('blob:')) {
-      URL.revokeObjectURL(existingKey.src);
-    }
-
-    const newSkeletonKey: EditorObject = {
-      id: `skeleton-${Date.now()}-${Math.random()}`,
-      type: 'skeletonKey',
-      keyId: keyId,
-      src: svgUrl,
-      x: Math.max(0, Math.min(x, currentSide.canvasPx.w - scaledWidth)),
-      y: Math.max(0, Math.min(y, currentSide.canvasPx.h - scaledHeight)),
+    const newObject: EditorObject = {
+      id: `label-${Date.now()}`,
+      type: 'label-shape',
+      text: 'Your text here',
+      x: currentSide.canvasPx.w / 2 - shape.width / 2,
+      y: currentSide.canvasPx.h / 2 - shape.height / 2,
       scaleX: 1,
       scaleY: 1,
       rotation: 0,
-      width: scaledWidth,
-      height: scaledHeight,
-      opacity: 0.3,
-      locked: false,
+      width: shape.width,
+      height: shape.height,
+      labelShapeId: shape.id,
+      labelShapeType: shape.type,
+      cornerRadius: shape.cornerRadius,
+      fontFamily: DEFAULT_FONT,
+      fontSize: 24,
+      fontWeight: DEFAULT_FONT_WEIGHT,
+      fill: '#000000',
+      backgroundColor: '#ffffff',
+      borderEnabled: true,
+      borderWidth: 2,
+      borderColor: '#000000',
     };
-
-    setSideStateById((prev) => {
-      const newState = {
-        ...prev,
-        [activeSideId]: {
-          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-          objects: [...filteredObjects, newSkeletonKey],
-          selectedId: newSkeletonKey.id,
-        },
-      };
-      scheduleAutosave();
-      return newState;
+    
+    setSideStates((prev) => {
+      const newStates = { ...prev };
+      const sideState = { ...newStates[activeSideId] };
+      sideState.objects = [...sideState.objects, newObject];
+      sideState.selectedId = newObject.id;
+      newStates[activeSideId] = sideState;
+      saveToHistory(newStates);
+      return newStates;
     });
-  };
-
-  // Add QR code to canvas
-  const handleAddQR = async () => {
-    if (!printSpec) return;
-
-    // Check if QR already exists on active side
-    const existingQR = objects.find(obj => obj.type === 'qr' && obj.sideId === activeSideId);
+    setSelectedId(newObject.id);
+  }, [currentSide, activeSideId, saveToHistory]);
+  
+  // File upload
+  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
     
-    // Determine target side (default to active side, or switch to default if no QR exists anywhere)
-    let targetSideId = activeSideId;
-    
-    // If no QR exists on any allowed side, switch to default side
-    if (!existingQR) {
-      const qrOnAnyAllowedSide = editorConfig.allowedSidesForQR.some(sideId => {
-        const sideState = sideStateById[sideId] || { objects: [], selectedId: undefined };
-        return sideState.objects.some(obj => obj.type === 'qr' && obj.sideId === sideId);
-      });
-
-      if (!qrOnAnyAllowedSide) {
-        // Switch to default QR side
-        const defaultSide = getDefaultQrSide();
-        if (defaultSide !== activeSideId) {
-          targetSideId = defaultSide;
-          handleSideSwitch(defaultSide);
-          // Wait for side switch to complete (React state update)
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-    }
-
-    // Get current side (use targetSideId to avoid race condition)
-    const targetSide = printSpec.sides.find(s => s.id === targetSideId);
-    if (!targetSide) return;
-    
-    // Get objects for the target side (after potential switch)
-    const targetSideObjects = sideStateById[targetSideId]?.objects || [];
-
-    const qrUrl = getDefaultArtKeyUrl(editorConfig.artKeyUrlPlaceholder);
-    let qrSize = 100; // Default QR size in pixels
-    
-    try {
-      // Get skeleton key to find target position (use targetSideId)
-      const skeletonKey = targetSideObjects.find(obj => obj.type === 'skeletonKey');
-      let qrX = targetSide.canvasPx.w / 2;
-      let qrY = targetSide.canvasPx.h / 2;
-
-      if (skeletonKey && skeletonKey.keyId) {
-        const keyDef = getSkeletonKey(skeletonKey.keyId);
-        if (keyDef) {
-          // Calculate QR target position relative to skeleton key
-          const keyLeft = skeletonKey.x;
-          const keyTop = skeletonKey.y;
-          const keyWidth = (skeletonKey.width || 500) * skeletonKey.scaleX;
-          const keyHeight = (skeletonKey.height || 700) * skeletonKey.scaleY;
-          
-          const targetX = keyLeft + (keyWidth * keyDef.qrTargetPct.xPct);
-          const targetY = keyTop + (keyHeight * keyDef.qrTargetPct.yPct);
-          const targetW = keyWidth * keyDef.qrTargetPct.wPct;
-          const targetH = keyHeight * keyDef.qrTargetPct.hPct;
-          
-          // Size QR to fit 90% of target box
-          const targetSize = Math.min(targetW, targetH) * 0.9;
-          qrX = targetX + (targetW / 2) - (targetSize / 2);
-          qrY = targetY + (targetH / 2) - (targetSize / 2);
-          // Update QR size to match target
-          qrSize = targetSize;
-        }
-      }
-
-      const qrDataUrl = await generateQRCode(qrUrl, qrSize, 4);
-
-      // Remove existing QR on this side if any (regenerating)
-      const existingQROnSide = targetSideObjects.find(obj => obj.type === 'qr' && obj.sideId === targetSideId);
-      const filteredObjects = existingQROnSide
-        ? targetSideObjects.filter(obj => obj.id !== existingQROnSide.id)
-        : targetSideObjects;
-
-      const newQR: EditorObject = {
-        id: `qr-${Date.now()}-${Math.random()}`,
-        type: 'qr',
-        sideId: targetSideId as 'front' | 'inside' | 'back',
-        url: qrUrl,
-        src: qrDataUrl,
-        x: qrX,
-        y: qrY,
-        scaleX: 1,
-        scaleY: 1,
-        rotation: 0,
-        size: qrSize,
-        locked: editorConfig.qrRequired && editorConfig.qrPlacementMode === 'fixed',
-      };
-
-      setSideStateById((prev) => {
-        const newState = {
-          ...prev,
-          [targetSideId]: {
-            ...prev[targetSideId] || { objects: [], selectedId: undefined, template: undefined },
-            objects: [...filteredObjects, newQR],
-            selectedId: newQR.id,
-          },
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+      
+      const objectUrl = URL.createObjectURL(file);
+      const img = new window.Image();
+      img.onload = () => {
+        const asset: UploadedAsset = {
+          id: `asset-${Date.now()}`,
+          name: file.name,
+          mimeType: file.type,
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+          src: objectUrl,
+          origin: 'editor',
+          objectUrl,
+          file,
         };
-        scheduleAutosave();
-        return newState;
-      });
-    } catch (error) {
-      console.error('[ProjectEditor] Failed to generate QR code:', error);
-      alert('Failed to generate QR code. Please try again.');
-    }
-  };
-
-  // Snap QR to skeleton key target
-  const handleSnapQRToTarget = () => {
-    if (!currentSide) return;
-
-    const skeletonKey = objects.find(obj => obj.type === 'skeletonKey');
-    const qr = objects.find(obj => obj.type === 'qr' && obj.sideId === activeSideId);
-    
-    if (!skeletonKey || !qr || !skeletonKey.keyId) return;
-
-    const keyDef = getSkeletonKey(skeletonKey.keyId);
-    if (!keyDef) return;
-
-    // Calculate target position
-    const keyLeft = skeletonKey.x;
-    const keyTop = skeletonKey.y;
-    const keyWidth = (skeletonKey.width || 500) * skeletonKey.scaleX;
-    const keyHeight = (skeletonKey.height || 700) * skeletonKey.scaleY;
-    
-    const targetX = keyLeft + (keyWidth * keyDef.qrTargetPct.xPct);
-    const targetY = keyTop + (keyHeight * keyDef.qrTargetPct.yPct);
-    const targetW = keyWidth * keyDef.qrTargetPct.wPct;
-    const targetH = keyHeight * keyDef.qrTargetPct.hPct;
-    
-    const targetSize = Math.min(targetW, targetH) * 0.9;
-    const newX = targetX + (targetW / 2) - (targetSize / 2);
-    const newY = targetY + (targetH / 2) - (targetSize / 2);
-
-    setSideStateById((prev) => {
-      const newState = {
-        ...prev,
-        [activeSideId]: {
-          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-          objects: (prev[activeSideId]?.objects || []).map((obj) =>
-            obj.id === qr.id
-              ? { ...obj, x: newX, y: newY, size: targetSize, scaleX: 1, scaleY: 1 }
-              : obj
-          ),
-        },
+        useAssetStore.getState().addAsset(asset);
+        handleAddImage(asset);
       };
-      scheduleAutosave();
-      return newState;
+      img.src = objectUrl;
     });
-  };
-
-  // Template handlers
-  const handleSelectTemplate = (templateId: string) => {
-    const template = getCollageTemplate(templateId);
-    if (!template || !currentSide) return;
-
-    const frames: FrameFillState[] = template.frames.map(frame => ({
-      frameId: frame.id,
-      assetSrc: undefined,
-      offsetX: 0,
-      offsetY: 0,
-      zoom: 1.0,
-      rotation: 0,
-    }));
-
-    setSideStateById((prev) => ({
-      ...prev,
-      [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-        template: {
-          templateId,
-          activeFrameId: frames[0]?.frameId,
-          frames,
-        },
-      },
-    }));
-  };
-
-  const handleClearTemplate = () => {
-    setSideStateById((prev) => {
-      const newState = {
-        ...prev,
-        [activeSideId]: {
-          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-          template: undefined,
-        },
-      };
-      scheduleAutosave();
-      return newState;
-    });
-  };
-
-  const handleSelectFrame = (frameId: string) => {
-    if (!templateState) return;
-
-    setSideStateById((prev) => {
-      const newState = {
-        ...prev,
-        [activeSideId]: {
-          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-          template: {
-            ...templateState,
-            activeFrameId: frameId,
-          },
-        },
-      };
-      scheduleAutosave();
-      return newState;
-    });
-  };
-
-  const handleFillFrame = (assetSrc: string) => {
-    if (!templateState?.activeFrameId) return;
-    handleThumbnailClick({ id: '', name: '', mimeType: '', width: 0, height: 0, src: assetSrc, origin: 'uploader' });
-  };
-
-  const onUpdateFrameFill = (frameId: string, updates: Partial<FrameFillState>) => {
-    if (!templateState) return;
-
-    setSideStateById((prev) => {
-      const newState = {
-        ...prev,
-        [activeSideId]: {
-          ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-          template: {
-            ...templateState,
-            frames: templateState.frames.map(f =>
-              f.frameId === frameId ? { ...f, ...updates } : f
-            ),
-          },
-        },
-      };
-      scheduleAutosave();
-      return newState;
-    });
-  };
-
-  // Handle side switch
-  const handleSideSwitch = (sideId: string) => {
-    // Clear selection on current side before switching
-    setSideStateById((prev) => ({
-      ...prev,
-      [activeSideId]: {
-        ...prev[activeSideId] || { objects: [], selectedId: undefined, template: undefined },
-        selectedId: undefined,
-      },
-    }));
     
-    // Switch to new side
-    setActiveSideId(sideId);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [handleAddImage]);
+  
+  // Preflight check: Block export if text intersects outside safeBox
+  // SPRINT 1: Minimal preflight - check text bounding boxes
+  const runPreflight = useCallback((sideId: string): { isValid: boolean; errors: string[] } => {
+    const side = printSpec?.sides.find(s => s.id === sideId);
+    if (!side) return { isValid: false, errors: ['Side not found'] };
     
-    // Ensure new side has state
-    setSideStateById((prev) => ({
-      ...prev,
-      [sideId]: prev[sideId] || { objects: [], selectedId: undefined, template: undefined },
-    }));
-  };
-
-  // Export single side (must be called when that side is active)
-  const exportCurrentSide = async (): Promise<{ 
-    sideId: string; 
-    dataUrl: string; 
-    blob: Blob;
-    width: number;
-    height: number;
-  } | null> => {
-    if (!stageRef.current || !currentSide) return null;
-
-    try {
-      const stage = stageRef.current.getStage();
-      const layer = stage.getLayers()[0];
-      
-      // Temporarily hide guides if not including in export
-      const guideObjects: any[] = [];
-      if (!includeGuidesInExport && layer) {
-        const allNodes = layer.getChildren();
-        allNodes.forEach((node: any) => {
-          if (node.name() === 'guide-overlay') {
-            node.visible(false);
-            guideObjects.push(node);
-          }
-        });
-        layer.draw();
-      }
-
-      const dataUrl = stage.toDataURL({
-        pixelRatio: 1,
-        width: currentSide.canvasPx.w,
-        height: currentSide.canvasPx.h,
-      });
-
-      // Restore guide visibility
-      if (!includeGuidesInExport && layer) {
-        guideObjects.forEach((node) => {
-          node.visible(true);
-        });
-        layer.draw();
-      }
-
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-
-      return {
-        sideId: activeSideId,
-        dataUrl,
-        blob,
-        width: currentSide.canvasPx.w,
-        height: currentSide.canvasPx.h,
-      };
-    } catch (error) {
-      console.error(`[ProjectEditor] Export error for side ${activeSideId}:`, error);
-      return null;
-    }
-  };
-
-  // Get default QR side (inside > back > front > first side)
-  const getDefaultQrSide = (): string => {
-    if (!printSpec) return 'front';
+    const state = sideStates[sideId];
+    if (!state) return { isValid: true, errors: [] };
     
-    if (editorConfig.allowedSidesForQR.includes('inside')) {
-      return 'inside';
-    }
-    if (editorConfig.allowedSidesForQR.includes('back')) {
-      return 'back';
-    }
-    if (editorConfig.allowedSidesForQR.includes('front')) {
-      return 'front';
-    }
+    const errors: string[] = [];
+    const SCREEN_DPI = 96; // Screen DPI for coordinate conversion
     
-    // Fallback to first side in printSpec
-    return printSpec.sides[0]?.id || 'front';
-  };
-
-  // Check if QR is required and missing (QR must exist on AT LEAST ONE allowed side)
-  const checkQRRequired = (): { isValid: boolean; missingSides: string[] } => {
-    if (!editorConfig.qrRequired || !printSpec) {
-      return { isValid: true, missingSides: [] };
-    }
-
-    // Check if QR exists on ANY allowed side
-    let hasQROnAnyAllowedSide = false;
-    const allowedSides = editorConfig.allowedSidesForQR;
+    // Convert safe box bounds from mm to screen pixels
+    const bleedPx = mmToPx(side.bleedMm, SCREEN_DPI);
+    const trimW = mmToPx(side.trimMm.w, SCREEN_DPI);
+    const trimH = mmToPx(side.trimMm.h, SCREEN_DPI);
+    const safePx = mmToPx(side.safeMm, SCREEN_DPI);
+    const trimX = bleedPx;
+    const trimY = bleedPx;
+    const safeX = trimX + safePx;
+    const safeY = trimY + safePx;
+    const safeW = trimW - (safePx * 2);
+    const safeH = trimH - (safePx * 2);
     
-    for (const sideId of allowedSides) {
-      const sideState = sideStateById[sideId] || { objects: [], selectedId: undefined };
-      const hasQR = sideState.objects.some(obj => obj.type === 'qr' && obj.sideId === sideId);
-      if (hasQR) {
-        hasQROnAnyAllowedSide = true;
-        break; // Found QR on at least one allowed side, that's enough
-      }
-    }
-
-    if (hasQROnAnyAllowedSide) {
-      return { isValid: true, missingSides: [] };
-    }
-
-    // QR is missing on all allowed sides
-    return { isValid: false, missingSides: allowedSides };
-  };
-
-  // Export active side
-  const handleExportActiveSide = async () => {
-    if (printSpecError || !printSpec) {
-      alert(printSpecError || 'Print spec not available');
-      return;
-    }
-
-    // Check QR requirement
-    const qrCheck = checkQRRequired();
-    if (!qrCheck.isValid) {
-      const sideNames = qrCheck.missingSides.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
-      alert(`ArtKey QR is required on at least one of: ${sideNames} before exporting.`);
-      return;
-    }
-
-    const result = await exportCurrentSide();
-    if (result) {
-      if (onComplete) {
-        onComplete({
-          productSlug,
-          printSpecId: printSpec.id,
-          exports: [{
-            sideId: result.sideId,
-            dataUrl: result.dataUrl,
-            width: result.width,
-            height: result.height,
-          }],
-        });
-      } else {
-        // Fallback: download directly
-        if (typeof document !== 'undefined') {
-          const link = document.createElement('a');
-          link.download = `${productSlug || printSpec.id}_${result.sideId}_${Date.now()}.png`;
-          link.href = result.dataUrl;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+    // Check text objects
+    for (const obj of state.objects) {
+      if (obj.type === 'text' || obj.type === 'label-shape') {
+        if (!obj.text) continue;
+        
+        // Estimate text bounding box (simplified - uses fontSize for height)
+        const fontSize = obj.fontSize || 16;
+        const fontWidth = fontSize * 0.6; // Approximate character width
+        const textWidth = (obj.text.length * fontWidth) * (obj.scaleX || 1);
+        const textHeight = fontSize * (obj.scaleY || 1);
+        
+        const objX = obj.x;
+        const objY = obj.y;
+        const objRight = objX + textWidth;
+        const objBottom = objY + textHeight;
+        
+        // Check if text bounding box is outside safe area
+        if (objX < safeX || objY < safeY || objRight > safeX + safeW || objBottom > safeY + safeH) {
+          errors.push(`Text "${obj.text.substring(0, 20)}..." on ${side.name} is outside the safe area`);
         }
       }
-      console.log('[ProjectEditor] Export complete:', {
-        sideId: result.sideId,
-        dimensions: { width: result.width, height: result.height },
-        includesGuides: includeGuidesInExport,
-      });
-    } else {
-      alert('Failed to export image');
     }
-  };
-
-  // Export all sides
-  const handleExportAllSides = async () => {
-    if (printSpecError || !printSpec) {
-      alert(printSpecError || 'No print spec available');
+    
+    return { isValid: errors.length === 0, errors };
+  }, [printSpec, sideStates]);
+  
+  // Export: PNG with bleed at 300 DPI
+  // SPRINT 1: Export one side (current active side) with bleed included at print DPI
+  const handleExport = useCallback(async () => {
+    if (!printSpec || !stageRef.current || !currentSide) return;
+    
+    // Run preflight check
+    const preflight = runPreflight(activeSideId);
+    if (!preflight.isValid) {
+      alert(`Export blocked:\n\n${preflight.errors.join('\n')}\n\nPlease move text inside the safe area (green guide).`);
       return;
     }
-
-    // Check QR requirement
-    const qrCheck = checkQRRequired();
-    if (!qrCheck.isValid) {
-      const sideNames = qrCheck.missingSides.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
-      alert(`ArtKey QR is required on at least one of: ${sideNames} before exporting.`);
-      return;
-    }
-
-    const exports: Array<{ sideId: string; dataUrl: string; width: number; height: number }> = [];
-    const originalActiveSide = activeSideId;
     
-    // Export each side by switching to it
-    for (const side of printSpec.sides) {
-      // Switch to this side
-      setActiveSideId(side.id);
-      
-      // Wait for render to complete
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      
-      // Export current side
-      const result = await exportCurrentSide();
-      if (result) {
-        exports.push({
-          sideId: result.sideId,
-          dataUrl: result.dataUrl,
-          width: result.width,
-          height: result.height,
-        });
-      }
-    }
-
-    // Restore original active side
-    setActiveSideId(originalActiveSide);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    if (exports.length > 0) {
-      if (onComplete) {
-        onComplete({
-          productSlug,
-          printSpecId: printSpec.id,
-          exports,
-        });
-      } else {
-        // Fallback: download all
-        if (typeof document !== 'undefined') {
-          exports.forEach((exportItem) => {
-            const link = document.createElement('a');
-            link.download = `${productSlug || printSpec.id}_${exportItem.sideId}_${Date.now()}.png`;
-            // Convert dataUrl to blob for download
-            fetch(exportItem.dataUrl).then(res => res.blob()).then(blob => {
-              const url = URL.createObjectURL(blob);
-              link.href = url;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
-            });
-          });
-        }
-      }
-      console.log('[ProjectEditor] Export all sides complete:', {
-        sides: exports.map((e) => e.sideId),
-        includesGuides: includeGuidesInExport,
-      });
-    } else {
-      alert('Failed to export images');
-    }
-  };
-
-  // Text Component with Border and Foil support
-  const TextComponent = ({ object }: { object: EditorObject }) => {
-    const groupRef = useRef<any>(null);
-    const textRef = useRef<any>(null);
-    const [textWidth, setTextWidth] = useState(0);
-    const [textHeight, setTextHeight] = useState(0);
-
-    useEffect(() => {
-      if (groupRef.current) {
-        imageRefs.current[object.id] = groupRef.current;
-      }
-    }, [object.id]);
-
-    useEffect(() => {
-      if (groupRef.current && selectedId === object.id && transformerRef.current) {
-        transformerRef.current.nodes([groupRef.current]);
-        transformerRef.current.getLayer()?.batchDraw();
-      }
-    }, [selectedId, object.id]);
-
-    // Measure text dimensions for border
-    useEffect(() => {
-      if (textRef.current) {
-        setTextWidth(textRef.current.width());
-        setTextHeight(textRef.current.height());
-      }
-    }, [object.text, object.fontSize, object.fontFamily]);
-
-    const padding = object.borderPadding || 10;
-    const borderWidth = object.borderWidth || 2;
-    const hasBorder = object.borderEnabled;
-    const hasFoil = object.foilEnabled;
+    // Calculate export dimensions in pixels at 300 DPI (print DPI)
+    const bleedW = mmToPx(currentSide.trimMm.w + (currentSide.bleedMm * 2), DEFAULT_DPI);
+    const bleedH = mmToPx(currentSide.trimMm.h + (currentSide.bleedMm * 2), DEFAULT_DPI);
     
-    // Get foil color for visual preview
-    const getFoilPreviewColor = () => {
-      switch (object.foilColor) {
-        case 'gold': return '#D4AF37';
-        case 'silver': return '#C0C0C0';
-        case 'rose-gold': return '#E8B4B8';
-        case 'copper': return '#B87333';
-        default: return '#D4AF37';
-      }
+    // Get the stage and export at print DPI
+    const stage = stageRef.current;
+    
+    // Create a temporary stage at print resolution for export
+    // Note: Konva's toDataURL uses pixelRatio to scale up
+    // We need to scale from screen DPI (96) to print DPI (300)
+    const pixelRatio = DEFAULT_DPI / 96; // Scale factor from screen to print DPI
+    
+    const dataUrl = stage.toDataURL({
+      pixelRatio,
+      width: bleedW,
+      height: bleedH,
+    });
+    
+    // Export data
+    const exportData = {
+      sideId: activeSideId,
+      dataUrl,
+      width: bleedW,
+      height: bleedH,
+      trimWidth: mmToPx(currentSide.trimMm.w, DEFAULT_DPI),
+      trimHeight: mmToPx(currentSide.trimMm.h, DEFAULT_DPI),
+      bleedMm: currentSide.bleedMm,
     };
-
-    // Determine fill color based on foil settings
-    const textFill = hasFoil && (object.foilTarget === 'text' || object.foilTarget === 'both')
-      ? getFoilPreviewColor()
-      : (object.fill || '#000000');
     
-    const borderStroke = hasFoil && (object.foilTarget === 'border' || object.foilTarget === 'both')
-      ? getFoilPreviewColor()
-      : (object.borderColor || '#000000');
-
-    return (
-      <Group
-        ref={groupRef}
-        id={object.id}
-        x={object.x}
-        y={object.y}
-        rotation={object.rotation || 0}
-        scaleX={object.scaleX || 1}
-        scaleY={object.scaleY || 1}
-        draggable
-        onClick={() => setSelectedId(object.id)}
-        onTap={() => setSelectedId(object.id)}
-        onDragEnd={(e) => {
-          updateObject(object.id, {
-            x: e.target.x(),
-            y: e.target.y(),
-          });
-          triggerAutosave();
-        }}
-        onTransformEnd={(e) => {
-          const node = e.target;
-          updateObject(object.id, {
-            x: node.x(),
-            y: node.y(),
-            scaleX: node.scaleX(),
-            scaleY: node.scaleY(),
-            rotation: node.rotation(),
-          });
-          triggerAutosave();
-        }}
-      >
-        {/* Border Rectangle (behind text) */}
-        {hasBorder && (
-          <Rect
-            x={-padding}
-            y={-padding}
-            width={textWidth + padding * 2}
-            height={textHeight + padding * 2}
-            stroke={borderStroke}
-            strokeWidth={borderWidth}
-            dash={object.borderStyle === 'dashed' ? [8, 4] : undefined}
-            fill={object.backgroundColor || 'transparent'}
-            cornerRadius={object.borderStyle === 'ornate' ? 8 : 0}
-          />
-        )}
-        {/* Double border inner line */}
-        {hasBorder && object.borderStyle === 'double' && (
-          <Rect
-            x={-padding + borderWidth + 3}
-            y={-padding + borderWidth + 3}
-            width={textWidth + (padding - borderWidth - 3) * 2}
-            height={textHeight + (padding - borderWidth - 3) * 2}
-            stroke={borderStroke}
-            strokeWidth={borderWidth}
-          />
-        )}
-        {/* Foil indicator shimmer effect */}
-        {hasFoil && (
-          <Rect
-            x={-padding - 2}
-            y={-padding - 2}
-            width={textWidth + padding * 2 + 4}
-            height={textHeight + padding * 2 + 4}
-            stroke={getFoilPreviewColor()}
-            strokeWidth={1}
-            dash={[4, 4]}
-            opacity={0.6}
-          />
-        )}
-        {/* Text */}
-        <KonvaText
-          ref={textRef}
-          text={object.text || 'Text'}
-          fontSize={object.fontSize || 24}
-          fontFamily={object.fontFamily || 'Arial'}
-          fontStyle={object.fontWeight === 700 ? 'bold' : 'normal'}
-          fill={textFill}
-        />
-      </Group>
-    );
-  };
-
-  // Image Component
-  const ImageComponent = ({ object }: { object: EditorObject }) => {
-    if (!object.src) return null;
-    
-    // Only set crossOrigin for external URLs, not for blob: or data: URLs
-    const crossOrigin = object.src.startsWith('blob:') || object.src.startsWith('data:')
-      ? undefined
-      : 'anonymous';
-    const [img, status] = useImage(object.src, crossOrigin);
-    const imageRef = useRef<any>(null);
-
-    useEffect(() => {
-      if (imageRef.current) {
-        imageRefs.current[object.id] = imageRef.current;
-      }
-      return () => {
-        delete imageRefs.current[object.id];
-      };
-    }, [object.id]);
-
-    // Calculate display dimensions from scale and original width/height
-    const displayWidth = object.width ? object.width * object.scaleX : 100;
-    const displayHeight = object.height ? object.height * object.scaleY : 100;
-
-    if (status === 'loading') {
-      return (
-        <KonvaImage
-          ref={imageRef}
-          x={object.x}
-          y={object.y}
-          width={displayWidth}
-          height={displayHeight}
-          fill="#e5e7eb"
-          opacity={0.5}
-        />
-      );
+    if (onComplete) {
+      // SPRINT 2: Include productUid and variantUid in export data
+      onComplete({
+        productSlug,
+        printSpecId: printSpec.id,
+        productUid: lockedProductUid || gelatoVariantData?.productUid,
+        variantUid: lockedVariantUid || gelatoVariantUid,
+        exports: [exportData],
+      });
     }
-
-    if (status === 'failed' || !img) {
-      return (
-        <KonvaImage
-          ref={imageRef}
-          x={object.x}
-          y={object.y}
-          width={displayWidth}
-          height={displayHeight}
-          fill="#fee2e2"
-          opacity={0.5}
-        />
-      );
-    }
-
+  }, [printSpec, currentSide, activeSideId, stageRef, runPreflight, onComplete, productSlug, gelatoVariantData, gelatoVariantUid]);
+  
+  if (!printSpec || !currentSide) {
     return (
-      <KonvaImage
-        ref={imageRef}
-        image={img}
-        x={object.x}
-        y={object.y}
-        width={displayWidth}
-        height={displayHeight}
-        scaleX={object.scaleX}
-        scaleY={object.scaleY}
-        rotation={object.rotation}
-        draggable
-        onClick={() => {
-          console.log('[ProjectEditor] Image clicked:', object.id);
-          setSideStateById((prev) => ({
-            ...prev,
-            [activeSideId]: {
-              ...prev[activeSideId] || { objects: [], selectedId: undefined },
-              selectedId: object.id,
-            },
-          }));
-        }}
-        onTap={() => {
-          setSideStateById((prev) => ({
-            ...prev,
-            [activeSideId]: {
-              ...prev[activeSideId] || { objects: [], selectedId: undefined },
-              selectedId: object.id,
-            },
-          }));
-        }}
-        onDragEnd={(e) => handleDragEnd(object.id, e)}
-        onTransformEnd={(e) => handleTransformEnd(object.id, e)}
-      />
-    );
-  };
-
-  // Skeleton Key Component
-  const SkeletonKeyComponent = ({ object }: { object: EditorObject }) => {
-    const keyRef = useRef<any>(null);
-    const keyDef = object.keyId ? getSkeletonKey(object.keyId) : null;
-
-    useEffect(() => {
-      if (keyRef.current) {
-        imageRefs.current[object.id] = keyRef.current;
-      }
-      return () => {
-        delete imageRefs.current[object.id];
-      };
-    }, [object.id]);
-
-    if (!keyDef || !object.src) return null;
-
-    // Convert SVG to image
-    const [img, status] = useImage(object.src);
-
-    if (status === 'loading' || !img) {
-      return null;
-    }
-
-    return (
-      <KonvaImage
-        ref={keyRef}
-        image={img}
-        x={object.x}
-        y={object.y}
-        width={object.width || 500}
-        height={object.height || 700}
-        scaleX={object.scaleX}
-        scaleY={object.scaleY}
-        rotation={object.rotation}
-        opacity={object.opacity ?? 0.3}
-        draggable={!object.locked}
-        onClick={() => {
-          setSideStateById((prev) => ({
-            ...prev,
-            [activeSideId]: {
-              ...prev[activeSideId] || { objects: [], selectedId: undefined },
-              selectedId: object.id,
-            },
-          }));
-        }}
-        onDragEnd={(e) => handleDragEnd(object.id, e)}
-        onTransformEnd={(e) => handleTransformEnd(object.id, e)}
-      />
-    );
-  };
-
-  // Template Frame Component
-  const FrameComponent = ({ frameDef, frameFill, isActive }: { 
-    frameDef: any; 
-    frameFill: FrameFillState; 
-    isActive: boolean;
-  }) => {
-    if (!currentSide) return null;
-
-    // Calculate frame position and size relative to safe zone
-    const safeWidth = currentSide.canvasPx.w - (currentSide.safePx * 2);
-    const safeHeight = currentSide.canvasPx.h - (currentSide.safePx * 2);
-    const frameX = currentSide.safePx + (safeWidth * frameDef.xPct);
-    const frameY = currentSide.safePx + (safeHeight * frameDef.yPct);
-    const frameWidth = safeWidth * frameDef.wPct;
-    const frameHeight = safeHeight * frameDef.hPct;
-    const padding = frameDef.paddingPct ? Math.min(frameWidth, frameHeight) * frameDef.paddingPct : 0;
-    const contentX = frameX + padding;
-    const contentY = frameY + padding;
-    const contentWidth = frameWidth - (padding * 2);
-    const contentHeight = frameHeight - (padding * 2);
-
-    // Polaroid: add bottom margin
-    const isPolaroid = frameDef.shape === 'polaroid';
-    const polaroidBottomMargin = isPolaroid ? frameHeight * 0.15 : 0;
-    const imageHeight = isPolaroid ? contentHeight - polaroidBottomMargin : contentHeight;
-
-    return (
-      <Group
-        x={frameX}
-        y={frameY}
-        rotation={frameDef.rotation || 0}
-      >
-        {/* Frame border */}
-        {frameDef.shape === 'circle' ? (
-          <Circle
-            x={frameWidth / 2}
-            y={frameHeight / 2}
-            radius={Math.min(frameWidth, frameHeight) / 2}
-            fill="transparent"
-            stroke={isActive ? '#3b82f6' : (frameDef.stroke || '#e5e7eb')}
-            strokeWidth={isActive ? 3 : (frameDef.strokeWidth || 2)}
-            onClick={() => handleSelectFrame(frameFill.frameId)}
-            onTap={() => handleSelectFrame(frameFill.frameId)}
-          />
-        ) : (
-          <Rect
-            x={0}
-            y={0}
-            width={frameWidth}
-            height={frameHeight}
-            fill={isPolaroid ? '#ffffff' : 'transparent'}
-            stroke={isActive ? '#3b82f6' : (frameDef.stroke || '#e5e7eb')}
-            strokeWidth={isActive ? 3 : (frameDef.strokeWidth || 2)}
-            cornerRadius={frameDef.cornerRadiusPct ? Math.min(frameWidth, frameHeight) * frameDef.cornerRadiusPct : 0}
-            onClick={() => handleSelectFrame(frameFill.frameId)}
-            onTap={() => handleSelectFrame(frameFill.frameId)}
-          />
-        )}
-
-        {/* Filled image with clipping */}
-        {frameFill.assetSrc && (
-          <Group
-            clipFunc={(ctx) => {
-              if (frameDef.shape === 'circle') {
-                const radius = Math.min(contentWidth, imageHeight) / 2;
-                ctx.beginPath();
-                ctx.arc(
-                  contentX - frameX + radius,
-                  contentY - frameY + radius,
-                  radius,
-                  0,
-                  Math.PI * 2
-                );
-                ctx.clip();
-              } else {
-                ctx.beginPath();
-                ctx.rect(
-                  contentX - frameX,
-                  contentY - frameY,
-                  contentWidth,
-                  imageHeight
-                );
-                ctx.clip();
-              }
-            }}
-          >
-            <Group
-              x={contentX - frameX}
-              y={contentY - frameY}
-            >
-              {(() => {
-                const [img, status] = useImage(frameFill.assetSrc);
-                if (status !== 'loaded' || !img) return null;
-
-                // Calculate image transform
-                const imgAspect = img.width / img.height;
-                const frameAspect = contentWidth / imageHeight;
-                const baseScale = frameFill.zoom;
-                
-                // Scale to cover frame
-                const scale = imgAspect > frameAspect
-                  ? (imageHeight / img.height) * baseScale
-                  : (contentWidth / img.width) * baseScale;
-
-                const scaledWidth = img.width * scale;
-                const scaledHeight = img.height * scale;
-
-                // Center + offset
-                const centerX = contentWidth / 2;
-                const centerY = imageHeight / 2;
-                const imgX = centerX - (scaledWidth / 2) + frameFill.offsetX;
-                const imgY = centerY - (scaledHeight / 2) + frameFill.offsetY;
-
-                return (
-                  <KonvaImage
-                    image={img}
-                    x={imgX}
-                    y={imgY}
-                    width={scaledWidth}
-                    height={scaledHeight}
-                    rotation={frameFill.rotation}
-                    draggable={isActive && templateMode}
-                    onDragEnd={(e) => {
-                      const node = e.target;
-                      const newOffsetX = node.x() - centerX + (scaledWidth / 2);
-                      const newOffsetY = node.y() - centerY + (scaledHeight / 2);
-                      onUpdateFrameFill(frameFill.frameId, {
-                        offsetX: newOffsetX,
-                        offsetY: newOffsetY,
-                      });
-                    }}
-                  />
-                );
-              })()}
-            </Group>
-          </Group>
-        )}
-      </Group>
-    );
-  };
-
-  // QR Component
-  const QRComponent = ({ object }: { object: EditorObject }) => {
-    const qrRef = useRef<any>(null);
-
-    useEffect(() => {
-      if (qrRef.current) {
-        imageRefs.current[object.id] = qrRef.current;
-      }
-      return () => {
-        delete imageRefs.current[object.id];
-      };
-    }, [object.id]);
-
-    if (!object.src) return null;
-
-    const [img, status] = useImage(object.src);
-
-    if (status === 'loading' || !img) {
-      return null;
-    }
-
-    const qrSize = object.size || 100;
-    const isLocked = object.locked || (editorConfig.qrRequired && editorConfig.qrPlacementMode === 'fixed');
-    const isFlexible = editorConfig.qrPlacementMode === 'flexible' && !isLocked;
-
-    return (
-      <KonvaImage
-        ref={qrRef}
-        image={img}
-        x={object.x}
-        y={object.y}
-        width={qrSize}
-        height={qrSize}
-        scaleX={object.scaleX}
-        scaleY={object.scaleY}
-        rotation={object.rotation}
-        draggable={isFlexible}
-        dragBoundFunc={(pos) => {
-          // Constrain QR to safe zone when flexible
-          if (isFlexible && currentSide) {
-            const safeLeft = currentSide.safePx;
-            const safeTop = currentSide.safePx;
-            const safeRight = currentSide.canvasPx.w - currentSide.safePx - qrSize;
-            const safeBottom = currentSide.canvasPx.h - currentSide.safePx - qrSize;
-            
-            return {
-              x: Math.max(safeLeft, Math.min(pos.x, safeRight)),
-              y: Math.max(safeTop, Math.min(pos.y, safeBottom)),
-            };
-          }
-          return pos;
-        }}
-        onClick={() => {
-          setSideStateById((prev) => ({
-            ...prev,
-            [activeSideId]: {
-              ...prev[activeSideId] || { objects: [], selectedId: undefined },
-              selectedId: object.id,
-            },
-          }));
-        }}
-        onDragEnd={(e) => {
-          if (isFlexible) {
-            handleDragEnd(object.id, e);
-          }
-        }}
-        onTransformEnd={(e) => handleTransformEnd(object.id, e)}
-      />
-    );
-  };
-
-  // Show error state if PrintSpec is missing, has an error, or currentSide is invalid
-  if (printSpecError || !printSpec || !currentSide) {
-    return (
-      <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
-        {/* Draft Banner */}
-        {showDraftBanner && (
-          <DraftBanner
-            onRestore={handleRestoreDraft}
-            onDismiss={() => setShowDraftBanner(false)}
-            onClear={handleClearDraft}
-            assetsPartial={assetsPartial}
-            variantMismatch={hasVariantMismatch}
-          />
-        )}
-
-        {/* Header */}
-        <div className="bg-gray-800 text-white px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold">Project Editor</h2>
-            {onClose && (
-              <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded">
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Error Message */}
-        <div className="flex-1 flex items-center justify-center bg-gray-100">
-          <div className="max-w-md mx-auto p-8 bg-white rounded-lg shadow-lg border-2 border-red-500">
-            <div className="text-center">
-              <div className="text-6xl mb-4">⚠️</div>
-              <h3 className="text-2xl font-bold text-red-600 mb-4">Print Configuration Error</h3>
-              <p className="text-gray-700 mb-6">
-                {printSpecError || (!printSpec ? 'Print specification is missing. Unable to initialize editor.' : 'Current side is invalid. Please refresh the page.')}
-              </p>
-              <div className="text-sm text-gray-500 mb-6">
-                <p className="font-semibold mb-2">What this means:</p>
-                <p>This product format requires a specific print specification that hasn't been configured yet.</p>
-                <p className="mt-2">Export and continue actions are disabled until this is resolved.</p>
-              </div>
-              {(productSlug || gelatoVariantUid) && (
-                <div className="text-xs text-gray-400 bg-gray-100 p-3 rounded mb-4">
-                  {productSlug && <p className="font-mono">Product: {productSlug}</p>}
-                  {gelatoVariantUid && <p className="font-mono">Variant UID: {gelatoVariantUid}</p>}
-                  {printSpecId && <p className="font-mono">Spec ID: {printSpecId}</p>}
-                </div>
-              )}
-              {onClose && (
-                <button
-                  onClick={onClose}
-                  className="px-6 py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors"
-                >
-                  Go Back
-                </button>
-              )}
-            </div>
-          </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <p className="text-gray-600">Loading print specifications...</p>
         </div>
       </div>
     );
   }
-
+  
+  const assets = useAssetStore((state) => state.assets);
+  
+  // Calculate canvas dimensions from mm (bleedBox = trimBox + bleed on all sides)
+  // SPRINT 1: Canvas uses mm internally, scaled to screen pixels
+  const SCREEN_DPI = 96; // Standard screen DPI for display scaling
+  const canvasDimensionsMm = currentSide ? {
+    width: currentSide.trimMm.w + (currentSide.bleedMm * 2), // trimBox + bleed on left + right
+    height: currentSide.trimMm.h + (currentSide.bleedMm * 2), // trimBox + bleed on top + bottom
+  } : { width: 0, height: 0 };
+  
+  // Convert mm to screen pixels at screen DPI (96 DPI for displays, not print DPI)
+  const STAGE_WIDTH = mmToPx(canvasDimensionsMm.width, SCREEN_DPI);
+  const STAGE_HEIGHT = mmToPx(canvasDimensionsMm.height, SCREEN_DPI);
+  
+  // Calculate display scale to fit viewport (800x600 max viewport)
+  const displayScale = Math.min(800 / STAGE_WIDTH, 600 / STAGE_HEIGHT, 1);
+  
   return (
-    <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
-      {/* Draft Banner */}
-      {showDraftBanner && (
-        <DraftBanner
-          onRestore={handleRestoreDraft}
-          onDismiss={() => setShowDraftBanner(false)}
-          onClear={handleClearDraft}
-          assetsPartial={assetsPartial}
-          variantMismatch={hasVariantMismatch}
-        />
-      )}
-
+    <div className="flex flex-col h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-gray-800 text-white px-6 py-4 flex items-center justify-between">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h2 className="text-xl font-bold">Project Editor</h2>
+          <h1 className="text-xl font-bold text-gray-900">Project Editor</h1>
+          {/* SPRINT 2: Orientation Toggle */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">Orientation:</span>
+            <button
+              onClick={() => setEditorOrientation('portrait')}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                editorOrientation === 'portrait'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Portrait
+            </button>
+            <button
+              onClick={() => setEditorOrientation('landscape')}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                editorOrientation === 'landscape'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Landscape
+            </button>
+          </div>
+          {printSpec.sides.length > 1 && (
+            <div className="flex gap-2">
+              {printSpec.sides.map((side) => {
+                // Use name property if available, otherwise generate label
+                const label = side.name || (
+                  side.id === 'inside-left' ? 'Inside Left' :
+                  side.id === 'inside-right' ? 'Inside Right' :
+                  side.id === 'inside-top' ? 'Inside Top' :
+                  side.id === 'inside-bottom' ? 'Inside Bottom' :
+                  side.id === 'inside' ? 'Inside' :
+                  side.id.charAt(0).toUpperCase() + side.id.slice(1)
+                );
+                
+                return (
+                  <button
+                    key={side.id}
+                    onClick={() => {
+                      setActiveSideId(side.id);
+                      setSelectedId(undefined);
+                    }}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      activeSideId === side.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title={
+                      side.id === 'front' ? 'Front cover' :
+                      side.id === 'inside-left' ? 'Inside left page (portrait cards)' :
+                      side.id === 'inside-right' ? 'Inside right page (portrait cards)' :
+                      side.id === 'inside-top' ? 'Inside top page (landscape cards)' :
+                      side.id === 'inside-bottom' ? 'Inside bottom page (landscape cards)' :
+                      side.id === 'back' ? 'Back cover' :
+                      'Card side'
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleUndo}
+            disabled={historyIndex <= 0}
+            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Undo"
+          >
+            <Undo className="w-5 h-5" />
+          </button>
+          <button
+            onClick={handleRedo}
+            disabled={historyIndex >= history.length - 1}
+            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Redo"
+          >
+            <Redo className="w-5 h-5" />
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </button>
           {onClose && (
-            <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded">
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-gray-100"
+            >
               <X className="w-5 h-5" />
             </button>
           )}
+        </div>
+      </div>
+      
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+          {/* SPRINT 2: Size Picker (only show if no variant selected yet) */}
+          {!lockedVariantUid && !gelatoVariantUid && (
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Select Product Size</h3>
+              <SizePicker
+                productSlug={productSlug}
+                selectedVariantUid={gelatoVariantUid}
+                onVariantSelect={(variant) => {
+                  // Update variant data and trigger spec regeneration
+                  setGelatoVariantData({
+                    uid: variant.uid,
+                    trimMm: variant.trimMm,
+                    productUid: variant.productUid,
+                  });
+                  // Lock to this variant
+                  setLockedVariantUid(variant.uid);
+                  setLockedProductUid(variant.productUid);
+                }}
+                disabled={!!lockedVariantUid}
+              />
+            </div>
+          )}
           
-          {/* Side Tabs */}
-          {printSpec && printSpec.sides.length > 1 && (
-            <div className="flex gap-2 ml-4 border-l border-gray-600 pl-4">
-              {printSpec.sides.map((side) => (
+          {/* Show locked product info */}
+          {lockedProductUid && (
+            <div className="p-4 border-b border-gray-200 bg-blue-50">
+              <div className="text-xs font-medium text-blue-900">Product Locked</div>
+              <div className="text-xs text-blue-700 mt-1">
+                Product: {lockedProductUid}
+              </div>
+              {lockedVariantUid && (
+                <div className="text-xs text-blue-700">
+                  Variant: {lockedVariantUid}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Tools */}
+          <div className="p-4 border-b border-gray-200 space-y-2">
+            <label className="block w-full">
+              <div className="px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold text-center cursor-pointer hover:bg-blue-700 flex items-center justify-center gap-2">
+                <Upload className="w-4 h-4" />
+                Upload Images
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+            
+            <button
+              onClick={handleAddText}
+              className="w-full px-4 py-3 bg-gray-100 text-gray-900 rounded-lg font-semibold hover:bg-gray-200 flex items-center justify-center gap-2"
+            >
+              <Type className="w-4 h-4" />
+              Add Text
+            </button>
+          </div>
+          
+          {/* Label Shapes */}
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Label Shapes</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {LABEL_SHAPES.map((shape) => (
                 <button
-                  key={side.id}
-                  onClick={() => handleSideSwitch(side.id)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    activeSideId === side.id
-                      ? 'bg-gray-700 text-white'
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  }`}
+                  key={shape.id}
+                  onClick={() => handleAddLabelShape(shape)}
+                  className="p-2 border border-gray-200 rounded hover:border-blue-400 hover:bg-blue-50 text-left"
                 >
-                  {side.id.charAt(0).toUpperCase() + side.id.slice(1)}
+                  <div className="text-xs font-medium text-gray-900">{shape.name}</div>
                 </button>
               ))}
             </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Guide Toggles */}
-          <button
-            onClick={() => setShowBleed(!showBleed)}
-            className={`p-2 rounded ${showBleed ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-            title="Toggle Bleed Guide"
-          >
-            {showBleed ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={() => setShowTrim(!showTrim)}
-            className={`p-2 rounded ${showTrim ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-            title="Toggle Trim Guide"
-          >
-            {showTrim ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={() => setShowSafe(!showSafe)}
-            className={`p-2 rounded ${showSafe ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-            title="Toggle Safe Zone Guide"
-          >
-            {showSafe ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-          </button>
-          {currentSide?.foldLines && currentSide.foldLines.length > 0 && (
-            <button
-              onClick={() => setShowFold(!showFold)}
-              className={`p-2 rounded ${showFold ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-              title="Toggle Fold Lines"
-            >
-              {showFold ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-            </button>
-          )}
-          <div className="h-6 w-px bg-gray-600 mx-2" />
-          {/* Orientation Toggle */}
-          <button
-            onClick={() => setEditorOrientation(prev => prev === 'portrait' ? 'landscape' : 'portrait')}
-            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium flex items-center gap-2"
-            title="Toggle Orientation"
-          >
-            <span className={`inline-block transition-transform ${editorOrientation === 'landscape' ? 'rotate-90' : ''}`}>
-              📄
-            </span>
-            <span>{editorOrientation === 'portrait' ? 'Portrait' : 'Landscape'}</span>
-          </button>
-          <div className="h-6 w-px bg-gray-600 mx-2" />
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includeGuidesInExport}
-              onChange={(e) => setIncludeGuidesInExport(e.target.checked)}
-              className="w-4 h-4"
-            />
-            <span>Include guides</span>
-          </label>
-          {(() => {
-            const qrCheck = checkQRRequired();
-            const isBlocked = !!printSpecError || !qrCheck.isValid;
-            const blockReason = printSpecError 
-              ? printSpecError 
-              : !qrCheck.isValid 
-                ? `ArtKey QR required on at least one of: ${qrCheck.missingSides.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')}`
-                : '';
-
-            return printSpec && printSpec.sides.length > 1 ? (
-              <>
-                <button
-                  onClick={handleExportActiveSide}
-                  disabled={isBlocked}
-                  className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
-                    isBlocked
-                      ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                      : 'bg-green-600 text-white hover:bg-green-700'
-                  }`}
-                  title={blockReason || `Export ${activeSideId} side`}
-                >
-                  <Download className="w-4 h-4" />
-                  Export {activeSideId.charAt(0).toUpperCase() + activeSideId.slice(1)}
-                </button>
-                <button
-                  onClick={handleExportAllSides}
-                  disabled={isBlocked}
-                  className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
-                    isBlocked
-                      ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                  title={blockReason || 'Export all sides'}
-                >
-                  <Download className="w-4 h-4" />
-                  Export All
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={handleExportActiveSide}
-                disabled={isBlocked}
-                className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
-                  isBlocked
-                    ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                    : 'bg-green-600 text-white hover:bg-green-700'
-                }`}
-                title={blockReason || 'Export PNG'}
-              >
-                <Download className="w-4 h-4" />
-                Export PNG
-              </button>
-            );
-          })()}
-        </div>
-      </div>
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
-          {/* Add Text Label Button */}
-          <div className="p-4 border-b border-gray-200">
-            <button
-              onClick={handleAddTextLabel}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors"
-            >
-              <Type className="w-4 h-4" />
-              Add Text Label
-            </button>
           </div>
-
-          {/* Label Inspector */}
-          {selectedObject && selectedObject.type === 'text' && (
-            <LabelInspector
-              selectedObject={selectedObject}
-              onUpdate={handleLabelUpdate}
-            />
-          )}
-
-          {/* ArtKey Panel */}
-          <ArtKeyPanel
-            config={editorConfig}
-            activeSideId={activeSideId}
-            selectedSkeletonKeyId={selectedSkeletonKeyId}
-            objects={objects}
-            showQRTarget={showQRTarget}
-            onSelectSkeletonKey={setSelectedSkeletonKeyId}
-            onAddSkeletonKey={handleAddSkeletonKey}
-            onAddQR={handleAddQR}
-            onSnapQRToTarget={handleSnapQRToTarget}
-            onToggleQRTarget={() => setShowQRTarget(!showQRTarget)}
-          />
-
-          {activeTab === 'assets' && (
-            <div className="p-4 flex-1 overflow-y-auto">
-              <h3 className="text-sm font-semibold text-gray-900 mb-4">Your Images</h3>
-              <p className="text-xs text-gray-500 mb-4">
-                {templateMode && templateState?.activeFrameId
-                  ? 'Click an image to fill the active frame'
-                  : 'Click an image to add it to the canvas'}
-              </p>
-
+          
+          {/* Assets */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Your Images</h3>
               {assets.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <p className="text-sm">Upload images above to start</p>
-                  <p className="text-xs mt-2">Go back to Step 1 and upload images first</p>
-                </div>
+                <p className="text-sm text-gray-500">No images uploaded</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {assets.map((asset) => (
-                    <button
-                      key={asset.id}
-                      onClick={() => handleThumbnailClick(asset)}
-                      className="w-full aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-all hover:shadow-md relative group"
-                    >
-                      <img src={asset.src} alt={asset.name} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded">
-                          Add to Canvas
-                        </span>
-                      </div>
-                    </button>
+                    <div key={asset.id} className="relative group">
+                      <button
+                        onClick={() => handleAddImage(asset)}
+                        className="w-full aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400"
+                      >
+                        <img src={asset.src} alt={asset.name} className="w-full h-full object-cover" />
+                      </button>
+                      <button
+                        onClick={() => useAssetStore.getState().removeAsset(asset.id)}
+                        className="absolute top-2 right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
-
-              {/* Debug Info */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-600">
-                  <div>Assets in store: {assets.length}</div>
-                  <div>Objects on canvas: {objects.length}</div>
-                  <div>Selected: {selectedId || 'none'}</div>
-                </div>
-              )}
             </div>
-          )}
+            
+            {/* Label Inspector for selected text/label */}
+            {selectedObject && (selectedObject.type === 'text' || selectedObject.type === 'label-shape') && (
+              <div className="p-4">
+                <LabelInspector
+                  selectedObject={selectedObject}
+                  onUpdate={(updates) => updateObject(selectedObject.id, updates)}
+                />
+              </div>
+            )}
+          </div>
         </div>
-
-        {/* Canvas Area */}
-        <div className="flex-1 flex items-center justify-center bg-gray-100 p-8 overflow-auto">
-          <div className="bg-white p-4 rounded-lg shadow-lg">
+        
+        {/* Canvas */}
+        <div className="flex-1 flex items-center justify-center p-8 overflow-auto bg-gray-100">
+          <div style={{ transform: `scale(${displayScale})`, transformOrigin: 'center' }}>
             <Stage
               ref={stageRef}
-              width={STAGE_WIDTH * displayScale}
-              height={STAGE_HEIGHT * displayScale}
-              scaleX={displayScale}
-              scaleY={displayScale}
+              width={STAGE_WIDTH}
+              height={STAGE_HEIGHT}
               onClick={(e) => {
-                // Deselect if clicking on empty space
                 const clickedOnEmpty = e.target === e.target.getStage();
                 if (clickedOnEmpty) {
-                  setSelectedId(null);
-                }
-              }}
-              onTap={(e) => {
-                const tappedOnEmpty = e.target === e.target.getStage();
-                if (tappedOnEmpty) {
-                  setSelectedId(null);
+                  setSelectedId(undefined);
                 }
               }}
             >
               <Layer>
-                {/* Background */}
-                <Rect
-                  x={0}
-                  y={0}
-                  width={STAGE_WIDTH}
-                  height={STAGE_HEIGHT}
-                  fill="#ffffff"
-                  stroke="#e5e7eb"
-                  strokeWidth={1}
-                />
-
-                {/* Print Area Guides */}
-                {currentSide && (
-                  <>
-                    {/* Bleed Guide */}
-                    {showBleed && (
+                {/* Print Area Guides - Always Visible - CRITICAL FOR PRINT ACCURACY */}
+                {/* SPRINT 1: Guides use mm coordinates converted to screen pixels */}
+                {currentSide && (() => {
+                  // Convert mm coordinates to screen pixels
+                  const bleedPx = mmToPx(currentSide.bleedMm, SCREEN_DPI);
+                  const trimW = mmToPx(currentSide.trimMm.w, SCREEN_DPI);
+                  const trimH = mmToPx(currentSide.trimMm.h, SCREEN_DPI);
+                  const safePx = mmToPx(currentSide.safeMm, SCREEN_DPI);
+                  
+                  // Trim box position (centered in bleed box)
+                  const trimX = bleedPx;
+                  const trimY = bleedPx;
+                  
+                  // Safe box position (trim box inset by safeMm)
+                  const safeX = trimX + safePx;
+                  const safeY = trimY + safePx;
+                  const safeW = trimW - (safePx * 2);
+                  const safeH = trimH - (safePx * 2);
+                  
+                  return (
+                    <>
+                      {/* Bleed Box - Full canvas area (includes bleed) */}
                       <Rect
-                        name="guide-overlay"
-                        x={-currentSide.bleedPx}
-                        y={-currentSide.bleedPx}
-                        width={currentSide.canvasPx.w + currentSide.bleedPx * 2}
-                        height={currentSide.canvasPx.h + currentSide.bleedPx * 2}
+                        x={0}
+                        y={0}
+                        width={STAGE_WIDTH}
+                        height={STAGE_HEIGHT}
                         fill="transparent"
-                        stroke="#ef4444"
-                        strokeWidth={1}
-                        dash={[5, 5]}
+                        stroke="#9333ea"
+                        strokeWidth={2}
+                        dash={[4, 4]}
+                        listening={false}
                       />
-                    )}
-
-                    {/* Trim Guide */}
-                    {showTrim && (
+                      
+                      {/* Trim Guide - Print Area Boundary (Orange) - Final cut size */}
                       <Rect
-                        name="guide-overlay"
-                        x={-currentSide.trimPx}
-                        y={-currentSide.trimPx}
-                        width={currentSide.canvasPx.w + currentSide.trimPx * 2}
-                        height={currentSide.canvasPx.h + currentSide.trimPx * 2}
+                        x={trimX}
+                        y={trimY}
+                        width={trimW}
+                        height={trimH}
                         fill="transparent"
                         stroke="#f59e0b"
-                        strokeWidth={1}
-                        dash={[3, 3]}
+                        strokeWidth={3}
+                        dash={[8, 4]}
+                        listening={false}
                       />
-                    )}
-
-                    {/* Safe Zone Guide */}
-                    {showSafe && (
+                      
+                      {/* Safe Zone Guide (Green) - Keep content inside this area */}
                       <Rect
-                        name="guide-overlay"
-                        x={currentSide.safePx}
-                        y={currentSide.safePx}
-                        width={currentSide.canvasPx.w - currentSide.safePx * 2}
-                        height={currentSide.canvasPx.h - currentSide.safePx * 2}
+                        x={safeX}
+                        y={safeY}
+                        width={safeW}
+                        height={safeH}
                         fill="transparent"
                         stroke="#10b981"
-                        strokeWidth={1}
-                        dash={[2, 2]}
-                      />
-                    )}
-
-                    {/* Fold Lines */}
-                    {showFold && currentSide.foldLines && currentSide.foldLines.map((fold, idx) => (
-                      <Line
-                        key={`fold-${idx}`}
-                        name="guide-overlay"
-                        points={[fold.x1, fold.y1, fold.x2, fold.y2]}
-                        stroke="#6366f1"
                         strokeWidth={2}
-                        dash={[10, 5]}
+                        dash={[5, 5]}
+                        listening={false}
                       />
-                    ))}
-                  </>
-                )}
-
-                {/* QR Target Guide */}
-                {showQRTarget && selectedSkeletonKeyId && (() => {
-                  const skeletonKey = objects.find(obj => obj.type === 'skeletonKey' && obj.keyId === selectedSkeletonKeyId);
-                  if (!skeletonKey || !skeletonKey.keyId) return null;
-                  
-                  const keyDef = getSkeletonKey(skeletonKey.keyId);
-                  if (!keyDef) return null;
-
-                  const keyLeft = skeletonKey.x;
-                  const keyTop = skeletonKey.y;
-                  const keyWidth = (skeletonKey.width || 500) * skeletonKey.scaleX;
-                  const keyHeight = (skeletonKey.height || 700) * skeletonKey.scaleY;
-                  
-                  const targetX = keyLeft + (keyWidth * keyDef.qrTargetPct.xPct);
-                  const targetY = keyTop + (keyHeight * keyDef.qrTargetPct.yPct);
-                  const targetW = keyWidth * keyDef.qrTargetPct.wPct;
-                  const targetH = keyHeight * keyDef.qrTargetPct.hPct;
-
-                  return (
-                    <Rect
-                      name="guide-overlay"
-                      x={targetX}
-                      y={targetY}
-                      width={targetW}
-                      height={targetH}
-                      fill="transparent"
-                      stroke="#0066cc"
-                      strokeWidth={2}
-                      dash={[5, 5]}
-                    />
+                      
+                      {/* Fold Lines - CRITICAL FOR PRINT ACCURACY - RED, VERY VISIBLE */}
+                      {currentSide.foldLines && currentSide.foldLines.length > 0 ? (
+                        currentSide.foldLines.map((fold, idx) => {
+                          // Convert fold line coordinates from mm to screen pixels
+                          // Fold lines are relative to trim box (0,0 = top-left of trim box)
+                          // We need to add trimX/trimY offset to position them correctly
+                          const x1 = mmToPx(fold.x1, SCREEN_DPI) + trimX;
+                          const y1 = mmToPx(fold.y1, SCREEN_DPI) + trimY;
+                          const x2 = mmToPx(fold.x2, SCREEN_DPI) + trimX;
+                          const y2 = mmToPx(fold.y2, SCREEN_DPI) + trimY;
+                          
+                          if (process.env.NODE_ENV === 'development') {
+                            console.log(`[ProjectEditor] Rendering fold line ${idx}:`, {
+                              side: currentSide.id,
+                              pointsMm: [fold.x1, fold.y1, fold.x2, fold.y2],
+                              pointsPx: [x1, y1, x2, y2],
+                              trimBox: `${trimW}x${trimH}px (${currentSide.trimMm.w}x${currentSide.trimMm.h}mm)`,
+                            });
+                          }
+                          
+                          return (
+                            <Line
+                              key={`fold-${idx}`}
+                              points={[x1, y1, x2, y2]}
+                              stroke="#ef4444"
+                              strokeWidth={8}
+                              dash={[40, 20]}
+                              opacity={1}
+                              lineCap="round"
+                              lineJoin="round"
+                              listening={false}
+                              shadowColor="rgba(0,0,0,0.3)"
+                              shadowBlur={4}
+                              shadowOffsetX={1}
+                              shadowOffsetY={1}
+                            />
+                          );
+                        })
+                      ) : (
+                        // Debug: Show message if no fold lines
+                        process.env.NODE_ENV === 'development' && (
+                          <KonvaText
+                            x={10}
+                            y={30}
+                            text={`No fold lines for ${currentSide.id} side`}
+                            fontSize={12}
+                            fill="#ff0000"
+                            listening={false}
+                          />
+                        )
+                      )}
+                    </>
                   );
                 })()}
-
+                
                 {/* Objects */}
                 {objects.map((object) => {
-                  if (object.type === 'text') {
-                    return <TextComponent key={object.id} object={object} />;
-                  }
-                  if (object.type === 'skeletonKey') {
-                    return <SkeletonKeyComponent key={object.id} object={object} />;
-                  }
-                  if (object.type === 'qr') {
-                    return <QRComponent key={object.id} object={object} />;
-                  }
                   if (object.type === 'image') {
-                    return <ImageComponent key={object.id} object={object} />;
+                    return (
+                      <ImageObject
+                        key={object.id}
+                        object={object}
+                        isSelected={selectedId === object.id}
+                        onSelect={() => setSelectedId(object.id)}
+                        onUpdate={(updates) => updateObject(object.id, updates)}
+                        onDelete={() => deleteObject(object.id)}
+                        nodeRef={(ref) => {
+                          if (ref) nodeRefs.current[object.id] = ref;
+                        }}
+                      />
+                    );
                   }
+                  
+                  if (object.type === 'text' || object.type === 'label-shape') {
+                    return (
+                      <TextObject
+                        key={object.id}
+                        object={object}
+                        isSelected={selectedId === object.id}
+                        onSelect={() => setSelectedId(object.id)}
+                        onUpdate={(updates) => updateObject(object.id, updates)}
+                        onDelete={() => deleteObject(object.id)}
+                        nodeRef={(ref) => {
+                          if (ref) nodeRefs.current[object.id] = ref;
+                        }}
+                      />
+                    );
+                  }
+                  
                   return null;
                 })}
-
-                {/* Transformer */}
+                
+                {/* Transformer - for resizing and rotating objects */}
                 <Transformer
                   ref={transformerRef}
                   boundBoxFunc={(oldBox, newBox) => {
-                    // Allow any resize
+                    // Limit resize to reasonable bounds
+                    if (Math.abs(newBox.width) < 20 || Math.abs(newBox.height) < 20) {
+                      return oldBox;
+                    }
                     return newBox;
                   }}
+                  borderEnabled={true}
+                  borderStroke="#3b82f6"
+                  borderStrokeWidth={2}
+                  anchorFill="#ffffff"
+                  anchorStroke="#3b82f6"
+                  anchorStrokeWidth={2}
+                  anchorSize={10}
+                  rotateAnchorOffset={30}
+                  keepRatio={false}
+                  enabledAnchors={['top-left', 'top-center', 'top-right', 'middle-right', 'bottom-right', 'bottom-center', 'bottom-left', 'middle-left']}
                 />
               </Layer>
             </Stage>
@@ -2172,3 +969,207 @@ export default function ProjectEditor({
     </div>
   );
 }
+
+// Image Component
+function ImageObject({
+  object,
+  isSelected,
+  onSelect,
+  onUpdate,
+  onDelete,
+  nodeRef,
+}: {
+  object: EditorObject;
+  isSelected: boolean;
+  onSelect: () => void;
+  onUpdate: (updates: Partial<EditorObject>) => void;
+  onDelete: () => void;
+  nodeRef: (ref: any) => void;
+}) {
+  const [img] = useImage(object.src || '');
+  
+  if (!img) return null;
+  
+  return (
+    <Group
+      ref={nodeRef}
+      x={object.x}
+      y={object.y}
+      scaleX={object.scaleX || 1}
+      scaleY={object.scaleY || 1}
+      rotation={object.rotation || 0}
+      draggable
+      onClick={onSelect}
+      onTap={onSelect}
+      onDragEnd={(e) => {
+        const node = e.target;
+        onUpdate({
+          x: node.x(),
+          y: node.y(),
+        });
+      }}
+      onTransformEnd={(e) => {
+        const node = e.target;
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+        
+        // Apply scale to dimensions
+        if (object.width && object.height) {
+          onUpdate({
+            x: node.x(),
+            y: node.y(),
+            width: object.width * scaleX,
+            height: object.height * scaleY,
+            rotation: node.rotation(),
+            scaleX: 1,
+            scaleY: 1,
+          });
+          
+          // Reset node scale
+          node.scaleX(1);
+          node.scaleY(1);
+        } else {
+          onUpdate({
+            x: node.x(),
+            y: node.y(),
+            scaleX,
+            scaleY,
+            rotation: node.rotation(),
+          });
+        }
+      }}
+    >
+      <KonvaImage
+        image={img}
+        x={0}
+        y={0}
+        width={object.width || 100}
+        height={object.height || 100}
+      />
+      {isSelected && (
+        <Group
+          x={(object.width || 100) - 15}
+          y={-15}
+          onClick={(e) => {
+            e.cancelBubble = true;
+            onDelete();
+          }}
+        >
+          <Rect x={0} y={0} width={30} height={30} fill="red" cornerRadius={15} />
+          <KonvaText x={8} y={5} text="X" fontSize={16} fill="white" fontStyle="bold" />
+        </Group>
+      )}
+    </Group>
+  );
+}
+
+// Text Component
+function TextObject({
+  object,
+  isSelected,
+  onSelect,
+  onUpdate,
+  onDelete,
+  nodeRef,
+}: {
+  object: EditorObject;
+  isSelected: boolean;
+  onSelect: () => void;
+  onUpdate: (updates: Partial<EditorObject>) => void;
+  onDelete: () => void;
+  nodeRef: (ref: any) => void;
+}) {
+  const isLabelShape = object.type === 'label-shape';
+  const shapeType = object.labelShapeType;
+  
+  return (
+    <Group
+      ref={nodeRef}
+      x={object.x}
+      y={object.y}
+      scaleX={object.scaleX || 1}
+      scaleY={object.scaleY || 1}
+      rotation={object.rotation || 0}
+      draggable
+      onClick={onSelect}
+      onTap={onSelect}
+      onDragEnd={(e) => {
+        const node = e.target;
+        onUpdate({
+          x: node.x(),
+          y: node.y(),
+        });
+      }}
+      onTransformEnd={(e) => {
+        const node = e.target;
+        onUpdate({
+          x: node.x(),
+          y: node.y(),
+          scaleX: node.scaleX(),
+          scaleY: node.scaleY(),
+          rotation: node.rotation(),
+        });
+      }}
+    >
+      {/* Background shape for label shapes */}
+      {isLabelShape && object.width && object.height && (
+        <>
+          {(shapeType === 'circle' || shapeType === 'oval') ? (
+            <Ellipse
+              x={object.width / 2}
+              y={object.height / 2}
+              radiusX={object.width / 2}
+              radiusY={object.height / 2}
+              fill={object.backgroundColor || '#ffffff'}
+              stroke={object.borderEnabled ? (object.borderColor || '#000000') : undefined}
+              strokeWidth={object.borderWidth || 2}
+            />
+          ) : (
+            <Rect
+              x={0}
+              y={0}
+              width={object.width}
+              height={object.height}
+              fill={object.backgroundColor || '#ffffff'}
+              cornerRadius={object.cornerRadius || 0}
+              stroke={object.borderEnabled ? (object.borderColor || '#000000') : undefined}
+              strokeWidth={object.borderWidth || 2}
+            />
+          )}
+        </>
+      )}
+      
+      {/* Text */}
+      <KonvaText
+        x={isLabelShape && object.width ? object.width / 2 : 0}
+        y={isLabelShape && object.height ? object.height / 2 : 0}
+        text={object.text || 'Text'}
+        fontSize={object.fontSize || 24}
+        fontFamily={object.fontFamily || DEFAULT_FONT}
+        fontStyle={object.fontWeight && object.fontWeight >= 600 ? 'bold' : 'normal'}
+        fill={object.fill || '#000000'}
+        align="center"
+        verticalAlign="middle"
+        width={isLabelShape && object.width ? object.width : undefined}
+        height={isLabelShape && object.height ? object.height : undefined}
+        offsetX={isLabelShape && object.width ? object.width / 2 : 0}
+        offsetY={isLabelShape && object.height ? object.height / 2 : 0}
+      />
+      
+      {isSelected && (
+        <Group
+          x={isLabelShape && object.width ? object.width - 15 : 100}
+          y={-15}
+          onClick={(e) => {
+            e.cancelBubble = true;
+            onDelete();
+          }}
+        >
+          <Rect x={0} y={0} width={30} height={30} fill="red" cornerRadius={15} />
+          <KonvaText x={8} y={5} text="X" fontSize={16} fill="white" fontStyle="bold" />
+        </Group>
+      )}
+    </Group>
+  );
+}
+
