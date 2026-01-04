@@ -10,11 +10,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================================================
+// User Authentication & Ownership
+// ============================================================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String   // Hashed password (use bcrypt)
+  name          String?  // Optional display name
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  artKeys       ArtKey[]
+  
+  @@index([email])
+}
+
 model ArtKey {
   id            String   @id @default(cuid())
-  publicToken  String   @unique // Short, URL-friendly token for public access (e.g., rkN93dX4)
-  ownerToken   String   @unique // Secret token for owner/host management
-  ownerEmail   String?  // Optional email for the owner
+  publicToken  String   @unique // 32-character unique token for public access
+  ownerToken   String   @unique // Secret token for owner/host management (backward compatibility)
+  ownerEmail   String?  // Optional email for the owner (backward compatibility)
+  
+  // Owner relationship (new - links to User account)
+  ownerId      String?  // User who owns this ArtKey
+  owner        User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   
   // Core ArtKey data (stored as JSON to match ArtKeyEditor structure)
   title         String
@@ -39,6 +62,7 @@ model ArtKey {
   
   @@index([publicToken])
   @@index([ownerToken])
+  @@index([ownerId])
 }
 
 model GuestbookEntry {
@@ -82,5 +106,183 @@ model MediaItem {
   @@index([guestbookEntryId])
   @@index([approved])
   @@index([type])
+}
+
+// ============================================================================
+// Product, Customer, and Order Management
+// ============================================================================
+
+model Product {
+  id                String   @id @default(cuid())
+  slug              String   @unique // URL-friendly identifier (e.g., "greeting-card")
+  name              String   // Display name (e.g., "Greeting Cards")
+  description       String?  // Product description
+  icon              String?  // Emoji or icon identifier
+  
+  // Gelato Integration
+  gelatoCatalog     String?  // Gelato catalog UID (e.g., "cards")
+  gelatoProductBase String?  // Base product UID pattern
+  gelatoProductUid  String?  // Specific Gelato product UID (if fixed)
+  
+  // Shipping Configuration
+  requiresCustomization Boolean @default(false) // If true, ships to us first for customization
+  dropShipEnabled      Boolean @default(true)    // If true, can drop-ship directly to customer
+  
+  // Product Configuration (stored as JSON to match ProductConfig structure)
+  optionGroups      String   // JSON: ProductOptionGroup[]
+  printSpecId       String?  // Default PrintSpec ID
+  examples          String?  // JSON: string[] - example image URLs
+  
+  // Status
+  active            Boolean  @default(true)  // Whether product is available for purchase
+  featured          Boolean  @default(false) // Featured on homepage
+  
+  // Pricing
+  basePrice         Float?   // Base price (can be overridden by Gelato API)
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  orderItems        OrderItem[]
+  
+  @@index([slug])
+  @@index([active])
+  @@index([featured])
+}
+
+model Customer {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  firstName         String
+  lastName           String
+  phone             String?
+  
+  // Billing Address
+  billingAddress1   String?
+  billingAddress2   String?
+  billingCity       String?
+  billingState      String?
+  billingPostCode   String?
+  billingCountry    String?  @default("US")
+  
+  // Shipping Address (default, can be overridden per order)
+  shippingAddress1  String?
+  shippingAddress2  String?
+  shippingCity      String?
+  shippingState     String?
+  shippingPostCode  String?
+  shippingCountry   String?  @default("US")
+  
+  // Gelato Integration
+  gelatoCustomerRef String?  // Gelato customerReferenceId (for tracking)
+  
+  // Metadata
+  notes             String?  // Admin notes about customer
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  orders            Order[]
+  
+  @@index([email])
+  @@index([gelatoCustomerRef])
+}
+
+model Order {
+  id                String   @id @default(cuid())
+  orderNumber      String   @unique // Human-readable order number (e.g., "ORD-2024-001")
+  
+  // Customer
+  customerId       String
+  customer         Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  
+  // Order Status
+  status           String   @default("pending") // pending, processing, shipped, delivered, cancelled
+  paymentStatus    String   @default("pending") // pending, paid, refunded, failed
+  
+  // Shipping Configuration
+  shippingMethod   String?  // Shipping method selected
+  requiresCustomization Boolean @default(false) // If any item requires customization
+  
+  // Shipping Address (can override customer default)
+  shippingAddress1 String?
+  shippingAddress2 String?
+  shippingCity     String?
+  shippingState    String?
+  shippingPostCode String?
+  shippingCountry  String?  @default("US")
+  shippingName     String?  // Recipient name (if different from customer)
+  
+  // Gelato Integration
+  gelatoOrderId    String?  // Gelato order ID (after submission)
+  gelatoOrderRef   String?  // Our orderReferenceId sent to Gelato
+  gelatoStatus     String?  // Gelato fulfillment status
+  gelatoTracking   String?  // Gelato tracking number
+  
+  // Pricing
+  subtotal         Float    @default(0)
+  shippingCost     Float    @default(0)
+  tax              Float    @default(0)
+  total            Float    @default(0)
+  currency         String   @default("USD")
+  
+  // Order Data
+  items            String   // JSON: OrderItem[] (stored for history)
+  metadata         String?  // JSON: Additional order metadata
+  
+  // Timestamps
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  shippedAt        DateTime?
+  deliveredAt      DateTime?
+  
+  // Relations
+  orderItems       OrderItem[]
+  
+  @@index([orderNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([gelatoOrderId])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id                String   @id @default(cuid())
+  orderId           String
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  productId         String?
+  product           Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  
+  // Product Details (snapshot at time of order)
+  productName       String   // Product name at time of order
+  productSlug       String?  // Product slug for reference
+  
+  // Gelato Integration
+  gelatoProductUid  String   // Gelato product UID used
+  gelatoItemRef     String?  // Gelato itemReferenceId
+  
+  // Configuration
+  quantity          Int      @default(1)
+  selections        String   // JSON: Record<string, string> - size, paper, foil, etc.
+  files             String?  // JSON: GelatoFile[] - design files
+  
+  // Pricing
+  unitPrice         Float
+  totalPrice        Float
+  
+  // Customization
+  requiresCustomization Boolean @default(false) // This specific item needs customization
+  customizationNotes String?  // Notes about customization needed
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  
+  @@index([orderId])
+  @@index([productId])
 }
 

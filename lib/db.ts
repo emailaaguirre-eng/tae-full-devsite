@@ -19,13 +19,13 @@ export const prisma =
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 /**
- * Generate a short, URL-friendly public token
- * Format: 8 characters, alphanumeric (lowercase + numbers)
+ * Generate a unique public token for ArtKey URLs
+ * Format: 32 characters, alphanumeric (lowercase + numbers)
  */
 export function generatePublicToken(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 32; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
@@ -70,6 +70,8 @@ export interface ArtKeyFeatures {
   allow_img_uploads: boolean;
   allow_vid_uploads: boolean;
   gb_btn_view: boolean;
+  gb_public_view: boolean; // Allow public to view guestbook entries
+  gallery_public_view: boolean; // Allow public to view gallery/media
   gb_signing_status: string;
   gb_signing_start: string;
   gb_signing_end: string;

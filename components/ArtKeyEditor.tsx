@@ -54,6 +54,8 @@ interface ArtKeyData {
     allow_img_uploads: boolean;
     allow_vid_uploads: boolean;
     gb_btn_view: boolean;
+    gb_public_view: boolean; // Allow public to view guestbook entries (default: false)
+    gallery_public_view: boolean; // Allow public to view gallery/media (default: false)
     gb_signing_status: string;
     gb_signing_start: string;
     gb_signing_end: string;
@@ -139,6 +141,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       allow_img_uploads: false,
       allow_vid_uploads: false,
       gb_btn_view: true,
+      gb_public_view: false, // Default: public CANNOT see guestbook entries
+      gallery_public_view: false, // Default: public CANNOT see gallery/media
       gb_signing_status: 'open',
       gb_signing_start: '',
       gb_signing_end: '',
@@ -537,9 +541,16 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         console.log('[ARTKEY EDITOR] Saved to localStorage:', artkeyId);
       }
 
+      // Get auth token if available
+      const token = typeof window !== 'undefined' ? localStorage.getItem('owner_token') : null;
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch('/api/artkey/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           data: dataToSave,
           product_id: productId,
@@ -1656,8 +1667,19 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                         checked={artKeyData.features.gb_btn_view}
                         onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_btn_view: e.target.checked } }))}
                       />
-                      <span>Allow guests to view the Guestbook</span>
+                      <span>Show Guestbook button to guests</span>
                     </label>
+                    <label className="flex items-center gap-2 text-sm mt-2">
+                      <input
+                        type="checkbox"
+                        checked={artKeyData.features.gb_public_view}
+                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_public_view: e.target.checked } }))}
+                      />
+                      <span>🌐 Allow public to view guestbook entries (default: hidden)</span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1 ml-6">
+                      When disabled, only you can see guestbook entries in your owner dashboard
+                    </p>
                     <div className="flex gap-2 mt-2">
                       {['open', 'closed', 'scheduled'].map((v) => (
                         <button
@@ -1718,6 +1740,17 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       />
                       <span>Allow guests to upload images</span>
                     </label>
+                    <label className="flex items-center gap-2 text-sm mt-2">
+                      <input
+                        type="checkbox"
+                        checked={artKeyData.features.gallery_public_view}
+                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gallery_public_view: e.target.checked } }))}
+                      />
+                      <span>🌐 Allow public to view gallery/media (default: hidden)</span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1 ml-6">
+                      When disabled, only you can see gallery content in your owner dashboard
+                    </p>
                     {artKeyData.features.allow_img_uploads && (
                       <div className="mt-2 p-3 rounded-lg" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
                         <div className="text-sm font-medium" style={{ color: '#b45309' }}>🛡️ Moderation enabled</div>

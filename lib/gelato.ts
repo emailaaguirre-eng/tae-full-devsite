@@ -606,3 +606,39 @@ export async function getShippingQuote(orderData: {
 }) {
   return getShippingMethods(orderData.productUid, orderData.quantity, orderData.country);
 }
+
+/**
+ * Upload image file to Gelato
+ * Note: Gelato typically requires publicly accessible URLs for files in orders.
+ * This function uploads to WordPress media library first, then returns the URL.
+ * Alternatively, if Gelato has a direct file upload API, that could be used here.
+ * 
+ * @param file - File object to upload
+ * @returns Object with url and id of uploaded file
+ */
+export async function uploadImageToGelato(file: File): Promise<{ url: string; id: string }> {
+  if (!GELATO_API_KEY) {
+    throw new Error('GELATO_API_KEY is not configured');
+  }
+
+  // Convert File to Buffer for WordPress upload
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  // Upload to WordPress media library first (since Gelato needs publicly accessible URLs)
+  // Import WordPress upload function
+  const { uploadMedia } = await import('@/lib/wp');
+  
+  try {
+    const media = await uploadMedia(buffer, file.name, file.type);
+    
+    // Return WordPress media URL (Gelato will fetch from this URL)
+    return {
+      url: media.source_url || media.guid?.rendered || media.url,
+      id: String(media.id),
+    };
+  } catch (error) {
+    console.error('[GELATO_UPLOAD_ERROR] Failed to upload to WordPress media:', error);
+    throw new Error('Failed to upload image. Please ensure WordPress credentials are configured.');
+  }
+}

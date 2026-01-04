@@ -173,7 +173,25 @@ export async function GET(
       );
     }
 
-    // Get all approved media items
+    // Parse features to check visibility setting
+    const features = JSON.parse(artKey.features);
+    const galleryPublicView = features.gallery_public_view === true;
+
+    // Only return media if public viewing is enabled
+    if (!galleryPublicView) {
+      return NextResponse.json({
+        media: {
+          all: [],
+          byType: {
+            images: [],
+            videos: [],
+            audio: [],
+          },
+        },
+      });
+    }
+
+    // Get all approved media items (only if public viewing is enabled)
     const mediaItems = await prisma.mediaItem.findMany({
       where: {
         artkeyId: artKey.id,

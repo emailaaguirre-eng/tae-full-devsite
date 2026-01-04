@@ -54,12 +54,22 @@ export async function GET(
     const uploadedImages = JSON.parse(artKey.uploadedImages);
     const uploadedVideos = JSON.parse(artKey.uploadedVideos);
 
+    // Check visibility settings - default to false if not set (backward compatibility)
+    const gbPublicView = features.gb_public_view === true;
+    const galleryPublicView = features.gallery_public_view === true;
+
     // Build nested guestbook structure (replies nested under parents)
+    // Only include entries if public viewing is enabled
     const guestbookMap = new Map();
     const guestbookEntries: any[] = [];
 
+    // Filter guestbook entries based on visibility setting
+    const visibleGuestbookEntries = gbPublicView 
+      ? artKey.guestbookEntries 
+      : []; // Empty array if public viewing is disabled
+
     // First pass: create map of all entries
-    artKey.guestbookEntries.forEach((entry) => {
+    visibleGuestbookEntries.forEach((entry) => {
       if (!entry.parentId) {
         // Top-level entry
         guestbookMap.set(entry.id, {
@@ -82,7 +92,7 @@ export async function GET(
     });
 
     // Second pass: add replies to their parents
-    artKey.guestbookEntries.forEach((entry) => {
+    visibleGuestbookEntries.forEach((entry) => {
       if (entry.parentId && guestbookMap.has(entry.parentId)) {
         guestbookMap.get(entry.parentId).children.push({
           id: entry.id,
@@ -101,11 +111,16 @@ export async function GET(
       }
     });
 
+    // Filter media based on visibility setting
+    const visibleMediaItems = galleryPublicView 
+      ? artKey.mediaItems 
+      : []; // Empty array if public viewing is disabled
+
     // Group media by type
     const mediaByType = {
-      image: artKey.mediaItems.filter((m) => m.type === 'image'),
-      video: artKey.mediaItems.filter((m) => m.type === 'video'),
-      audio: artKey.mediaItems.filter((m) => m.type === 'audio'),
+      image: visibleMediaItems.filter((m) => m.type === 'image'),
+      video: visibleMediaItems.filter((m) => m.type === 'video'),
+      audio: visibleMediaItems.filter((m) => m.type === 'audio'),
     };
 
     // Check if guestbook signing is enabled and not closed
@@ -133,7 +148,7 @@ export async function GET(
         requiresApproval: features.gb_require_approval || false,
       },
       media: {
-        all: artKey.mediaItems.map((m) => ({
+        all: visibleMediaItems.map((m) => ({
           id: m.id,
           type: m.type,
           url: m.url,

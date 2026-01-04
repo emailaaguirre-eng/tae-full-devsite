@@ -336,6 +336,31 @@ export async function getCustomPosts(postType: string, limit = 10) {
 // Products are now managed via Gelato API
 
 /**
+ * Get WooCommerce products
+ * Note: This function is a stub for backward compatibility.
+ * Products are now managed via Gelato API, not WooCommerce.
+ * 
+ * @param limit - Number of products to fetch (default: 20, 0 = all)
+ * @param category - Optional category filter (not used)
+ * @param featured - Whether to fetch featured products only (not used)
+ * @returns Empty array (products should be fetched from Gelato API instead)
+ */
+export async function getWooCommerceProducts(
+  limit: number = 20,
+  category?: string,
+  featured?: boolean
+): Promise<any[]> {
+  console.warn(
+    '[WORDPRESS] getWooCommerceProducts is deprecated. Products are now managed via Gelato API. ' +
+    'Use getGelatoProducts() or searchGelatoProducts() from @/lib/gelato instead.'
+  );
+  
+  // Return empty array for backward compatibility
+  // Products should be fetched from Gelato API instead
+  return [];
+}
+
+/**
  * Get hero section content from WordPress
  * Fetches from a WordPress page with slug "home-settings" or uses default values
  */

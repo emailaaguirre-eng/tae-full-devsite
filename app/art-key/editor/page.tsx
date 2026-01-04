@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
 // Dynamic import to avoid SSR issues
@@ -20,6 +21,18 @@ const ArtKeyEditor = dynamic(
 );
 
 function ArtKeyEditorContent() {
+  const router = useRouter();
+
+  // Check authentication
+  useEffect(() => {
+    const token = localStorage.getItem('owner_token');
+    if (!token) {
+      // Redirect to login if not authenticated
+      router.push('/owner/login?redirect=/art-key/editor');
+      return;
+    }
+  }, [router]);
+
   // Prevent search engines from indexing ArtKey editor URLs
   useEffect(() => {
     // Add noindex meta tag

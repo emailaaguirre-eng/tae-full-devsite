@@ -258,6 +258,27 @@ const ORIENTATION_OPTIONS: ProductOption[] = [
 ];
 
 // ============================================================================
+// Fold Options (for cards)
+// ============================================================================
+
+const FOLD_OPTIONS: ProductOption[] = [
+  {
+    id: 'bifold',
+    name: 'Bifold (Folded)',
+    description: 'Traditional folded greeting card',
+    gelatoValue: 'bifold',
+    priceModifier: 0,
+  },
+  {
+    id: 'flat',
+    name: 'Flat (No Fold)',
+    description: 'Single flat card, no fold',
+    gelatoValue: 'flat',
+    priceModifier: 0,
+  },
+];
+
+// ============================================================================
 // Product Catalog
 // ============================================================================
 
@@ -291,9 +312,16 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
         options: FOIL_OPTIONS,
       },
       {
+        id: 'fold',
+        name: 'Fold',
+        description: 'Choose if the card should be folded or flat',
+        required: true,
+        options: FOLD_OPTIONS,
+      },
+      {
         id: 'orientation',
         name: 'Orientation',
-        required: true,
+        required: false, // Not required - handled in editor
         options: ORIENTATION_OPTIONS,
       },
     ],
@@ -329,7 +357,7 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       {
         id: 'orientation',
         name: 'Orientation',
-        required: true,
+        required: false, // Not required - handled in editor
         options: ORIENTATION_OPTIONS,
       },
     ],
@@ -371,7 +399,7 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       {
         id: 'orientation',
         name: 'Orientation',
-        required: true,
+        required: false, // Not required - handled in editor
         options: ORIENTATION_OPTIONS,
       },
     ],
@@ -414,7 +442,7 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       {
         id: 'orientation',
         name: 'Orientation',
-        required: true,
+        required: false, // Not required - handled in editor
         options: ORIENTATION_OPTIONS,
       },
     ],
@@ -457,7 +485,7 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       {
         id: 'orientation',
         name: 'Orientation',
-        required: true,
+        required: false, // Not required - handled in editor
         options: ORIENTATION_OPTIONS,
       },
     ],

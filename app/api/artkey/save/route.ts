@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, generatePublicToken, generateOwnerToken, ArtKeyData } from '@/lib/db';
 import { getAppBaseUrl } from '@/lib/wp';
+import { verifyToken } from '@/lib/auth';
 
 /**
  * ArtKey Save API
@@ -18,6 +19,14 @@ export async function POST(request: NextRequest) {
         { error: 'ArtKey data is required' },
         { status: 400 }
       );
+    }
+
+    // Try to get authenticated user from Authorization header
+    let authenticatedUser = null;
+    const authHeader = request.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      authenticatedUser = verifyToken(token);
     }
 
     // Parse the ArtKeyData structure from the editor
@@ -82,6 +91,14 @@ export async function POST(request: NextRequest) {
 
     if (existingArtKey) {
       // Update existing ArtKey
+      // Verify ownership if user is authenticated
+      if (authenticatedUser && existingArtKey.ownerId !== authenticatedUser.id) {
+        return NextResponse.json(
+          { error: 'You do not have permission to edit this ArtKey' },
+          { status: 403 }
+        );
+      }
+
       publicToken = existingArtKey.publicToken;
       ownerToken = existingArtKey.ownerToken;
       
@@ -97,6 +114,8 @@ export async function POST(request: NextRequest) {
           customizations: JSON.stringify(artKeyData.customizations),
           uploadedImages: JSON.stringify(artKeyData.uploadedImages),
           uploadedVideos: JSON.stringify(artKeyData.uploadedVideos),
+          // Link to user if authenticated and not already linked
+          ...(authenticatedUser && !existingArtKey.ownerId ? { ownerId: authenticatedUser.id } : {}),
         },
       });
     } else {
@@ -121,6 +140,7 @@ export async function POST(request: NextRequest) {
         data: {
           publicToken: publicToken,
           ownerToken: ownerToken,
+          ownerId: authenticatedUser?.id || null, // Link to authenticated user if available
           title: artKeyData.title,
           theme: JSON.stringify(artKeyData.theme),
           features: JSON.stringify(artKeyData.features),

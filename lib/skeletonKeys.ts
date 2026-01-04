@@ -11,95 +11,72 @@ export interface SkeletonKeyDefinition {
   description?: string;
 }
 
-// Skeleton Key Definitions
+// QR Target Placeholders - Simple targets for QR code placement
 export const SKELETON_KEYS: Record<string, SkeletonKeyDefinition> = {
-  card_classic: {
-    id: 'card_classic',
-    name: 'Classic Card',
+  qr_target_bottom_right: {
+    id: 'qr_target_bottom_right',
+    name: 'QR Target - Bottom Right',
     svg: `<svg width="500" height="700" viewBox="0 0 500 700" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="500" height="700" fill="none" stroke="#333" stroke-width="2"/>
-      <rect x="20" y="20" width="460" height="660" fill="none" stroke="#ccc" stroke-width="1" stroke-dasharray="5,5"/>
-      <rect x="400" y="600" width="60" height="60" fill="none" stroke="#0066cc" stroke-width="2" stroke-dasharray="3,3"/>
-      <text x="430" y="635" text-anchor="middle" font-size="12" fill="#0066cc">QR</text>
+      <!-- Simple QR Target Area -->
+      <rect x="300" y="500" width="180" height="180" fill="none" stroke="#0066cc" stroke-width="4" stroke-dasharray="8,4" rx="5" opacity="0.8"/>
+      <text x="390" y="595" text-anchor="middle" font-size="14" font-weight="bold" fill="#0066cc" opacity="0.8">QR CODE</text>
     </svg>`,
     defaultScale: 1.0,
     defaultPositionPct: { xPct: 0.5, yPct: 0.5 },
-    qrTargetPct: { xPct: 0.8, yPct: 0.857, wPct: 0.12, hPct: 0.086 }, // Bottom right corner
-    description: 'Traditional greeting card layout with QR in bottom right',
+    qrTargetPct: { xPct: 0.6, yPct: 0.714, wPct: 0.36, hPct: 0.257 }, // Bottom right
+    description: 'QR code target in bottom right corner',
   },
-  card_centered: {
-    id: 'card_centered',
-    name: 'Centered Design',
+  qr_target_bottom_left: {
+    id: 'qr_target_bottom_left',
+    name: 'QR Target - Bottom Left',
     svg: `<svg width="500" height="700" viewBox="0 0 500 700" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="500" height="700" fill="none" stroke="#333" stroke-width="2"/>
-      <rect x="50" y="50" width="400" height="500" fill="none" stroke="#ccc" stroke-width="1" stroke-dasharray="5,5"/>
-      <rect x="20" y="600" width="60" height="60" fill="none" stroke="#0066cc" stroke-width="2" stroke-dasharray="3,3"/>
-      <text x="50" y="635" text-anchor="middle" font-size="12" fill="#0066cc">QR</text>
+      <!-- Simple QR Target Area -->
+      <rect x="20" y="500" width="180" height="180" fill="none" stroke="#0066cc" stroke-width="4" stroke-dasharray="8,4" rx="5" opacity="0.8"/>
+      <text x="110" y="595" text-anchor="middle" font-size="14" font-weight="bold" fill="#0066cc" opacity="0.8">QR CODE</text>
     </svg>`,
     defaultScale: 1.0,
     defaultPositionPct: { xPct: 0.5, yPct: 0.5 },
-    qrTargetPct: { xPct: 0.04, yPct: 0.857, wPct: 0.12, hPct: 0.086 }, // Bottom left corner
-    description: 'Centered content area with QR in bottom left',
+    qrTargetPct: { xPct: 0.04, yPct: 0.714, wPct: 0.36, hPct: 0.257 }, // Bottom left
+    description: 'QR code target in bottom left corner',
   },
-  card_minimal: {
-    id: 'card_minimal',
-    name: 'Minimal Frame',
+  qr_target_bottom_center: {
+    id: 'qr_target_bottom_center',
+    name: 'QR Target - Bottom Center',
     svg: `<svg width="500" height="700" viewBox="0 0 500 700" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="500" height="700" fill="none" stroke="#333" stroke-width="1"/>
-      <line x1="10" y1="10" x2="490" y2="10" stroke="#ccc" stroke-width="1"/>
-      <line x1="10" y1="690" x2="490" y2="690" stroke="#ccc" stroke-width="1"/>
-      <rect x="400" y="20" width="60" height="60" fill="none" stroke="#0066cc" stroke-width="2" stroke-dasharray="3,3"/>
-      <text x="430" y="50" text-anchor="middle" font-size="12" fill="#0066cc">QR</text>
+      <!-- Simple QR Target Area -->
+      <rect x="160" y="500" width="180" height="180" fill="none" stroke="#0066cc" stroke-width="4" stroke-dasharray="8,4" rx="5" opacity="0.8"/>
+      <text x="250" y="595" text-anchor="middle" font-size="14" font-weight="bold" fill="#0066cc" opacity="0.8">QR CODE</text>
     </svg>`,
     defaultScale: 1.0,
     defaultPositionPct: { xPct: 0.5, yPct: 0.5 },
-    qrTargetPct: { xPct: 0.8, yPct: 0.029, wPct: 0.12, hPct: 0.086 }, // Top right corner
-    description: 'Minimal border with QR in top right',
+    qrTargetPct: { xPct: 0.32, yPct: 0.714, wPct: 0.36, hPct: 0.257 }, // Bottom center
+    description: 'QR code target in bottom center',
   },
-  invitation_elegant: {
-    id: 'invitation_elegant',
-    name: 'Elegant Invitation',
+  qr_target_top_right: {
+    id: 'qr_target_top_right',
+    name: 'QR Target - Top Right',
     svg: `<svg width="500" height="700" viewBox="0 0 500 700" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="500" height="700" fill="none" stroke="#333" stroke-width="2"/>
-      <rect x="30" y="30" width="440" height="640" fill="none" stroke="#ccc" stroke-width="1" stroke-dasharray="5,5"/>
-      <path d="M 50 100 L 450 100" stroke="#ccc" stroke-width="1"/>
-      <path d="M 50 600 L 450 600" stroke="#ccc" stroke-width="1"/>
-      <rect x="210" y="620" width="80" height="60" fill="none" stroke="#0066cc" stroke-width="2" stroke-dasharray="3,3"/>
-      <text x="250" y="655" text-anchor="middle" font-size="12" fill="#0066cc">QR</text>
+      <!-- Simple QR Target Area -->
+      <rect x="300" y="20" width="180" height="180" fill="none" stroke="#0066cc" stroke-width="4" stroke-dasharray="8,4" rx="5" opacity="0.8"/>
+      <text x="390" y="115" text-anchor="middle" font-size="14" font-weight="bold" fill="#0066cc" opacity="0.8">QR CODE</text>
     </svg>`,
     defaultScale: 1.0,
     defaultPositionPct: { xPct: 0.5, yPct: 0.5 },
-    qrTargetPct: { xPct: 0.42, yPct: 0.886, wPct: 0.16, hPct: 0.086 }, // Bottom center
-    description: 'Elegant invitation layout with centered QR',
+    qrTargetPct: { xPct: 0.6, yPct: 0.029, wPct: 0.36, hPct: 0.257 }, // Top right
+    description: 'QR code target in top right corner',
   },
-  announcement_modern: {
-    id: 'announcement_modern',
-    name: 'Modern Announcement',
+  qr_target_center: {
+    id: 'qr_target_center',
+    name: 'QR Target - Center',
     svg: `<svg width="500" height="700" viewBox="0 0 500 700" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="500" height="700" fill="none" stroke="#333" stroke-width="2"/>
-      <rect x="40" y="40" width="420" height="620" fill="none" stroke="#ccc" stroke-width="1" stroke-dasharray="5,5"/>
-      <circle cx="250" cy="200" r="80" fill="none" stroke="#ccc" stroke-width="1"/>
-      <rect x="20" y="620" width="70" height="70" fill="none" stroke="#0066cc" stroke-width="2" stroke-dasharray="3,3"/>
-      <text x="55" y="655" text-anchor="middle" font-size="12" fill="#0066cc">QR</text>
+      <!-- Simple QR Target Area -->
+      <rect x="160" y="260" width="180" height="180" fill="none" stroke="#0066cc" stroke-width="4" stroke-dasharray="8,4" rx="5" opacity="0.8"/>
+      <text x="250" y="355" text-anchor="middle" font-size="14" font-weight="bold" fill="#0066cc" opacity="0.8">QR CODE</text>
     </svg>`,
     defaultScale: 1.0,
     defaultPositionPct: { xPct: 0.5, yPct: 0.5 },
-    qrTargetPct: { xPct: 0.04, yPct: 0.886, wPct: 0.14, hPct: 0.1 }, // Bottom left
-    description: 'Modern announcement with circular photo area',
-  },
-  postcard_simple: {
-    id: 'postcard_simple',
-    name: 'Simple Postcard',
-    svg: `<svg width="500" height="700" viewBox="0 0 500 700" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="500" height="700" fill="none" stroke="#333" stroke-width="2"/>
-      <rect x="20" y="20" width="460" height="500" fill="none" stroke="#ccc" stroke-width="1" stroke-dasharray="5,5"/>
-      <rect x="380" y="550" width="80" height="80" fill="none" stroke="#0066cc" stroke-width="2" stroke-dasharray="3,3"/>
-      <text x="420" y="595" text-anchor="middle" font-size="12" fill="#0066cc">QR</text>
-    </svg>`,
-    defaultScale: 1.0,
-    defaultPositionPct: { xPct: 0.5, yPct: 0.5 },
-    qrTargetPct: { xPct: 0.76, yPct: 0.786, wPct: 0.16, hPct: 0.114 }, // Bottom right
-    description: 'Simple postcard layout with photo area',
+    qrTargetPct: { xPct: 0.32, yPct: 0.371, wPct: 0.36, hPct: 0.257 }, // Center
+    description: 'QR code target in center',
   },
 };
 

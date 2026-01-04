@@ -20,9 +20,6 @@ const ProjectEditor = dynamic(() => import('@/components/ProjectEditor/ProjectEd
       </div>
     </div>
   ),
-  onError: (error) => {
-    console.error('Failed to load Project Editor:', error);
-  },
 });
 
 // Frame color swatches for UI display
@@ -71,11 +68,17 @@ export default function ProductPage() {
   const isPrint = productType === 'print';
   const isCardType = ['card', 'postcard', 'invitation', 'announcement'].includes(productType);
   
-  // Build Gelato product UID from selections
-  const gelatoProductUid = productConfig ? buildGelatoProductUid(productType, selections) : null;
+  // Set default orientation if not selected (since it's handled in editor)
+  const selectionsWithDefaults = {
+    ...selections,
+    orientation: selections.orientation || 'vertical', // Default to portrait
+  };
   
-  // Validate selections
-  const validation = productConfig ? validateSelections(productType, selections) : { valid: false, missing: [] };
+  // Build Gelato product UID from selections
+  const gelatoProductUid = productConfig ? buildGelatoProductUid(productType, selectionsWithDefaults) : null;
+  
+  // Validate selections (orientation is optional, handled in editor)
+  const validation = productConfig ? validateSelections(productType, selectionsWithDefaults) : { valid: false, missing: [] };
   
   // Calculate total price
   const basePrice = BASE_PRICES[productType] || 12.99;
@@ -406,8 +409,10 @@ export default function ProductPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Options Column */}
                   <div className="lg:col-span-2 space-y-8">
-                    {/* Dynamic Option Groups from productConfig */}
-                    {productConfig.optionGroups.map((group) => (
+                    {/* Dynamic Option Groups from productConfig - exclude orientation (handled in editor) */}
+                    {productConfig.optionGroups
+                      .filter(group => group.id !== 'orientation') // Remove orientation from shop page
+                      .map((group) => (
                       <div key={group.id}>
                         <h3 className="text-lg font-semibold text-brand-darkest mb-2">{group.name}</h3>
                         {group.description && (
@@ -523,18 +528,20 @@ export default function ProductPage() {
                     <div className="sticky top-24 bg-brand-darkest text-white rounded-2xl p-6">
                       <h3 className="text-xl font-bold mb-4">Order Summary</h3>
                       <div className="space-y-2 text-sm mb-4">
-                        {productConfig.optionGroups.map((group) => {
-                          const selectedOption = group.options.find(o => o.id === selections[group.id]);
-                          return selectedOption ? (
-                            <div key={group.id}>
-                              {group.name}: {selectedOption.name}
-                            </div>
-                          ) : (
-                            <div key={group.id} className="text-white/60">
-                              {group.name}: <span className="italic">Select...</span>
-                            </div>
-                          );
-                        })}
+                        {productConfig.optionGroups
+                          .filter(group => group.id !== 'orientation') // Don't show orientation in summary
+                          .map((group) => {
+                            const selectedOption = group.options.find(o => o.id === selections[group.id]);
+                            return selectedOption ? (
+                              <div key={group.id}>
+                                {group.name}: {selectedOption.name}
+                              </div>
+                            ) : (
+                              <div key={group.id} className="text-white/60">
+                                {group.name}: <span className="italic">Select...</span>
+                              </div>
+                            );
+                          })}
                         <div>Quantity: {quantity}</div>
                         {process.env.NODE_ENV === 'development' && gelatoProductUid && (
                           <div className="text-xs text-white/60 mt-2 pt-2 border-t border-white/20">
@@ -679,11 +686,12 @@ export default function ProductPage() {
               selectedVariant={{
                 uid: gelatoProductUid || '',
                 size: selections.size || null,
-                orientation: (selections.orientation as 'portrait' | 'landscape') || 'portrait',
+                orientation: (selectionsWithDefaults.orientation === 'horizontal' ? 'landscape' : 'portrait'), // Map to editor format
                 material: selections.material || null,
                 paper: selections.paper || null,
                 frame: selections.frame || null,
-                foil: null, // Foil removed for now
+                foil: selections.foil || null, // Pass foil selection from shop page
+                fold: selections.fold || null, // Pass fold selection (bifold or flat)
                 price: totalPrice,
               }}
               config={{

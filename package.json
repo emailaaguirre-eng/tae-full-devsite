@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "refresh-catalog": "tsx scripts/refresh-gelato-catalog.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
@@ -14,15 +15,21 @@
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/fabric": "^5.3.10",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^7.0.4",
+    "@types/pdfkit": "^0.17.4",
     "@types/qrcode": "^1.5.6",
     "ag-psd": "^29.0.0",
+    "bcryptjs": "^3.0.3",
     "fabric": "^6.9.0",
+    "jsonwebtoken": "^9.0.3",
     "konva": "^10.0.12",
     "lucide-react": "^0.556.0",
     "next": "14.2.35",
     "nodemailer": "^7.0.12",
+    "pdfkit": "^0.17.2",
     "prisma": "^5.20.0",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
@@ -40,6 +47,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
+    "tsx": "^4.21.0",
     "typescript": "^5.6.3"
   }
 }

@@ -42,7 +42,7 @@ export default function LabelInspector({ selectedObject, onUpdate }: LabelInspec
 
   // Update local state when selected object changes
   useEffect(() => {
-    if (selectedObject && selectedObject.type === 'text') {
+    if (selectedObject && (selectedObject.type === 'text' || selectedObject.type === 'label-shape')) {
       setText(selectedObject.text || '');
       setFontFamily(selectedObject.fontFamily || DEFAULT_FONT);
       setFontSize(selectedObject.fontSize || 24);
@@ -61,6 +61,9 @@ export default function LabelInspector({ selectedObject, onUpdate }: LabelInspec
       setFoilTarget(selectedObject.foilTarget || 'text');
     }
   }, [selectedObject]);
+  
+  // Add text input field for label shapes
+  const isLabelShape = selectedObject?.type === 'label-shape';
 
   // Check for script font warning
   useEffect(() => {
@@ -104,7 +107,7 @@ export default function LabelInspector({ selectedObject, onUpdate }: LabelInspec
     onUpdate({ fill: newFill });
   };
 
-  if (!selectedObject || selectedObject.type !== 'text') {
+  if (!selectedObject || (selectedObject.type !== 'text' && selectedObject.type !== 'label-shape')) {
     return null;
   }
 

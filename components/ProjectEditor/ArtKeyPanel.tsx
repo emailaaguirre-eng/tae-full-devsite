@@ -1,7 +1,6 @@
 "use client";
 
 import { QrCode, CheckCircle2, AlertTriangle, Move, Lock } from 'lucide-react';
-import { getAllSkeletonKeys, getSkeletonKey, type SkeletonKeyDefinition } from '@/lib/skeletonKeys';
 
 // Define types inline to avoid circular dependency
 interface EditorObject {
@@ -49,6 +48,7 @@ interface ArtKeyPanelProps {
   onAddQR: () => void;
   onSnapQRToTarget: () => void;
   onToggleQRTarget: () => void;
+  onRemoveQRTarget?: () => void;
 }
 
 export default function ArtKeyPanel({
@@ -62,9 +62,8 @@ export default function ArtKeyPanel({
   onAddQR,
   onSnapQRToTarget,
   onToggleQRTarget,
+  onRemoveQRTarget,
 }: ArtKeyPanelProps) {
-  const skeletonKeys = getAllSkeletonKeys();
-  
   // Check if QR exists on current side
   const qrOnCurrentSide = objects.find(
     obj => obj.type === 'qr' && obj.sideId === activeSideId
@@ -75,16 +74,13 @@ export default function ArtKeyPanel({
     return objects.some(obj => obj.type === 'qr' && obj.sideId === sideId);
   });
   
-  // Check if skeleton key exists on current side
+  // Check if QR target exists on current side
   const skeletonKeyOnCurrentSide = objects.find(
     obj => obj.type === 'skeletonKey'
   );
   
   // Check if QR is required (must exist on at least one allowed side)
   const isQRRequired = config.qrRequired;
-  
-  // Get selected skeleton key definition
-  const selectedKey = selectedSkeletonKeyId ? getSkeletonKey(selectedSkeletonKeyId) : null;
 
   return (
     <div className="bg-white border-t border-gray-200 p-4 space-y-4">
@@ -93,65 +89,40 @@ export default function ArtKeyPanel({
         ArtKey
       </h3>
 
-      {/* Skeleton Key Selector */}
+      {/* Add QR Target Button */}
       <div>
-        <label className="block text-xs font-medium text-gray-700 mb-2">Skeleton Key Design</label>
-        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-          {skeletonKeys.map((key) => (
-            <button
-              key={key.id}
-              onClick={() => {
-                onSelectSkeletonKey(key.id);
-                if (!skeletonKeyOnCurrentSide) {
-                  onAddSkeletonKey(key.id);
-                }
-              }}
-              className={`p-2 border-2 rounded-md transition-colors ${
-                selectedSkeletonKeyId === key.id
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-              title={key.description || key.name}
-            >
-              <div className="aspect-square bg-gray-50 rounded flex items-center justify-center mb-1">
-                <div
-                  className="w-full h-full"
-                  dangerouslySetInnerHTML={{ __html: key.svg }}
-                  style={{ transform: 'scale(0.3)', transformOrigin: 'top left' }}
-                />
-              </div>
-              <p className="text-xs text-gray-700 truncate">{key.name}</p>
-            </button>
-          ))}
-        </div>
-        {selectedSkeletonKeyId && (
+        {!skeletonKeyOnCurrentSide ? (
           <button
             onClick={() => {
-              onSelectSkeletonKey(null);
-              // Remove skeleton key from canvas
-              // This will be handled by parent component
+              // Add a default QR target (centered, bottom)
+              const defaultKeyId = 'qr_target_bottom_center';
+              onSelectSkeletonKey(defaultKeyId);
+              onAddSkeletonKey(defaultKeyId);
             }}
-            className="mt-2 text-xs text-red-600 hover:text-red-700"
+            className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 flex items-center justify-center gap-2 transition-colors"
           >
-            Remove Key
+            <QrCode className="w-4 h-4" />
+            Add QR Target
           </button>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-gray-600">
+              QR target is on canvas. Click and drag to reposition it.
+            </p>
+            <button
+              onClick={() => {
+                onSelectSkeletonKey(null);
+                if (onRemoveQRTarget) {
+                  onRemoveQRTarget();
+                }
+              }}
+              className="w-full px-4 py-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition-colors"
+            >
+              Remove QR Target
+            </button>
+          </div>
         )}
       </div>
-
-      {/* QR Target Toggle */}
-      {selectedKey && (
-        <div>
-          <label className="flex items-center gap-2 text-xs cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showQRTarget}
-              onChange={onToggleQRTarget}
-              className="w-4 h-4"
-            />
-            <span>Show QR target guide</span>
-          </label>
-        </div>
-      )}
 
       {/* QR Actions */}
       <div className="space-y-2">
@@ -180,13 +151,13 @@ export default function ArtKeyPanel({
               <QrCode className="w-4 h-4" />
               Regenerate QR
             </button>
-            {selectedKey && (
+            {skeletonKeyOnCurrentSide && (
               <button
                 onClick={onSnapQRToTarget}
                 className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 flex items-center justify-center gap-2 transition-colors"
               >
                 <Move className="w-4 h-4" />
-                Snap QR to Key Target
+                Snap QR to Target
               </button>
             )}
           </>

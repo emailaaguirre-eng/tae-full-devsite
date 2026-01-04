@@ -3,7 +3,7 @@
 
 export interface EditorObject {
   id: string;
-  type: 'image' | 'text' | 'skeletonKey' | 'qr' | 'border';
+  type: 'image' | 'text' | 'skeletonKey' | 'qr' | 'border' | 'label-shape';
   src?: string; // For images, skeleton keys (SVG data URL)
   text?: string; // For text labels
   x: number;
@@ -25,6 +25,10 @@ export interface EditorObject {
   borderColor?: string;
   borderPadding?: number; // Padding between text and border
   backgroundColor?: string; // Optional background fill
+  // Label shape properties
+  labelShapeId?: string; // ID of the label shape template (from labelShapes.ts)
+  labelShapeType?: 'rounded-rectangle' | 'circle' | 'oval' | 'rectangle' | 'speech-bubble' | 'ribbon';
+  cornerRadius?: number; // For rounded rectangles
   // Foil properties (for print production)
   foilEnabled?: boolean;
   foilColor?: 'gold' | 'silver' | 'rose-gold' | 'copper';
@@ -39,6 +43,19 @@ export interface EditorObject {
   size?: number; // QR code size (square)
   // Decorative border properties
   borderDesignId?: string; // For pre-designed border frames
+  // Image crop properties (SPRINT 3)
+  cropMode?: 'fit' | 'fill'; // Crop mode for images
+  cropFrameX?: number; // Crop frame position
+  cropFrameY?: number;
+  cropFrameWidth?: number; // Crop frame dimensions
+  cropFrameHeight?: number;
+  cropImageX?: number; // Image position within crop frame
+  cropImageY?: number;
+  cropImageWidth?: number; // Image dimensions within crop frame
+  cropImageHeight?: number;
+  // Ornament properties (SPRINT 3)
+  ornamentId?: string; // ID of ornament from ornaments.ts
+  ornamentCategory?: 'corner' | 'divider' | 'frame';
 }
 
 export interface ProjectEditorConfig {
