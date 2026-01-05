@@ -202,6 +202,11 @@ export default function ProjectEditor({
   const objects = currentState.objects;
   const selectedObject = selectedId ? objects.find(o => o.id === selectedId) : null;
   
+  // Debug: Log objects when they change
+  useEffect(() => {
+    console.log('[ProjectEditor] Objects on canvas:', objects.length, objects.map(o => ({ id: o.id, type: o.type, x: o.x, y: o.y })));
+  }, [objects]);
+  
   // Debug: Log fold lines for current side
   useEffect(() => {
     if (currentSide && process.env.NODE_ENV === 'development') {
@@ -335,14 +340,27 @@ export default function ProjectEditor({
   
   // Add text label
   const handleAddText = useCallback(() => {
-    if (!currentSide) return;
+    if (!currentSide) {
+      console.warn('[ProjectEditor] Cannot add text: currentSide is null');
+      return;
+    }
+    
+    // Use mm-based dimensions converted to screen pixels
+    const SCREEN_DPI = 96;
+    const bleedPx = mmToPx(currentSide.bleedMm, SCREEN_DPI);
+    const trimW = mmToPx(currentSide.trimMm.w, SCREEN_DPI);
+    const trimH = mmToPx(currentSide.trimMm.h, SCREEN_DPI);
+    
+    // Center position (accounting for bleed offset)
+    const centerX = bleedPx + (trimW / 2);
+    const centerY = bleedPx + (trimH / 2);
     
     const newObject: EditorObject = {
       id: `text-${Date.now()}`,
       type: 'text',
       text: 'Your text here',
-      x: currentSide.canvasPx.w / 2,
-      y: currentSide.canvasPx.h / 2,
+      x: centerX,
+      y: centerY,
       scaleX: 1,
       scaleY: 1,
       rotation: 0,
@@ -352,13 +370,18 @@ export default function ProjectEditor({
       fill: '#000000',
     };
     
+    console.log('[ProjectEditor] Adding text:', newObject.id, 'at position:', newObject.x, newObject.y);
+    
     setSideStates((prev) => {
       const newStates = { ...prev };
-      const sideState = { ...newStates[activeSideId] };
-      sideState.objects = [...sideState.objects, newObject];
+      // Ensure sideState exists with default values
+      const existingState = newStates[activeSideId] || { objects: [], selectedId: undefined };
+      const sideState = { ...existingState };
+      sideState.objects = [...(sideState.objects || []), newObject];
       sideState.selectedId = newObject.id;
       newStates[activeSideId] = sideState;
       saveToHistory(newStates);
+      console.log('[ProjectEditor] Text added. Total objects:', sideState.objects.length);
       return newStates;
     });
     setSelectedId(newObject.id);
@@ -366,14 +389,27 @@ export default function ProjectEditor({
   
   // Add label shape
   const handleAddLabelShape = useCallback((shape: LabelShape) => {
-    if (!currentSide) return;
+    if (!currentSide) {
+      console.warn('[ProjectEditor] Cannot add label shape: currentSide is null');
+      return;
+    }
+    
+    // Use mm-based dimensions converted to screen pixels
+    const SCREEN_DPI = 96;
+    const bleedPx = mmToPx(currentSide.bleedMm, SCREEN_DPI);
+    const trimW = mmToPx(currentSide.trimMm.w, SCREEN_DPI);
+    const trimH = mmToPx(currentSide.trimMm.h, SCREEN_DPI);
+    
+    // Center position (accounting for bleed offset)
+    const centerX = bleedPx + (trimW / 2);
+    const centerY = bleedPx + (trimH / 2);
     
     const newObject: EditorObject = {
       id: `label-${Date.now()}`,
       type: 'label-shape',
       text: 'Your text here',
-      x: currentSide.canvasPx.w / 2 - shape.width / 2,
-      y: currentSide.canvasPx.h / 2 - shape.height / 2,
+      x: centerX - shape.width / 2,
+      y: centerY - shape.height / 2,
       scaleX: 1,
       scaleY: 1,
       rotation: 0,
@@ -392,13 +428,18 @@ export default function ProjectEditor({
       borderColor: '#000000',
     };
     
+    console.log('[ProjectEditor] Adding label shape:', newObject.id, 'at position:', newObject.x, newObject.y);
+    
     setSideStates((prev) => {
       const newStates = { ...prev };
-      const sideState = { ...newStates[activeSideId] };
-      sideState.objects = [...sideState.objects, newObject];
+      // Ensure sideState exists with default values
+      const existingState = newStates[activeSideId] || { objects: [], selectedId: undefined };
+      const sideState = { ...existingState };
+      sideState.objects = [...(sideState.objects || []), newObject];
       sideState.selectedId = newObject.id;
       newStates[activeSideId] = sideState;
       saveToHistory(newStates);
+      console.log('[ProjectEditor] Label added. Total objects:', sideState.objects.length);
       return newStates;
     });
     setSelectedId(newObject.id);
