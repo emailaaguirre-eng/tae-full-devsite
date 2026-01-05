@@ -1266,7 +1266,21 @@ function TextObject({
       {/* Background shape for label shapes */}
       {isLabelShape && object.width && object.height && (
         <>
-          {(shapeType === 'circle' || shapeType === 'oval') ? (
+          {/* Circle */}
+          {shapeType === 'circle' && (
+            <Ellipse
+              x={object.width / 2}
+              y={object.height / 2}
+              radiusX={Math.min(object.width, object.height) / 2}
+              radiusY={Math.min(object.width, object.height) / 2}
+              fill={object.backgroundColor || '#ffffff'}
+              stroke={object.borderEnabled ? (object.borderColor || '#000000') : undefined}
+              strokeWidth={object.borderWidth || 2}
+            />
+          )}
+          
+          {/* Oval */}
+          {shapeType === 'oval' && (
             <Ellipse
               x={object.width / 2}
               y={object.height / 2}
@@ -1276,7 +1290,110 @@ function TextObject({
               stroke={object.borderEnabled ? (object.borderColor || '#000000') : undefined}
               strokeWidth={object.borderWidth || 2}
             />
-          ) : (
+          )}
+          
+          {/* Rounded Rectangle */}
+          {shapeType === 'rounded-rectangle' && (
+            <Rect
+              x={0}
+              y={0}
+              width={object.width}
+              height={object.height}
+              fill={object.backgroundColor || '#ffffff'}
+              cornerRadius={object.cornerRadius || 20}
+              stroke={object.borderEnabled ? (object.borderColor || '#000000') : undefined}
+              strokeWidth={object.borderWidth || 2}
+            />
+          )}
+          
+          {/* Rectangle */}
+          {shapeType === 'rectangle' && (
+            <Rect
+              x={0}
+              y={0}
+              width={object.width}
+              height={object.height}
+              fill={object.backgroundColor || '#ffffff'}
+              cornerRadius={0}
+              stroke={object.borderEnabled ? (object.borderColor || '#000000') : undefined}
+              strokeWidth={object.borderWidth || 2}
+            />
+          )}
+          
+          {/* Speech Bubble */}
+          {shapeType === 'speech-bubble' && (
+            <>
+              <Rect
+                x={0}
+                y={0}
+                width={object.width}
+                height={object.height - 15}
+                fill={object.backgroundColor || '#ffffff'}
+                cornerRadius={object.cornerRadius || 15}
+                stroke={object.borderEnabled ? (object.borderColor || '#000000') : undefined}
+                strokeWidth={object.borderWidth || 2}
+              />
+              {/* Pointer/tail */}
+              <Line
+                points={[
+                  object.width * 0.2, object.height - 15,
+                  object.width * 0.15, object.height,
+                  object.width * 0.35, object.height - 15,
+                ]}
+                fill={object.backgroundColor || '#ffffff'}
+                stroke={object.borderEnabled ? (object.borderColor || '#000000') : undefined}
+                strokeWidth={object.borderWidth || 2}
+                closed={true}
+              />
+            </>
+          )}
+          
+          {/* Ribbon */}
+          {shapeType === 'ribbon' && (
+            <>
+              {/* Main ribbon body */}
+              <Rect
+                x={15}
+                y={0}
+                width={object.width - 30}
+                height={object.height}
+                fill={object.backgroundColor || '#ffffff'}
+                stroke={object.borderEnabled ? (object.borderColor || '#000000') : undefined}
+                strokeWidth={object.borderWidth || 2}
+              />
+              {/* Left ribbon end */}
+              <Line
+                points={[
+                  0, 0,
+                  15, object.height / 2,
+                  0, object.height,
+                  15, object.height,
+                  15, 0,
+                ]}
+                fill={object.backgroundColor || '#ffffff'}
+                stroke={object.borderEnabled ? (object.borderColor || '#000000') : undefined}
+                strokeWidth={object.borderWidth || 2}
+                closed={true}
+              />
+              {/* Right ribbon end */}
+              <Line
+                points={[
+                  object.width, 0,
+                  object.width - 15, object.height / 2,
+                  object.width, object.height,
+                  object.width - 15, object.height,
+                  object.width - 15, 0,
+                ]}
+                fill={object.backgroundColor || '#ffffff'}
+                stroke={object.borderEnabled ? (object.borderColor || '#000000') : undefined}
+                strokeWidth={object.borderWidth || 2}
+                closed={true}
+              />
+            </>
+          )}
+          
+          {/* Fallback for unknown shapes */}
+          {!['circle', 'oval', 'rounded-rectangle', 'rectangle', 'speech-bubble', 'ribbon'].includes(shapeType || '') && (
             <Rect
               x={0}
               y={0}
