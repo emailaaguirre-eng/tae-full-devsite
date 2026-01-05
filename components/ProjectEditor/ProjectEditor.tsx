@@ -775,14 +775,70 @@ export default function ProjectEditor({
           {/* Label Shapes */}
           <div className="p-4 border-b border-gray-200">
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Label Shapes</h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {LABEL_SHAPES.map((shape) => (
                 <button
                   key={shape.id}
                   onClick={() => handleAddLabelShape(shape)}
-                  className="p-2 border border-gray-200 rounded hover:border-blue-400 hover:bg-blue-50 text-left"
+                  className="p-2 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 flex flex-col items-center gap-1"
+                  title={shape.description}
                 >
-                  <div className="text-xs font-medium text-gray-900">{shape.name}</div>
+                  {/* Shape Preview */}
+                  <div className="w-10 h-8 flex items-center justify-center">
+                    {shape.type === 'circle' && (
+                      <div 
+                        className="w-8 h-8 rounded-full border-2" 
+                        style={{ borderColor: shape.previewColor, backgroundColor: `${shape.previewColor}20` }}
+                      />
+                    )}
+                    {shape.type === 'oval' && (
+                      <div 
+                        className="w-10 h-6 rounded-full border-2" 
+                        style={{ borderColor: shape.previewColor, backgroundColor: `${shape.previewColor}20` }}
+                      />
+                    )}
+                    {shape.type === 'rounded-rectangle' && (
+                      <div 
+                        className="w-10 h-6 rounded-lg border-2" 
+                        style={{ borderColor: shape.previewColor, backgroundColor: `${shape.previewColor}20` }}
+                      />
+                    )}
+                    {shape.type === 'rectangle' && (
+                      <div 
+                        className="w-10 h-6 border-2" 
+                        style={{ borderColor: shape.previewColor, backgroundColor: `${shape.previewColor}20` }}
+                      />
+                    )}
+                    {shape.type === 'speech-bubble' && (
+                      <div className="relative">
+                        <div 
+                          className="w-10 h-5 rounded-lg border-2" 
+                          style={{ borderColor: shape.previewColor, backgroundColor: `${shape.previewColor}20` }}
+                        />
+                        <div 
+                          className="absolute -bottom-1 left-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent"
+                          style={{ borderTopColor: shape.previewColor }}
+                        />
+                      </div>
+                    )}
+                    {shape.type === 'ribbon' && (
+                      <div className="relative w-10 h-5 flex items-center">
+                        <div 
+                          className="absolute left-0 w-0 h-0 border-t-[10px] border-b-[10px] border-r-[6px] border-t-transparent border-b-transparent"
+                          style={{ borderRightColor: shape.previewColor }}
+                        />
+                        <div 
+                          className="flex-1 h-5 mx-1" 
+                          style={{ backgroundColor: shape.previewColor }}
+                        />
+                        <div 
+                          className="absolute right-0 w-0 h-0 border-t-[10px] border-b-[10px] border-l-[6px] border-t-transparent border-b-transparent"
+                          style={{ borderLeftColor: shape.previewColor }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-[10px] font-medium text-gray-700 text-center leading-tight">{shape.name}</div>
                 </button>
               ))}
             </div>
