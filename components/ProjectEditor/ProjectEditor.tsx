@@ -267,31 +267,51 @@ export default function ProjectEditor({
     setSelectedId(undefined);
   }, [activeSideId, saveToHistory]);
   
-  // Add image
+  // Add image - fit to safe area and center
   const handleAddImage = useCallback((asset: UploadedAsset) => {
     if (!currentSide) return;
     
     const img = new window.Image();
     img.onload = () => {
-      const imgWidth = asset.width || img.naturalWidth;
-      const imgHeight = asset.height || img.naturalHeight;
+      const SCREEN_DPI = 96;
+      const imgNaturalW = asset.width || img.naturalWidth;
+      const imgNaturalH = asset.height || img.naturalHeight;
       
-      // Scale to fit in safe zone
-      const safeW = currentSide.canvasPx.w - currentSide.safePx * 2;
-      const safeH = currentSide.canvasPx.h - currentSide.safePx * 2;
-      const scale = Math.min(safeW / imgWidth * 0.8, safeH / imgHeight * 0.8);
+      // Convert mm dimensions to screen pixels for positioning
+      const bleedPx = mmToPx(currentSide.bleedMm, SCREEN_DPI);
+      const trimW = mmToPx(currentSide.trimMm.w, SCREEN_DPI);
+      const trimH = mmToPx(currentSide.trimMm.h, SCREEN_DPI);
+      const safePx = mmToPx(currentSide.safeMm, SCREEN_DPI);
+      
+      // Safe area = trim minus safe margins on each side
+      const safeW = trimW - (safePx * 2);
+      const safeH = trimH - (safePx * 2);
+      
+      // Scale to fit in safe area, cap at 1 (don't upscale small images)
+      const scale = Math.min(safeW / imgNaturalW, safeH / imgNaturalH, 1);
+      
+      // Final image dimensions
+      const finalW = imgNaturalW * scale;
+      const finalH = imgNaturalH * scale;
+      
+      // Position: center within trim box (accounting for bleed offset)
+      // trimBox starts at (bleedPx, bleedPx), safeBox starts at (bleedPx + safePx, bleedPx + safePx)
+      const centerX = bleedPx + (trimW / 2);
+      const centerY = bleedPx + (trimH / 2);
+      const x = centerX - (finalW / 2);
+      const y = centerY - (finalH / 2);
       
       const newObject: EditorObject = {
         id: `img-${Date.now()}`,
         type: 'image',
         src: asset.src,
-        x: currentSide.safePx + (safeW - imgWidth * scale) / 2,
-        y: currentSide.safePx + (safeH - imgHeight * scale) / 2,
+        x,
+        y,
         scaleX: 1,
         scaleY: 1,
         rotation: 0,
-        width: imgWidth * scale,
-        height: imgHeight * scale,
+        width: finalW,
+        height: finalH,
       };
       
       setSideStates((prev) => {
