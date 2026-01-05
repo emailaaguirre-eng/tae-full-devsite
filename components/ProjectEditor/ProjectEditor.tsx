@@ -148,23 +148,41 @@ export default function ProjectEditor({
     return getSamplePostcardSpec();
   }, [productSlug, selectedVariant?.size, cardFormat, isCardProduct, gelatoVariantData, gelatoVariantUid, editorOrientation, lockedVariantUid, lockedProductUid]);
   
-  // Initialize side states
-  const initializedRef = useRef(false);
+  // Track printSpec ID to detect changes
+  const lastPrintSpecIdRef = useRef<string | null>(null);
+  
+  // Initialize/reinitialize side states when printSpec changes
   useEffect(() => {
-    if (printSpec && !initializedRef.current) {
+    if (!printSpec) return;
+    
+    const currentSpecId = printSpec.id;
+    
+    // If this is the first time or spec ID changed, reinitialize
+    if (lastPrintSpecIdRef.current !== currentSpecId) {
+      console.log('[ProjectEditor] PrintSpec changed from', lastPrintSpecIdRef.current, 'to', currentSpecId);
+      
       const initialStates: Record<string, SideState> = {};
       printSpec.sides.forEach((side) => {
-        initialStates[side.id] = {
+        // Try to preserve existing objects if side ID exists
+        const existingState = sideStates[side.id];
+        initialStates[side.id] = existingState || {
           objects: [],
           selectedId: undefined,
         };
       });
+      
       setSideStates(initialStates);
-      setActiveSideId(printSpec.sides[0].id);
-      initializedRef.current = true;
-      // Don't save initial empty state to history - only save user actions
+      
+      // Only change active side if it doesn't exist in new spec
+      if (!printSpec.sides.find(s => s.id === activeSideId)) {
+        setActiveSideId(printSpec.sides[0].id);
+      }
+      
+      setSelectedId(undefined);
+      lastPrintSpecIdRef.current = currentSpecId;
+      // Don't save to history when spec changes - only user actions
     }
-  }, [printSpec]);
+  }, [printSpec, activeSideId, sideStates]);
   
   // Save state to history
   const saveToHistory = useCallback((states: Record<string, SideState>) => {

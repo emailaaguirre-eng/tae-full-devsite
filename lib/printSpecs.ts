@@ -333,7 +333,6 @@ export function generatePrintSpecForSize(
             ]),
             createSide('inside-right', 'Inside Right', [
               { x1: 0, y1: 0, x2: 0, y2: trimBox.h }, // Left edge (center fold) - mm coordinates
-              { x1: trimBox.w, y1: 0, x2: trimBox.w, y2: trimBox.h }, // Right edge (front fold) - mm coordinates
             ]),
             createSide('back', 'Back Cover', [
               { x1: trimBox.w, y1: 0, x2: trimBox.w, y2: trimBox.h }, // Right edge (connects to inside-left) - mm coordinates
@@ -642,7 +641,6 @@ export function generatePrintSpecFromGelatoVariant(
           ]),
           createSide('inside-right', 'Inside Right', [
             { x1: 0, y1: 0, x2: 0, y2: finalTrim.h },
-            { x1: finalTrim.w, y1: 0, x2: finalTrim.w, y2: finalTrim.h },
           ]),
           createSide('back', 'Back Cover', [
             { x1: finalTrim.w, y1: 0, x2: finalTrim.w, y2: finalTrim.h },
