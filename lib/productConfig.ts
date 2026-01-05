@@ -293,7 +293,7 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       {
         id: 'orientation',
         name: 'Orientation',
-        required: true,
+        required: false, // Controlled in the Project Editor, not in product options
         options: ORIENTATION_OPTIONS,
       },
     ],
@@ -329,7 +329,7 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       {
         id: 'orientation',
         name: 'Orientation',
-        required: true,
+        required: false, // Controlled in the Project Editor, not in product options
         options: ORIENTATION_OPTIONS,
       },
     ],
@@ -371,7 +371,7 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       {
         id: 'orientation',
         name: 'Orientation',
-        required: true,
+        required: false, // Controlled in the Project Editor, not in product options
         options: ORIENTATION_OPTIONS,
       },
     ],
@@ -414,7 +414,7 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       {
         id: 'orientation',
         name: 'Orientation',
-        required: true,
+        required: false, // Controlled in the Project Editor, not in product options
         options: ORIENTATION_OPTIONS,
       },
     ],
@@ -457,7 +457,7 @@ export const PRODUCT_CATALOG: Record<string, ProductConfig> = {
       {
         id: 'orientation',
         name: 'Orientation',
-        required: true,
+        required: false, // Controlled in the Project Editor, not in product options
         options: ORIENTATION_OPTIONS,
       },
     ],
