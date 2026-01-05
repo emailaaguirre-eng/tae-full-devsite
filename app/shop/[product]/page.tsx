@@ -20,9 +20,6 @@ const ProjectEditor = dynamic(() => import('@/components/ProjectEditor/ProjectEd
       </div>
     </div>
   ),
-  onError: (error) => {
-    console.error('Failed to load Project Editor:', error);
-  },
 });
 
 // Frame color swatches for UI display
@@ -407,7 +404,10 @@ export default function ProductPage() {
                   {/* Options Column */}
                   <div className="lg:col-span-2 space-y-8">
                     {/* Dynamic Option Groups from productConfig */}
-                    {productConfig.optionGroups.map((group) => (
+                    {/* Filter out orientation and fold - these are controlled in the editor */}
+                    {productConfig.optionGroups
+                      .filter((group) => group.id !== 'orientation' && group.id !== 'fold')
+                      .map((group) => (
                       <div key={group.id}>
                         <h3 className="text-lg font-semibold text-brand-darkest mb-2">{group.name}</h3>
                         {group.description && (
@@ -523,7 +523,10 @@ export default function ProductPage() {
                     <div className="sticky top-24 bg-brand-darkest text-white rounded-2xl p-6">
                       <h3 className="text-xl font-bold mb-4">Order Summary</h3>
                       <div className="space-y-2 text-sm mb-4">
-                        {productConfig.optionGroups.map((group) => {
+                        {/* Filter out orientation and fold from summary - they're in the editor */}
+                        {productConfig.optionGroups
+                          .filter((group) => group.id !== 'orientation' && group.id !== 'fold')
+                          .map((group) => {
                           const selectedOption = group.options.find(o => o.id === selections[group.id]);
                           return selectedOption ? (
                             <div key={group.id}>

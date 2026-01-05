@@ -71,6 +71,10 @@ export default function ProjectEditor({
     selectedVariant?.orientation || 'portrait'
   );
   
+  // Card format: flat or bifold (only for card products)
+  const [cardFormat, setCardFormat] = useState<'flat' | 'bifold'>('flat');
+  const isCardProduct = productSlug === 'card';
+  
   // SPRINT 2: State for Gelato variant data
   const [gelatoVariantData, setGelatoVariantData] = useState<{
     uid: string;
@@ -105,7 +109,8 @@ export default function ProjectEditor({
   const printSpec = useMemo<PrintSpec | null>(() => {
     const productType = productSlug as 'card' | 'postcard' | 'invitation' | 'announcement' | 'print';
     const orientation = editorOrientation;
-    const foldOption = (selectedVariant?.fold === 'bifold' ? 'bifold' : 'flat') as 'bifold' | 'flat';
+    // Use cardFormat state (controlled in editor) instead of selectedVariant?.fold
+    const foldOption = isCardProduct ? cardFormat : 'flat';
     
     // SPRINT 2: Use Gelato variant dimensions if available
     if (gelatoVariantData && gelatoVariantUid) {
@@ -135,7 +140,7 @@ export default function ProjectEditor({
     
     // Final fallback: Sample spec
     return getSamplePostcardSpec();
-  }, [productSlug, selectedVariant?.size, selectedVariant?.fold, gelatoVariantData, gelatoVariantUid, editorOrientation, lockedVariantUid, lockedProductUid]);
+  }, [productSlug, selectedVariant?.size, cardFormat, isCardProduct, gelatoVariantData, gelatoVariantUid, editorOrientation, lockedVariantUid, lockedProductUid]);
   
   // Initialize side states
   const initializedRef = useRef(false);
@@ -568,29 +573,59 @@ export default function ProjectEditor({
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-gray-900">Project Editor</h1>
-          {/* SPRINT 2: Orientation Toggle */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">Orientation:</span>
-            <button
-              onClick={() => setEditorOrientation('portrait')}
-              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                editorOrientation === 'portrait'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Portrait
-            </button>
-            <button
-              onClick={() => setEditorOrientation('landscape')}
-              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                editorOrientation === 'landscape'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Landscape
-            </button>
+          {/* Design Controls: Orientation & Card Format */}
+          <div className="flex items-center gap-4">
+            {/* Orientation Toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Orientation:</span>
+              <button
+                onClick={() => setEditorOrientation('portrait')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  editorOrientation === 'portrait'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Portrait
+              </button>
+              <button
+                onClick={() => setEditorOrientation('landscape')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  editorOrientation === 'landscape'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Landscape
+              </button>
+            </div>
+            
+            {/* Card Format Toggle (only for card products) */}
+            {isCardProduct && (
+              <div className="flex items-center gap-2 border-l border-gray-300 pl-4">
+                <span className="text-sm font-medium text-gray-700">Format:</span>
+                <button
+                  onClick={() => setCardFormat('flat')}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    cardFormat === 'flat'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Flat
+                </button>
+                <button
+                  onClick={() => setCardFormat('bifold')}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                    cardFormat === 'bifold'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Bifold
+                </button>
+              </div>
+            )}
           </div>
           {printSpec.sides.length > 1 && (
             <div className="flex gap-2">
