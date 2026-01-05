@@ -55,6 +55,11 @@ export default function ProjectEditor({
   const [activeSideId, setActiveSideId] = useState<string>('front');
   const [selectedId, setSelectedId] = useState<string | undefined>();
   
+  // Text editing state
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [editingTextValue, setEditingTextValue] = useState<string>('');
+  const textInputRef = useRef<HTMLTextAreaElement>(null);
+  
   // History for undo/redo
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -65,6 +70,7 @@ export default function ProjectEditor({
   const nodeRefs = useRef<Record<string, any>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stageRef = useRef<any>(null);
+  const stageContainerRef = useRef<HTMLDivElement>(null);
   
   // SPRINT 2: State for orientation (can be toggled in editor)
   const [editorOrientation, setEditorOrientation] = useState<'portrait' | 'landscape'>(
@@ -276,6 +282,54 @@ export default function ProjectEditor({
     });
     setSelectedId(undefined);
   }, [activeSideId, saveToHistory]);
+  
+  // Start editing text (double-click on text/label-shape)
+  const startEditingText = useCallback((objectId: string) => {
+    const obj = objects.find(o => o.id === objectId);
+    if (obj && (obj.type === 'text' || obj.type === 'label-shape')) {
+      setEditingTextId(objectId);
+      setEditingTextValue(obj.text || '');
+      // Focus the input after render
+      setTimeout(() => textInputRef.current?.focus(), 50);
+    }
+  }, [objects]);
+  
+  // Finish editing text
+  const finishEditingText = useCallback(() => {
+    if (editingTextId && editingTextValue !== undefined) {
+      updateObject(editingTextId, { text: editingTextValue });
+    }
+    setEditingTextId(null);
+    setEditingTextValue('');
+  }, [editingTextId, editingTextValue, updateObject]);
+  
+  // Get position for text editing overlay
+  const getEditingOverlayStyle = useCallback((): React.CSSProperties => {
+    if (!editingTextId || !stageContainerRef.current || !currentSide) return { display: 'none' };
+    
+    const obj = objects.find(o => o.id === editingTextId);
+    if (!obj) return { display: 'none' };
+    
+    const SCREEN_DPI = 96;
+    const stageRect = stageContainerRef.current.getBoundingClientRect();
+    
+    // Calculate position
+    const objX = obj.x || 0;
+    const objY = obj.y || 0;
+    const objW = (obj.width || 200) * (obj.scaleX || 1);
+    const objH = (obj.height || 50) * (obj.scaleY || 1);
+    
+    return {
+      position: 'absolute',
+      left: `${objX}px`,
+      top: `${objY}px`,
+      width: `${Math.max(objW, 150)}px`,
+      minHeight: `${Math.max(objH, 40)}px`,
+      transform: `rotate(${obj.rotation || 0}deg)`,
+      transformOrigin: 'top left',
+      zIndex: 1000,
+    };
+  }, [editingTextId, objects, currentSide]);
   
   // Add image - fit to safe area and center
   const handleAddImage = useCallback((asset: UploadedAsset) => {
@@ -928,17 +982,21 @@ export default function ProjectEditor({
         {/* Canvas */}
         <div className="flex-1 flex items-center justify-center p-8 overflow-auto bg-gray-100">
           <div style={{ transform: `scale(${displayScale})`, transformOrigin: 'center' }}>
-            <Stage
-              ref={stageRef}
-              width={STAGE_WIDTH}
-              height={STAGE_HEIGHT}
-              onClick={(e) => {
-                const clickedOnEmpty = e.target === e.target.getStage();
-                if (clickedOnEmpty) {
-                  setSelectedId(undefined);
-                }
-              }}
-            >
+            <div ref={stageContainerRef} style={{ position: 'relative' }}>
+              <Stage
+                ref={stageRef}
+                width={STAGE_WIDTH}
+                height={STAGE_HEIGHT}
+                onClick={(e) => {
+                  const clickedOnEmpty = e.target === e.target.getStage();
+                  if (clickedOnEmpty) {
+                    setSelectedId(undefined);
+                    if (editingTextId) {
+                      finishEditingText();
+                    }
+                  }
+                }}
+              >
               <Layer>
                 {/* Print Area Guides - Always Visible - CRITICAL FOR PRINT ACCURACY */}
                 {/* SPRINT 1: Guides use mm coordinates converted to screen pixels */}
@@ -1082,6 +1140,7 @@ export default function ProjectEditor({
                         onSelect={() => setSelectedId(object.id)}
                         onUpdate={(updates) => updateObject(object.id, updates)}
                         onDelete={() => deleteObject(object.id)}
+                        onStartEdit={() => startEditingText(object.id)}
                         nodeRef={(ref) => {
                           if (ref) nodeRefs.current[object.id] = ref;
                         }}
@@ -1115,6 +1174,30 @@ export default function ProjectEditor({
                 />
               </Layer>
             </Stage>
+            
+            {/* Text Editing Overlay */}
+            {editingTextId && (
+              <textarea
+                ref={textInputRef}
+                value={editingTextValue}
+                onChange={(e) => setEditingTextValue(e.target.value)}
+                onBlur={finishEditingText}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    finishEditingText();
+                  }
+                  if (e.key === 'Escape') {
+                    setEditingTextId(null);
+                    setEditingTextValue('');
+                  }
+                }}
+                style={getEditingOverlayStyle()}
+                className="bg-white border-2 border-blue-500 rounded p-2 shadow-lg resize-none outline-none text-center"
+                placeholder="Enter your text..."
+              />
+            )}
+            </div>
           </div>
         </div>
       </div>
@@ -1222,6 +1305,7 @@ function TextObject({
   onSelect,
   onUpdate,
   onDelete,
+  onStartEdit,
   nodeRef,
 }: {
   object: EditorObject;
@@ -1229,6 +1313,7 @@ function TextObject({
   onSelect: () => void;
   onUpdate: (updates: Partial<EditorObject>) => void;
   onDelete: () => void;
+  onStartEdit: () => void;
   nodeRef: (ref: any) => void;
 }) {
   const isLabelShape = object.type === 'label-shape';
@@ -1245,6 +1330,8 @@ function TextObject({
       draggable
       onClick={onSelect}
       onTap={onSelect}
+      onDblClick={onStartEdit}
+      onDblTap={onStartEdit}
       onDragEnd={(e) => {
         const node = e.target;
         onUpdate({
