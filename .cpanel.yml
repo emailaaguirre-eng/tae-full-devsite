@@ -1,0 +1,8 @@
+---
+deployment:
+  tasks:
+    - export PATH=/opt/cpanel/ea-nodejs18/bin:$PATH
+    - cd /home/artful/apps/tae-full-devsite
+    - /opt/cpanel/ea-nodejs18/bin/npm ci --production=false
+    - /opt/cpanel/ea-nodejs18/bin/npm run build
+    - /opt/cpanel/ea-nodejs18/bin/pm2 restart tae-full-devsite --update-env
