@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Rect, Line, Transformer, Group, Ellipse } from 'react-konva';
 import useImage from 'use-image';
-import { Download, X, Type, Upload, Undo, Redo, Trash2 } from 'lucide-react';
+import { Download, X, Type, Upload, Undo, Redo, Trash2, Save } from 'lucide-react';
 import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
 import { generatePrintSpecForSize, getSamplePostcardSpec, generatePrintSpecFromGelatoVariant, type PrintSpec, type PrintSide, mmToPx, DEFAULT_DPI } from '@/lib/printSpecs';
 import { DEFAULT_FONT, DEFAULT_FONT_WEIGHT } from '@/lib/editorFonts';
 import { LABEL_SHAPES, type LabelShape } from '@/lib/labelShapes';
 import LabelInspector from './LabelInspector';
+import SizePicker from './SizePicker';
 import type { EditorObject, SideState } from './types';
 
 interface ProjectEditorRebuildProps {
@@ -50,10 +52,13 @@ export default function ProjectEditor({
   onComplete,
   onClose,
 }: ProjectEditorRebuildProps) {
+  const router = useRouter();
+  
   // Core state
   const [sideStates, setSideStates] = useState<Record<string, SideState>>({});
   const [activeSideId, setActiveSideId] = useState<string>('front');
   const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [isSaving, setIsSaving] = useState(false);
   
   // Text editing state
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
@@ -600,6 +605,100 @@ export default function ProjectEditor({
     return { isValid: errors.length === 0, errors };
   }, [printSpec, sideStates]);
   
+  // Save Draft: Save design to database
+  const handleSaveDraft = useCallback(async (shouldContinue: boolean = false) => {
+    if (!printSpec || isSaving) return;
+    
+    setIsSaving(true);
+    
+    try {
+      // Collect design data for all sides
+      const designJson: Record<string, any> = {};
+      const previews: Record<string, string> = {};
+      
+      // Generate design JSON and previews for each side
+      for (const side of printSpec.sides) {
+        const sideState = sideStates[side.id] || { objects: [], selectedId: undefined };
+        designJson[side.id] = {
+          objects: sideState.objects,
+        };
+        
+        // Generate preview if stage is available (for current active side only)
+        if (side.id === activeSideId && stageRef.current) {
+          try {
+            const stage = stageRef.current;
+            const SCREEN_DPI = 96;
+            const bleedW = mmToPx(side.trimMm.w + (side.bleedMm * 2), SCREEN_DPI);
+            const bleedH = mmToPx(side.trimMm.h + (side.bleedMm * 2), SCREEN_DPI);
+            
+            // Generate preview at screen resolution (smaller file size)
+            const previewDataUrl = stage.toDataURL({
+              pixelRatio: 1,
+              width: bleedW,
+              height: bleedH,
+            });
+            previews[side.id] = previewDataUrl;
+          } catch (e) {
+            console.warn(`[ProjectEditor] Failed to generate preview for ${side.id}:`, e);
+          }
+        }
+      }
+      
+      // Collect product/variant information
+      const productId = lockedProductUid || gelatoVariantData?.productUid || null;
+      const variantId = lockedVariantUid || gelatoVariantUid || null;
+      
+      // Prepare draft data
+      const draftData = {
+        productId,
+        variantId,
+        productSlug,
+        printSpecId: printSpec.id,
+        cornerStyle: null, // TODO: Add corner style if available
+        cornerRadiusMm: null, // TODO: Add corner radius if available
+        designJson: JSON.stringify(designJson),
+        previews: Object.keys(previews).length > 0 ? JSON.stringify(previews) : null,
+      };
+      
+      // POST to /api/design-drafts
+      const response = await fetch('/api/design-drafts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(draftData),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Failed to save draft' }));
+        throw new Error(error.message || 'Failed to save draft');
+      }
+      
+      const result = await response.json();
+      const draftId = result.id || result.draftId;
+      
+      if (!draftId) {
+        throw new Error('Draft saved but no ID returned');
+      }
+      
+      // If "Save & Continue", navigate to ArtKey editor
+      if (shouldContinue) {
+        router.push(`/artkey/edit/${draftId}`);
+      } else {
+        // Show success message
+        alert('Draft saved successfully!');
+      }
+      
+      return draftId;
+    } catch (error) {
+      console.error('[ProjectEditor] Failed to save draft:', error);
+      alert(`Failed to save draft: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [printSpec, sideStates, activeSideId, stageRef, lockedProductUid, lockedVariantUid, gelatoVariantData, gelatoVariantUid, productSlug, isSaving, router]);
+  
   // Export: PNG with bleed at 300 DPI
   // SPRINT 1: Export one side (current active side) with bleed included at print DPI
   const handleExport = useCallback(async () => {
@@ -799,6 +898,24 @@ export default function ProjectEditor({
             title="Redo"
           >
             <Redo className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => handleSaveDraft(false)}
+            disabled={isSaving}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Save Draft"
+          >
+            <Save className="w-4 h-4" />
+            {isSaving ? 'Saving...' : 'Save Draft'}
+          </button>
+          <button
+            onClick={() => handleSaveDraft(true)}
+            disabled={isSaving}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Save & Continue to ArtKey Editor"
+          >
+            <Save className="w-4 h-4" />
+            {isSaving ? 'Saving...' : 'Save & Continue'}
           </button>
           <button
             onClick={handleExport}
