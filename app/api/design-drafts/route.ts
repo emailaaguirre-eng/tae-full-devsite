@@ -7,34 +7,55 @@ export async function POST(request: NextRequest) {
     const {
       productId,
       variantId,
+      productSlug,
       printSpecId,
       dpi,
       cornerStyle,
       cornerRadiusMm,
-      designJsonBySide,
-      previewPngBySide,
+      designJson,
+      previews,
+      usedAssetIds,
+      premiumFees,
       sessionId,
       userId,
     } = body;
 
     // Validate required fields
-    if (!printSpecId || !designJsonBySide) {
+    if (!printSpecId || !designJson) {
       return NextResponse.json(
-        { error: 'Missing required fields: printSpecId, designJsonBySide' },
+        { error: 'Missing required fields: printSpecId, designJson' },
         { status: 400 }
       );
     }
 
+    // Parse designJson to extract front/back
+    const designData = JSON.parse(designJson);
+    const designJsonFront = designData.front ? JSON.stringify(designData.front) : null;
+    const designJsonBack = designData.back ? JSON.stringify(designData.back) : null;
+    
+    // Parse previews
+    const previewData = previews ? JSON.parse(previews) : {};
+    const previewPngFront = previewData.front || null;
+    const previewPngBack = previewData.back || null;
+    
+    // Parse usedAssetIds
+    const usedAssetIdsArray = usedAssetIds ? JSON.parse(usedAssetIds) : [];
+    const usedAssetIdsStr = usedAssetIdsArray.length > 0 ? JSON.stringify(usedAssetIdsArray) : null;
+    
     // Create draft
     const draft = await createDesignDraft({
       productId,
       variantId,
       printSpecId,
-      dpi,
-      cornerStyle,
-      cornerRadiusMm,
-      designJsonBySide,
-      previewPngBySide: previewPngBySide || { front: null, back: null },
+      dpi: dpi || 300,
+      cornerStyle: cornerStyle || 'square',
+      cornerRadiusMm: cornerRadiusMm || 0,
+      designJsonFront,
+      designJsonBack,
+      previewPngFront,
+      previewPngBack,
+      usedAssetIds: usedAssetIdsStr,
+      premiumFees: premiumFees || 0,
       sessionId,
       userId,
     });

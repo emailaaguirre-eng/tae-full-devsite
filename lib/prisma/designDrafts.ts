@@ -9,11 +9,18 @@ export type DesignDraftInput = {
   dpi?: number;
   cornerStyle?: 'square' | 'rounded';
   cornerRadiusMm?: number;
-  designJsonBySide: {
+  designJsonFront?: string | null;
+  designJsonBack?: string | null;
+  previewPngFront?: string | null;
+  previewPngBack?: string | null;
+  usedAssetIds?: string | null;
+  premiumFees?: number;
+  // Legacy format support
+  designJsonBySide?: {
     front: string | null;
     back: string | null;
   };
-  previewPngBySide: {
+  previewPngBySide?: {
     front: string | null;
     back: string | null;
   };
@@ -22,6 +29,12 @@ export type DesignDraftInput = {
 };
 
 export async function createDesignDraft(input: DesignDraftInput) {
+  // Support both new format (direct fields) and legacy format (nested objects)
+  const designJsonFront = input.designJsonFront ?? input.designJsonBySide?.front ?? null;
+  const designJsonBack = input.designJsonBack ?? input.designJsonBySide?.back ?? null;
+  const previewPngFront = input.previewPngFront ?? input.previewPngBySide?.front ?? null;
+  const previewPngBack = input.previewPngBack ?? input.previewPngBySide?.back ?? null;
+  
   return prisma.designDraft.create({
     data: {
       productId: input.productId || null,
@@ -30,10 +43,12 @@ export async function createDesignDraft(input: DesignDraftInput) {
       dpi: input.dpi || 300,
       cornerStyle: input.cornerStyle || 'square',
       cornerRadiusMm: input.cornerRadiusMm || 0,
-      designJsonFront: input.designJsonBySide.front,
-      designJsonBack: input.designJsonBySide.back,
-      previewPngFront: input.previewPngBySide.front,
-      previewPngBack: input.previewPngBySide.back,
+      designJsonFront,
+      designJsonBack,
+      previewPngFront,
+      previewPngBack,
+      usedAssetIds: input.usedAssetIds || null,
+      premiumFees: input.premiumFees || 0,
       sessionId: input.sessionId || null,
       userId: input.userId || null,
       status: 'draft',

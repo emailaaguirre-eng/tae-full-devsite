@@ -7,6 +7,108 @@ import galleryData from "@/content/gallery.json";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
+// Artwork Gallery Component
+function ArtworkGallery({ artistSlug }: { artistSlug: string }) {
+  const [assets, setAssets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    fetch(`/api/catalog/assets?artistSlug=${artistSlug}&active=true`)
+      .then(res => res.json())
+      .then(data => {
+        setAssets(data || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch assets:', err);
+        setLoading(false);
+      });
+  }, [artistSlug]);
+  
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
+        <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
+          {artistSlug === 'bryant-colman' ? 'Available Photography' : 'Available ArtWork'}
+        </h2>
+        <div className="text-center py-12">
+          <p className="text-brand-dark">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (assets.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
+        <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
+          {artistSlug === 'bryant-colman' ? 'Available Photography' : 'Available ArtWork'}
+        </h2>
+        <div className="text-center py-12 bg-brand-lightest rounded-2xl">
+          <p className="text-brand-dark">
+            {artistSlug === 'bryant-colman' 
+              ? 'Available photography coming soon.' 
+              : 'Available ArtWork coming soon.'}
+          </p>
+          <p className="text-sm text-brand-medium mt-4">
+            Visit our <Link href="/shop" className="text-brand-dark hover:underline">shop</Link> to see available products.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
+      <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
+        {artistSlug === 'bryant-colman' ? 'Available Photography' : 'Available ArtWork'}
+      </h2>
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {assets.map((asset) => (
+          <div key={asset.id} className="bg-brand-lightest rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow">
+            <div className="relative w-full h-64 bg-gray-100">
+              <Image
+                src={asset.image}
+                alt={asset.title}
+                fill
+                className="object-contain"
+                unoptimized={asset.image?.includes('theartfulexperience.com')}
+              />
+            </div>
+            <div className="p-4">
+              <h3 className="text-lg font-semibold text-brand-darkest mb-2">{asset.title}</h3>
+              {asset.description && (
+                <p className="text-sm text-brand-dark mb-4 line-clamp-2">{asset.description}</p>
+              )}
+              <div className="flex flex-col gap-2">
+                {asset.isForSaleAsPrint && (
+                  <Link
+                    href={`/shop/print?asset=${asset.slug}`}
+                    className="w-full px-4 py-2 bg-brand-darkest text-white rounded-lg text-center font-semibold hover:bg-brand-dark transition-colors"
+                  >
+                    Buy Print {asset.printPrice && `$${asset.printPrice.toFixed(2)}`}
+                  </Link>
+                )}
+                {asset.isAllowedInPremiumLibrary && (
+                  <Link
+                    href={`/library/premium?select=${asset.id}`}
+                    className="w-full px-4 py-2 bg-brand-medium text-white rounded-lg text-center font-semibold hover:bg-brand-dark transition-colors"
+                  >
+                    Use on a Card
+                    {asset.premiumFee && asset.premiumFee > 0 && (
+                      <span className="text-xs block mt-1">+${asset.premiumFee.toFixed(2)}</span>
+                    )}
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface Artist {
   name: string;
   title: string;
@@ -185,22 +287,7 @@ export default function ArtistPage({ params }: ArtistPageProps) {
           )}
 
           {/* Available Artwork/Photography Section */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
-              {artist.slug === 'bryant-colman' ? 'Available Photography' : 'Available ArtWork'}
-            </h2>
-            
-            <div className="text-center py-12 bg-brand-lightest rounded-2xl">
-              <p className="text-brand-dark">
-                {artist.slug === 'bryant-colman' 
-                  ? 'Available photography coming soon.' 
-                  : 'Available ArtWork coming soon.'}
-              </p>
-              <p className="text-sm text-brand-medium mt-4">
-                Visit our <Link href="/shop" className="text-brand-dark hover:underline">shop</Link> to see available products.
-              </p>
-            </div>
-          </div>
+          <ArtworkGallery artistSlug={artist.slug} />
         </div>
       </section>
       <Footer />

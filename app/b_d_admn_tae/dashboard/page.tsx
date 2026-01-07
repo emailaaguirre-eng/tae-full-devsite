@@ -130,6 +130,38 @@ export default function AdminDashboard() {
           </Link>
 
           <Link
+            href="/b_d_admn_tae/orders"
+            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            <h3 className="font-semibold mb-2">Manage Orders</h3>
+            <p className="text-sm text-gray-600">View and manage all orders</p>
+          </Link>
+
+          <Link
+            href="/b_d_admn_tae/customers"
+            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            <h3 className="font-semibold mb-2">Manage Customers</h3>
+            <p className="text-sm text-gray-600">View customer accounts and order history</p>
+          </Link>
+
+          <Link
+            href="/b_d_admn_tae/catalog/products"
+            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            <h3 className="font-semibold mb-2">Manage Products</h3>
+            <p className="text-sm text-gray-600">Manage customizable print products (Lane A)</p>
+          </Link>
+
+          <Link
+            href="/b_d_admn_tae/catalog/artists"
+            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            <h3 className="font-semibold mb-2">Manage Artists & Assets</h3>
+            <p className="text-sm text-gray-600">Manage artists and artwork assets (Lane B)</p>
+          </Link>
+
+          <Link
             href="/art-key/691e3d09ef58e"
             target="_blank"
             className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"

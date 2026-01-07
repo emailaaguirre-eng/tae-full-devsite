@@ -87,7 +87,7 @@ model MediaItem {
 
 model DesignDraft {
   id                String   @id @default(cuid())
-  productId         String?
+  productId         String?  // Product from Lane A
   variantId         String?
   printSpecId       String
   dpi               Int       @default(300)
@@ -105,6 +105,10 @@ model DesignDraft {
   // ArtKey portal data (JSON)
   artKeyData        String?   // JSON: { title, message, media, guestbookSettings, etc. }
   
+  // Premium assets used
+  usedAssetIds      String?   // JSON array of asset IDs used in design
+  premiumFees        Float     @default(0) // Sum of premium fees
+  
   // Status tracking
   status            String   @default("draft") // "draft" | "artkey_complete" | "checkout_ready"
   
@@ -119,4 +123,215 @@ model DesignDraft {
   @@index([sessionId])
   @@index([userId])
   @@index([status])
+  @@index([productId])
+}
+
+// Lane A: Customizable Print Products (Gelato)
+model Product {
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  name              String
+  description       String?
+  category          String   // "card" | "invitation" | "announcement" | "postcard" | "wall-art"
+  productType       String   // Gelato product type
+  
+  // Gelato integration
+  gelatoProductUid  String?  // Gelato product UID
+  gelatoCatalogUid   String?  // Gelato catalog UID
+  
+  // Pricing
+  basePrice         Float?   // Base price (may come from Gelato)
+  
+  // Features
+  allowsPremiumLibrary Boolean @default(true) // Can use premium assets
+  allowsCustomUpload   Boolean @default(true) // Can upload own photos
+  
+  // Display
+  image             String?  // Product image/thumbnail
+  active            Boolean  @default(true)
+  featured          Boolean  @default(false)
+  sortOrder         Int      @default(0)
+  
+  // Metadata (JSON)
+  metadata          String?  // JSON: { options, variants, etc. }
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  orderItems        OrderItem[]
+  
+  @@index([category])
+  @@index([active])
+  @@index([featured])
+  @@index([slug])
+}
+
+// Lane B: Artist Artwork Assets
+model Artist {
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  name              String
+  title             String?  // Artist title/role
+  bio               String?  // Biography
+  bioImage          String?  // Artist profile image
+  image             String?  // Artist thumbnail
+  active            Boolean  @default(true)
+  sortOrder         Int      @default(0)
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  assets            Asset[]
+  
+  @@index([slug])
+  @@index([active])
+}
+
+model Asset {
+  id                      String   @id @default(cuid())
+  artistId                String
+  title                   String
+  image                   String   // Image URL
+  description             String?  // Description of the artwork
+  slug                    String   @unique
+  
+  // Lane B Flags
+  isForSaleAsPrint        Boolean  @default(false) // Buy as-is print (NOT customizable)
+  isAllowedInPremiumLibrary Boolean @default(false) // Use in Premium Library on customizable products
+  
+  // Premium Library settings
+  premiumFee               Float?   // Extra charge when used in premium library
+  editRules                String   @default("crop_and_position_only") // "crop_and_position_only" | "full_edit"
+  
+  // Print sale settings (if isForSaleAsPrint)
+  printPrice               Float?   // Price for as-is print
+  printProductUid         String?   // Gelato product UID for print
+  
+  // Display
+  active                  Boolean  @default(true)
+  featured                Boolean  @default(false)
+  sortOrder               Int      @default(0)
+  
+  // Metadata (JSON)
+  metadata                String?  // JSON: { dimensions, medium, year, etc. }
+  
+  // Timestamps
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  // Relations
+  artist                  Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  orderItems               OrderItem[]
+  
+  @@index([artistId])
+  @@index([isForSaleAsPrint])
+  @@index([isAllowedInPremiumLibrary])
+  @@index([active])
+  @@index([featured])
+  @@index([slug])
+}
+
+// Customer Management
+model Customer {
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  name                String?
+  phone               String?
+  gelatoCustomerRefId String?  // Gelato customer reference ID
+  addressBookJson     String?  // JSON array of saved addresses
+  
+  // Timestamps
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  // Relations
+  orders              Order[]
+  
+  @@index([email])
+}
+
+// Orders and Cart
+model Order {
+  id                String   @id @default(cuid())
+  orderNumber       String   @unique // Human-readable order number
+  status            String   @default("pending") // "pending" | "paid" | "processing" | "shipped" | "completed" | "cancelled"
+  
+  // Customer link (for relationship)
+  customerId        String?
+  customer          Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  
+  // Customer info snapshot (for receipt/history - never changes)
+  customerEmail     String?
+  customerName      String?
+  shippingAddress   String?  // JSON: { name, address, city, state, zip, country }
+  
+  // Pricing
+  subtotal          Float    // Base product prices
+  premiumFees        Float    @default(0) // Sum of premium asset fees
+  shipping          Float    @default(0)
+  total             Float    // subtotal + premiumFees + shipping
+  
+  // Payment
+  paypalOrderId     String?  // PayPal order ID
+  paypalCaptureId   String?  // PayPal capture ID
+  
+  // Gelato
+  gelatoOrderId     String?  // Gelato order ID after submission
+  gelatoStatus      String?  // Gelato order status
+  
+  // Shipping tracking
+  trackingNumber    String?  // Shipping tracking number
+  trackingUrl       String?  // Tracking URL
+  carrier           String?  // Shipping carrier name
+  
+  // Design data
+  designDraftId     String?  // Link to design draft
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  items             OrderItem[]
+  
+  @@index([status])
+  @@index([orderNumber])
+  @@index([customerEmail])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id                String   @id @default(cuid())
+  orderId           String
+  productId         String?  // If from Lane A (customizable product)
+  assetId            String?  // If from Lane B (as-is print)
+  
+  // Product details (snapshot at time of order)
+  itemType          String   // "product" | "asset_print"
+  itemName           String
+  quantity           Int      @default(1)
+  unitPrice          Float
+  
+  // Premium assets used (for products)
+  usedAssetIds      String?  // JSON array of asset IDs used in design
+  premiumFees        Float    @default(0) // Premium fees for this item
+  
+  // Design data
+  designDraftId     String?  // Link to design draft if customizable
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  
+  // Relations
+  order              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product            Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  asset              Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  
+  @@index([orderId])
+  @@index([productId])
+  @@index([assetId])
 }

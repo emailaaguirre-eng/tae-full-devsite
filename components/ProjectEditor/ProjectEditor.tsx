@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Rect, Line, Transformer, Group, Ellipse } from 'react-konva';
 import useImage from 'use-image';
-import { Download, X, Type, Upload, Undo, Redo, Trash2, Save } from 'lucide-react';
+import { Download, X, Type, Upload, Undo, Redo, Trash2, Save, Sparkles } from 'lucide-react';
 import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
 import { generatePrintSpecForSize, getSamplePostcardSpec, generatePrintSpecFromGelatoVariant, type PrintSpec, type PrintSide, mmToPx, DEFAULT_DPI } from '@/lib/printSpecs';
 import { DEFAULT_FONT, DEFAULT_FONT_WEIGHT } from '@/lib/editorFonts';
@@ -60,6 +60,11 @@ export default function ProjectEditor({
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
   
+  // Premium Library state
+  const [premiumAssets, setPremiumAssets] = useState<any[]>([]);
+  const [showPremiumLibrary, setShowPremiumLibrary] = useState(false);
+  const [usedPremiumAssets, setUsedPremiumAssets] = useState<Array<{ id: string; fee: number }>>([]);
+  
   // Text editing state
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [editingTextValue, setEditingTextValue] = useState<string>('');
@@ -114,6 +119,32 @@ export default function ProjectEditor({
         .catch(err => console.error('[ProjectEditor] Failed to fetch variant:', err));
     }
   }, [gelatoVariantUid, gelatoVariantData]);
+  
+  // Load premium assets when library is opened
+  useEffect(() => {
+    if (showPremiumLibrary && premiumAssets.length === 0) {
+      fetch('/api/catalog/assets/premium')
+        .then(res => res.json())
+        .then(data => setPremiumAssets(data || []))
+        .catch(err => console.error('[ProjectEditor] Failed to fetch premium assets:', err));
+    }
+  }, [showPremiumLibrary, premiumAssets.length]);
+  
+  // Check for selected premium asset from sessionStorage (from premium library page)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const selectedAssetStr = sessionStorage.getItem('selectedPremiumAsset');
+      if (selectedAssetStr) {
+        try {
+          const asset = JSON.parse(selectedAssetStr);
+          handleAddPremiumAsset(asset);
+          sessionStorage.removeItem('selectedPremiumAsset');
+        } catch (e) {
+          console.error('Failed to parse selected premium asset:', e);
+        }
+      }
+    }
+  }, []);
   
   // Get print spec from Gelato variant or generate dynamically
   // SPRINT 2: Prefer Gelato variant data over hardcoded sizes
@@ -648,6 +679,10 @@ export default function ProjectEditor({
       const productId = lockedProductUid || gelatoVariantData?.productUid || null;
       const variantId = lockedVariantUid || gelatoVariantUid || null;
       
+      // Calculate premium fees
+      const totalPremiumFees = usedPremiumAssets.reduce((sum, asset) => sum + asset.fee, 0);
+      const usedAssetIds = usedPremiumAssets.map(a => a.id);
+      
       // Prepare draft data
       const draftData = {
         productId,
@@ -658,6 +693,8 @@ export default function ProjectEditor({
         cornerRadiusMm: null, // TODO: Add corner radius if available
         designJson: JSON.stringify(designJson),
         previews: Object.keys(previews).length > 0 ? JSON.stringify(previews) : null,
+        usedAssetIds: JSON.stringify(usedAssetIds),
+        premiumFees: totalPremiumFees,
       };
       
       // POST to /api/design-drafts
@@ -697,7 +734,7 @@ export default function ProjectEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [printSpec, sideStates, activeSideId, stageRef, lockedProductUid, lockedVariantUid, gelatoVariantData, gelatoVariantUid, productSlug, isSaving, router]);
+  }, [printSpec, sideStates, activeSideId, stageRef, lockedProductUid, lockedVariantUid, gelatoVariantData, gelatoVariantUid, productSlug, isSaving, router, usedPremiumAssets]);
   
   // Export: PNG with bleed at 300 DPI
   // SPRINT 1: Export one side (current active side) with bleed included at print DPI
@@ -981,7 +1018,7 @@ export default function ProjectEditor({
             <label className="block w-full">
               <div className="px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold text-center cursor-pointer hover:bg-blue-700 flex items-center justify-center gap-2">
                 <Upload className="w-4 h-4" />
-                Upload Images
+                Upload Your Photo (Free)
               </div>
               <input
                 ref={fileInputRef}
@@ -994,6 +1031,14 @@ export default function ProjectEditor({
             </label>
             
             <button
+              onClick={() => setShowPremiumLibrary(true)}
+              className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 flex items-center justify-center gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              Premium Library
+            </button>
+            
+            <button
               onClick={handleAddText}
               className="w-full px-4 py-3 bg-gray-100 text-gray-900 rounded-lg font-semibold hover:bg-gray-200 flex items-center justify-center gap-2"
             >
@@ -1001,6 +1046,24 @@ export default function ProjectEditor({
               Add Text
             </button>
           </div>
+          
+          {/* Premium Assets Used */}
+          {usedPremiumAssets.length > 0 && (
+            <div className="p-4 border-b border-gray-200 bg-purple-50">
+              <div className="text-xs font-medium text-purple-900 mb-2">Premium Assets Used:</div>
+              {usedPremiumAssets.map((asset) => {
+                const fullAsset = premiumAssets.find(a => a.id === asset.id);
+                return (
+                  <div key={asset.id} className="text-xs text-purple-700 mb-1">
+                    {fullAsset?.title || asset.id}: +${asset.fee.toFixed(2)}
+                  </div>
+                );
+              })}
+              <div className="text-xs font-semibold text-purple-900 mt-2">
+                Total Premium Fees: ${usedPremiumAssets.reduce((sum, a) => sum + a.fee, 0).toFixed(2)}
+              </div>
+            </div>
+          )}
           
           {/* Label Shapes */}
           <div className="p-4 border-b border-gray-200">
@@ -1336,6 +1399,87 @@ export default function ProjectEditor({
           </div>
         </div>
       </div>
+      
+      {/* Premium Library Modal */}
+      {showPremiumLibrary && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900">Premium Library</h2>
+              <button
+                onClick={() => setShowPremiumLibrary(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {premiumAssets.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-600">Loading premium assets...</p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {premiumAssets.map((asset) => {
+                    const isUsed = usedPremiumAssets.find(a => a.id === asset.id);
+                    return (
+                      <div
+                        key={asset.id}
+                        className={`border-2 rounded-lg overflow-hidden cursor-pointer transition-all ${
+                          isUsed
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-purple-300'
+                        }`}
+                        onClick={() => !isUsed && handleAddPremiumAsset(asset)}
+                      >
+                        <div className="relative w-full h-32 bg-gray-100">
+                          <img
+                            src={asset.image}
+                            alt={asset.title}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <div className="p-3">
+                          <h3 className="font-semibold text-sm mb-1">{asset.title}</h3>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">
+                              {asset.artist?.name}
+                            </span>
+                            <span className="text-sm font-bold text-purple-600">
+                              +${asset.premiumFee.toFixed(2)}
+                            </span>
+                          </div>
+                          {isUsed && (
+                            <div className="mt-2 text-xs text-purple-600 font-medium">
+                              ✓ Added
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">
+                  Selected: {usedPremiumAssets.length} asset{usedPremiumAssets.length !== 1 ? 's' : ''}
+                </p>
+                <p className="text-sm font-semibold text-purple-600">
+                  Total Premium Fees: ${usedPremiumAssets.reduce((sum, a) => sum + a.fee, 0).toFixed(2)}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPremiumLibrary(false)}
+                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
