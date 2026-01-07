@@ -84,3 +84,39 @@ model MediaItem {
   @@index([type])
 }
 
+
+model DesignDraft {
+  id                String   @id @default(cuid())
+  productId         String?
+  variantId         String?
+  printSpecId       String
+  dpi               Int       @default(300)
+  cornerStyle       String   @default("square") // "square" | "rounded"
+  cornerRadiusMm    Float    @default(0)
+  
+  // Design data (JSON strings)
+  designJsonFront   String?   // Konva layer.toJSON() for front
+  designJsonBack    String?   // Konva layer.toJSON() for back
+  
+  // Preview images (base64 for MVP)
+  previewPngFront   String?   // base64 data URL
+  previewPngBack    String?   // base64 data URL
+  
+  // ArtKey portal data (JSON)
+  artKeyData        String?   // JSON: { title, message, media, guestbookSettings, etc. }
+  
+  // Status tracking
+  status            String   @default("draft") // "draft" | "artkey_complete" | "checkout_ready"
+  
+  // User/session tracking
+  sessionId         String?
+  userId            String?
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([sessionId])
+  @@index([userId])
+  @@index([status])
+}

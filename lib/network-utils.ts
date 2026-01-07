@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Network Error Handler Utility
  * Provides better error handling for WordPress API calls
  */
@@ -30,19 +30,19 @@ export async function safeFetch(
     return response;
   } catch (error: any) {
     clearTimeout(timeoutId);
-    
+
     if (error.name === 'AbortError') {
-      throw new Error(Request timeout after ms: );
+      throw new Error(`Request timeout after ${timeout}ms`);
     }
-    
+
     if (error.message?.includes('CORS') || error.message?.includes('cross-origin')) {
-      throw new Error(CORS error: . Check if WordPress allows requests from this origin.);
+      throw new Error(`CORS error: ${error.message}. Check if WordPress allows requests from this origin.`);
     }
-    
+
     if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-      throw new Error(Network error: Cannot connect to . Check your internet connection and WordPress URL.);
+      throw new Error(`Network error: Cannot connect to ${url}. Check your internet connection and WordPress URL.`);
     }
-    
+
     throw error;
   }
 }
@@ -56,8 +56,8 @@ export async function testWordPressConnection(wpUrl?: string): Promise<{
   details?: any;
 }> {
   const url = wpUrl || process.env.NEXT_PUBLIC_WORDPRESS_URL || process.env.NEXT_PUBLIC_WOOCOMMERCE_URL || 'https://theartfulexperience.com';
-  const apiUrl = ${url}/wp-json;
-  
+  const apiUrl = `${url}/wp-json`;
+
   try {
     const response = await safeFetch(apiUrl, {
       method: 'GET',
@@ -65,11 +65,11 @@ export async function testWordPressConnection(wpUrl?: string): Promise<{
         'Content-Type': 'application/json',
       },
     }, 5000);
-    
+
     if (!response.ok) {
       return {
         success: false,
-        error: HTTP : ,
+        error: `HTTP ${response.status}: ${response.statusText}`,
         details: {
           status: response.status,
           statusText: response.statusText,
@@ -77,7 +77,7 @@ export async function testWordPressConnection(wpUrl?: string): Promise<{
         },
       };
     }
-    
+
     const data = await response.json();
     return {
       success: true,
