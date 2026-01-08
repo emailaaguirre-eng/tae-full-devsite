@@ -257,47 +257,40 @@ model Customer {
 // Orders and Cart
 model Order {
   id                String   @id @default(cuid())
-  orderNumber       String   @unique // Human-readable order number
-  status            String   @default("pending") // "pending" | "paid" | "processing" | "shipped" | "completed" | "cancelled"
-  
-  // Customer link (for relationship)
+  orderNumber       String   @unique
+  status            String   @default("pending")
+
   customerId        String?
-  customer          Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  
-  // Customer info snapshot (for receipt/history - never changes)
+  customer          Customer? @relation(fields: [customerId], references: [id])
+
+  // Snapshot at time of purchase (keep these)
   customerEmail     String?
   customerName      String?
-  shippingAddress   String?  // JSON: { name, address, city, state, zip, country }
-  
-  // Pricing
-  subtotal          Float    // Base product prices
-  premiumFees        Float    @default(0) // Sum of premium asset fees
+  shippingAddress   String?
+
+  subtotal          Float
+  premiumFees       Float    @default(0)
   shipping          Float    @default(0)
-  total             Float    // subtotal + premiumFees + shipping
-  
-  // Payment
-  paypalOrderId     String?  // PayPal order ID
-  paypalCaptureId   String?  // PayPal capture ID
-  
-  // Gelato
-  gelatoOrderId     String?  // Gelato order ID after submission
-  gelatoStatus      String?  // Gelato order status
-  
-  // Shipping tracking
-  trackingNumber    String?  // Shipping tracking number
-  trackingUrl       String?  // Tracking URL
-  carrier           String?  // Shipping carrier name
-  
-  // Design data
-  designDraftId     String?  // Link to design draft
-  
-  // Timestamps
+  total             Float
+
+  paypalOrderId     String?
+  paypalCaptureId   String?
+
+  gelatoOrderId     String?
+  gelatoStatus      String?
+
+  // Add these tracking fields (you'll want them immediately)
+  trackingNumber    String?
+  trackingUrl       String?
+  carrier           String?
+
+  designDraftId     String?
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  
-  // Relations
+
   items             OrderItem[]
-  
+
   @@index([status])
   @@index([orderNumber])
   @@index([customerEmail])
