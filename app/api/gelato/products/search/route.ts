@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCatalog, findProductByUid, findVariantByUid } from '@/lib/gelatoCatalog';
 import { getGelatoCatalogs, searchGelatoProducts } from '@/lib/gelato';
 
+// Mark this route as dynamic (uses searchParams)
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/gelato/products/search
  * Search Gelato products by category/catalog

@@ -1,31 +1,11 @@
 import { NextResponse } from 'next/server';
-import { uploadImageToGelato } from '@/lib/gelato';
 
+// TODO: Implement uploadImageToGelato function in @/lib/gelato
+// This route is currently disabled until the function is implemented
 export async function POST(request: Request) {
-  try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-
-    if (!file) {
-      return NextResponse.json(
-        { error: 'No file provided' },
-        { status: 400 }
-      );
-    }
-
-    const result = await uploadImageToGelato(file);
-
-    return NextResponse.json({
-      success: true,
-      fileUrl: result.url,
-      fileId: result.id,
-    });
-  } catch (error) {
-    console.error('Error uploading to Gelato:', error);
-    return NextResponse.json(
-      { error: 'Failed to upload image' },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    { error: 'Image upload to Gelato is not yet implemented' },
+    { status: 501 }
+  );
 }
 

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Mark this route as dynamic (uses searchParams)
+export const dynamic = 'force-dynamic';
+
 // Gelato API configuration
 const GELATO_PRODUCT_API_URL = process.env.GELATO_PRODUCT_API_URL || 'https://product.gelatoapis.com/v3';
 const GELATO_API_KEY = process.env.GELATO_API_KEY || '';

@@ -12,6 +12,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyGelatoPrintSpecs } from '@/lib/gelatoPrintSpecs';
 
+// Mark this route as dynamic (uses searchParams)
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
