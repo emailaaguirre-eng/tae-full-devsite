@@ -41,8 +41,6 @@ export async function POST(request: NextRequest) {
       const psd = readPsd(buffer, {
         // Use canvas if available (flattened image)
         useRawThumbnail: false,
-        // Log errors but continue
-        logErrors: true,
       });
       
       // Check if we have a canvas (flattened image)
