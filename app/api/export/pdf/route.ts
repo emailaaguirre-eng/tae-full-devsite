@@ -35,8 +35,8 @@ export async function POST(request: NextRequest) {
     // Generate PDF
     const pdfBuffer = await exportDesignToPDF(printSpec, sideStates, options);
     
-    // Return PDF as response
-    return new NextResponse(pdfBuffer, {
+    // Return PDF as response - convert Buffer to Uint8Array for NextResponse
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="design-export.pdf"`,

@@ -45,11 +45,18 @@ export async function POST(request: NextRequest) {
       
       // Check if we have a canvas (flattened image)
       if (psd.canvas) {
-        // ag-psd returns canvas as ImageData-like object
-        // Convert to buffer format that sharp can understand
+        // ag-psd returns canvas - access getContext to get image data
         const width = psd.canvas.width;
         const height = psd.canvas.height;
-        const data = psd.canvas.data; // Uint8ClampedArray
+        const ctx = psd.canvas.getContext('2d');
+        if (!ctx) {
+          return NextResponse.json(
+            { success: false, error: 'Failed to get canvas context' },
+            { status: 500 }
+          );
+        }
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data; // Uint8ClampedArray
         
         // Convert RGBA data to buffer format for sharp
         // ImageData is RGBA, we need to create a proper buffer

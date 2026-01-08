@@ -35,3 +35,10 @@ prisma/dev.db-journal
 
 # Uploads
 public/uploads/
+
+# Temp and backup files
+temp_*.tsx
+temp_*.ts
+*.backup
+*.backup.*
+types/*.backup
