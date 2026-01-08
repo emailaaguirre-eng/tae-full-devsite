@@ -5,14 +5,22 @@
  * Make sure GELATO_API_KEY is set in your environment or .env.local
  */
 
-require('dotenv').config({ path: '.env.local' });
+try {
+  require('dotenv').config({ path: '.env.local' });
+} catch (_) {
+  // dotenv not installed; script can still work if env is set
+}
 
 const GELATO_API_KEY = process.env.GELATO_API_KEY;
-const GELATO_API_URL = process.env.GELATO_API_URL || process.env.GELATO_API_BASE || 'https://order.gelatoapis.com/v4';
+const GELATO_PRODUCT_API_URL =
+  process.env.GELATO_PRODUCT_API_URL || 'https://product.gelatoapis.com/v3';
+const GELATO_ORDER_API_URL =
+  process.env.GELATO_ORDER_API_URL || process.env.GELATO_API_URL || 'https://order.gelatoapis.com/v4';
 
 async function testGelatoConnection() {
   console.log('🔍 Testing Gelato API Connection...\n');
-  console.log(`API URL: ${GELATO_API_URL}`);
+  console.log(`Product API URL: ${GELATO_PRODUCT_API_URL}`);
+  console.log(`Order API URL: ${GELATO_ORDER_API_URL}`);
   console.log(`API Key: ${GELATO_API_KEY ? `${GELATO_API_KEY.substring(0, 10)}...` : 'NOT SET'}\n`);
 
   if (!GELATO_API_KEY) {
@@ -24,13 +32,18 @@ async function testGelatoConnection() {
 
   const tests = [
     {
-      name: 'Products List',
-      endpoint: `${GELATO_API_URL}/products`,
+      name: 'Product API - Products List',
+      endpoint: `${GELATO_PRODUCT_API_URL}/products`,
       method: 'GET',
     },
     {
-      name: 'Product Variants (Card)',
-      endpoint: `${GELATO_API_URL}/products/cards_cl_dtc_prt_pt/variants`,
+      name: 'Product API - Card Variants',
+      endpoint: `${GELATO_PRODUCT_API_URL}/products/cards_cl_dtc_prt_pt/variants`,
+      method: 'GET',
+    },
+    {
+      name: 'Order API - Unauthorized probe (should 404 or 405, not 401)',
+      endpoint: `${GELATO_ORDER_API_URL}/orders`,
       method: 'GET',
     },
   ];

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createDesignDraft } from '@/lib/prisma/designDrafts';
 
+// Increase body size limit (default is ~4.5MB for Next.js)
+export const maxDuration = 30;
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

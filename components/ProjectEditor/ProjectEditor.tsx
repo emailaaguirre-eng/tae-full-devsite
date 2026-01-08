@@ -645,34 +645,19 @@ export default function ProjectEditor({
     try {
       // Collect design data for all sides
       const designJson: Record<string, any> = {};
+      // Don't send previews in save - they're too large (causes 413 error)
+      // Previews can be generated on-demand when needed
       const previews: Record<string, string> = {};
       
-      // Generate design JSON and previews for each side
+      // Generate design JSON for each side (skip previews to avoid 413 error)
       for (const side of printSpec.sides) {
         const sideState = sideStates[side.id] || { objects: [], selectedId: undefined };
         designJson[side.id] = {
           objects: sideState.objects,
         };
         
-        // Generate preview if stage is available (for current active side only)
-        if (side.id === activeSideId && stageRef.current) {
-          try {
-            const stage = stageRef.current;
-            const SCREEN_DPI = 96;
-            const bleedW = mmToPx(side.trimMm.w + (side.bleedMm * 2), SCREEN_DPI);
-            const bleedH = mmToPx(side.trimMm.h + (side.bleedMm * 2), SCREEN_DPI);
-            
-            // Generate preview at screen resolution (smaller file size)
-            const previewDataUrl = stage.toDataURL({
-              pixelRatio: 1,
-              width: bleedW,
-              height: bleedH,
-            });
-            previews[side.id] = previewDataUrl;
-          } catch (e) {
-            console.warn(`[ProjectEditor] Failed to generate preview for ${side.id}:`, e);
-          }
-        }
+        // Skip preview generation - they're too large for API requests
+        // Previews can be generated on-demand when viewing draft details
       }
       
       // Collect product/variant information
@@ -692,7 +677,7 @@ export default function ProjectEditor({
         cornerStyle: null, // TODO: Add corner style if available
         cornerRadiusMm: null, // TODO: Add corner radius if available
         designJson: JSON.stringify(designJson),
-        previews: Object.keys(previews).length > 0 ? JSON.stringify(previews) : null,
+        previews: null, // Skip previews to avoid 413 error - generate on-demand when needed
         usedAssetIds: JSON.stringify(usedAssetIds),
         premiumFees: totalPremiumFees,
       };
@@ -707,15 +692,31 @@ export default function ProjectEditor({
       });
       
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Failed to save draft' }));
-        throw new Error(error.message || 'Failed to save draft');
+        let errorMessage = 'Failed to save draft';
+        
+        if (response.status === 413) {
+          errorMessage = 'Draft too large to save. Please reduce the number of elements or images.';
+        } else if (response.status === 400) {
+          const error = await response.json().catch(() => ({ message: 'Invalid draft data' }));
+          errorMessage = error.message || 'Invalid draft data';
+        } else {
+          try {
+            const error = await response.json();
+            errorMessage = error.message || error.error || 'Failed to save draft';
+          } catch (e) {
+            errorMessage = `Failed to save draft (${response.status})`;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
       
       const result = await response.json();
-      const draftId = result.id || result.draftId;
+      const draftId = result.draftId || result.id || result.draft?.id;
       
       if (!draftId) {
-        throw new Error('Draft saved but no ID returned');
+        console.error('[ProjectEditor] Unexpected response format:', result);
+        throw new Error('Draft saved but no ID returned in response');
       }
       
       // If "Save & Continue", navigate to ArtKey editor

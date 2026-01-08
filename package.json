@@ -19,6 +19,7 @@
     "@types/pdfkit": "^0.13.8",
     "@types/qrcode": "^1.5.6",
     "ag-psd": "^29.0.0",
+    "dotenv": "^17.2.3",
     "fabric": "^6.9.0",
     "konva": "^10.0.12",
     "lucide-react": "^0.556.0",
