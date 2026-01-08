@@ -241,8 +241,8 @@ model Customer {
   email               String   @unique
   name                String?
   phone               String?
-  gelatoCustomerRefId String?  // Gelato customer reference ID
-  addressBookJson     String?  // JSON array of saved addresses
+  gelatoCustomerRefId String?  // what we pass as customerReferenceId
+  addressBookJson     String?  // optional JSON array of past addresses
   
   // Timestamps
   createdAt           DateTime @default(now())
