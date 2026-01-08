@@ -668,7 +668,16 @@ export default function ProjectEditor({
           
           // Type-specific properties
           if (obj.type === 'image') {
-            cleaned.src = obj.src; // Keep URL, not base64
+            // CRITICAL: Skip base64 data URLs - they bloat the payload
+            // Only save actual URLs, not embedded image data
+            if (obj.src && !obj.src.startsWith('data:')) {
+              cleaned.src = obj.src;
+            } else {
+              // For base64 images, save a placeholder - the image needs to be uploaded first
+              cleaned.src = null;
+              cleaned.needsUpload = true;
+              console.warn(`[ProjectEditor] Image ${obj.id} has base64 data - needs upload before save`);
+            }
             cleaned.width = obj.width;
             cleaned.height = obj.height;
           } else if (obj.type === 'text' || obj.type === 'label-shape') {
