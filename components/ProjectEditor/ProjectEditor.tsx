@@ -650,10 +650,51 @@ export default function ProjectEditor({
       const previews: Record<string, string> = {};
       
       // Generate design JSON for each side (skip previews to avoid 413 error)
+      // Optimize objects by removing unnecessary properties and data
       for (const side of printSpec.sides) {
         const sideState = sideStates[side.id] || { objects: [], selectedId: undefined };
+        
+        // Clean objects: only keep essential properties to reduce payload size
+        const cleanedObjects = sideState.objects.map(obj => {
+          const cleaned: any = {
+            id: obj.id,
+            type: obj.type,
+            x: obj.x,
+            y: obj.y,
+            scaleX: obj.scaleX ?? 1,
+            scaleY: obj.scaleY ?? 1,
+            rotation: obj.rotation ?? 0,
+          };
+          
+          // Type-specific properties
+          if (obj.type === 'image') {
+            cleaned.src = obj.src; // Keep URL, not base64
+            cleaned.width = obj.width;
+            cleaned.height = obj.height;
+          } else if (obj.type === 'text' || obj.type === 'label-shape') {
+            cleaned.text = obj.text;
+            cleaned.fontFamily = obj.fontFamily;
+            cleaned.fontSize = obj.fontSize;
+            cleaned.fontWeight = obj.fontWeight;
+            cleaned.fill = obj.fill;
+            if (obj.type === 'label-shape') {
+              cleaned.width = obj.width;
+              cleaned.height = obj.height;
+              cleaned.labelShapeId = obj.labelShapeId;
+              cleaned.labelShapeType = obj.labelShapeType;
+              cleaned.cornerRadius = obj.cornerRadius;
+              cleaned.backgroundColor = obj.backgroundColor;
+              cleaned.borderEnabled = obj.borderEnabled;
+              cleaned.borderWidth = obj.borderWidth;
+              cleaned.borderColor = obj.borderColor;
+            }
+          }
+          
+          return cleaned;
+        });
+        
         designJson[side.id] = {
-          objects: sideState.objects,
+          objects: cleanedObjects,
         };
         
         // Skip preview generation - they're too large for API requests
@@ -669,6 +710,18 @@ export default function ProjectEditor({
       const usedAssetIds = usedPremiumAssets.map(a => a.id);
       
       // Prepare draft data
+      const designJsonStr = JSON.stringify(designJson);
+      const usedAssetIdsStr = JSON.stringify(usedAssetIds);
+      
+      // Log payload size for debugging
+      const payloadSize = new Blob([designJsonStr, usedAssetIdsStr]).size;
+      const payloadSizeKB = (payloadSize / 1024).toFixed(2);
+      console.log(`[ProjectEditor] Payload size: ${payloadSizeKB} KB`);
+      
+      if (payloadSize > 4 * 1024 * 1024) { // 4MB warning
+        console.warn(`[ProjectEditor] Large payload detected: ${payloadSizeKB} KB. Consider reducing elements.`);
+      }
+      
       const draftData = {
         productId,
         variantId,
@@ -676,9 +729,9 @@ export default function ProjectEditor({
         printSpecId: printSpec.id,
         cornerStyle: null, // TODO: Add corner style if available
         cornerRadiusMm: null, // TODO: Add corner radius if available
-        designJson: JSON.stringify(designJson),
+        designJson: designJsonStr,
         previews: null, // Skip previews to avoid 413 error - generate on-demand when needed
-        usedAssetIds: JSON.stringify(usedAssetIds),
+        usedAssetIds: usedAssetIdsStr,
         premiumFees: totalPremiumFees,
       };
       

@@ -1,36 +1,28 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Increase body size limit for API routes
+  // Note: Next.js 14 doesn't have a direct body size config here,
+  // but this documents the limit and helps with other optimizations
+  experimental: {
+    // Increase max duration for long-running requests
+    serverActions: {
+      bodySizeLimit: '10mb', // 10MB limit for server actions
+    },
+  },
+  
+  // Image optimization settings
   images: {
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'theartfulexperience.com',
-        pathname: '/wp-content/uploads/**',
       },
       {
         protocol: 'https',
         hostname: 'dredev.theartfulexperience.com',
-        pathname: '/wp-content/uploads/**',
       },
-      // Allow other domains if needed (e.g., for external images)
-      // Add more patterns here as needed
     ],
   },
-  // Ignore ESLint errors during builds to prevent warnings from failing deployment
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  // Ignore TypeScript errors during builds (temporarily to unblock deployment)
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  // Skip static generation for pages that might fail during build
-  experimental: {
-    missingSuspenseWithCSRBailout: false,
-  },
-  // Disable static optimization for pages that use dynamic data
-  // This prevents build failures when external APIs are unreachable
-  // Note: outputFileTracingIncludes is not a valid Next.js 14 option, removed
-}
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

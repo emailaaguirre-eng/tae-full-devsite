@@ -1,12 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createDesignDraft } from '@/lib/prisma/designDrafts';
 
-// Increase body size limit (default is ~4.5MB for Next.js)
+// Increase body size limit and duration for large payloads
+// Note: Next.js 14 body size is typically limited by the server/proxy
+// This route handles large design JSON payloads
 export const maxDuration = 30;
 export const dynamic = 'force-dynamic';
 
+// Log request size for debugging
+function getRequestSize(request: NextRequest): number {
+  // Approximate size - actual body is streamed
+  const contentLength = request.headers.get('content-length');
+  return contentLength ? parseInt(contentLength, 10) : 0;
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Log request size for debugging
+    const requestSize = getRequestSize(request);
+    if (requestSize > 0) {
+      const sizeKB = (requestSize / 1024).toFixed(2);
+      console.log(`[DesignDrafts] Request size: ${sizeKB} KB`);
+      
+      if (requestSize > 4 * 1024 * 1024) { // 4MB
+        console.warn(`[DesignDrafts] Large request detected: ${sizeKB} KB`);
+      }
+    }
+    
     const body = await request.json();
     const {
       productId,
