@@ -418,12 +418,23 @@ model StoreProduct {
   description       String?             // Marketing description
   shortDescription  String?             // Brief tagline
   
+  // Product Type & Category
+  productType       String   @default("gelato") // "gelato" | "custom" | "artwork" | "digital"
+  category          String?             // e.g., "cards", "wall-art", "prints", "commissioned"
+  
+  // For custom/artwork products
+  artistName        String?             // Artist name for commissioned work
+  artistId          String?             // Reference to artist (if we have artist table)
+  stockQuantity     Int?                // For limited stock items (null = unlimited/POD)
+  isDigital         Boolean @default(false) // True for digital downloads
+  downloadUrl       String?             // URL for digital product download
+  
   // Display
   icon              String?             // Emoji or icon identifier
   heroImage         String?             // Main product image
   galleryImages     String?             // JSON array of image URLs
   
-  // Gelato catalog link
+  // Gelato catalog link (null for custom products)
   gelatoCatalogId   String?             // Reference to GelatoCatalog
   
   // Product configuration
@@ -465,4 +476,6 @@ model StoreProduct {
   @@index([active])
   @@index([featured])
   @@index([gelatoCatalogId])
+  @@index([productType])
+  @@index([category])
 }

@@ -1,8 +1,6 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { MockProvider } from '@/lib/designer/providers/MockProvider';
-import { useMemo } from 'react';
 
 const ProjectEditor = dynamic(() => import('@/components/ProjectEditor/ProjectEditor'), {
   ssr: false,
@@ -17,30 +15,27 @@ const ProjectEditor = dynamic(() => import('@/components/ProjectEditor/ProjectEd
 });
 
 export default function ProjectEditorDemoPage() {
-  // Create provider instance (memoized to avoid recreating on each render)
-  const provider = useMemo(() => new MockProvider(), []);
-  
   return (
     <ProjectEditor
-      provider={provider}
-      initialSelection={{
-        productType: 'greeting-card',
-        orientation: 'portrait',
+      productSlug="card"
+      selectedVariant={{
+        uid: 'demo-5x7-portrait',
         size: '5x7',
-        foldFormat: 'flat',
+        orientation: 'portrait',
+        paper: 'matte',
       }}
       onComplete={(exportData) => {
         console.log('Design complete:', exportData);
-        // In production: navigate to checkout or next step
-        alert('Design exported! Check console for data.');
+        // In production: navigate to ArtKey editor or checkout
+        alert('Design saved! Ready to continue to ArtKey editor.');
+        // Redirect to ArtKey editor
+        window.location.href = '/art-key/editor?from_design=true';
       }}
       onClose={() => {
-        // In production: navigate back or close modal
         if (confirm('Close designer? Unsaved changes will be lost.')) {
-          window.location.href = '/';
+          window.location.href = '/shop';
         }
       }}
     />
   );
 }
-
