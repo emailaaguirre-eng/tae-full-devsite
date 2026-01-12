@@ -1,9 +1,11 @@
 "use client";
 
 /**
- * Design Center - Full-Featured Image Editor
- * Uses Fabric.js for canvas manipulation
+ * theAE Customization Studio
+ * Full-Featured Product Design Editor
+ * Uses Fabric.js for palette manipulation
  * All features work without external API keys
+ * Export is optimized for Gelato print production
  * 
  * © 2026 B&D Servicing LLC. All rights reserved.
  */
@@ -160,7 +162,7 @@ const COMPOSITION_TEMPLATES: CompositionTemplate[] = [
   // === SINGLE IMAGE ===
   {
     id: 'full-bleed',
-    name: 'Full Canvas',
+    name: 'Full Palette',
     category: 'single',
     slots: [{ x: 0, y: 0, width: 100, height: 100, type: 'image' }],
   },
@@ -778,9 +780,9 @@ export default function DesignStudio({
     saveToHistory();
   };
 
-  const clearCanvas = () => {
+  const clearPalette = () => {
     if (!fabricCanvasRef.current) return;
-    if (!confirm('Clear all objects from canvas?')) return;
+    if (!confirm('Clear all objects from palette?')) return;
     
     const canvas = fabricCanvasRef.current;
     const objects = canvas.getObjects();
@@ -930,7 +932,7 @@ export default function DesignStudio({
     
     // Save to localStorage
     try {
-      localStorage.setItem('designCenter_savedDesigns', JSON.stringify(updated));
+      localStorage.setItem('theAE_savedDesigns', JSON.stringify(updated));
     } catch (e) {
       console.warn('Could not save to localStorage');
     }
@@ -952,7 +954,7 @@ export default function DesignStudio({
     const updated = savedDesigns.filter(d => d.id !== id);
     setSavedDesigns(updated);
     try {
-      localStorage.setItem('designCenter_savedDesigns', JSON.stringify(updated));
+      localStorage.setItem('theAE_savedDesigns', JSON.stringify(updated));
     } catch (e) {
       console.warn('Could not save to localStorage');
     }
@@ -961,7 +963,7 @@ export default function DesignStudio({
   // Load saved designs from localStorage on mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('designCenter_savedDesigns');
+      const saved = localStorage.getItem('theAE_savedDesigns');
       if (saved) {
         setSavedDesigns(JSON.parse(saved));
       }
@@ -1112,7 +1114,7 @@ export default function DesignStudio({
   };
 
   // =============================================================================
-  // EXPORT
+  // EXPORT (Gelato Print-Ready)
   // =============================================================================
 
   const handleSaveAndContinue = async () => {
@@ -1120,15 +1122,38 @@ export default function DesignStudio({
     setIsSaving(true);
 
     try {
+      const canvas = fabricCanvasRef.current;
+      
+      // Temporarily hide non-printable elements (guides, placeholders)
+      const nonPrintable: fabric.FabricObject[] = [];
+      canvas.getObjects().forEach(obj => {
+        if (obj.excludeFromExport || obj.selectable === false) {
+          nonPrintable.push(obj);
+          obj.set('visible', false);
+        }
+      });
+      canvas.requestRenderAll();
+
+      // Export at full print resolution (300 DPI)
       const multiplier = 1 / displayScale;
-      const dataUrl = fabricCanvasRef.current.toDataURL({
+      const dataUrl = canvas.toDataURL({
         format: 'png',
         quality: 1,
         multiplier: multiplier,
+        enableRetinaScaling: false, // Ensure exact pixel dimensions
       });
 
+      // Restore visibility of hidden elements
+      nonPrintable.forEach(obj => obj.set('visible', true));
+      canvas.requestRenderAll();
+
+      // Create blob for upload
       const response = await fetch(dataUrl);
       const blob = await response.blob();
+
+      // Calculate print dimensions
+      const printWidthInches = product.widthMm / 25.4;
+      const printHeightInches = product.heightMm / 25.4;
 
       onComplete({
         imageDataUrl: dataUrl,
@@ -1137,7 +1162,15 @@ export default function DesignStudio({
         dpi: DPI,
         productId: product.id,
         productName: product.name,
-      });
+        // Additional Gelato-useful metadata
+        printSize: {
+          widthMm: product.widthMm,
+          heightMm: product.heightMm,
+          widthInches: printWidthInches,
+          heightInches: printHeightInches,
+        },
+        exportedAt: new Date().toISOString(),
+      } as DesignOutput);
     } catch (error) {
       console.error('Export failed:', error);
       alert('Failed to save design. Please try again.');
@@ -1164,7 +1197,7 @@ export default function DesignStudio({
           )}
           <div>
             <h1 className="text-xl font-bold" style={{ color: BRAND.dark, fontFamily: 'Georgia, serif' }}>
-              Design Center
+              theAE Customization Studio
             </h1>
             <p className="text-xs" style={{ color: BRAND.medium }}>
               {product.name} • {product.widthMm}×{product.heightMm}mm
@@ -1294,7 +1327,7 @@ export default function DesignStudio({
             {activePanel === 'compositions' && (
               <div className="space-y-3">
                 <p className="text-xs" style={{ color: BRAND.medium }}>
-                  Click a layout to add placeholders to your canvas
+                  Click a layout to add placeholders to your palette
                 </p>
                 
                 {/* Category tabs */}
@@ -1361,13 +1394,13 @@ export default function DesignStudio({
                   ))}
                 </div>
 
-                {/* Clear canvas button */}
+                {/* Clear palette button */}
                 <button
-                  onClick={clearCanvas}
+                  onClick={clearPalette}
                   className="w-full py-2 rounded-lg text-xs font-medium transition-colors"
                   style={{ backgroundColor: BRAND.lightest, color: BRAND.dark }}
                 >
-                  Clear Canvas
+                  Clear Palette
                 </button>
               </div>
             )}
@@ -1591,7 +1624,7 @@ export default function DesignStudio({
 
                 {getLayerObjects().length === 0 ? (
                   <p className="text-xs text-center py-4" style={{ color: BRAND.medium }}>
-                    No objects on canvas
+                    No objects on palette
                   </p>
                 ) : (
                   <div className="space-y-1">
@@ -1852,7 +1885,7 @@ export default function DesignStudio({
           </div>
         </aside>
 
-        {/* Canvas Area */}
+        {/* Palette Area */}
         <main className="flex-1 flex items-center justify-center overflow-auto p-6" style={{ backgroundColor: '#e5e5e5' }}>
           <div 
             className="shadow-2xl rounded-lg overflow-hidden relative"
@@ -1881,10 +1914,17 @@ export default function DesignStudio({
       {/* Footer */}
       <footer className="flex items-center justify-between px-4 py-2 border-t text-xs" style={{ backgroundColor: BRAND.white, borderColor: BRAND.light, color: BRAND.medium }}>
         <div className="flex items-center gap-4">
-          <span>Safe Zone: Keep important content inside the dashed line</span>
+          <span>💡 Safe Zone: Keep important content inside the dashed line</span>
+          <span className="hidden sm:inline">•</span>
+          <span className="hidden sm:inline">Print Ready: {product.widthMm}×{product.heightMm}mm</span>
         </div>
-        <div>
-          {canvasWidthPx} × {canvasHeightPx} px @ {DPI} DPI
+        <div className="flex items-center gap-2">
+          <span className="px-2 py-0.5 rounded" style={{ backgroundColor: BRAND.lightest }}>
+            {canvasWidthPx} × {canvasHeightPx}px
+          </span>
+          <span className="px-2 py-0.5 rounded font-medium" style={{ backgroundColor: BRAND.accent, color: BRAND.dark }}>
+            {DPI} DPI
+          </span>
         </div>
       </footer>
     </div>
