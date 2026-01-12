@@ -19,7 +19,7 @@ import {
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   Triangle, Star, Heart, Minus, ArrowRightCircle,
   Hexagon, Diamond, Grid3X3, Palette, SlidersHorizontal,
-  Lock, Unlock, Eye, EyeOff
+  Lock, Unlock, Eye, EyeOff, LayoutGrid
 } from 'lucide-react';
 
 // =============================================================================
@@ -90,6 +90,234 @@ const SHAPE_PATHS = {
 };
 
 // =============================================================================
+// COMPOSITION TEMPLATES (Original layouts - not copied from any source)
+// =============================================================================
+
+interface CompositionSlot {
+  x: number;      // percentage from left (0-100)
+  y: number;      // percentage from top (0-100)
+  width: number;  // percentage width (0-100)
+  height: number; // percentage height (0-100)
+  type: 'image' | 'text';
+}
+
+interface CompositionTemplate {
+  id: string;
+  name: string;
+  category: string;
+  slots: CompositionSlot[];
+}
+
+const COMPOSITION_TEMPLATES: CompositionTemplate[] = [
+  // === SINGLE IMAGE ===
+  {
+    id: 'full-bleed',
+    name: 'Full Canvas',
+    category: 'single',
+    slots: [{ x: 0, y: 0, width: 100, height: 100, type: 'image' }],
+  },
+  {
+    id: 'centered-frame',
+    name: 'Centered Frame',
+    category: 'single',
+    slots: [{ x: 10, y: 10, width: 80, height: 80, type: 'image' }],
+  },
+  {
+    id: 'classic-caption',
+    name: 'With Caption',
+    category: 'single',
+    slots: [
+      { x: 5, y: 5, width: 90, height: 75, type: 'image' },
+      { x: 5, y: 82, width: 90, height: 13, type: 'text' },
+    ],
+  },
+  {
+    id: 'polaroid',
+    name: 'Polaroid Style',
+    category: 'single',
+    slots: [
+      { x: 8, y: 5, width: 84, height: 70, type: 'image' },
+      { x: 8, y: 78, width: 84, height: 17, type: 'text' },
+    ],
+  },
+  // === DUAL LAYOUTS ===
+  {
+    id: 'split-vertical',
+    name: 'Side by Side',
+    category: 'dual',
+    slots: [
+      { x: 2, y: 5, width: 47, height: 90, type: 'image' },
+      { x: 51, y: 5, width: 47, height: 90, type: 'image' },
+    ],
+  },
+  {
+    id: 'split-horizontal',
+    name: 'Stacked',
+    category: 'dual',
+    slots: [
+      { x: 5, y: 2, width: 90, height: 47, type: 'image' },
+      { x: 5, y: 51, width: 90, height: 47, type: 'image' },
+    ],
+  },
+  {
+    id: 'feature-right',
+    name: 'Feature Right',
+    category: 'dual',
+    slots: [
+      { x: 3, y: 5, width: 35, height: 90, type: 'image' },
+      { x: 40, y: 5, width: 57, height: 90, type: 'image' },
+    ],
+  },
+  {
+    id: 'feature-left',
+    name: 'Feature Left',
+    category: 'dual',
+    slots: [
+      { x: 3, y: 5, width: 57, height: 90, type: 'image' },
+      { x: 62, y: 5, width: 35, height: 90, type: 'image' },
+    ],
+  },
+  {
+    id: 'duo-caption',
+    name: 'Duo + Caption',
+    category: 'dual',
+    slots: [
+      { x: 3, y: 3, width: 46, height: 72, type: 'image' },
+      { x: 51, y: 3, width: 46, height: 72, type: 'image' },
+      { x: 3, y: 78, width: 94, height: 19, type: 'text' },
+    ],
+  },
+  // === TRIPLE LAYOUTS ===
+  {
+    id: 'triptych',
+    name: 'Triptych',
+    category: 'triple',
+    slots: [
+      { x: 2, y: 5, width: 31, height: 90, type: 'image' },
+      { x: 34.5, y: 5, width: 31, height: 90, type: 'image' },
+      { x: 67, y: 5, width: 31, height: 90, type: 'image' },
+    ],
+  },
+  {
+    id: 'hero-duo',
+    name: 'Hero + Two',
+    category: 'triple',
+    slots: [
+      { x: 3, y: 3, width: 60, height: 94, type: 'image' },
+      { x: 65, y: 3, width: 32, height: 46, type: 'image' },
+      { x: 65, y: 51, width: 32, height: 46, type: 'image' },
+    ],
+  },
+  {
+    id: 'row-feature',
+    name: 'Row + Feature',
+    category: 'triple',
+    slots: [
+      { x: 3, y: 3, width: 46, height: 45, type: 'image' },
+      { x: 51, y: 3, width: 46, height: 45, type: 'image' },
+      { x: 3, y: 50, width: 94, height: 47, type: 'image' },
+    ],
+  },
+  {
+    id: 'l-shape',
+    name: 'L-Shape',
+    category: 'triple',
+    slots: [
+      { x: 3, y: 3, width: 64, height: 60, type: 'image' },
+      { x: 69, y: 3, width: 28, height: 94, type: 'image' },
+      { x: 3, y: 65, width: 64, height: 32, type: 'image' },
+    ],
+  },
+  // === GRID LAYOUTS ===
+  {
+    id: 'grid-2x2',
+    name: 'Grid 2×2',
+    category: 'grid',
+    slots: [
+      { x: 3, y: 3, width: 46, height: 46, type: 'image' },
+      { x: 51, y: 3, width: 46, height: 46, type: 'image' },
+      { x: 3, y: 51, width: 46, height: 46, type: 'image' },
+      { x: 51, y: 51, width: 46, height: 46, type: 'image' },
+    ],
+  },
+  {
+    id: 'grid-1-3',
+    name: 'One + Three',
+    category: 'grid',
+    slots: [
+      { x: 3, y: 3, width: 60, height: 94, type: 'image' },
+      { x: 65, y: 3, width: 32, height: 30, type: 'image' },
+      { x: 65, y: 35, width: 32, height: 30, type: 'image' },
+      { x: 65, y: 67, width: 32, height: 30, type: 'image' },
+    ],
+  },
+  {
+    id: 'mosaic-5',
+    name: 'Mosaic',
+    category: 'grid',
+    slots: [
+      { x: 3, y: 3, width: 48, height: 55, type: 'image' },
+      { x: 53, y: 3, width: 44, height: 35, type: 'image' },
+      { x: 53, y: 40, width: 44, height: 57, type: 'image' },
+      { x: 3, y: 60, width: 23, height: 37, type: 'image' },
+      { x: 28, y: 60, width: 23, height: 37, type: 'image' },
+    ],
+  },
+  {
+    id: 'grid-3x2',
+    name: 'Grid 3×2',
+    category: 'grid',
+    slots: [
+      { x: 2, y: 3, width: 31, height: 46, type: 'image' },
+      { x: 34.5, y: 3, width: 31, height: 46, type: 'image' },
+      { x: 67, y: 3, width: 31, height: 46, type: 'image' },
+      { x: 2, y: 51, width: 31, height: 46, type: 'image' },
+      { x: 34.5, y: 51, width: 31, height: 46, type: 'image' },
+      { x: 67, y: 51, width: 31, height: 46, type: 'image' },
+    ],
+  },
+  // === WITH TEXT ===
+  {
+    id: 'headline-image',
+    name: 'Headline + Image',
+    category: 'text',
+    slots: [
+      { x: 5, y: 3, width: 90, height: 18, type: 'text' },
+      { x: 5, y: 23, width: 90, height: 74, type: 'image' },
+    ],
+  },
+  {
+    id: 'side-text',
+    name: 'Side Text',
+    category: 'text',
+    slots: [
+      { x: 3, y: 5, width: 55, height: 90, type: 'image' },
+      { x: 60, y: 5, width: 37, height: 90, type: 'text' },
+    ],
+  },
+  {
+    id: 'overlay-text',
+    name: 'Overlay',
+    category: 'text',
+    slots: [
+      { x: 0, y: 0, width: 100, height: 100, type: 'image' },
+      { x: 5, y: 70, width: 90, height: 25, type: 'text' },
+    ],
+  },
+  {
+    id: 'magazine',
+    name: 'Magazine',
+    category: 'text',
+    slots: [
+      { x: 5, y: 3, width: 90, height: 12, type: 'text' },
+      { x: 5, y: 17, width: 44, height: 55, type: 'image' },
+      { x: 51, y: 17, width: 44, height: 55, type: 'image' },
+      { x: 5, y: 74, width: 90, height: 23, type: 'text' },
+    ],
+  },
+];
+
+// =============================================================================
 // MAIN COMPONENT
 // =============================================================================
 
@@ -105,7 +333,8 @@ export default function DesignStudio({
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // State
-  const [activePanel, setActivePanel] = useState<'images' | 'text' | 'shapes' | 'adjust'>('images');
+  const [activePanel, setActivePanel] = useState<'images' | 'text' | 'shapes' | 'compositions' | 'adjust'>('images');
+  const [compositionCategory, setCompositionCategory] = useState<string>('single');
   const [zoom, setZoom] = useState(100);
   const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
   const [uploadedImages, setUploadedImages] = useState<Array<{ id: string; src: string; name: string }>>([]);
@@ -427,6 +656,98 @@ export default function DesignStudio({
   };
 
   // =============================================================================
+  // COMPOSITION TEMPLATES
+  // =============================================================================
+
+  const applyComposition = (template: CompositionTemplate) => {
+    if (!fabricCanvasRef.current) return;
+    const canvas = fabricCanvasRef.current;
+    const cw = canvas.width!;
+    const ch = canvas.height!;
+    const gap = 4; // Small gap between slots
+
+    // Create placeholder shapes for each slot
+    template.slots.forEach((slot, index) => {
+      const left = (slot.x / 100) * cw + gap;
+      const top = (slot.y / 100) * ch + gap;
+      const width = (slot.width / 100) * cw - gap * 2;
+      const height = (slot.height / 100) * ch - gap * 2;
+
+      if (slot.type === 'image') {
+        // Create an image placeholder rectangle
+        const placeholder = new fabric.Rect({
+          left,
+          top,
+          width,
+          height,
+          fill: BRAND.light,
+          stroke: BRAND.medium,
+          strokeWidth: 2,
+          strokeDashArray: [8, 4],
+          rx: 4,
+          ry: 4,
+          selectable: true,
+          evented: true,
+        });
+        
+        // Add a "+" icon in center using text
+        const plusIcon = new fabric.Text('+', {
+          left: left + width / 2,
+          top: top + height / 2,
+          originX: 'center',
+          originY: 'center',
+          fontSize: Math.min(width, height) * 0.3,
+          fill: BRAND.medium,
+          fontFamily: 'Arial',
+          fontWeight: 'bold',
+          selectable: false,
+          evented: false,
+        });
+
+        canvas.add(placeholder);
+        canvas.add(plusIcon);
+      } else {
+        // Create text placeholder
+        const textPlaceholder = new fabric.IText('Add text here', {
+          left: left + width / 2,
+          top: top + height / 2,
+          originX: 'center',
+          originY: 'center',
+          width: width,
+          fontSize: Math.min(24, height * 0.4) * displayScale,
+          fill: BRAND.dark,
+          fontFamily: 'Georgia',
+          textAlign: 'center',
+          selectable: true,
+          evented: true,
+        });
+        canvas.add(textPlaceholder);
+      }
+    });
+
+    canvas.requestRenderAll();
+    saveToHistory();
+  };
+
+  const clearCanvas = () => {
+    if (!fabricCanvasRef.current) return;
+    if (!confirm('Clear all objects from canvas?')) return;
+    
+    const canvas = fabricCanvasRef.current;
+    const objects = canvas.getObjects();
+    
+    // Remove all except the safe zone guide
+    objects.forEach(obj => {
+      if (obj.selectable !== false) {
+        canvas.remove(obj);
+      }
+    });
+    
+    canvas.requestRenderAll();
+    saveToHistory();
+  };
+
+  // =============================================================================
   // OBJECT ACTIONS
   // =============================================================================
 
@@ -689,6 +1010,7 @@ export default function DesignStudio({
           <div className="flex border-b" style={{ borderColor: BRAND.light }}>
             {[
               { id: 'images', icon: ImageIcon, label: 'Images' },
+              { id: 'compositions', icon: LayoutGrid, label: 'Layouts' },
               { id: 'text', icon: Type, label: 'Text' },
               { id: 'shapes', icon: Square, label: 'Shapes' },
               { id: 'adjust', icon: SlidersHorizontal, label: 'Adjust' },
@@ -740,6 +1062,88 @@ export default function DesignStudio({
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Compositions Panel */}
+            {activePanel === 'compositions' && (
+              <div className="space-y-3">
+                <p className="text-xs" style={{ color: BRAND.medium }}>
+                  Click a layout to add placeholders to your canvas
+                </p>
+                
+                {/* Category tabs */}
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    { id: 'single', label: '1 Image' },
+                    { id: 'dual', label: '2 Images' },
+                    { id: 'triple', label: '3 Images' },
+                    { id: 'grid', label: 'Grids' },
+                    { id: 'text', label: '+ Text' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setCompositionCategory(cat.id)}
+                      className="px-2 py-1 rounded text-xs font-medium transition-colors"
+                      style={{
+                        backgroundColor: compositionCategory === cat.id ? BRAND.dark : BRAND.lightest,
+                        color: compositionCategory === cat.id ? BRAND.white : BRAND.dark,
+                      }}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Layout thumbnails */}
+                <div className="grid grid-cols-2 gap-2">
+                  {COMPOSITION_TEMPLATES.filter(t => t.category === compositionCategory).map((template) => (
+                    <button
+                      key={template.id}
+                      onClick={() => applyComposition(template)}
+                      className="group relative aspect-[4/3] rounded-lg border-2 transition-all hover:border-gray-900 hover:shadow-md"
+                      style={{ borderColor: BRAND.light, backgroundColor: BRAND.white }}
+                      title={template.name}
+                    >
+                      {/* Mini preview of layout */}
+                      <div className="absolute inset-1">
+                        {template.slots.map((slot, i) => (
+                          <div
+                            key={i}
+                            className="absolute rounded-sm transition-colors"
+                            style={{
+                              left: `${slot.x}%`,
+                              top: `${slot.y}%`,
+                              width: `${slot.width}%`,
+                              height: `${slot.height}%`,
+                              backgroundColor: slot.type === 'image' ? BRAND.light : 'transparent',
+                              border: slot.type === 'text' ? `1px dashed ${BRAND.medium}` : 'none',
+                            }}
+                          >
+                            {slot.type === 'text' && (
+                              <span className="absolute inset-0 flex items-center justify-center text-[8px]" style={{ color: BRAND.medium }}>
+                                T
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {/* Label on hover */}
+                      <div className="absolute inset-x-0 bottom-0 bg-black/70 text-white text-[10px] py-0.5 text-center opacity-0 group-hover:opacity-100 transition-opacity rounded-b-md">
+                        {template.name}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Clear canvas button */}
+                <button
+                  onClick={clearCanvas}
+                  className="w-full py-2 rounded-lg text-xs font-medium transition-colors"
+                  style={{ backgroundColor: BRAND.lightest, color: BRAND.dark }}
+                >
+                  Clear Canvas
+                </button>
               </div>
             )}
 
