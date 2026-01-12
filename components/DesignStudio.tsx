@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Design Studio - Full-Featured Image Editor
+ * Design Center - Full-Featured Image Editor
  * Uses Fabric.js for canvas manipulation
  * All features work without external API keys
  * 
@@ -13,13 +13,15 @@ import * as fabric from 'fabric';
 import {
   Image as ImageIcon, Type, Square, Circle, Trash2, 
   ZoomIn, ZoomOut, Download, ArrowRight, X,
-  Layers, Upload, ChevronLeft, Bold, Italic,
+  Layers, Upload, ChevronLeft, Bold, Italic, Underline,
   Copy, Undo2, Redo2, FlipHorizontal, FlipVertical,
   RotateCw, AlignLeft, AlignCenter, AlignRight,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
-  Triangle, Star, Heart, Minus, ArrowRightCircle,
+  Triangle, Star, Heart, Minus, ArrowRightCircle, MoveVertical,
   Hexagon, Diamond, Grid3X3, Palette, SlidersHorizontal,
-  Lock, Unlock, Eye, EyeOff, LayoutGrid
+  Lock, Unlock, Eye, EyeOff, LayoutGrid, Sparkles, Save,
+  FolderOpen, ChevronUp, ChevronDown, Maximize2, Settings,
+  ArrowUpRight, CornerDownRight, Spline, PenTool
 } from 'lucide-react';
 
 // =============================================================================
@@ -88,6 +90,52 @@ const SHAPE_PATHS = {
   arrow: 'M 0,40 L 60,40 L 60,20 L 100,50 L 60,80 L 60,60 L 0,60 Z',
   pentagon: 'M 50,0 L 100,38 L 81,100 L 19,100 L 0,38 Z',
 };
+
+// =============================================================================
+// GRAPHICS LIBRARY (Lines, Arrows, Decorative Elements)
+// =============================================================================
+
+interface GraphicItem {
+  id: string;
+  name: string;
+  category: 'lines' | 'arrows' | 'dividers' | 'frames' | 'decorative';
+  type: 'line' | 'path' | 'group';
+  data: any; // Line coords or path data
+}
+
+const GRAPHICS_LIBRARY: GraphicItem[] = [
+  // LINES
+  { id: 'line-solid', name: 'Solid Line', category: 'lines', type: 'line', data: { x1: 0, y1: 0, x2: 150, y2: 0, strokeWidth: 3 } },
+  { id: 'line-thick', name: 'Thick Line', category: 'lines', type: 'line', data: { x1: 0, y1: 0, x2: 150, y2: 0, strokeWidth: 8 } },
+  { id: 'line-thin', name: 'Thin Line', category: 'lines', type: 'line', data: { x1: 0, y1: 0, x2: 150, y2: 0, strokeWidth: 1 } },
+  { id: 'line-dashed', name: 'Dashed Line', category: 'lines', type: 'line', data: { x1: 0, y1: 0, x2: 150, y2: 0, strokeWidth: 3, strokeDashArray: [10, 5] } },
+  { id: 'line-dotted', name: 'Dotted Line', category: 'lines', type: 'line', data: { x1: 0, y1: 0, x2: 150, y2: 0, strokeWidth: 3, strokeDashArray: [3, 3] } },
+  { id: 'line-diagonal', name: 'Diagonal', category: 'lines', type: 'line', data: { x1: 0, y1: 0, x2: 100, y2: 100, strokeWidth: 3 } },
+  
+  // ARROWS
+  { id: 'arrow-right', name: 'Arrow Right', category: 'arrows', type: 'path', data: 'M 0,15 L 80,15 L 80,5 L 100,20 L 80,35 L 80,25 L 0,25 Z' },
+  { id: 'arrow-left', name: 'Arrow Left', category: 'arrows', type: 'path', data: 'M 100,15 L 20,15 L 20,5 L 0,20 L 20,35 L 20,25 L 100,25 Z' },
+  { id: 'arrow-up', name: 'Arrow Up', category: 'arrows', type: 'path', data: 'M 15,100 L 15,20 L 5,20 L 20,0 L 35,20 L 25,20 L 25,100 Z' },
+  { id: 'arrow-down', name: 'Arrow Down', category: 'arrows', type: 'path', data: 'M 15,0 L 15,80 L 5,80 L 20,100 L 35,80 L 25,80 L 25,0 Z' },
+  { id: 'arrow-double', name: 'Double Arrow', category: 'arrows', type: 'path', data: 'M 0,20 L 15,5 L 15,15 L 85,15 L 85,5 L 100,20 L 85,35 L 85,25 L 15,25 L 15,35 Z' },
+  { id: 'arrow-curved', name: 'Curved Arrow', category: 'arrows', type: 'path', data: 'M 10,80 Q 10,10 80,10 L 80,0 L 100,15 L 80,30 L 80,20 Q 20,20 20,80 Z' },
+  
+  // DIVIDERS
+  { id: 'divider-dots', name: 'Dot Divider', category: 'dividers', type: 'path', data: 'M 0,5 A 5,5 0 1,1 10,5 A 5,5 0 1,1 0,5 M 30,5 A 5,5 0 1,1 40,5 A 5,5 0 1,1 30,5 M 60,5 A 5,5 0 1,1 70,5 A 5,5 0 1,1 60,5 M 90,5 A 5,5 0 1,1 100,5 A 5,5 0 1,1 90,5' },
+  { id: 'divider-wave', name: 'Wave Divider', category: 'dividers', type: 'path', data: 'M 0,10 Q 12.5,0 25,10 Q 37.5,20 50,10 Q 62.5,0 75,10 Q 87.5,20 100,10' },
+  { id: 'divider-zigzag', name: 'Zigzag', category: 'dividers', type: 'path', data: 'M 0,0 L 10,15 L 20,0 L 30,15 L 40,0 L 50,15 L 60,0 L 70,15 L 80,0 L 90,15 L 100,0' },
+  
+  // FRAMES
+  { id: 'frame-simple', name: 'Simple Frame', category: 'frames', type: 'path', data: 'M 0,0 L 100,0 L 100,100 L 0,100 Z M 10,10 L 10,90 L 90,90 L 90,10 Z' },
+  { id: 'frame-double', name: 'Double Frame', category: 'frames', type: 'path', data: 'M 0,0 L 100,0 L 100,100 L 0,100 Z M 5,5 L 5,95 L 95,95 L 95,5 Z M 10,10 L 10,90 L 90,90 L 90,10 Z M 15,15 L 15,85 L 85,85 L 85,15 Z' },
+  { id: 'frame-rounded', name: 'Rounded Frame', category: 'frames', type: 'path', data: 'M 10,0 L 90,0 Q 100,0 100,10 L 100,90 Q 100,100 90,100 L 10,100 Q 0,100 0,90 L 0,10 Q 0,0 10,0 Z M 20,10 Q 10,10 10,20 L 10,80 Q 10,90 20,90 L 80,90 Q 90,90 90,80 L 90,20 Q 90,10 80,10 Z' },
+  
+  // DECORATIVE
+  { id: 'deco-flourish', name: 'Flourish', category: 'decorative', type: 'path', data: 'M 0,50 Q 25,0 50,50 Q 75,100 100,50 M 0,50 Q 25,100 50,50 Q 75,0 100,50' },
+  { id: 'deco-scroll', name: 'Scroll', category: 'decorative', type: 'path', data: 'M 0,50 C 10,20 20,20 30,50 C 40,80 50,80 50,50 C 50,20 60,20 70,50 C 80,80 90,80 100,50' },
+  { id: 'deco-corner', name: 'Corner', category: 'decorative', type: 'path', data: 'M 0,100 L 0,0 L 100,0 M 10,90 Q 10,10 90,10' },
+  { id: 'deco-bracket', name: 'Bracket', category: 'decorative', type: 'path', data: 'M 20,0 Q 0,0 0,20 L 0,80 Q 0,100 20,100 M 80,0 Q 100,0 100,20 L 100,80 Q 100,100 80,100' },
+];
 
 // =============================================================================
 // COMPOSITION TEMPLATES (Original layouts - not copied from any source)
@@ -333,8 +381,9 @@ export default function DesignStudio({
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // State
-  const [activePanel, setActivePanel] = useState<'images' | 'text' | 'shapes' | 'compositions' | 'adjust'>('images');
+  const [activePanel, setActivePanel] = useState<'images' | 'text' | 'shapes' | 'graphics' | 'compositions' | 'layers' | 'adjust'>('images');
   const [compositionCategory, setCompositionCategory] = useState<string>('single');
+  const [savedDesigns, setSavedDesigns] = useState<Array<{ id: string; name: string; data: string; thumbnail: string }>>([]);
   const [zoom, setZoom] = useState(100);
   const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
   const [uploadedImages, setUploadedImages] = useState<Array<{ id: string; src: string; name: string }>>([]);
@@ -748,6 +797,180 @@ export default function DesignStudio({
   };
 
   // =============================================================================
+  // GRAPHICS
+  // =============================================================================
+
+  const addGraphic = (graphic: GraphicItem) => {
+    if (!fabricCanvasRef.current) return;
+    const canvas = fabricCanvasRef.current;
+
+    let obj: fabric.FabricObject;
+    const centerX = canvas.width! / 2;
+    const centerY = canvas.height! / 2;
+
+    if (graphic.type === 'line') {
+      const { x1, y1, x2, y2, strokeWidth, strokeDashArray } = graphic.data;
+      obj = new fabric.Line([x1, y1, x2, y2], {
+        left: centerX - 75,
+        top: centerY,
+        stroke: BRAND.dark,
+        strokeWidth: strokeWidth * displayScale,
+        strokeDashArray: strokeDashArray?.map((v: number) => v * displayScale),
+        selectable: true,
+        evented: true,
+      });
+    } else {
+      // Path
+      obj = new fabric.Path(graphic.data, {
+        left: centerX,
+        top: centerY,
+        originX: 'center',
+        originY: 'center',
+        fill: graphic.category === 'arrows' ? BRAND.dark : 'transparent',
+        stroke: graphic.category === 'arrows' ? 'transparent' : BRAND.dark,
+        strokeWidth: 2 * displayScale,
+        scaleX: displayScale * 0.8,
+        scaleY: displayScale * 0.8,
+        selectable: true,
+        evented: true,
+      });
+    }
+
+    canvas.add(obj);
+    canvas.setActiveObject(obj);
+    canvas.requestRenderAll();
+    saveToHistory();
+  };
+
+  // =============================================================================
+  // LAYERS MANAGEMENT
+  // =============================================================================
+
+  const getLayerObjects = () => {
+    if (!fabricCanvasRef.current) return [];
+    return fabricCanvasRef.current.getObjects().filter(obj => obj.selectable !== false);
+  };
+
+  const selectLayer = (obj: fabric.FabricObject) => {
+    if (!fabricCanvasRef.current) return;
+    fabricCanvasRef.current.setActiveObject(obj);
+    fabricCanvasRef.current.requestRenderAll();
+    setSelectedObject(obj);
+  };
+
+  const toggleLayerVisibility = (obj: fabric.FabricObject) => {
+    if (!fabricCanvasRef.current) return;
+    obj.set('visible', !obj.visible);
+    fabricCanvasRef.current.requestRenderAll();
+  };
+
+  const toggleLayerLock = (obj: fabric.FabricObject) => {
+    if (!fabricCanvasRef.current) return;
+    const isLocked = obj.lockMovementX && obj.lockMovementY;
+    obj.set({
+      lockMovementX: !isLocked,
+      lockMovementY: !isLocked,
+      lockScalingX: !isLocked,
+      lockScalingY: !isLocked,
+      lockRotation: !isLocked,
+      selectable: isLocked, // Toggle selectable
+    });
+    fabricCanvasRef.current.requestRenderAll();
+  };
+
+  const moveLayerUp = (obj: fabric.FabricObject) => {
+    if (!fabricCanvasRef.current) return;
+    fabricCanvasRef.current.bringObjectForward(obj);
+    fabricCanvasRef.current.requestRenderAll();
+  };
+
+  const moveLayerDown = (obj: fabric.FabricObject) => {
+    if (!fabricCanvasRef.current) return;
+    fabricCanvasRef.current.sendObjectBackwards(obj);
+    fabricCanvasRef.current.requestRenderAll();
+  };
+
+  const getObjectLabel = (obj: fabric.FabricObject): string => {
+    if (obj instanceof fabric.IText || obj instanceof fabric.Text) {
+      const text = (obj as fabric.IText).text || '';
+      return `Text: "${text.substring(0, 15)}${text.length > 15 ? '...' : ''}"`;
+    }
+    if (obj instanceof fabric.Image) return 'Image';
+    if (obj instanceof fabric.Rect) return 'Rectangle';
+    if (obj instanceof fabric.Circle) return 'Circle';
+    if (obj instanceof fabric.Triangle) return 'Triangle';
+    if (obj instanceof fabric.Line) return 'Line';
+    if (obj instanceof fabric.Path) return 'Shape';
+    if (obj instanceof fabric.Polygon) return 'Polygon';
+    return 'Object';
+  };
+
+  // =============================================================================
+  // SAVE/LOAD DESIGNS
+  // =============================================================================
+
+  const saveDesign = () => {
+    if (!fabricCanvasRef.current) return;
+    
+    const name = prompt('Enter a name for this design:', `Design ${savedDesigns.length + 1}`);
+    if (!name) return;
+
+    const json = JSON.stringify(fabricCanvasRef.current.toJSON());
+    const thumbnail = fabricCanvasRef.current.toDataURL({ format: 'png', quality: 0.3, multiplier: 0.2 });
+    
+    const newDesign = {
+      id: `design-${Date.now()}`,
+      name,
+      data: json,
+      thumbnail,
+    };
+
+    const updated = [...savedDesigns, newDesign];
+    setSavedDesigns(updated);
+    
+    // Save to localStorage
+    try {
+      localStorage.setItem('designCenter_savedDesigns', JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Could not save to localStorage');
+    }
+
+    alert(`Design "${name}" saved!`);
+  };
+
+  const loadDesign = (design: typeof savedDesigns[0]) => {
+    if (!fabricCanvasRef.current) return;
+    if (!confirm(`Load "${design.name}"? This will replace your current work.`)) return;
+
+    fabricCanvasRef.current.loadFromJSON(JSON.parse(design.data)).then(() => {
+      fabricCanvasRef.current?.requestRenderAll();
+      saveToHistory();
+    });
+  };
+
+  const deleteDesign = (id: string) => {
+    const updated = savedDesigns.filter(d => d.id !== id);
+    setSavedDesigns(updated);
+    try {
+      localStorage.setItem('designCenter_savedDesigns', JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Could not save to localStorage');
+    }
+  };
+
+  // Load saved designs from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('designCenter_savedDesigns');
+      if (saved) {
+        setSavedDesigns(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.warn('Could not load saved designs');
+    }
+  }, []);
+
+  // =============================================================================
   // OBJECT ACTIONS
   // =============================================================================
 
@@ -941,7 +1164,7 @@ export default function DesignStudio({
           )}
           <div>
             <h1 className="text-xl font-bold" style={{ color: BRAND.dark, fontFamily: 'Georgia, serif' }}>
-              Design Studio
+              Design Center
             </h1>
             <p className="text-xs" style={{ color: BRAND.medium }}>
               {product.name} • {product.widthMm}×{product.heightMm}mm
@@ -1007,13 +1230,15 @@ export default function DesignStudio({
         {/* Left Sidebar */}
         <aside className="w-64 border-r overflow-y-auto flex flex-col" style={{ backgroundColor: BRAND.white, borderColor: BRAND.light }}>
           {/* Panel Tabs */}
-          <div className="flex border-b" style={{ borderColor: BRAND.light }}>
+          <div className="flex flex-wrap border-b" style={{ borderColor: BRAND.light }}>
             {[
-              { id: 'images', icon: ImageIcon, label: 'Images' },
+              { id: 'images', icon: ImageIcon, label: 'Files' },
               { id: 'compositions', icon: LayoutGrid, label: 'Layouts' },
               { id: 'text', icon: Type, label: 'Text' },
+              { id: 'graphics', icon: PenTool, label: 'Graphics' },
               { id: 'shapes', icon: Square, label: 'Shapes' },
-              { id: 'adjust', icon: SlidersHorizontal, label: 'Adjust' },
+              { id: 'layers', icon: Layers, label: 'Layers' },
+              { id: 'adjust', icon: Settings, label: 'Settings' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -1288,6 +1513,198 @@ export default function DesignStudio({
                       <label className="text-xs" style={{ color: BRAND.medium }}>Add Border</label>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Graphics Panel */}
+            {activePanel === 'graphics' && (
+              <div className="space-y-3">
+                {/* Category tabs */}
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    { id: 'lines', label: 'Lines' },
+                    { id: 'arrows', label: 'Arrows' },
+                    { id: 'dividers', label: 'Dividers' },
+                    { id: 'frames', label: 'Frames' },
+                    { id: 'decorative', label: 'Decor' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setCompositionCategory(cat.id)}
+                      className="px-2 py-1 rounded text-xs font-medium transition-colors"
+                      style={{
+                        backgroundColor: compositionCategory === cat.id ? BRAND.dark : BRAND.lightest,
+                        color: compositionCategory === cat.id ? BRAND.white : BRAND.dark,
+                      }}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Graphics grid */}
+                <div className="grid grid-cols-3 gap-2">
+                  {GRAPHICS_LIBRARY.filter(g => g.category === compositionCategory).map((graphic) => (
+                    <button
+                      key={graphic.id}
+                      onClick={() => addGraphic(graphic)}
+                      className="aspect-square rounded-lg border-2 transition-all hover:border-gray-900 hover:shadow-md flex items-center justify-center p-2"
+                      style={{ borderColor: BRAND.light, backgroundColor: BRAND.white }}
+                      title={graphic.name}
+                    >
+                      {/* Preview SVG */}
+                      <svg viewBox="0 0 100 100" className="w-full h-full" style={{ stroke: BRAND.dark, fill: graphic.category === 'arrows' ? BRAND.dark : 'none', strokeWidth: 3 }}>
+                        {graphic.type === 'line' ? (
+                          <line 
+                            x1={graphic.data.x1} 
+                            y1={graphic.data.y1 + 50} 
+                            x2={graphic.data.x2 * 0.66} 
+                            y2={graphic.data.y2 + 50}
+                            strokeDasharray={graphic.data.strokeDashArray?.join(' ') || 'none'}
+                          />
+                        ) : (
+                          <path d={graphic.data} transform="translate(0, 25) scale(1)" />
+                        )}
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+
+                {GRAPHICS_LIBRARY.filter(g => g.category === compositionCategory).length === 0 && (
+                  <p className="text-xs text-center py-4" style={{ color: BRAND.medium }}>
+                    Select a category above
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Layers Panel */}
+            {activePanel === 'layers' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold" style={{ color: BRAND.dark }}>Layers</h3>
+                  <span className="text-xs" style={{ color: BRAND.medium }}>
+                    {getLayerObjects().length} objects
+                  </span>
+                </div>
+
+                {getLayerObjects().length === 0 ? (
+                  <p className="text-xs text-center py-4" style={{ color: BRAND.medium }}>
+                    No objects on canvas
+                  </p>
+                ) : (
+                  <div className="space-y-1">
+                    {getLayerObjects().slice().reverse().map((obj, idx) => {
+                      const isSelected = selectedObject === obj;
+                      const isLocked = obj.lockMovementX && obj.lockMovementY;
+                      
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-1 p-1.5 rounded transition-colors"
+                          style={{ 
+                            backgroundColor: isSelected ? BRAND.lightest : 'transparent',
+                            border: `1px solid ${isSelected ? BRAND.dark : BRAND.light}`,
+                          }}
+                        >
+                          {/* Select button */}
+                          <button
+                            onClick={() => selectLayer(obj)}
+                            className="flex-1 text-left text-xs truncate px-1"
+                            style={{ color: obj.visible ? BRAND.dark : BRAND.medium }}
+                          >
+                            {getObjectLabel(obj)}
+                          </button>
+                          
+                          {/* Layer controls */}
+                          <button
+                            onClick={() => toggleLayerVisibility(obj)}
+                            className="p-1 rounded hover:bg-gray-200"
+                            title={obj.visible ? 'Hide' : 'Show'}
+                          >
+                            {obj.visible ? (
+                              <Eye className="w-3 h-3" style={{ color: BRAND.medium }} />
+                            ) : (
+                              <EyeOff className="w-3 h-3" style={{ color: BRAND.medium }} />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => toggleLayerLock(obj)}
+                            className="p-1 rounded hover:bg-gray-200"
+                            title={isLocked ? 'Unlock' : 'Lock'}
+                          >
+                            {isLocked ? (
+                              <Lock className="w-3 h-3" style={{ color: BRAND.medium }} />
+                            ) : (
+                              <Unlock className="w-3 h-3" style={{ color: BRAND.medium }} />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => moveLayerUp(obj)}
+                            className="p-1 rounded hover:bg-gray-200"
+                            title="Move Up"
+                          >
+                            <ChevronUp className="w-3 h-3" style={{ color: BRAND.medium }} />
+                          </button>
+                          <button
+                            onClick={() => moveLayerDown(obj)}
+                            className="p-1 rounded hover:bg-gray-200"
+                            title="Move Down"
+                          >
+                            <ChevronDown className="w-3 h-3" style={{ color: BRAND.medium }} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Saved Designs Section */}
+                <div className="pt-3 border-t" style={{ borderColor: BRAND.light }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-semibold" style={{ color: BRAND.dark }}>Saved Designs</h3>
+                    <button
+                      onClick={saveDesign}
+                      className="text-xs px-2 py-1 rounded font-medium flex items-center gap-1"
+                      style={{ backgroundColor: BRAND.dark, color: BRAND.white }}
+                    >
+                      <Save className="w-3 h-3" />
+                      Save
+                    </button>
+                  </div>
+
+                  {savedDesigns.length === 0 ? (
+                    <p className="text-xs text-center py-2" style={{ color: BRAND.medium }}>
+                      No saved designs yet
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-1">
+                      {savedDesigns.map((design) => (
+                        <div
+                          key={design.id}
+                          className="relative group rounded-lg border overflow-hidden"
+                          style={{ borderColor: BRAND.light }}
+                        >
+                          <img 
+                            src={design.thumbnail} 
+                            alt={design.name} 
+                            className="w-full aspect-square object-cover cursor-pointer"
+                            onClick={() => loadDesign(design)}
+                          />
+                          <div className="absolute inset-x-0 bottom-0 bg-black/70 text-white text-[9px] p-1 truncate">
+                            {design.name}
+                          </div>
+                          <button
+                            onClick={() => deleteDesign(design.id)}
+                            className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
