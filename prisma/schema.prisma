@@ -328,3 +328,141 @@ model OrderItem {
   @@index([productId])
   @@index([assetId])
 }
+
+// ============================================================================
+// Gelato Catalog Cache
+// Synced from Gelato API - source of truth for available products
+// ============================================================================
+
+model GelatoCatalog {
+  id                String   @id @default(cuid())
+  catalogUid        String   @unique  // Gelato's catalog UID (e.g., "folded-cards")
+  title             String             // Display title
+  
+  // Cached attributes as JSON (paper types, coatings, foils, etc.)
+  attributesJson    String?            // JSON: full attributes from API
+  
+  // Sync tracking
+  lastSyncedAt      DateTime @default(now())
+  syncStatus        String   @default("pending") // "pending" | "synced" | "error"
+  syncError         String?
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  products          GelatoProduct[]
+  storeProducts     StoreProduct[]
+  
+  @@index([catalogUid])
+  @@index([syncStatus])
+}
+
+model GelatoProduct {
+  id                String   @id @default(cuid())
+  productUid        String   @unique  // Gelato's full product UID
+  catalogId         String             // Reference to GelatoCatalog
+  
+  // Product attributes (parsed from UID or API)
+  paperFormat       String?            // e.g., "5R", "A5", "A6"
+  paperType         String?            // e.g., "100-lb-cover-coated-silk"
+  colorType         String?            // e.g., "4-4", "4-0"
+  orientation       String?            // e.g., "hor", "ver"
+  coatingType       String?            // e.g., "glossy-protection", "none"
+  foldingType       String?            // e.g., "fold-hor", "fold-ver"
+  spotFinishing     String?            // e.g., "foil-gold-1-1", "none"
+  protectionType    String?            // e.g., "1-1", "none"
+  
+  // Dimensions from Gelato API (in mm)
+  widthMm           Float?
+  heightMm          Float?
+  weightGrams       Float?
+  
+  // Full attributes JSON from API
+  attributesJson    String?
+  dimensionsJson    String?
+  
+  // Availability
+  supportedCountries String?           // JSON array of country codes
+  isPrintable       Boolean @default(true)
+  isStockable       Boolean @default(false)
+  productStatus     String  @default("activated") // "activated" | "deactivated" | "deprecated"
+  
+  // Sync tracking
+  lastSyncedAt      DateTime @default(now())
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  catalog           GelatoCatalog @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+  
+  @@index([catalogId])
+  @@index([productUid])
+  @@index([paperFormat])
+  @@index([orientation])
+  @@index([productStatus])
+}
+
+// ============================================================================
+// Store Products
+// Admin-managed products displayed in shop, linked to Gelato catalogs
+// ============================================================================
+
+model StoreProduct {
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  name              String              // Display name (e.g., "Greeting Cards")
+  description       String?             // Marketing description
+  shortDescription  String?             // Brief tagline
+  
+  // Display
+  icon              String?             // Emoji or icon identifier
+  heroImage         String?             // Main product image
+  galleryImages     String?             // JSON array of image URLs
+  
+  // Gelato catalog link
+  gelatoCatalogId   String?             // Reference to GelatoCatalog
+  
+  // Product configuration
+  // Which options to show (filters on GelatoProduct attributes)
+  allowedFormats    String?             // JSON array: ["5R", "A5", "A6"]
+  allowedPapers     String?             // JSON array of paper types
+  allowedCoatings   String?             // JSON array of coating types
+  allowedFoils      String?             // JSON array of foil options
+  allowedFolds      String?             // JSON array of folding types
+  
+  // Pricing
+  basePrice         Float   @default(0) // Your base price (markup)
+  
+  // Print specifications
+  defaultBleedMm    Float   @default(4) // Default bleed in mm
+  defaultSafeMm     Float   @default(4) // Default safe zone in mm
+  defaultDpi        Int     @default(300) // Export DPI
+  
+  // Editor configuration
+  editorConfig      String?             // JSON: { showFoilLayer, allowText, templates, etc. }
+  
+  // Display settings
+  active            Boolean @default(true)
+  featured          Boolean @default(false)
+  sortOrder         Int     @default(0)
+  
+  // SEO
+  metaTitle         String?
+  metaDescription   String?
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  gelatoCatalog     GelatoCatalog? @relation(fields: [gelatoCatalogId], references: [id], onDelete: SetNull)
+  
+  @@index([slug])
+  @@index([active])
+  @@index([featured])
+  @@index([gelatoCatalogId])
+}

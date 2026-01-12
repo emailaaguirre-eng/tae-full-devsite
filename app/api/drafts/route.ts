@@ -1,131 +1,150 @@
 /**
- * Drafts API
- * Handles saving and retrieving design drafts (NO base64 allowed!)
+ * Design Drafts API
+ * Copyright (c) 2026 B&D Servicing LLC. All rights reserved.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, readFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
-import type { PhysicalDesignDraft } from '@/lib/designer/types';
+import { PrismaClient } from '@prisma/client';
 
-const DRAFTS_DIR = join(process.cwd(), 'data', 'drafts');
+const prisma = new PrismaClient();
 
-// Ensure drafts directory exists
-async function ensureDraftsDir() {
-  if (!existsSync(DRAFTS_DIR)) {
-    await mkdir(DRAFTS_DIR, { recursive: true });
+// GET /api/drafts - List drafts (optionally filter by sessionId or userId)
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get('sessionId');
+    const userId = searchParams.get('userId');
+    const draftId = searchParams.get('id');
+
+    // Fetch single draft by ID
+    if (draftId) {
+      const draft = await prisma.designDraft.findUnique({
+        where: { id: draftId },
+      });
+
+      if (!draft) {
+        return NextResponse.json(
+          { success: false, error: 'Draft not found' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          ...draft,
+          designJsonFront: draft.designJsonFront ? JSON.parse(draft.designJsonFront) : null,
+          designJsonBack: draft.designJsonBack ? JSON.parse(draft.designJsonBack) : null,
+          artKeyData: draft.artKeyData ? JSON.parse(draft.artKeyData) : null,
+        },
+      });
+    }
+
+    // Build filter
+    const where: any = {};
+    if (sessionId) where.sessionId = sessionId;
+    if (userId) where.userId = userId;
+
+    const drafts = await prisma.designDraft.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: drafts.map((draft) => ({
+        ...draft,
+        // Don't parse full JSON for list view - just include metadata
+        designJsonFront: draft.designJsonFront ? 'has_data' : null,
+        designJsonBack: draft.designJsonBack ? 'has_data' : null,
+      })),
+    });
+  } catch (error) {
+    console.error('Error fetching drafts:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch drafts' },
+      { status: 500 }
+    );
   }
 }
 
-/**
- * POST /api/drafts - Save a new draft
- */
-export async function POST(req: NextRequest) {
+// POST /api/drafts - Create or update a draft
+export async function POST(request: NextRequest) {
   try {
-    const draft: PhysicalDesignDraft = await req.json();
-    
-    // CRITICAL: Validate no base64 data in draft
-    const validation = validateDraft(draft);
-    if (!validation.valid) {
+    const body = await request.json();
+    const {
+      id, // If provided, update existing draft
+      productId,
+      variantId,
+      printSpecId,
+      gelatoProductUid,
+      dpi = 300,
+      designObjects, // Array of design objects for all sides
+      previewPngFront,
+      previewPngBack,
+      artKeyData,
+      sessionId,
+      userId,
+      status = 'draft',
+    } = body;
+
+    // Validate required fields
+    if (!printSpecId && !gelatoProductUid) {
       return NextResponse.json(
-        { error: 'Draft validation failed', details: validation.errors },
+        { success: false, error: 'printSpecId or gelatoProductUid is required' },
         { status: 400 }
       );
     }
-    
-    // Generate draft ID if not provided
-    const draftId = draft.id || `draft_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const updatedDraft: PhysicalDesignDraft = {
-      ...draft,
-      id: draftId,
-      updatedAt: Date.now(),
-      version: 1, // Schema version
+
+    // Separate objects by side
+    const frontObjects = designObjects?.filter((obj: any) => obj.side === 'front') || [];
+    const backObjects = designObjects?.filter((obj: any) => obj.side === 'back' || obj.side === 'inside') || [];
+
+    const draftData = {
+      productId: productId || null,
+      variantId: variantId || null,
+      printSpecId: printSpecId || gelatoProductUid,
+      dpi,
+      designJsonFront: frontObjects.length > 0 ? JSON.stringify(frontObjects) : null,
+      designJsonBack: backObjects.length > 0 ? JSON.stringify(backObjects) : null,
+      previewPngFront: previewPngFront || null,
+      previewPngBack: previewPngBack || null,
+      artKeyData: artKeyData ? JSON.stringify(artKeyData) : null,
+      sessionId: sessionId || null,
+      userId: userId || null,
+      status,
     };
-    
-    // Save to file system (in production, use database)
-    await ensureDraftsDir();
-    const filepath = join(DRAFTS_DIR, `${draftId}.json`);
-    await writeFile(filepath, JSON.stringify(updatedDraft, null, 2));
-    
+
+    let draft;
+
+    if (id) {
+      // Update existing draft
+      draft = await prisma.designDraft.update({
+        where: { id },
+        data: draftData,
+      });
+    } else {
+      // Create new draft
+      draft = await prisma.designDraft.create({
+        data: draftData,
+      });
+    }
+
     return NextResponse.json({
       success: true,
-      draftId,
-      url: `/designer/draft/${draftId}`,
+      data: {
+        id: draft.id,
+        status: draft.status,
+        updatedAt: draft.updatedAt,
+      },
+      message: id ? 'Draft updated' : 'Draft created',
     });
   } catch (error) {
-    console.error('[Drafts API] Save error:', error);
+    console.error('Error saving draft:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to save draft' },
+      { success: false, error: 'Failed to save draft' },
       { status: 500 }
     );
   }
 }
-
-/**
- * GET /api/drafts - List all drafts (optional: filter by user)
- */
-export async function GET(req: NextRequest) {
-  try {
-    await ensureDraftsDir();
-    
-    // In production, query database with pagination
-    // For now, just return success (implementation TBD)
-    return NextResponse.json({
-      drafts: [],
-      message: 'List endpoint not yet implemented',
-    });
-  } catch (error) {
-    console.error('[Drafts API] List error:', error);
-    return NextResponse.json(
-      { error: 'Failed to list drafts' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * Validate draft for base64 data
- */
-function validateDraft(draft: PhysicalDesignDraft): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-  
-  // Check required fields
-  if (!draft.productType) errors.push('productType is required');
-  if (!draft.selection) errors.push('selection is required');
-  if (!draft.printSpecId) errors.push('printSpecId is required');
-  if (!draft.design) errors.push('design is required');
-  
-  // Check for base64 in design objects
-  for (const sideId in draft.design.sides) {
-    const side = draft.design.sides[sideId];
-    for (const obj of side.objects) {
-      // Check assetUrl for base64 data URLs
-      if (obj.assetUrl && obj.assetUrl.startsWith('data:')) {
-        errors.push(
-          `Object ${obj.id} on side ${sideId} contains base64 data. ` +
-          `Upload assets via /api/assets first.`
-        );
-      }
-      
-      // Check for any src fields (legacy)
-      if ((obj as any).src && (obj as any).src.startsWith('data:')) {
-        errors.push(
-          `Object ${obj.id} on side ${sideId} contains base64 in 'src' field. ` +
-          `Use assetId/assetUrl instead.`
-        );
-      }
-    }
-    
-    // Check background images
-    if (side.background?.imageAssetId && side.background.imageAssetId.startsWith('data:')) {
-      errors.push(`Side ${sideId} background contains base64 data`);
-    }
-  }
-  
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
-}
-

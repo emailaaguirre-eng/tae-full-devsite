@@ -1,147 +1,88 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { findOrCreateCustomer, getGelatoCustomerRefId } from '@/lib/prisma/customers';
-import { createGelatoOrder } from '@/lib/gelato';
-
-const prisma = new PrismaClient();
-
-export const dynamic = 'force-dynamic';
-
 /**
- * POST /api/orders
- * Create a new order
+ * Orders API
+ * Copyright (c) 2026 B&D Servicing LLC. All rights reserved.
  */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createDraftOrder, submitOrder, type GelatoOrderRequest } from '@/lib/gelato/orderService';
+
+// POST /api/orders - Create a new order
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      customerEmail,
-      customerName,
-      customerPhone,
-      shippingAddress,
-      items,
-      designDraftId,
-      subtotal,
-      premiumFees,
-      shipping,
-      total,
-    } = body;
+    const { orderType, ...orderData } = body as { orderType: 'draft' | 'order' } & GelatoOrderRequest;
 
     // Validate required fields
-    if (!customerEmail || !items || !Array.isArray(items) || items.length === 0) {
+    if (!orderData.orderReferenceId) {
       return NextResponse.json(
-        { error: 'Missing required fields: customerEmail, items' },
+        { success: false, error: 'Order reference ID is required' },
         { status: 400 }
       );
     }
 
-    // Find or create customer
-    const customer = await findOrCreateCustomer({
-      email: customerEmail,
-      name: customerName,
-      phone: customerPhone,
+    if (!orderData.items || orderData.items.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'At least one item is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!orderData.shippingAddress) {
+      return NextResponse.json(
+        { success: false, error: 'Shipping address is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate each item has required fields
+    for (const item of orderData.items) {
+      if (!item.productUid) {
+        return NextResponse.json(
+          { success: false, error: 'Each item must have a productUid' },
+          { status: 400 }
+        );
+      }
+      if (!item.files || item.files.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Each item must have at least one file' },
+          { status: 400 }
+        );
+      }
+      // Validate file URLs are accessible
+      for (const file of item.files) {
+        if (!file.url || !file.url.startsWith('http')) {
+          return NextResponse.json(
+            { success: false, error: 'Each file must have a valid URL' },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // Create order based on type
+    let result;
+    if (orderType === 'order') {
+      result = await submitOrder(orderData);
+    } else {
+      result = await createDraftOrder(orderData);
+    }
+
+    if (!result.success) {
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: result.data,
     });
-
-    // Generate order number
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-
-    // Create order with snapshot of customer info
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        customerId: customer.id,
-        customerEmail, // Snapshot
-        customerName, // Snapshot
-        shippingAddress: shippingAddress ? JSON.stringify(shippingAddress) : null,
-        subtotal: subtotal || 0,
-        premiumFees: premiumFees || 0,
-        shipping: shipping || 0,
-        total: total || (subtotal || 0) + (premiumFees || 0) + (shipping || 0),
-        designDraftId,
-        status: 'pending',
-        items: {
-          create: items.map((item: any) => ({
-            productId: item.productId || null,
-            assetId: item.assetId || null,
-            itemType: item.itemType || 'product',
-            itemName: item.itemName || 'Unknown Item',
-            quantity: item.quantity || 1,
-            unitPrice: item.unitPrice || 0,
-            usedAssetIds: item.usedAssetIds ? JSON.stringify(item.usedAssetIds) : null,
-            premiumFees: item.premiumFees || 0,
-            designDraftId: item.designDraftId || null,
-          })),
-        },
-      },
-      include: {
-        customer: true,
-        items: true,
-      },
-    });
-
+  } catch (error) {
+    console.error('Order creation error:', error);
     return NextResponse.json(
-      {
-        order: {
-          id: order.id,
-          orderNumber: order.orderNumber,
-          status: order.status,
-          total: order.total,
-          customerId: order.customerId,
-        },
-      },
-      { status: 201 }
-    );
-  } catch (error: any) {
-    console.error('[Orders] POST error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to create order' },
+      { success: false, error: 'Failed to create order' },
       { status: 500 }
     );
   }
 }
-
-/**
- * GET /api/orders
- * Get orders (with optional filters)
- */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const customerId = searchParams.get('customerId');
-    const status = searchParams.get('status');
-
-    const orders = await prisma.order.findMany({
-      where: {
-        ...(customerId ? { customerId } : {}),
-        ...(status ? { status } : {}),
-      },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-          },
-        },
-        items: {
-          include: {
-            product: true,
-            asset: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    return NextResponse.json(orders);
-  } catch (error: any) {
-    console.error('[Orders] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch orders' },
-      { status: 500 }
-    );
-  }
-}
-

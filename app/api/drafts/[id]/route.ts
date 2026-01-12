@@ -1,80 +1,69 @@
 /**
- * Draft Detail API
- * GET /api/drafts/[id] - Retrieve a specific draft
+ * Individual Draft API
+ * Copyright (c) 2026 B&D Servicing LLC. All rights reserved.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
-import type { PhysicalDesignDraft } from '@/lib/designer/types';
+import { PrismaClient } from '@prisma/client';
 
-const DRAFTS_DIR = join(process.cwd(), 'data', 'drafts');
+const prisma = new PrismaClient();
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
+
+// GET /api/drafts/[id] - Get a specific draft
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const draftId = params.id;
-    
-    if (!draftId) {
+    const { id } = await params;
+
+    const draft = await prisma.designDraft.findUnique({
+      where: { id },
+    });
+
+    if (!draft) {
       return NextResponse.json(
-        { error: 'Draft ID required' },
-        { status: 400 }
-      );
-    }
-    
-    // Validate draft exists
-    const filepath = join(DRAFTS_DIR, `${draftId}.json`);
-    
-    if (!existsSync(filepath)) {
-      return NextResponse.json(
-        { error: 'Draft not found' },
+        { success: false, error: 'Draft not found' },
         { status: 404 }
       );
     }
-    
-    // Read draft
-    const content = await readFile(filepath, 'utf-8');
-    const draft: PhysicalDesignDraft = JSON.parse(content);
-    
-    return NextResponse.json(draft);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...draft,
+        designJsonFront: draft.designJsonFront ? JSON.parse(draft.designJsonFront) : null,
+        designJsonBack: draft.designJsonBack ? JSON.parse(draft.designJsonBack) : null,
+        artKeyData: draft.artKeyData ? JSON.parse(draft.artKeyData) : null,
+      },
+    });
   } catch (error) {
-    console.error('[Drafts API] Get error:', error);
+    console.error('Error fetching draft:', error);
     return NextResponse.json(
-      { error: 'Failed to retrieve draft' },
+      { success: false, error: 'Failed to fetch draft' },
       { status: 500 }
     );
   }
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// DELETE /api/drafts/[id] - Delete a draft
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const draftId = params.id;
-    const filepath = join(DRAFTS_DIR, `${draftId}.json`);
-    
-    if (!existsSync(filepath)) {
-      return NextResponse.json(
-        { error: 'Draft not found' },
-        { status: 404 }
-      );
-    }
-    
-    // Delete draft file
-    const { unlink } = await import('fs/promises');
-    await unlink(filepath);
-    
-    return NextResponse.json({ success: true });
+    const { id } = await params;
+
+    await prisma.designDraft.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Draft deleted',
+    });
   } catch (error) {
-    console.error('[Drafts API] Delete error:', error);
+    console.error('Error deleting draft:', error);
     return NextResponse.json(
-      { error: 'Failed to delete draft' },
+      { success: false, error: 'Failed to delete draft' },
       { status: 500 }
     );
   }
 }
-

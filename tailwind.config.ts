@@ -7,6 +7,18 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    // Override all border radius to 0 for squared corners (at top level to fully replace defaults)
+    borderRadius: {
+      'none': '0',
+      'sm': '0',
+      'DEFAULT': '0',
+      'md': '0',
+      'lg': '0',
+      'xl': '0',
+      '2xl': '0',
+      '3xl': '0',
+      'full': '9999px', // Keep full for circular elements like dots
+    },
     extend: {
       colors: {
         'brand': {

@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import galleryData from "@/content/gallery.json";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ProtectedImage from "@/components/ProtectedImage";
 
 // Artwork Gallery Component
 function ArtworkGallery({ artistSlug }: { artistSlug: string }) {
@@ -266,17 +267,16 @@ export default function ArtistPage({ params }: ArtistPageProps) {
               </h2>
               <div className="grid md:grid-cols-2 gap-6">
                 {artist.portfolio.map((item, idx) => (
-                  <div key={idx} className="relative w-full h-96 rounded-2xl overflow-hidden bg-brand-lightest shadow-md hover:shadow-xl transition-shadow">
-                    <Image
+                  <div key={idx} className="relative w-full h-96 overflow-hidden bg-brand-lightest shadow-md hover:shadow-xl transition-shadow">
+                    <ProtectedImage
                       src={item.image}
                       alt={item.title || `${artist.name} portfolio ${idx + 1}`}
                       fill
                       className="object-contain"
                       style={{ objectPosition: 'center' }}
-                      unoptimized={item.image.includes('theartfulexperience.com')}
                     />
-                    {item.title && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-4">
+                    {item.title && !item.title.startsWith('Untitled') && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-4 z-30">
                         <p className="font-semibold text-lg">{item.title}</p>
                       </div>
                     )}
