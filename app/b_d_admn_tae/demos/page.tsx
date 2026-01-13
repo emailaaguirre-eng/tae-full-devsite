@@ -10,6 +10,7 @@ interface Demo {
   description?: string;
   shareUrl: string;
   qrCodeUrl?: string;
+  ownerToken?: string; // For editing via ArtKey editor
   createdAt: string;
 }
 
@@ -66,7 +67,7 @@ export default function DemosPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Demo Management</h1>
         <Link
-          href="/manage/demos/new"
+          href="/b_d_admn_tae/demos/new"
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           Create New Demo
@@ -87,7 +88,7 @@ export default function DemosPage() {
         <div className="bg-white rounded-lg shadow p-8 text-center">
           <p className="text-gray-600 mb-4">No demos found. Create one to get started.</p>
           <Link
-            href="/manage/demos/new"
+            href="/b_d_admn_tae/demos/new"
             className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             Create New Demo
@@ -160,18 +161,29 @@ export default function DemosPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <Link
-                      href={`/manage/demos/${demo.id}/edit`}
+                      href={`/b_d_admn_tae/demos/${demo.id}/edit`}
                       className="text-blue-600 hover:text-blue-800 mr-4"
                     >
                       Edit
                     </Link>
+                    {demo.ownerToken && (
+                      <a
+                        href={`/art-key/edit/${demo.ownerToken}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-purple-600 hover:text-purple-800 mr-4"
+                        title="Open editor in new tab"
+                      >
+                        Editor
+                      </a>
+                    )}
                     <a
                       href={demo.shareUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-green-600 hover:text-green-800 mr-4"
                     >
-                      View
+                      View Portal
                     </a>
                     {demo.id !== '1' && (
                       <button

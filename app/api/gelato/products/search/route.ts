@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCatalog, findProductByUid, findVariantByUid } from '@/lib/gelatoCatalog';
-import { getGelatoCatalogs, searchGelatoProducts } from '@/lib/gelato';
+import { getCatalog } from '@/lib/gelatoCatalog';
+import { searchGelatoProducts } from '@/lib/gelato';
 
 // Mark this route as dynamic (uses searchParams)
 export const dynamic = 'force-dynamic';
@@ -21,20 +21,25 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const limit = parseInt(searchParams.get('limit') || '100', 10);
     
-    // Try to get from cached catalog first
-    const cached = await getCatalog(24); // Use cache if less than 24 hours old
-    
-    let products = cached;
+    // Try to get from cached catalog first (getCatalog returns sample products if no API key)
+    let products: any[] = [];
+    try {
+      products = await getCatalog(24); // Use cache if less than 24 hours old, or sample products
+    } catch (error: any) {
+      console.error('[GELATO_API] Error loading catalog, this should not happen:', error);
+      // getCatalog should never throw (it returns sample products), but if it does, 
+      // return empty array - the UI will show a helpful message
+      products = [];
+    }
     
     // If we need to search by catalog and it's not in cache, fetch from API
-    if (catalogUid && (!cached || cached.length === 0)) {
+    if (catalogUid && products.length === 0) {
       try {
         const searchResults = await searchGelatoProducts(catalogUid, { limit });
         products = searchResults.data || searchResults || [];
       } catch (error) {
         console.error('Error searching Gelato products:', error);
-        // Fall back to cached catalog
-        products = cached;
+        // Error already handled - products remains empty or from cache
       }
     }
     
@@ -86,7 +91,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       products: formatted,
       count: formatted.length,
-      cached: cached.length > 0,
+      cached: products.length > 0,
     });
   } catch (error: any) {
     console.error('Error searching Gelato products:', error);

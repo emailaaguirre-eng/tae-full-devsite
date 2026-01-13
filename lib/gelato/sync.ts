@@ -18,19 +18,26 @@ const GELATO_API_KEY = process.env.GELATO_API_KEY || '';
 const GELATO_PRODUCT_API_URL = process.env.GELATO_PRODUCT_API_URL || 'https://product.gelatoapis.com/v3';
 
 // Catalogs we care about for print products
+// Only sync products we actually sell: cards, postcards, invitations, announcements, wall art
 const RELEVANT_CATALOGS = [
+  // Cards (greeting cards, folded cards)
   'cards',
-  'cards-us',
-  'cards-eu',
   'folded-cards',
   'pack-of-cards',
   'pack-of-cards-envelopes',
   'pack-of-cards-folded',
   'pack-of-cards-folded-envelopes',
-  'posters',
-  'framed-posters',
-  'canvas',
-  'framed-canvas',
+  // Postcards
+  'postcards',
+  // Invitations
+  'invitations',
+  // Announcements
+  'announcements',
+  // Wall Art (framed and unframed)
+  'posters',           // Unframed posters
+  'framed-posters',    // Framed posters
+  'canvas',            // Unframed canvas
+  'framed-canvas',     // Framed canvas
 ];
 
 interface GelatoCatalogResponse {

@@ -168,7 +168,7 @@ export default function ShopPage() {
       <section className="py-16 px-4 sm:px-6 lg:px-8 bg-brand-lightest">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl font-bold text-brand-darkest mb-6 font-playfair">
-            What is ArtKey™?
+            What is an ArtKey™?
           </h2>
           <p className="text-lg text-brand-medium mb-8">
             Every product you create can include an ArtKey — a QR code that unlocks a personalized digital portal. 

@@ -104,9 +104,9 @@ export default function AdminLoginPage() {
         // Longer delay to ensure everything is set, then redirect
         console.log('Redirecting to dashboard in 200ms...');
         setTimeout(() => {
-          console.log('Redirecting now to /manage/dashboard...');
+          console.log('Redirecting now to /b_d_admn_tae/dashboard...');
           // Force a full page reload to ensure AdminLayout picks up the token
-          window.location.href = '/manage/dashboard';
+          window.location.href = '/b_d_admn_tae/dashboard';
         }, 200);
       } else {
         console.error('No token in response:', data);

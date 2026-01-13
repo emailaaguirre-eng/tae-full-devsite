@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, generatePublicToken, generateOwnerToken } from '@/lib/db';
 import { getAppBaseUrl } from '@/lib/wp';
+import QRCode from 'qrcode';
 
 /**
  * Demo ArtKey Management API
@@ -163,25 +164,40 @@ export async function GET() {
     });
 
     const baseUrl = getAppBaseUrl();
-    const demos = allArtKeys
-      .filter((artKey) => {
-        try {
-          const customizations = JSON.parse(artKey.customizations);
-          return customizations.demo === true;
-        } catch {
-          return false;
-        }
-      })
-      .map((artKey) => {
+    const demoArtKeys = allArtKeys.filter((artKey) => {
+      try {
+        const customizations = JSON.parse(artKey.customizations);
+        return customizations.demo === true;
+      } catch {
+        return false;
+      }
+    });
+
+    // Generate QR codes for all demos in parallel
+    const demos = await Promise.all(
+      demoArtKeys.map(async (artKey) => {
         let description = '';
         try {
           const customizations = JSON.parse(artKey.customizations);
           description = customizations.description || '';
         } catch {}
 
-        // Generate QR code URL if needed
         const shareUrl = `${baseUrl}/artkey/${artKey.publicToken}`;
-        // Note: QR code generation would need to be done on-demand or stored
+        
+        // Generate QR code on-demand
+        let qrCodeUrl: string | undefined;
+        try {
+          qrCodeUrl = await QRCode.toDataURL(shareUrl, {
+            width: 400,
+            margin: 1,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF',
+            },
+          });
+        } catch (error) {
+          console.error('Error generating QR code for demo:', error);
+        }
 
         return {
           id: artKey.id,
@@ -189,11 +205,13 @@ export async function GET() {
           title: artKey.title,
           description: description,
           shareUrl: shareUrl,
-          qrCodeUrl: undefined, // Could be stored in customizations or generated on-demand
+          qrCodeUrl: qrCodeUrl,
+          ownerToken: artKey.ownerToken, // Include for admin editing
           createdAt: artKey.createdAt.toISOString(),
           updatedAt: artKey.updatedAt.toISOString(),
         };
-      });
+      })
+    );
 
     return NextResponse.json({
       success: true,

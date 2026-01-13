@@ -316,6 +316,11 @@ model OrderItem {
   // Design data
   designDraftId     String?  // Link to design draft if customizable
   
+  // ArtKey Integration (for products that require QR code)
+  artKeyId          String?  // Reference to ArtKey if product requires QR code
+  artKeyUrl         String?  // Public ArtKey portal URL
+  qrCodeUrl         String?  // QR code image URL for ArtKey
+  
   // Timestamps
   createdAt         DateTime @default(now())
   
@@ -460,6 +465,9 @@ model StoreProduct {
   active            Boolean @default(true)
   featured          Boolean @default(false)
   sortOrder         Int     @default(0)
+  
+  // ArtKey Integration
+  requiresArtKey    Boolean @default(false) // If true, orders for this product will create ArtKey portal + QR code
   
   // SEO
   metaTitle         String?

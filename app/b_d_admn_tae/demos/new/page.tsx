@@ -62,7 +62,7 @@ export default function NewDemoPage() {
       
       // Redirect to demos list after 3 seconds
       setTimeout(() => {
-        router.push('/manage/demos');
+        router.push('/b_d_admn_tae/demos');
       }, 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to create demo');
@@ -133,7 +133,7 @@ export default function NewDemoPage() {
               View Demo Portal
             </a>
             <button
-              onClick={() => router.push('/manage/demos')}
+              onClick={() => router.push('/b_d_admn_tae/demos')}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
               Back to Demos List

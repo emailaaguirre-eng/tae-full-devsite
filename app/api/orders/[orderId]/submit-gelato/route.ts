@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { getGelatoCustomerRefId, setGelatoCustomerRefId } from '@/lib/prisma/customers';
 import { createGelatoOrder } from '@/lib/gelato';
-
-const prisma = new PrismaClient();
+import { prisma, generatePublicToken, generateOwnerToken } from '@/lib/db';
+import { getAppBaseUrl } from '@/lib/wp';
+import QRCode from 'qrcode';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,6 +109,50 @@ export async function POST(
       };
     });
 
+    // Validate product availability before submitting order
+    // Note: We sync catalog 3-4x daily, so database check is sufficient
+    const productUids = gelatoItems.map(item => item.productUid);
+    
+    const dbProducts = await prisma.gelatoProduct.findMany({
+      where: {
+        productUid: { in: productUids },
+      },
+      select: {
+        productUid: true,
+        isPrintable: true,
+        productStatus: true,
+      },
+    });
+
+    // Check if all products exist and are available
+    const unavailableProducts = [];
+    for (const item of gelatoItems) {
+      const dbProduct = dbProducts.find(p => p.productUid === item.productUid);
+      
+      if (!dbProduct) {
+        unavailableProducts.push({
+          productUid: item.productUid,
+          reason: 'Product not found in catalog',
+        });
+      } else if (!dbProduct.isPrintable || dbProduct.productStatus !== 'activated') {
+        unavailableProducts.push({
+          productUid: item.productUid,
+          reason: 'Product is not available for printing',
+        });
+      }
+    }
+
+    if (unavailableProducts.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'One or more products are no longer available',
+          unavailableProducts: unavailableProducts.map(p => p.productUid),
+          details: unavailableProducts,
+        },
+        { status: 400 }
+      );
+    }
+
     // Create Gelato order
     const gelatoOrder = await createGelatoOrder({
       orderType: 'order',
@@ -144,6 +188,128 @@ export async function POST(
     // Update customer's Gelato reference ID if not set
     if (!order.customer.gelatoCustomerRefId && gelatoOrder.customerReferenceId) {
       await setGelatoCustomerRefId(order.customer.id, gelatoOrder.customerReferenceId);
+    }
+
+    // Create ArtKey portals and QR codes for products that require them
+    for (const item of order.items) {
+      // Try to find StoreProduct that matches this order item
+      // Check by product slug if available, otherwise try to match by item name
+      let storeProduct = null;
+      if (item.product?.slug) {
+        storeProduct = await prisma.storeProduct.findUnique({
+          where: { slug: item.product.slug },
+        });
+      }
+      
+      // If not found by slug, try to match by name (slugify itemName)
+      if (!storeProduct && item.itemName) {
+        const slugFromName = item.itemName
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .trim();
+        if (slugFromName) {
+          storeProduct = await prisma.storeProduct.findUnique({
+            where: { slug: slugFromName },
+          });
+        }
+      }
+
+      // If product requires ArtKey, create portal and QR code
+      if (storeProduct?.requiresArtKey) {
+        try {
+          // Generate unique tokens for ArtKey
+          let publicToken = generatePublicToken();
+          let ownerToken = generateOwnerToken();
+          
+          // Ensure publicToken is unique
+          let attempts = 0;
+          while (await prisma.artKey.findUnique({ where: { publicToken } })) {
+            publicToken = generatePublicToken();
+            attempts++;
+            if (attempts > 10) {
+              console.error(`[SubmitGelato] Failed to generate unique ArtKey token for item ${item.id}`);
+              continue; // Skip this item
+            }
+          }
+
+          // Create ArtKey with default data
+          const baseUrl = getAppBaseUrl();
+          const artKeyTitle = `${storeProduct.name} - Order ${order.orderNumber}`;
+          
+          const artKey = await prisma.artKey.create({
+            data: {
+              publicToken,
+              ownerToken,
+              title: artKeyTitle,
+              theme: JSON.stringify({
+                template: 'classic',
+                bg_color: '#F6F7FB',
+                bg_image_id: 0,
+                bg_image_url: '',
+                font: 'g:Playfair Display',
+                text_color: '#111111',
+                title_color: '#4f46e5',
+                title_style: 'solid',
+                button_color: '#4f46e5',
+                button_gradient: '',
+                color_scope: 'content',
+              }),
+              features: JSON.stringify({
+                enable_gallery: false,
+                enable_video: false,
+                show_guestbook: false,
+                enable_custom_links: false,
+                enable_spotify: false,
+                allow_img_uploads: false,
+                allow_vid_uploads: false,
+                gb_btn_view: true,
+                gb_signing_status: 'open',
+                gb_signing_start: '',
+                gb_signing_end: '',
+                gb_require_approval: true,
+                img_require_approval: true,
+                vid_require_approval: true,
+                order: ['gallery', 'guestbook', 'video'],
+              }),
+              links: JSON.stringify([]),
+              spotify: JSON.stringify({ url: 'https://', autoplay: false }),
+              featuredVideo: null,
+              customizations: JSON.stringify({}),
+              uploadedImages: JSON.stringify([]),
+              uploadedVideos: JSON.stringify([]),
+            },
+          });
+
+          const artKeyUrl = `${baseUrl}/artkey/${publicToken}`;
+          
+          // Generate QR code as data URL
+          const qrCodeDataUrl = await QRCode.toDataURL(artKeyUrl, {
+            width: 400,
+            margin: 1,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF',
+            },
+          });
+
+          // Update order item with ArtKey info
+          await prisma.orderItem.update({
+            where: { id: item.id },
+            data: {
+              artKeyId: artKey.id,
+              artKeyUrl: artKeyUrl,
+              qrCodeUrl: qrCodeDataUrl,
+            },
+          });
+
+          console.log(`[SubmitGelato] Created ArtKey portal for item ${item.id}: ${artKeyUrl}`);
+        } catch (error: any) {
+          console.error(`[SubmitGelato] Error creating ArtKey for item ${item.id}:`, error);
+          // Continue with other items even if one fails
+        }
+      }
     }
 
     return NextResponse.json({

@@ -33,6 +33,7 @@ interface FormData {
   defaultDpi: number;
   active: boolean;
   featured: boolean;
+  requiresArtKey: boolean;
   sortOrder: number;
   metaTitle: string;
   metaDescription: string;
@@ -60,6 +61,7 @@ const DEFAULT_FORM: FormData = {
   defaultDpi: 300,
   active: true,
   featured: false,
+  requiresArtKey: false,
   sortOrder: 0,
   metaTitle: '',
   metaDescription: '',
@@ -115,6 +117,7 @@ export default function EditProductPage({ params }: PageProps) {
           defaultDpi: product.defaultDpi || 300,
           active: product.active ?? true,
           featured: product.featured ?? false,
+          requiresArtKey: product.requiresArtKey ?? false,
           sortOrder: product.sortOrder || 0,
           metaTitle: product.metaTitle || '',
           metaDescription: product.metaDescription || '',
@@ -485,6 +488,26 @@ export default function EditProductPage({ params }: PageProps) {
                   </button>
                 </div>
 
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">This Product Requires a QR Code</span>
+                    <p className="text-xs text-gray-500 mt-1">Creates ArtKey portal + QR code for orders</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, requiresArtKey: !prev.requiresArtKey }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      formData.requiresArtKey ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        formData.requiresArtKey ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Sort Order
@@ -557,15 +580,18 @@ export default function EditProductPage({ params }: PageProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Hero Image URL
+                    Image URL (WordPress)
                   </label>
                   <input
                     type="url"
                     value={formData.heroImage}
                     onChange={(e) => setFormData(prev => ({ ...prev, heroImage: e.target.value }))}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="https://..."
+                    placeholder="https://your-site.com/wp-content/uploads/..."
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    WordPress image URL. If not provided, the emoji above will be displayed instead.
+                  </p>
                   {formData.heroImage && (
                     <div className="mt-2">
                       <img 

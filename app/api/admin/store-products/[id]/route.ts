@@ -163,6 +163,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
     if (body.active !== undefined) updateData.active = body.active;
     if (body.featured !== undefined) updateData.featured = body.featured;
+    if (body.requiresArtKey !== undefined) updateData.requiresArtKey = body.requiresArtKey;
     if (body.sortOrder !== undefined) updateData.sortOrder = body.sortOrder;
     if (body.metaTitle !== undefined) updateData.metaTitle = body.metaTitle;
     if (body.metaDescription !== undefined) updateData.metaDescription = body.metaDescription;

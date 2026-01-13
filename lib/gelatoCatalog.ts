@@ -10,6 +10,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { getGelatoCatalogs, searchGelatoProducts, getGelatoProduct } from './gelato';
 
 const GELATO_API_KEY = process.env.GELATO_API_KEY || '';
 const GELATO_PRODUCT_API_URL = process.env.GELATO_PRODUCT_API_URL || 'https://product.gelatoapis.com/v3';
@@ -221,8 +222,86 @@ export async function getCatalog(maxAgeHours: number = 24): Promise<GelatoProduc
     }
   }
 
+  // Check if Gelato API key is configured
+  const GELATO_API_KEY = process.env.GELATO_API_KEY || '';
+  if (!GELATO_API_KEY) {
+    console.log('[GELATO] No API key configured - using sample product sizes');
+    return getSampleProducts();
+  }
+
   // Cache missing or stale, fetch fresh
-  return await refreshCatalogCache();
+  try {
+    return await refreshCatalogCache();
+  } catch (error) {
+    console.error('[GELATO] Failed to refresh catalog, using sample products:', error);
+    return getSampleProducts();
+  }
+}
+
+/**
+ * Sample products for development/demo when Gelato API is not configured
+ */
+function getSampleProducts(): GelatoProduct[] {
+  return [
+    {
+      uid: 'sample-greeting-cards',
+      name: 'Greeting Cards',
+      catalogUid: 'cards',
+      variants: [
+        { uid: 'card-4x6-flat', name: '4x6 Flat Card', dimensions: { width: 101.6, height: 152.4, unit: 'mm' } },
+        { uid: 'card-5x7-flat', name: '5x7 Flat Card', dimensions: { width: 127, height: 177.8, unit: 'mm' } },
+        { uid: 'card-4x6-folded', name: '4x6 Folded Card', dimensions: { width: 101.6, height: 152.4, unit: 'mm' } },
+        { uid: 'card-5x7-folded', name: '5x7 Folded Card', dimensions: { width: 127, height: 177.8, unit: 'mm' } },
+        { uid: 'card-a6-flat', name: 'A6 Flat Card', dimensions: { width: 105, height: 148, unit: 'mm' } },
+        { uid: 'card-a5-flat', name: 'A5 Flat Card', dimensions: { width: 148, height: 210, unit: 'mm' } },
+      ],
+    },
+    {
+      uid: 'sample-postcards',
+      name: 'Postcards',
+      catalogUid: 'postcards',
+      variants: [
+        { uid: 'postcard-4x6', name: '4x6 Postcard', dimensions: { width: 101.6, height: 152.4, unit: 'mm' } },
+        { uid: 'postcard-5x7', name: '5x7 Postcard', dimensions: { width: 127, height: 177.8, unit: 'mm' } },
+        { uid: 'postcard-6x9', name: '6x9 Postcard', dimensions: { width: 152.4, height: 228.6, unit: 'mm' } },
+        { uid: 'postcard-a6', name: 'A6 Postcard', dimensions: { width: 105, height: 148, unit: 'mm' } },
+      ],
+    },
+    {
+      uid: 'sample-invitations',
+      name: 'Invitations',
+      catalogUid: 'invitations',
+      variants: [
+        { uid: 'invite-5x7', name: '5x7 Invitation', dimensions: { width: 127, height: 177.8, unit: 'mm' } },
+        { uid: 'invite-4x9', name: '4x9 Invitation', dimensions: { width: 101.6, height: 228.6, unit: 'mm' } },
+        { uid: 'invite-square-5', name: '5x5 Square Invitation', dimensions: { width: 127, height: 127, unit: 'mm' } },
+      ],
+    },
+    {
+      uid: 'sample-prints',
+      name: 'Photo Prints',
+      catalogUid: 'prints',
+      variants: [
+        { uid: 'print-4x6', name: '4x6 Print', dimensions: { width: 101.6, height: 152.4, unit: 'mm' } },
+        { uid: 'print-5x7', name: '5x7 Print', dimensions: { width: 127, height: 177.8, unit: 'mm' } },
+        { uid: 'print-8x10', name: '8x10 Print', dimensions: { width: 203.2, height: 254, unit: 'mm' } },
+        { uid: 'print-11x14', name: '11x14 Print', dimensions: { width: 279.4, height: 355.6, unit: 'mm' } },
+        { uid: 'print-16x20', name: '16x20 Print', dimensions: { width: 406.4, height: 508, unit: 'mm' } },
+      ],
+    },
+    {
+      uid: 'sample-wall-art',
+      name: 'Wall Art',
+      catalogUid: 'wall-art',
+      variants: [
+        { uid: 'canvas-12x12', name: '12x12 Canvas', dimensions: { width: 304.8, height: 304.8, unit: 'mm' } },
+        { uid: 'canvas-16x20', name: '16x20 Canvas', dimensions: { width: 406.4, height: 508, unit: 'mm' } },
+        { uid: 'canvas-24x36', name: '24x36 Canvas', dimensions: { width: 609.6, height: 914.4, unit: 'mm' } },
+        { uid: 'poster-18x24', name: '18x24 Poster', dimensions: { width: 457.2, height: 609.6, unit: 'mm' } },
+        { uid: 'poster-24x36', name: '24x36 Poster', dimensions: { width: 609.6, height: 914.4, unit: 'mm' } },
+      ],
+    },
+  ];
 }
 
 /**
