@@ -166,6 +166,7 @@ model Product {
   @@index([active])
   @@index([featured])
   @@index([slug])
+  @@map("StoreProduct")
 }
 
 // Lane B: Artist Artwork Assets
