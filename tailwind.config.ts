@@ -27,7 +27,7 @@ const config: Config = {
           'medium': '#918c86',     // Gray
           'dark': '#000000',       // Black (main text)
           'darkest': '#000000',    // Black
-          'accent': '#e0c9af',     // Tan/beige accent
+          'accent': '#475569',     // Deep slate accent
           'white': '#ffffff',      // White
         },
       },

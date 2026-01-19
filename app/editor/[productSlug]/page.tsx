@@ -100,7 +100,7 @@ const TEMPLATES = [
 
 // Background presets
 const BACKGROUND_COLORS = [
-  '#ffffff', '#f3f3f3', '#ded8d3', '#e0c9af', '#918c86', '#000000',
+  '#ffffff', '#f3f3f3', '#ded8d3', '#475569', '#918c86', '#000000',
   '#fee2e2', '#fef3c7', '#d1fae5', '#dbeafe', '#ede9fe', '#fce7f3',
 ];
 

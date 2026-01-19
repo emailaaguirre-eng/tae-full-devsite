@@ -12,6 +12,24 @@
 import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
+import { 
+  TEMPLATE_CATEGORIES, 
+  getTemplatesByCategory, 
+  findTemplate,
+  BUTTON_SHAPES,
+  BUTTON_STYLES,
+  getButtonBorderRadius,
+  type TemplateCategory,
+  type ButtonShape,
+  type ButtonStyle,
+  type ArtKeyTemplate,
+} from './artkey/templates';
+import { 
+  ElegantIcon, 
+  ELEGANT_ICONS, 
+  type ElegantIconKey 
+} from './artkey/ElegantIcons';
+import { CustomIcon } from './CustomIcons';
 
 // Palette
 const COLOR_PRIMARY = '#FFFFFF';
@@ -41,6 +59,10 @@ interface ArtKeyData {
     button_color: string;
     button_gradient: string;
     color_scope: string;
+    button_shape?: string;
+    button_style?: string;
+    header_icon?: string;
+    button_border?: string;
   };
   links: Link[];
   spotify: { url: string; autoplay: boolean };
@@ -90,6 +112,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [buttonColorPage, setButtonColorPage] = useState(0);
   const [titleColorPage, setTitleColorPage] = useState(0);
   const [bgTab, setBgTab] = useState('solid');
+  const [templateCategory, setTemplateCategory] = useState<TemplateCategory>('classic');
+  const [buttonShape, setButtonShape] = useState<ButtonShape>('pill');
+  const [buttonStyle, setButtonStyle] = useState<ButtonStyle>('solid');
+  const [headerIcon, setHeaderIcon] = useState<ElegantIconKey>('none');
   // Default to desktop on PC, mobile on mobile devices
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>(() => {
     if (typeof window !== 'undefined') {
@@ -128,6 +154,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       button_color: '#4f46e5',
       button_gradient: '',
       color_scope: 'content',
+      button_shape: 'pill',
+      button_style: 'solid',
+      header_icon: 'none',
+      button_border: '',
     },
     links: [],
     spotify: { url: 'https://', autoplay: false },
@@ -233,58 +263,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     }
   };
 
-  // Templates (full set incl. sports)
-  const templates = useMemo(() => [
-    // Page 1
-    { value: 'classic', name: 'Classic', bg: '#F6F7FB', button: '#4f46e5', text: '#1d1d1f', title: '#4f46e5' },
-    { value: 'paper', name: 'Paper', bg: '#fbf8f1', button: '#8b4513', text: '#2d3436', title: '#8b4513' },
-    { value: 'snow', name: 'Snow', bg: '#ffffff', button: '#3b82f6', text: '#1d1d1f', title: '#3b82f6' },
-    { value: 'cloud', name: 'Cloud', bg: '#f8fafc', button: '#10b981', text: '#1d1d1f', title: '#10b981' },
-    { value: 'pearl', name: 'Pearl', bg: '#fefefe', button: '#ec4899', text: '#1d1d1f', title: '#ec4899' },
-    { value: 'ivory', name: 'Ivory', bg: '#fffff0', button: '#f59e0b', text: '#2d3436', title: '#f59e0b' },
-    { value: 'mist', name: 'Mist', bg: '#f1f5f9', button: '#8b5cf6', text: '#1d1d1f', title: '#8b5cf6' },
-    { value: 'cream', name: 'Cream', bg: '#fef3c7', button: '#d97706', text: '#2d3436', title: '#d97706' },
-    // Page 2
-    { value: 'aurora', name: 'Aurora', bg: 'linear-gradient(135deg,#667eea,#764ba2)', button: '#ffffff', text: '#ffffff', title: '#ffffff' },
-    { value: 'sunset', name: 'Sunset', bg: 'linear-gradient(135deg,#ff6b6b,#feca57)', button: '#ffffff', text: '#ffffff', title: '#ffd700' },
-    { value: 'ocean', name: 'Ocean', bg: 'linear-gradient(135deg,#667eea,#74ebd5)', button: '#ffffff', text: '#ffffff', title: '#74ebd5' },
-    { value: 'rose_gold', name: 'Rose Gold', bg: 'linear-gradient(135deg,#f7971e,#ffd200)', button: '#d946ef', text: '#1d1d1f', title: '#d946ef' },
-    { value: 'fire', name: 'Fire', bg: 'linear-gradient(135deg,#ff6b6b,#ee5a6f)', button: '#ffffff', text: '#ffffff', title: '#fef3c7' },
-    { value: 'sky', name: 'Sky', bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', button: '#ffffff', text: '#ffffff', title: '#fde047' },
-    { value: 'forest', name: 'Forest', bg: 'linear-gradient(135deg,#134e5e,#71b280)', button: '#ffffff', text: '#ffffff', title: '#d4fc79' },
-    { value: 'berry', name: 'Berry', bg: 'linear-gradient(135deg,#c026d3,#e879f9)', button: '#ffffff', text: '#ffffff', title: '#fde047' },
-    // Page 3
-    { value: 'lavender', name: 'Lavender', bg: 'linear-gradient(135deg,#e0c3fc,#8ec5fc)', button: '#8b5cf6', text: '#1d1d1f', title: '#7c3aed' },
-    { value: 'mint', name: 'Mint', bg: 'linear-gradient(135deg,#d4fc79,#96e6a1)', button: '#10b981', text: '#1d1d1f', title: '#047857' },
-    { value: 'peach', name: 'Peach', bg: 'linear-gradient(135deg,#ffecd2,#fcb69f)', button: '#f97316', text: '#1d1d1f', title: '#ea580c' },
-    { value: 'cotton', name: 'Cotton Candy', bg: 'linear-gradient(135deg,#a8edea,#fed6e3)', button: '#ec4899', text: '#1d1d1f', title: '#db2777' },
-    { value: 'lemon', name: 'Lemon Fresh', bg: 'linear-gradient(135deg,#fddb92,#d1fdff)', button: '#06b6d4', text: '#1d1d1f', title: '#0891b2' },
-    { value: 'pastel', name: 'Pastel Sky', bg: 'linear-gradient(135deg,#fbc2eb,#a6c1ee)', button: '#8b5cf6', text: '#1d1d1f', title: '#7c3aed' },
-    { value: 'aqua', name: 'Aqua Teal', bg: 'linear-gradient(135deg,#00d2ff,#3a7bd5)', button: '#0ea5e9', text: '#ffffff', title: '#ffffff' },
-    { value: 'blush', name: 'Pink Blush', bg: 'linear-gradient(135deg,#ff9a9e,#fecfef)', button: '#ec4899', text: '#1d1d1f', title: '#db2777' },
-    // Page 4
-    { value: 'dark', name: 'Dark Mode', bg: '#0f1218', button: '#667eea', text: '#ffffff', title: '#667eea' },
-    { value: 'bold', name: 'Bold', bg: '#111111', button: '#ffffff', text: '#ffffff', title: '#ffffff' },
-    { value: 'cosmic', name: 'Cosmic', bg: 'linear-gradient(135deg,#1a1a2e,#16213e)', button: '#ef4444', text: '#ffffff', title: '#fbbf24' },
-    { value: 'midnight', name: 'Midnight', bg: 'linear-gradient(135deg,#000428,#004e92)', button: '#60a5fa', text: '#ffffff', title: '#60a5fa' },
-    { value: 'vintage', name: 'Vintage', bg: 'linear-gradient(135deg,#8b4513,#daa520)', button: '#ffffff', text: '#ffffff', title: '#ffd700' },
-    { value: 'electric', name: 'Electric', bg: 'linear-gradient(135deg,#06b6d4,#3b82f6)', button: '#fde047', text: '#ffffff', title: '#fde047' },
-    { value: 'neon', name: 'Neon', bg: 'linear-gradient(135deg,#ec4899,#8b5cf6)', button: '#fde047', text: '#ffffff', title: '#fde047' },
-    { value: 'steel', name: 'Steel', bg: 'linear-gradient(135deg,#434343,#666666)', button: '#ffffff', text: '#ffffff', title: '#fde047' },
-    // Page 5 sports
-    { value: 'uofa', name: 'UofA Wildcats', bg: 'linear-gradient(135deg,#003366,#CC0033)', button: '#ffffff', text: '#ffffff', title: '#ffffff' },
-    { value: 'asu', name: 'ASU Sun Devils', bg: 'linear-gradient(135deg,#8C1D40,#FFC627)', button: '#ffffff', text: '#ffffff', title: '#FFC627' },
-    { value: 'nau', name: 'NAU Lumberjacks', bg: 'linear-gradient(135deg,#003466,#FFC82E)', button: '#ffffff', text: '#ffffff', title: '#FFC82E' },
-    { value: 'cardinals', name: 'AZ Cardinals', bg: 'linear-gradient(135deg,#97233F,#000000)', button: '#ffffff', text: '#ffffff', title: '#ffffff' },
-    { value: 'suns', name: 'Suns/Mercury', bg: 'linear-gradient(135deg,#1D1160,#E56020)', button: '#ffffff', text: '#ffffff', title: '#E56020' },
-    { value: 'dbacks', name: 'Diamondbacks', bg: 'linear-gradient(135deg,#A71930,#E3D4AD)', button: '#000000', text: '#000000', title: '#A71930' },
-    { value: 'rattlers', name: 'AZ Rattlers', bg: 'linear-gradient(135deg,#000000,#8B0000)', button: '#D4AF37', text: '#ffffff', title: '#D4AF37' },
-    { value: 'rising', name: 'PHX Rising FC', bg: 'linear-gradient(135deg,#000000,#B4975A)', button: '#E84C88', text: '#ffffff', title: '#B4975A' },
-  ], []);
-
+  // Templates - now using categorized system
   const templatesPerPage = 8;
-  const totalTemplatePages = Math.ceil(templates.length / templatesPerPage);
-  const getCurrentPageTemplates = () => templates.slice(templatePage * templatesPerPage, (templatePage + 1) * templatesPerPage);
 
   // Colors - Primary colors only for solid, gradients separate
   const buttonColors = useMemo(() => ([
@@ -387,7 +367,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [draggedLink, setDraggedLink] = useState<number | null>(null);
 
   // Helpers
-  const handleTemplateSelect = (tpl: typeof templates[0]) => {
+  const handleTemplateSelect = (tpl: ArtKeyTemplate) => {
     setArtKeyData((prev) => ({
       ...prev,
       theme: {
@@ -398,8 +378,16 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         title_color: tpl.title,
         text_color: tpl.text || prev.theme.text_color,
         bg_image_url: '',
+        button_shape: tpl.buttonShape || 'pill',
+        button_style: tpl.buttonStyle || 'solid',
+        header_icon: tpl.headerIcon || 'none',
+        button_border: tpl.buttonBorder || tpl.button,
+        font: tpl.titleFont || prev.theme.font,
       },
     }));
+    if (tpl.buttonShape) setButtonShape(tpl.buttonShape);
+    if (tpl.buttonStyle) setButtonStyle(tpl.buttonStyle);
+    if (tpl.headerIcon) setHeaderIcon(tpl.headerIcon);
   };
 
   const handleColorSelect = (color: typeof buttonColors[0], type: 'button' | 'title' | 'background') => {
@@ -673,6 +661,46 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     return '#ffffff';
   };
 
+  const getButtonPreviewStyles = (
+    buttonColor: string,
+    style: ButtonStyle,
+    shape: ButtonShape
+  ): React.CSSProperties => {
+    const borderRadius = getButtonBorderRadius(shape);
+    
+    switch (style) {
+      case 'solid':
+        return {
+          background: buttonColor,
+          color: getButtonTextColor(buttonColor),
+          borderRadius,
+          border: 'none',
+        };
+      case 'outline':
+        return {
+          background: 'transparent',
+          color: buttonColor,
+          borderRadius,
+          border: `2px solid ${buttonColor}`,
+        };
+      case 'glass':
+        return {
+          background: `${buttonColor}15`,
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          color: buttonColor,
+          borderRadius,
+          border: `1px solid ${buttonColor}30`,
+        };
+      default:
+        return {
+          background: buttonColor,
+          color: getButtonTextColor(buttonColor),
+          borderRadius,
+        };
+    }
+  };
+
   // Load Google Font when font changes
   useEffect(() => {
     if (artKeyData?.theme?.font && artKeyData.theme.font.startsWith('g:')) {
@@ -785,7 +813,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   ← Dashboard
                 </button>
               )}
-              <h1 className="text-2xl font-bold font-playfair">✨ Edit Your ArtKey Page</h1>
+              <h1 className="text-2xl font-bold font-playfair flex items-center gap-2">
+                <CustomIcon name="sparkle" size={28} color={COLOR_ACCENT} />
+                Edit Your ArtKey Page
+              </h1>
             </div>
             <div className="flex gap-3">
               <button
@@ -848,14 +879,25 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                 // Mobile preview: Fullscreen, no phone container
                 <div className="w-full rounded-xl overflow-hidden border-2" style={{ borderColor: '#e2e2e0', ...getPreviewBackground(), minHeight: '600px' }}>
                   <div className="h-full w-full pt-6 pb-6 px-6 flex flex-col items-center text-center min-h-[600px]">
+                    {(artKeyData.theme.header_icon && artKeyData.theme.header_icon !== 'none') && (
+                      <div className="mb-2 mt-16">
+                        <ElegantIcon 
+                          icon={artKeyData.theme.header_icon as ElegantIconKey} 
+                          size={48} 
+                          color={artKeyData.theme.title_color}
+                          strokeWidth={1.5}
+                        />
+                      </div>
+                    )}
                     <h1
-                      className="text-2xl md:text-3xl font-bold mb-3 break-words mt-16"
+                      className="text-2xl md:text-3xl font-bold mb-3 break-words"
                       style={{
                         fontFamily: getFontFamily(artKeyData.theme.font),
                         color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
                         background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
                         backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
                         WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                        marginTop: (artKeyData.theme.header_icon && artKeyData.theme.header_icon !== 'none') ? '0' : '4rem',
                       }}
                     >
                       {artKeyData.title || 'Your Title Here'}
@@ -884,8 +926,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                 return (
                                   <button
                                     key={idx}
-                                    className={`${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 rounded-full ${fontSize} font-semibold transition-all shadow-md`}
-                                    style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
+                                    className={`${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md`}
+                                    style={getButtonPreviewStyles(
+                                      artKeyData.theme.button_color, 
+                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle, 
+                                      (artKeyData.theme.button_shape as ButtonShape) || buttonShape
+                                    )}
                                   >
                                     {displayText}
                                   </button>
@@ -921,14 +967,25 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                         className="h-full w-full pt-6 pb-6 px-6 flex flex-col items-center text-center"
                         style={getPreviewBackground()}
                       >
+                    {(artKeyData.theme.header_icon && artKeyData.theme.header_icon !== 'none') && (
+                      <div className="mb-2 mt-16">
+                        <ElegantIcon 
+                          icon={artKeyData.theme.header_icon as ElegantIconKey} 
+                          size={48} 
+                          color={artKeyData.theme.title_color}
+                          strokeWidth={1.5}
+                        />
+                      </div>
+                    )}
                     <h1
-                      className="text-2xl md:text-3xl font-bold mb-3 break-words mt-16"
+                      className="text-2xl md:text-3xl font-bold mb-3 break-words"
                       style={{
                         fontFamily: getFontFamily(artKeyData.theme.font),
                         color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
                         background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
                         backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
                         WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                        marginTop: (artKeyData.theme.header_icon && artKeyData.theme.header_icon !== 'none') ? '0' : '4rem',
                       }}
                     >
                       {artKeyData.title || 'Your Title Here'}
@@ -957,8 +1014,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                 return (
                                   <button
                                     key={idx}
-                                    className={`${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 rounded-full ${fontSize} font-semibold transition-all shadow-md`}
-                                    style={{ background: artKeyData.theme.button_color, color: getButtonTextColor(artKeyData.theme.button_color) }}
+                                    className={`${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md`}
+                                    style={getButtonPreviewStyles(
+                                      artKeyData.theme.button_color, 
+                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle, 
+                                      (artKeyData.theme.button_shape as ButtonShape) || buttonShape
+                                    )}
                                   >
                                     {displayText}
                                   </button>
@@ -989,11 +1050,11 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             {designMode === null && (
               <Card title="Choose a Template or Design Your Own ArtKey" step="1">
                 <div className="grid md:grid-cols-2 gap-4">
-                  <PrimaryButton onClick={() => setDesignMode('template')} icon="🎨" accent>
+                  <PrimaryButton onClick={() => setDesignMode('template')} icon={<CustomIcon name="art" size={40} color={COLOR_ACCENT} />} accent>
                     Choose a Template
                     <div className="text-sm text-[#444] mt-1">Pick from 40 templates</div>
                   </PrimaryButton>
-                  <PrimaryButton onClick={() => setDesignMode('custom')} icon="✨">
+                  <PrimaryButton onClick={() => setDesignMode('custom')} icon={<CustomIcon name="sparkle" size={40} color={COLOR_ACCENT} />}>
                     Design Your Own
                     <div className="text-sm text-[#444] mt-1">Start from scratch</div>
                   </PrimaryButton>
@@ -1004,34 +1065,66 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             {/* Template selection */}
             {designMode === 'template' && (
               <Card title="Choose Template" step="1" onBack={() => setDesignMode(null)}>
+                {/* Category Tabs */}
+                <div className="flex gap-2 mb-4">
+                  {TEMPLATE_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        setTemplateCategory(cat.id);
+                        setTemplatePage(0);
+                      }}
+                      className={`flex-1 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
+                        templateCategory === cat.id ? 'shadow-md' : ''
+                      }`}
+                      style={{
+                        background: templateCategory === cat.id ? COLOR_ACCENT : COLOR_ALT,
+                        color: templateCategory === cat.id ? COLOR_PRIMARY : COLOR_ACCENT,
+                      }}
+                    >
+                      <CustomIcon name={cat.icon as any} size={18} color="currentColor" className="mr-2" />
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
                 <Carousel
                   page={templatePage}
                   setPage={setTemplatePage}
-                  total={totalTemplatePages}
-                  labelPrefix="Templates"
+                  total={Math.ceil(getTemplatesByCategory(templateCategory).length / templatesPerPage)}
+                  labelPrefix={`${templateCategory} Templates`}
                 >
                   <div className="grid grid-cols-4 gap-2">
-                    {getCurrentPageTemplates().map((tpl) => (
-                      <button
-                        key={tpl.value}
-                        onClick={() => handleTemplateSelect(tpl)}
-                        className={`p-2 rounded-xl border-2 transition-all ${artKeyData.theme.template === tpl.value ? 'shadow-lg' : ''}`}
-                        style={{
-                          borderColor: artKeyData.theme.template === tpl.value ? COLOR_ACCENT : '#e2e2e0',
-                          background: tpl.bg?.startsWith('linear-gradient') ? tpl.bg : tpl.bg,
-                        }}
-                      >
-                        <div className="w-full h-16 rounded-lg mb-2 relative overflow-hidden">
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="text-xs font-bold" style={{ color: tpl.title }}>Aa</div>
+                    {getTemplatesByCategory(templateCategory)
+                      .slice(templatePage * templatesPerPage, (templatePage + 1) * templatesPerPage)
+                      .map((tpl) => (
+                        <button
+                          key={tpl.value}
+                          onClick={() => handleTemplateSelect(tpl)}
+                          className={`p-2 rounded-xl border-2 transition-all ${artKeyData.theme.template === tpl.value ? 'shadow-lg' : ''}`}
+                          style={{
+                            borderColor: artKeyData.theme.template === tpl.value ? COLOR_ACCENT : '#e2e2e0',
+                            background: tpl.bg?.startsWith('linear-gradient') ? tpl.bg : tpl.bg,
+                          }}
+                        >
+                          <div className="w-full h-16 rounded-lg mb-2 relative overflow-hidden">
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="text-xs font-bold" style={{ color: tpl.title }}>Aa</div>
+                            </div>
+                            <div className="absolute bottom-1 right-1">
+                              <div 
+                                className="w-4 h-4" 
+                                style={{ 
+                                  background: tpl.buttonStyle === 'outline' ? 'transparent' : tpl.button,
+                                  border: tpl.buttonStyle === 'outline' ? `2px solid ${tpl.button}` : 'none',
+                                  borderRadius: tpl.buttonShape === 'square' ? '0' : tpl.buttonShape === 'rounded' ? '2px' : '4px'
+                                }}
+                              />
+                            </div>
                           </div>
-                          <div className="absolute bottom-1 right-1">
-                            <div className="w-4 h-4 rounded" style={{ background: tpl.button }}></div>
-                          </div>
-                        </div>
-                        <div className="text-xs font-semibold text-center" style={{ color: COLOR_ACCENT }}>{tpl.name}</div>
-                      </button>
-                    ))}
+                          <div className="text-xs font-semibold text-center" style={{ color: COLOR_ACCENT }}>{tpl.name}</div>
+                        </button>
+                      ))}
                   </div>
                 </Carousel>
               </Card>
@@ -1292,6 +1385,98 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Button Style Customization */}
+                <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
+                  <h4 className="text-sm font-semibold mb-3">Button Shape</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {BUTTON_SHAPES.map((shape) => (
+                      <button
+                        key={shape.id}
+                        onClick={() => {
+                          setButtonShape(shape.id);
+                          setArtKeyData((prev) => ({
+                            ...prev,
+                            theme: { ...prev.theme, button_shape: shape.id },
+                          }));
+                        }}
+                        className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
+                          buttonShape === shape.id ? 'shadow-md' : ''
+                        }`}
+                        style={{
+                          background: buttonShape === shape.id ? COLOR_ACCENT : COLOR_ALT,
+                          color: buttonShape === shape.id ? COLOR_PRIMARY : COLOR_ACCENT,
+                          borderRadius: shape.borderRadius,
+                        }}
+                      >
+                        {shape.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
+                  <h4 className="text-sm font-semibold mb-3">Button Style</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {BUTTON_STYLES.map((style) => (
+                      <button
+                        key={style.id}
+                        onClick={() => {
+                          setButtonStyle(style.id);
+                          setArtKeyData((prev) => ({
+                            ...prev,
+                            theme: { ...prev.theme, button_style: style.id },
+                          }));
+                        }}
+                        className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
+                          buttonStyle === style.id ? 'shadow-md' : ''
+                        }`}
+                        style={{
+                          background: buttonStyle === style.id ? COLOR_ACCENT : COLOR_ALT,
+                          color: buttonStyle === style.id ? COLOR_PRIMARY : COLOR_ACCENT,
+                        }}
+                      >
+                        {style.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
+                  <h4 className="text-sm font-semibold mb-3">Header Icon</h4>
+                  <div className="grid grid-cols-4 gap-2">
+                    {Object.entries(ELEGANT_ICONS).map(([key, iconData]) => (
+                      <button
+                        key={key}
+                        onClick={() => {
+                          setHeaderIcon(key as ElegantIconKey);
+                          setArtKeyData((prev) => ({
+                            ...prev,
+                            theme: { ...prev.theme, header_icon: key },
+                          }));
+                        }}
+                        className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center justify-center ${
+                          headerIcon === key ? 'shadow-md' : ''
+                        }`}
+                        style={{
+                          borderColor: headerIcon === key ? COLOR_ACCENT : '#e2e2e0',
+                          background: headerIcon === key ? COLOR_ALT : COLOR_PRIMARY,
+                        }}
+                        title={iconData.label}
+                      >
+                        <ElegantIcon 
+                          icon={key as ElegantIconKey} 
+                          size={32} 
+                          color={headerIcon === key ? COLOR_ACCENT : '#999'}
+                          strokeWidth={1.5}
+                        />
+                        <span className="text-xs mt-1" style={{ color: COLOR_ACCENT }}>
+                          {iconData.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-start gap-2">
@@ -2263,7 +2448,7 @@ function SettingsBlock({ title, children }: { title: string; children: React.Rea
   );
 }
 
-function PrimaryButton({ onClick, children, icon, accent }: { onClick: () => void; children: React.ReactNode; icon: string; accent?: boolean }) {
+function PrimaryButton({ onClick, children, icon, accent }: { onClick: () => void; children: React.ReactNode; icon: string | React.ReactNode; accent?: boolean }) {
   return (
     <button
       onClick={onClick}
@@ -2273,7 +2458,13 @@ function PrimaryButton({ onClick, children, icon, accent }: { onClick: () => voi
         borderColor: '#e2e2e0',
       }}
     >
-      <div className="text-4xl mb-3">{icon}</div>
+      <div className="mb-3" style={{ fontSize: '2.5rem', lineHeight: 1 }}>
+        {typeof icon === 'string' ? (
+          <span className="text-4xl">{icon}</span>
+        ) : (
+          <div style={{ display: 'inline-block', transform: 'scale(1.5)' }}>{icon}</div>
+        )}
+      </div>
       <div className="text-xl font-bold font-playfair" style={{ color: COLOR_ACCENT }}>{children}</div>
       <div className="absolute top-2 right-2 text-2xl opacity-20 group-hover:opacity-40 transition-opacity">→</div>
     </button>

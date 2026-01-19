@@ -15,13 +15,21 @@ function ArtworkGallery({ artistSlug }: { artistSlug: string }) {
   
   useEffect(() => {
     fetch(`/api/catalog/assets?artistSlug=${artistSlug}&active=true`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          console.error(`Assets API error: ${res.status} ${res.statusText}`);
+          return [];
+        }
+        return res.json();
+      })
       .then(data => {
-        setAssets(data || []);
+        console.log(`[ArtworkGallery] Fetched ${Array.isArray(data) ? data.length : 0} assets for ${artistSlug}`);
+        setAssets(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch(err => {
         console.error('Failed to fetch assets:', err);
+        setAssets([]);
         setLoading(false);
       });
   }, [artistSlug]);
@@ -77,7 +85,9 @@ function ArtworkGallery({ artistSlug }: { artistSlug: string }) {
               />
             </div>
             <div className="p-4">
-              <h3 className="text-lg font-semibold text-brand-darkest mb-2">{asset.title}</h3>
+              {asset.title && !asset.title.toLowerCase().startsWith('untitled') && (
+                <h3 className="text-lg font-semibold text-brand-darkest mb-2">{asset.title}</h3>
+              )}
               {asset.description && (
                 <p className="text-sm text-brand-dark mb-4 line-clamp-2">{asset.description}</p>
               )}
@@ -258,33 +268,6 @@ export default function ArtistPage({ params }: ArtistPageProps) {
               </div>
             )}
           </div>
-
-          {/* Portfolio Section */}
-          {artist.portfolio && artist.portfolio.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
-                Portfolio
-              </h2>
-              <div className="grid md:grid-cols-2 gap-6">
-                {artist.portfolio.map((item, idx) => (
-                  <div key={idx} className="relative w-full h-96 overflow-hidden bg-brand-lightest shadow-md hover:shadow-xl transition-shadow">
-                    <ProtectedImage
-                      src={item.image}
-                      alt={item.title || `${artist.name} portfolio ${idx + 1}`}
-                      fill
-                      className="object-contain"
-                      style={{ objectPosition: 'center' }}
-                    />
-                    {item.title && !item.title.startsWith('Untitled') && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-4 z-30">
-                        <p className="font-semibold text-lg">{item.title}</p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Available Artwork/Photography Section */}
           <ArtworkGallery artistSlug={artist.slug} />

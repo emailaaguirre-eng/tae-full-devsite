@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
+import { CartIcon } from "@/components/CustomIcons";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -88,7 +89,8 @@ export default function Navbar() {
                 onClick={handleCartClick}
                 className="bg-green-600 text-white hover:bg-green-700 transition-colors px-6 py-2 rounded-full text-sm font-medium font-playfair flex items-center gap-2"
               >
-                🛒 Cart ({getItemCount()})
+                <CartIcon size={18} color="currentColor" />
+                Cart ({getItemCount()})
               </button>
             </div>
           </div>
@@ -97,9 +99,9 @@ export default function Navbar() {
           <div className="md:hidden flex items-center gap-3">
             <button 
               onClick={handleCartClick}
-              className="text-green-600 text-xl relative"
+              className="text-green-600 relative"
             >
-              🛒
+              <CartIcon size={24} color="currentColor" />
               {getItemCount() > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {getItemCount()}

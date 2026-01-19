@@ -53,10 +53,10 @@ async function main() {
     }
   }
 
-  // Check current Wall Art product configuration
-  console.log('\n=== Current Wall Art Product Configuration ===');
-  const wallArt = await prisma.storeProduct.findUnique({
-    where: { slug: 'wall-art' },
+  // Check current ArtPrints product configuration
+  console.log('\n=== Current ArtPrints Product Configuration ===');
+  const artPrints = await prisma.storeProduct.findUnique({
+    where: { slug: 'artprints' },
     include: {
       gelatoCatalog: {
         select: {
@@ -67,21 +67,24 @@ async function main() {
     }
   });
 
-  if (wallArt) {
-    console.log(`\nProduct: ${wallArt.name} (${wallArt.slug})`);
-    console.log(`  Artist: ${wallArt.artistName || 'none'}`);
-    console.log(`  Gelato Catalog: ${wallArt.gelatoCatalog ? wallArt.gelatoCatalog.title + ' (' + wallArt.gelatoCatalog.catalogUid + ')' : 'Not linked'}`);
-    console.log(`  Gallery Images: ${wallArt.galleryImages ? JSON.parse(wallArt.galleryImages).length : 0}`);
+  if (artPrints) {
+    console.log(`\nProduct: ${artPrints.name} (${artPrints.slug})`);
+    console.log(`  Artist: ${artPrints.artistName || 'none'}`);
+    console.log(`  Category: ${artPrints.category || 'none'}`);
+    console.log(`  Gelato Catalog: ${artPrints.gelatoCatalog ? artPrints.gelatoCatalog.title + ' (' + artPrints.gelatoCatalog.catalogUid + ')' : 'Not linked'}`);
+    console.log(`  Gallery Images: ${artPrints.galleryImages ? JSON.parse(artPrints.galleryImages).length : 0}`);
     
-    if (wallArt.allowedFormats) {
-      console.log(`  Allowed Formats: ${JSON.parse(wallArt.allowedFormats).join(', ')}`);
+    if (artPrints.allowedFormats) {
+      console.log(`  Allowed Formats: ${JSON.parse(artPrints.allowedFormats).join(', ')}`);
     }
-    if (wallArt.allowedPapers) {
-      console.log(`  Allowed Papers: ${JSON.parse(wallArt.allowedPapers).length} paper type(s)`);
+    if (artPrints.allowedPapers) {
+      console.log(`  Allowed Papers: ${JSON.parse(artPrints.allowedPapers).length} paper type(s)`);
     }
-    if (wallArt.allowedCoatings) {
-      console.log(`  Allowed Coatings: ${JSON.parse(wallArt.allowedCoatings).join(', ')}`);
+    if (artPrints.allowedCoatings) {
+      console.log(`  Allowed Coatings: ${JSON.parse(artPrints.allowedCoatings).join(', ')}`);
     }
+  } else {
+    console.log('⚠️  ArtPrints product not found (slug: artprints)');
   }
 }
 

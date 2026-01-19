@@ -1,7 +1,10 @@
 /**
- * Public Shop Products API
+ * Shop Products API
  * 
- * GET /api/shop/products - List active store products for the shop
+ * GET /api/shop/products - List general products (excludes gallery/artist/cocreator/collaboration products)
+ * 
+ * Shop page should only show general products like Cards, Invitations, Announcements, etc.
+ * Gallery images are Assets (Lane B), not StoreProducts.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,34 +15,39 @@ const prisma = new PrismaClient();
 export const dynamic = 'force-dynamic';
 
 /**
- * GET - List active store products
+ * GET - List general products only (excludes gallery/artist/cocreator/collaboration products)
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const featured = searchParams.get('featured') === 'true';
+    const activeOnly = searchParams.get('active') !== 'false'; // Default true
 
-    const where: any = { active: true };
-    if (featured) {
-      where.featured = true;
+    const where: any = {
+      // Exclude gallery products: category is null or doesn't start with 'gallery'
+      // AND artistName is null (general products only)
+      AND: [
+        {
+          OR: [
+            { category: null },
+            { category: { not: { startsWith: 'gallery' } } },
+          ],
+        },
+        { artistName: null },
+      ],
+    };
+
+    if (activeOnly) {
+      where.AND.push({ active: true });
     }
 
     const products = await prisma.storeProduct.findMany({
       where,
       orderBy: [
+        { featured: 'desc' },
         { sortOrder: 'asc' },
         { name: 'asc' },
       ],
-      select: {
-        id: true,
-        slug: true,
-        name: true,
-        description: true,
-        shortDescription: true,
-        icon: true,
-        heroImage: true,
-        basePrice: true,
-        featured: true,
+      include: {
         gelatoCatalog: {
           select: {
             catalogUid: true,
@@ -51,12 +59,23 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: products,
+      data: products.map(p => ({
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        description: p.description,
+        shortDescription: p.shortDescription,
+        icon: p.icon,
+        heroImage: p.heroImage,
+        basePrice: p.basePrice,
+        featured: p.featured,
+        gelatoCatalog: p.gelatoCatalog,
+      })),
     });
   } catch (error) {
     console.error('[Shop Products API] Error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch products' },
+      { success: false, error: 'Failed to fetch shop products' },
       { status: 500 }
     );
   }

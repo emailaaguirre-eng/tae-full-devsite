@@ -13,19 +13,31 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const artistSlug = searchParams.get('artistSlug');
-    const isForSaleAsPrint = searchParams.get('isForSaleAsPrint') === 'true';
-    const isAllowedInPremiumLibrary = searchParams.get('isAllowedInPremiumLibrary') === 'true';
+    const isForSaleAsPrintParam = searchParams.get('isForSaleAsPrint');
+    const isAllowedInPremiumLibraryParam = searchParams.get('isAllowedInPremiumLibrary');
     const active = searchParams.get('active') !== 'false'; // Default to true
     
+    const where: any = {};
+    
+    if (active) {
+      where.active = true;
+    }
+    
+    if (artistSlug) {
+      where.artist = { slug: artistSlug };
+    }
+    
+    // Only filter if the parameter is explicitly provided
+    if (isForSaleAsPrintParam !== null) {
+      where.isForSaleAsPrint = isForSaleAsPrintParam === 'true';
+    }
+    
+    if (isAllowedInPremiumLibraryParam !== null) {
+      where.isAllowedInPremiumLibrary = isAllowedInPremiumLibraryParam === 'true';
+    }
+
     const assets = await prisma.asset.findMany({
-      where: {
-        ...(active && { active: true }),
-        ...(artistSlug && {
-          artist: { slug: artistSlug },
-        }),
-        ...(isForSaleAsPrint !== null && { isForSaleAsPrint }),
-        ...(isAllowedInPremiumLibrary !== null && { isAllowedInPremiumLibrary }),
-      },
+      where,
       include: {
         artist: {
           select: {
@@ -40,6 +52,8 @@ export async function GET(request: Request) {
         { title: 'asc' },
       ],
     });
+    
+    console.log(`[Assets API] Found ${assets.length} assets for artistSlug=${artistSlug || 'all'}`);
     
     return NextResponse.json(assets);
   } catch (error) {
