@@ -8,28 +8,90 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProtectedImage from "@/components/ProtectedImage";
 
+// Single Artwork Card Component
+function ArtworkCard({ artwork }: { artwork: any }) {
+  const [showOptions, setShowOptions] = useState(false);
+  const hasOptions = artwork.forSale && artwork.productOptions?.length > 0;
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow">
+      {/* Clickable Image */}
+      <div
+        className={`relative w-full aspect-square bg-gray-100 ${hasOptions ? 'cursor-pointer' : ''}`}
+        onClick={() => hasOptions && setShowOptions(!showOptions)}
+      >
+        <Image
+          src={artwork.imageUrl}
+          alt={artwork.title || 'Artwork'}
+          fill
+          className="object-cover"
+          unoptimized={artwork.imageUrl?.includes('theartfulexperience.com')}
+        />
+        {/* Hover overlay hint */}
+        {hasOptions && !showOptions && (
+          <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+            <span className="bg-white/90 px-4 py-2 rounded-lg text-sm font-medium text-brand-darkest">
+              Click for options
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="p-4">
+        {/* Title - only show if not "Untitled" */}
+        {artwork.title && !artwork.title.toLowerCase().startsWith('untitled') && (
+          <h3 className="text-lg font-semibold text-brand-darkest">{artwork.title}</h3>
+        )}
+
+        {/* Product Options - revealed on image click */}
+        {showOptions && hasOptions && (
+          <div className="mt-3">
+            <p className="text-sm font-medium text-brand-darkest mb-2">Available Options:</p>
+            <div className="space-y-2">
+              {artwork.productOptions.map((option: any) => (
+                <Link
+                  key={option.categoryId}
+                  href={`/shop/artwork/${artwork.slug}?category=${option.categorySlug}`}
+                  className="w-full px-4 py-2 border border-brand-dark text-brand-darkest rounded-lg font-medium hover:bg-brand-lightest transition-colors text-sm flex justify-between items-center"
+                >
+                  <span>{option.categoryName}</span>
+                  <span className="text-brand-medium">from ${option.pricing.estimatedPrice}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Artwork Gallery Component
 function ArtworkGallery({ artistSlug }: { artistSlug: string }) {
-  const [assets, setAssets] = useState<any[]>([]);
+  const [artworks, setArtworks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   useEffect(() => {
-    fetch(`/api/catalog/assets?artistSlug=${artistSlug}&active=true`)
+    fetch(`/api/gallery/artists/${artistSlug}`)
       .then(res => {
         if (!res.ok) {
-          console.error(`Assets API error: ${res.status} ${res.statusText}`);
-          return [];
+          console.error(`Gallery API error: ${res.status} ${res.statusText}`);
+          return { success: false };
         }
         return res.json();
       })
       .then(data => {
-        console.log(`[ArtworkGallery] Fetched ${Array.isArray(data) ? data.length : 0} assets for ${artistSlug}`);
-        setAssets(Array.isArray(data) ? data : []);
+        if (data.success && data.data?.artworks) {
+          console.log(`[ArtworkGallery] Fetched ${data.data.artworks.length} artworks for ${artistSlug}`);
+          setArtworks(data.data.artworks);
+        } else {
+          setArtworks([]);
+        }
         setLoading(false);
       })
       .catch(err => {
-        console.error('Failed to fetch assets:', err);
-        setAssets([]);
+        console.error('Failed to fetch artworks:', err);
+        setArtworks([]);
         setLoading(false);
       });
   }, [artistSlug]);
@@ -47,7 +109,7 @@ function ArtworkGallery({ artistSlug }: { artistSlug: string }) {
     );
   }
   
-  if (assets.length === 0) {
+  if (artworks.length === 0) {
     return (
       <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
         <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
@@ -55,8 +117,8 @@ function ArtworkGallery({ artistSlug }: { artistSlug: string }) {
         </h2>
         <div className="text-center py-12 bg-brand-lightest rounded-2xl">
           <p className="text-brand-dark">
-            {artistSlug === 'bryant-colman' 
-              ? 'Available photography coming soon.' 
+            {artistSlug === 'bryant-colman'
+              ? 'Available photography coming soon.'
               : 'Available ArtWork coming soon.'}
           </p>
           <p className="text-sm text-brand-medium mt-4">
@@ -66,54 +128,15 @@ function ArtworkGallery({ artistSlug }: { artistSlug: string }) {
       </div>
     );
   }
-  
+
   return (
     <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
       <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-8 font-playfair">
         {artistSlug === 'bryant-colman' ? 'Available Photography' : 'Available ArtWork'}
       </h2>
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {assets.map((asset) => (
-          <div key={asset.id} className="bg-brand-lightest rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-shadow">
-            <div className="relative w-full h-64 bg-gray-100">
-              <Image
-                src={asset.image}
-                alt={asset.title}
-                fill
-                className="object-contain"
-                unoptimized={asset.image?.includes('theartfulexperience.com')}
-              />
-            </div>
-            <div className="p-4">
-              {asset.title && !asset.title.toLowerCase().startsWith('untitled') && (
-                <h3 className="text-lg font-semibold text-brand-darkest mb-2">{asset.title}</h3>
-              )}
-              {asset.description && (
-                <p className="text-sm text-brand-dark mb-4 line-clamp-2">{asset.description}</p>
-              )}
-              <div className="flex flex-col gap-2">
-                {asset.isForSaleAsPrint && (
-                  <Link
-                    href={`/shop/print?asset=${asset.slug}`}
-                    className="w-full px-4 py-2 bg-brand-darkest text-white rounded-lg text-center font-semibold hover:bg-brand-dark transition-colors"
-                  >
-                    Buy Print {asset.printPrice && `$${asset.printPrice.toFixed(2)}`}
-                  </Link>
-                )}
-                {asset.isAllowedInPremiumLibrary && (
-                  <Link
-                    href={`/library/premium?select=${asset.id}`}
-                    className="w-full px-4 py-2 bg-brand-medium text-white rounded-lg text-center font-semibold hover:bg-brand-dark transition-colors"
-                  >
-                    Use on a Card
-                    {asset.premiumFee && asset.premiumFee > 0 && (
-                      <span className="text-xs block mt-1">+${asset.premiumFee.toFixed(2)}</span>
-                    )}
-                  </Link>
-                )}
-              </div>
-            </div>
-          </div>
+        {artworks.map((artwork) => (
+          <ArtworkCard key={artwork.id} artwork={artwork} />
         ))}
       </div>
     </div>

@@ -397,6 +397,54 @@ model GelatoSyncLog {
   @@index([startedAt])
 }
 
+// Gelato Product Cache - Local cache of Gelato products for fast frontend loading
+model GelatoProductCache {
+  id              String   @id @default(cuid())
+
+  // Category mapping (our category → Gelato catalog)
+  categorySlug    String             // "wall-art", "canvas-prints", "framed-prints"
+  gelatoCatalog   String             // "posters", "canvas", "framedposters"
+
+  // Product info from Gelato
+  gelatoProductUid String  @unique   // Gelato's product UID
+  productName     String             // Human-readable name
+
+  // Variant attributes
+  size            String             // "12x18", "16x20", etc.
+  sizeLabel       String             // "12\" x 18\"" display label
+  paperType       String?            // Paper/material type
+  frameColor      String?            // Frame color (for framed prints)
+  orientation     String?            // "horizontal", "vertical", "square"
+
+  // Pricing (in USD)
+  gelatoPrice     Float              // Base cost from Gelato
+  shippingEstimate Float  @default(0) // Estimated shipping cost
+
+  // Availability
+  available       Boolean @default(true)
+  supportedCountries String?         // JSON array of country codes
+
+  // Dimensions (for print specs)
+  widthMm         Float?
+  heightMm        Float?
+  widthInches     Float?
+  heightInches    Float?
+
+  // Full Gelato response (for debugging/reference)
+  rawDataJson     String?            // Full product data as JSON
+
+  // Timestamps
+  lastSyncedAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([categorySlug, size, paperType, frameColor])
+  @@index([categorySlug])
+  @@index([gelatoCatalog])
+  @@index([available])
+  @@index([size])
+}
+
 // =============================================================================
 // ARTKEY PORTAL - Keep existing functionality
 // =============================================================================
