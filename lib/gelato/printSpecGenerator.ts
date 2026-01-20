@@ -7,7 +7,21 @@
  * This ensures the editor canvas matches exactly what Gelato will print.
  */
 
-import { GelatoProduct } from '@prisma/client';
+// Local interface to replace removed Prisma GelatoProduct model
+interface GelatoProduct {
+  productUid: string;
+  paperFormat: string | null;
+  paperType: string | null;
+  colorType: string | null;
+  orientation: string | null;
+  coatingType: string | null;
+  foldingType: string | null;
+  spotFinishing: string | null;
+  protectionType: string | null;
+  widthMm: number | null;
+  heightMm: number | null;
+  weightGrams: number | null;
+}
 
 // ============================================================================
 // Types

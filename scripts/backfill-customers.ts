@@ -71,7 +71,7 @@ async function backfillCustomers() {
           data: {
             email,
             name: mostRecentOrder?.customerName || null,
-            gelatoCustomerRefId: null, // Will be set when first order is submitted to Gelato
+            gelatoCustomerId: null, // Will be set when first order is submitted to Gelato
           },
         });
         customersCreated++;

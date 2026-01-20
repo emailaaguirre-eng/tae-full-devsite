@@ -1,5 +1,7 @@
-// Prisma schema for ArtKey Portal
-// This schema supports the full ArtKey experience: editor, public portal, and owner management
+// =============================================================================
+// The Artful Experience - Prisma Schema
+// Rebuilt 2026-01-19 for reliable server deployment
+// =============================================================================
 
 generator client {
   provider = "prisma-client-js"
@@ -10,33 +12,422 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// =============================================================================
+// SHOP PRODUCTS - Master Product Types (Single Source of Truth)
+// =============================================================================
+
+// Shop Categories define the master product types available for purchase
+// These are used across Shop, Gallery, and CoCreator pages
+model ShopCategory {
+  id              String   @id @default(cuid())
+  taeId           String   @unique  // e.g., "TAE-CARD", "TAE-CANVAS", "TAE-WALL"
+  slug            String   @unique  // URL-friendly: "cards", "canvas-prints"
+  name            String             // Display: "Greeting Cards", "Canvas Prints"
+  description     String?
+  icon            String?            // Emoji or icon identifier
+
+  // Gelato mapping
+  gelatoCatalogUid String?           // Maps to Gelato catalog (e.g., "folded-cards")
+
+  // Pricing
+  taeBaseFee      Float   @default(0)  // tAE markup added to all products in this category
+
+  // QR Code option
+  requiresQrCode  Boolean @default(false)  // If true, products in this category need QR codes
+
+  // Display
+  heroImage       String?
+  active          Boolean @default(true)
+  featured        Boolean @default(false)
+  sortOrder       Int     @default(0)
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  products        ShopProduct[]
+  artworkLinks    ArtworkProductLink[]
+
+  @@index([slug])
+  @@index([active])
+  @@index([taeId])
+}
+
+// Shop Products - Individual products within a category with variations
+model ShopProduct {
+  id              String   @id @default(cuid())
+  taeId           String   @unique  // e.g., "TAE-CARD-001", "TAE-CANVAS-001"
+  categoryId      String
+  slug            String   @unique
+  name            String             // e.g., "5x7 Folded Card", "16x20 Canvas"
+  description     String?
+
+  // Gelato mapping (hidden from customers)
+  gelatoProductUid String?           // Gelato's full product UID
+
+  // Pricing structure
+  gelatoBasePrice Float   @default(0)  // Cost from Gelato API (auto-synced)
+  taeAddOnFee     Float   @default(0)  // Our markup for this specific product
+  // Final price = gelatoBasePrice + category.taeBaseFee + taeAddOnFee + artistRoyalty (if applicable)
+
+  // Product specs
+  sizeLabel       String?            // e.g., "5x7", "16x20"
+  paperType       String?
+  finishType      String?
+  orientation     String?            // "horizontal", "vertical", "square"
+
+  // Display
+  heroImage       String?
+  active          Boolean @default(true)
+  sortOrder       Int     @default(0)
+
+  // Metadata (synced from Gelato)
+  gelatoDataJson  String?            // Full Gelato product data as JSON
+  lastSyncedAt    DateTime?
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  category        ShopCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  orderItems      OrderItem[]
+
+  @@index([categoryId])
+  @@index([slug])
+  @@index([taeId])
+  @@index([active])
+}
+
+// =============================================================================
+// ARTISTS & GALLERY - Artist Artwork Products
+// =============================================================================
+
+model Artist {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  title           String?            // e.g., "PHOTOGRAPHER | EXPLORER | FOUNDER"
+  bio             String?
+  description     String?            // Extended description
+
+  // Images
+  thumbnailImage  String?            // Small profile image
+  bioImage        String?            // Large bio/hero image
+
+  // Artist royalty (flat fee per product sold)
+  royaltyFee      Float   @default(0)  // Added to price for all their artwork sales
+
+  // Display
+  active          Boolean @default(true)
+  featured        Boolean @default(false)
+  sortOrder       Int     @default(0)
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  artworks        ArtistArtwork[]
+
+  @@index([slug])
+  @@index([active])
+}
+
+// Artist Artwork - Gallery images that can be purchased as products
+model ArtistArtwork {
+  id              String   @id @default(cuid())
+  artistId        String
+  taeId           String   @unique  // e.g., "TAE-ART-BC-001" (Bryant Colman #1)
+  slug            String   @unique
+  title           String
+  description     String?
+
+  // Image
+  imageUrl        String             // Full-resolution image URL
+  thumbnailUrl    String?            // Optional thumbnail
+
+  // For sale settings
+  forSale         Boolean @default(true)
+
+  // Display
+  active          Boolean @default(true)
+  featured        Boolean @default(false)
+  sortOrder       Int     @default(0)
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  artist          Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  productLinks    ArtworkProductLink[]
+  orderItems      OrderItem[]
+
+  @@index([artistId])
+  @@index([slug])
+  @@index([taeId])
+  @@index([forSale])
+  @@index([active])
+}
+
+// Junction table: Which shop products can an artwork be purchased as?
+model ArtworkProductLink {
+  id              String   @id @default(cuid())
+  artworkId       String
+  categoryId      String
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+
+  // Relations
+  artwork         ArtistArtwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+  category        ShopCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([artworkId, categoryId])
+  @@index([artworkId])
+  @@index([categoryId])
+}
+
+// =============================================================================
+// COCREATORS - Collaborator Products
+// =============================================================================
+
+model CoCreator {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  title           String?            // e.g., "ADAPTIVE ALPINE CLIMBER | ATHLETE | EDUCATOR"
+  bio             String?
+  description     String?
+
+  // Images
+  thumbnailImage  String?
+  heroImage       String?            // Mountain image or similar
+
+  // Royalty
+  royaltyFee      Float   @default(0)
+
+  // Display
+  active          Boolean @default(true)
+  featured        Boolean @default(false)
+  sortOrder       Int     @default(0)
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  collaborations  CoCreatorProduct[]
+
+  @@index([slug])
+  @@index([active])
+}
+
+// CoCreator collaboration products
+model CoCreatorProduct {
+  id              String   @id @default(cuid())
+  cocreatorId     String
+  taeId           String   @unique  // e.g., "TAE-COLLAB-KC-001"
+  slug            String   @unique
+  title           String
+  description     String?
+
+  // Image
+  imageUrl        String
+  thumbnailUrl    String?
+
+  // For sale
+  forSale         Boolean @default(true)
+
+  // Display
+  active          Boolean @default(true)
+  sortOrder       Int     @default(0)
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  cocreator       CoCreator @relation(fields: [cocreatorId], references: [id], onDelete: Cascade)
+
+  @@index([cocreatorId])
+  @@index([slug])
+  @@index([taeId])
+}
+
+// =============================================================================
+// CUSTOMERS - Local customer data with Gelato reference
+// =============================================================================
+
+model Customer {
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  name                String?
+  phone               String?
+
+  // Gelato reference (for API lookups)
+  gelatoCustomerId    String?  @unique  // Gelato's customer reference ID
+
+  // Admin notes
+  notes               String?
+
+  // Timestamps
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  orders              Order[]
+
+  @@index([email])
+  @@index([gelatoCustomerId])
+}
+
+// =============================================================================
+// ORDERS
+// =============================================================================
+
+model Order {
+  id                String   @id @default(cuid())
+  orderNumber       String   @unique  // tAE order number (e.g., "TAE-ORD-20260119-001")
+  status            String   @default("pending")
+
+  // Customer reference
+  customerId        String?
+
+  // Snapshot at purchase (stored locally)
+  customerEmail     String?
+  customerName      String?
+
+  // Pricing snapshot
+  subtotal          Float
+  shippingCost      Float    @default(0)
+  totalRoyalties    Float    @default(0)
+  total             Float
+
+  // Gelato reference (for API lookups - don't store sensitive data)
+  gelatoOrderId     String?  @unique
+  gelatoStatus      String?
+
+  // Tracking (can be fetched from Gelato or stored after webhook)
+  trackingNumber    String?
+  trackingUrl       String?
+  carrier           String?
+
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  customer          Customer? @relation(fields: [customerId], references: [id])
+  items             OrderItem[]
+
+  @@index([status])
+  @@index([orderNumber])
+  @@index([customerEmail])
+  @@index([customerId])
+  @@index([gelatoOrderId])
+}
+
+model OrderItem {
+  id                String   @id @default(cuid())
+  orderId           String
+
+  // What was purchased
+  shopProductId     String?           // If standard shop product
+  artworkId         String?           // If artist artwork
+
+  // Snapshot at purchase
+  itemType          String            // "shop_product" | "artist_artwork" | "cocreator_product"
+  itemName          String
+  itemTaeId         String            // The tAE ID at time of purchase
+  quantity          Int      @default(1)
+
+  // Pricing snapshot
+  basePrice         Float             // Gelato base
+  taeAddOnFee       Float    @default(0)
+  artistRoyalty     Float    @default(0)
+  unitPrice         Float             // Final per-unit price
+
+  // QR Code (if product required it)
+  artKeyId          String?           // Reference to ArtKey portal
+  qrCodeUrl         String?           // Generated QR code image
+
+  // Design (if customizable)
+  designDraftId     String?
+
+  // Timestamps
+  createdAt         DateTime @default(now())
+
+  // Relations
+  order             Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shopProduct       ShopProduct? @relation(fields: [shopProductId], references: [id], onDelete: SetNull)
+  artwork           ArtistArtwork? @relation(fields: [artworkId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([shopProductId])
+  @@index([artworkId])
+}
+
+// =============================================================================
+// GELATO SYNC - Track sync operations
+// =============================================================================
+
+model GelatoSyncLog {
+  id              String   @id @default(cuid())
+  syncType        String             // "catalog" | "products" | "prices" | "full"
+  status          String             // "started" | "completed" | "failed"
+
+  // Stats
+  itemsProcessed  Int      @default(0)
+  itemsUpdated    Int      @default(0)
+  itemsFailed     Int      @default(0)
+
+  // Error tracking
+  errorMessage    String?
+  errorDetails    String?            // JSON with detailed errors
+
+  // Timestamps
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+
+  @@index([syncType])
+  @@index([status])
+  @@index([startedAt])
+}
+
+// =============================================================================
+// ARTKEY PORTAL - Keep existing functionality
+// =============================================================================
+
 model ArtKey {
   id            String   @id @default(cuid())
-  publicToken  String   @unique // Short, URL-friendly token for public access (e.g., rkN93dX4)
-  ownerToken   String   @unique // Secret token for owner/host management
-  ownerEmail   String?  // Optional email for the owner
-  
-  // Core ArtKey data (stored as JSON to match ArtKeyEditor structure)
+  publicToken   String   @unique
+  ownerToken    String   @unique
+  ownerEmail    String?
+
+  // Portal content
   title         String
-  theme         String  // JSON: { template, bg_color, bg_image_url, font, text_color, title_color, etc. }
-  features      String  // JSON: { enable_gallery, show_guestbook, gb_require_approval, etc. }
-  links         String  // JSON array: [{ label, url }]
-  spotify       String  // JSON: { url, autoplay }
-  featuredVideo String? // JSON: { video_url, button_label } or null
-  customizations String // JSON: { skeleton_key, qr_position, etc. }
-  
-  // Media arrays (stored as JSON for backward compatibility, but also tracked in MediaItem)
-  uploadedImages String // JSON array of URLs
-  uploadedVideos String // JSON array of URLs
-  
+  theme         String   // JSON
+  features      String   // JSON
+  links         String   // JSON
+  spotify       String   // JSON
+  featuredVideo String?  // JSON
+  customizations String  // JSON
+
+  // Media
+  uploadedImages String  // JSON array
+  uploadedVideos String  // JSON array
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
   guestbookEntries GuestbookEntry[]
   mediaItems       MediaItem[]
-  
+
   @@index([publicToken])
   @@index([ownerToken])
 }
@@ -44,446 +435,71 @@ model ArtKey {
 model GuestbookEntry {
   id        String   @id @default(cuid())
   artkeyId  String
-  parentId  String?  // For threaded comments/replies
+  parentId  String?
   name      String
-  email     String?  // Optional email for guest entries
+  email     String?
   message   String
-  role      String   @default("guest") // "guest" | "host" - distinguishes guest entries from host replies
+  role      String   @default("guest")
   approved  Boolean  @default(false)
   createdAt DateTime @default(now())
-  
-  // Relations
+
   artkey    ArtKey   @relation(fields: [artkeyId], references: [id], onDelete: Cascade)
   parent    GuestbookEntry? @relation("GuestbookReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies   GuestbookEntry[] @relation("GuestbookReplies")
   mediaItems MediaItem[]
-  
+
   @@index([artkeyId])
   @@index([parentId])
   @@index([approved])
-  @@index([role])
 }
 
 model MediaItem {
   id               String   @id @default(cuid())
   artkeyId         String
-  guestbookEntryId String?  // Optional: media attached to a guestbook entry
-  type             String   // "image" | "video" | "audio"
-  url              String   // Full URL or path to the file
-  caption          String?  // Optional caption
+  guestbookEntryId String?
+  type             String
+  url              String
+  caption          String?
   approved         Boolean  @default(false)
   createdAt        DateTime @default(now())
-  
-  // Relations
+
   artkey          ArtKey          @relation(fields: [artkeyId], references: [id], onDelete: Cascade)
   guestbookEntry  GuestbookEntry? @relation(fields: [guestbookEntryId], references: [id], onDelete: SetNull)
-  
+
   @@index([artkeyId])
   @@index([guestbookEntryId])
   @@index([approved])
-  @@index([type])
 }
 
+// =============================================================================
+// DESIGN DRAFTS - Keep existing functionality
+// =============================================================================
 
 model DesignDraft {
   id                String   @id @default(cuid())
-  productId         String?  // Product from Lane A
+  productId         String?
   variantId         String?
   printSpecId       String
   dpi               Int       @default(300)
-  cornerStyle       String   @default("square") // "square" | "rounded"
+  cornerStyle       String   @default("square")
   cornerRadiusMm    Float    @default(0)
-  
-  // Design data (JSON strings)
-  designJsonFront   String?   // Konva layer.toJSON() for front
-  designJsonBack    String?   // Konva layer.toJSON() for back
-  
-  // Preview images (base64 for MVP)
-  previewPngFront   String?   // base64 data URL
-  previewPngBack    String?   // base64 data URL
-  
-  // ArtKey portal data (JSON)
-  artKeyData        String?   // JSON: { title, message, media, guestbookSettings, etc. }
-  
-  // Premium assets used
-  usedAssetIds      String?   // JSON array of asset IDs used in design
-  premiumFees        Float     @default(0) // Sum of premium fees
-  
-  // Status tracking
-  status            String   @default("draft") // "draft" | "artkey_complete" | "checkout_ready"
-  
-  // User/session tracking
+
+  designJsonFront   String?
+  designJsonBack    String?
+  previewPngFront   String?
+  previewPngBack    String?
+  artKeyData        String?
+  usedAssetIds      String?
+  premiumFees       Float     @default(0)
+  status            String   @default("draft")
   sessionId         String?
   userId            String?
-  
-  // Timestamps
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  
+
   @@index([sessionId])
   @@index([userId])
   @@index([status])
   @@index([productId])
-}
-
-// Lane A: Customizable Print Products (Gelato)
-model Product {
-  id                String   @id @default(cuid())
-  slug              String   @unique
-  name              String
-  description       String?
-  category          String   // "card" | "invitation" | "announcement" | "postcard" | "wall-art"
-  productType       String   // Gelato product type
-  
-  // Gelato integration
-  gelatoProductUid  String?  // Gelato product UID
-  gelatoCatalogUid   String?  // Gelato catalog UID
-  
-  // Pricing
-  basePrice         Float?   // Base price (may come from Gelato)
-  
-  // Features
-  allowsPremiumLibrary Boolean @default(true) // Can use premium assets
-  allowsCustomUpload   Boolean @default(true) // Can upload own photos
-  
-  // Display
-  image             String?  // Product image/thumbnail
-  active            Boolean  @default(true)
-  featured          Boolean  @default(false)
-  sortOrder         Int      @default(0)
-  
-  // Metadata (JSON)
-  metadata          String?  // JSON: { options, variants, etc. }
-  
-  // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  // Relations
-  orderItems        OrderItem[]
-  
-  @@index([category])
-  @@index([active])
-  @@index([featured])
-  @@index([slug])
-}
-
-// Lane B: Artist Artwork Assets
-model Artist {
-  id                String   @id @default(cuid())
-  slug              String   @unique
-  name              String
-  title             String?  // Artist title/role
-  bio               String?  // Biography
-  bioImage          String?  // Artist profile image
-  image             String?  // Artist thumbnail
-  active            Boolean  @default(true)
-  sortOrder         Int      @default(0)
-  
-  // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  // Relations
-  assets            Asset[]
-  
-  @@index([slug])
-  @@index([active])
-}
-
-model Asset {
-  id                      String   @id @default(cuid())
-  artistId                String
-  title                   String
-  image                   String   // Image URL
-  description             String?  // Description of the artwork
-  slug                    String   @unique
-  
-  // Lane B Flags
-  isForSaleAsPrint        Boolean  @default(false) // Buy as-is print (NOT customizable)
-  isAllowedInPremiumLibrary Boolean @default(false) // Use in Premium Library on customizable products
-  
-  // Premium Library settings
-  premiumFee               Float?   // Extra charge when used in premium library
-  editRules                String   @default("crop_and_position_only") // "crop_and_position_only" | "full_edit"
-  
-  // Print sale settings (if isForSaleAsPrint)
-  printPrice               Float?   // Price for as-is print
-  printProductUid         String?   // Gelato product UID for print
-  
-  // Display
-  active                  Boolean  @default(true)
-  featured                Boolean  @default(false)
-  sortOrder               Int      @default(0)
-  
-  // Metadata (JSON)
-  metadata                String?  // JSON: { dimensions, medium, year, etc. }
-  
-  // Timestamps
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
-  
-  // Relations
-  artist                  Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  orderItems               OrderItem[]
-  
-  @@index([artistId])
-  @@index([isForSaleAsPrint])
-  @@index([isAllowedInPremiumLibrary])
-  @@index([active])
-  @@index([featured])
-  @@index([slug])
-}
-
-// Customer Management
-model Customer {
-  id                  String   @id @default(cuid())
-  email               String   @unique
-  name                String?
-  phone               String?
-  gelatoCustomerRefId String?  // what we pass as customerReferenceId
-  addressBookJson     String?  // optional JSON array of past addresses
-  
-  // Timestamps
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  
-  // Relations
-  orders              Order[]
-  
-  @@index([email])
-}
-
-// Orders and Cart
-model Order {
-  id                String   @id @default(cuid())
-  orderNumber       String   @unique
-  status            String   @default("pending")
-
-  customerId        String?
-  customer          Customer? @relation(fields: [customerId], references: [id])
-
-  // Snapshot at time of purchase (keep these)
-  customerEmail     String?
-  customerName      String?
-  shippingAddress   String?
-
-  subtotal          Float
-  premiumFees       Float    @default(0)
-  shipping          Float    @default(0)
-  total             Float
-
-  paypalOrderId     String?
-  paypalCaptureId   String?
-
-  gelatoOrderId     String?
-  gelatoStatus      String?
-
-  // Add these tracking fields (you'll want them immediately)
-  trackingNumber    String?
-  trackingUrl       String?
-  carrier           String?
-
-  designDraftId     String?
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  items             OrderItem[]
-
-  @@index([status])
-  @@index([orderNumber])
-  @@index([customerEmail])
-  @@index([customerId])
-}
-
-model OrderItem {
-  id                String   @id @default(cuid())
-  orderId           String
-  productId         String?  // If from Lane A (customizable product)
-  assetId            String?  // If from Lane B (as-is print)
-  
-  // Product details (snapshot at time of order)
-  itemType          String   // "product" | "asset_print"
-  itemName           String
-  quantity           Int      @default(1)
-  unitPrice          Float
-  
-  // Premium assets used (for products)
-  usedAssetIds      String?  // JSON array of asset IDs used in design
-  premiumFees        Float    @default(0) // Premium fees for this item
-  
-  // Design data
-  designDraftId     String?  // Link to design draft if customizable
-  
-  // ArtKey Integration (for products that require QR code)
-  artKeyId          String?  // Reference to ArtKey if product requires QR code
-  artKeyUrl         String?  // Public ArtKey portal URL
-  qrCodeUrl         String?  // QR code image URL for ArtKey
-  
-  // Timestamps
-  createdAt         DateTime @default(now())
-  
-  // Relations
-  order              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product            Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
-  asset              Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
-  
-  @@index([orderId])
-  @@index([productId])
-  @@index([assetId])
-}
-
-// ============================================================================
-// Gelato Catalog Cache
-// Synced from Gelato API - source of truth for available products
-// ============================================================================
-
-model GelatoCatalog {
-  id                String   @id @default(cuid())
-  catalogUid        String   @unique  // Gelato's catalog UID (e.g., "folded-cards")
-  title             String             // Display title
-  
-  // Cached attributes as JSON (paper types, coatings, foils, etc.)
-  attributesJson    String?            // JSON: full attributes from API
-  
-  // Sync tracking
-  lastSyncedAt      DateTime @default(now())
-  syncStatus        String   @default("pending") // "pending" | "synced" | "error"
-  syncError         String?
-  
-  // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  // Relations
-  products          GelatoProduct[]
-  storeProducts     StoreProduct[]
-  
-  @@index([catalogUid])
-  @@index([syncStatus])
-}
-
-model GelatoProduct {
-  id                String   @id @default(cuid())
-  productUid        String   @unique  // Gelato's full product UID
-  catalogId         String             // Reference to GelatoCatalog
-  
-  // Product attributes (parsed from UID or API)
-  paperFormat       String?            // e.g., "5R", "A5", "A6"
-  paperType         String?            // e.g., "100-lb-cover-coated-silk"
-  colorType         String?            // e.g., "4-4", "4-0"
-  orientation       String?            // e.g., "hor", "ver"
-  coatingType       String?            // e.g., "glossy-protection", "none"
-  foldingType       String?            // e.g., "fold-hor", "fold-ver"
-  spotFinishing     String?            // e.g., "foil-gold-1-1", "none"
-  protectionType    String?            // e.g., "1-1", "none"
-  
-  // Dimensions from Gelato API (in mm)
-  widthMm           Float?
-  heightMm          Float?
-  weightGrams       Float?
-  
-  // Full attributes JSON from API
-  attributesJson    String?
-  dimensionsJson    String?
-  
-  // Availability
-  supportedCountries String?           // JSON array of country codes
-  isPrintable       Boolean @default(true)
-  isStockable       Boolean @default(false)
-  productStatus     String  @default("activated") // "activated" | "deactivated" | "deprecated"
-  
-  // Sync tracking
-  lastSyncedAt      DateTime @default(now())
-  
-  // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  // Relations
-  catalog           GelatoCatalog @relation(fields: [catalogId], references: [id], onDelete: Cascade)
-  
-  @@index([catalogId])
-  @@index([productUid])
-  @@index([paperFormat])
-  @@index([orientation])
-  @@index([productStatus])
-}
-
-// ============================================================================
-// Store Products
-// Admin-managed products displayed in shop, linked to Gelato catalogs
-// ============================================================================
-
-model StoreProduct {
-  id                String   @id @default(cuid())
-  slug              String   @unique
-  name              String              // Display name (e.g., "Greeting Cards")
-  description       String?             // Marketing description
-  shortDescription  String?             // Brief tagline
-  
-  // Product Type & Category
-  productType       String   @default("gelato") // "gelato" | "custom" | "artwork" | "digital"
-  category          String?             // e.g., "cards", "wall-art", "prints", "commissioned"
-  
-  // For custom/artwork products
-  artistName        String?             // Artist name for commissioned work
-  artistId          String?             // Reference to artist (if we have artist table)
-  stockQuantity     Int?                // For limited stock items (null = unlimited/POD)
-  isDigital         Boolean @default(false) // True for digital downloads
-  downloadUrl       String?             // URL for digital product download
-  
-  // Display
-  icon              String?             // Emoji or icon identifier
-  heroImage         String?             // Main product image
-  galleryImages     String?             // JSON array of image URLs
-  
-  // Gelato catalog link (null for custom products)
-  gelatoCatalogId   String?             // Reference to GelatoCatalog
-  
-  // Product configuration
-  // Which options to show (filters on GelatoProduct attributes)
-  allowedFormats    String?             // JSON array: ["5R", "A5", "A6"]
-  allowedPapers     String?             // JSON array of paper types
-  allowedCoatings   String?             // JSON array of coating types
-  allowedFoils      String?             // JSON array of foil options
-  allowedFolds      String?             // JSON array of folding types
-  
-  // Pricing
-  basePrice         Float   @default(0) // Your base price (markup)
-  
-  // Print specifications
-  defaultBleedMm    Float   @default(4) // Default bleed in mm
-  defaultSafeMm     Float   @default(4) // Default safe zone in mm
-  defaultDpi        Int     @default(300) // Export DPI
-  
-  // Editor configuration
-  editorConfig      String?             // JSON: { showFoilLayer, allowText, templates, etc. }
-  
-  // Display settings
-  active            Boolean @default(true)
-  featured          Boolean @default(false)
-  sortOrder         Int     @default(0)
-  
-  // ArtKey Integration
-  requiresArtKey    Boolean @default(false) // If true, orders for this product will create ArtKey portal + QR code
-  
-  // SEO
-  metaTitle         String?
-  metaDescription   String?
-  
-  // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  // Relations
-  gelatoCatalog     GelatoCatalog? @relation(fields: [gelatoCatalogId], references: [id], onDelete: SetNull)
-  
-  @@index([slug])
-  @@index([active])
-  @@index([featured])
-  @@index([gelatoCatalogId])
-  @@index([productType])
-  @@index([category])
 }

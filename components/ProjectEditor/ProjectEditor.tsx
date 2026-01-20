@@ -445,7 +445,24 @@ export default function ProjectEditor({
     };
     img.src = asset.src;
   }, [currentSide, activeSideId, saveToHistory]);
-  
+
+  // Add premium asset (similar to handleAddImage but for premium library assets)
+  const handleAddPremiumAsset = useCallback((asset: { id?: string; url?: string; src?: string; width?: number; height?: number }) => {
+    if (!currentSide) return;
+    // Convert premium asset to UploadedAsset format and use handleAddImage logic
+    const imageUrl = asset.url || asset.src || '';
+    if (!imageUrl) {
+      console.warn('[ProjectEditor] Premium asset has no URL');
+      return;
+    }
+    handleAddImage({
+      id: asset.id || `premium-${Date.now()}`,
+      src: imageUrl,
+      width: asset.width,
+      height: asset.height,
+    });
+  }, [currentSide, handleAddImage]);
+
   // Add text label
   const handleAddText = useCallback(() => {
     if (!currentSide) {

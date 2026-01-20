@@ -74,10 +74,10 @@ export function parseGelatoPrintSpecs(rawResponse: any, productUid: string) {
   };
 
   // Try to extract dimensions (common field names)
-  const dimensions = rawResponse.dimensions || 
-                     rawResponse.size || 
+  const dimensions: Record<string, any> | null = rawResponse.dimensions ||
+                     rawResponse.size ||
                      rawResponse.measurements ||
-                     rawResponse.width && rawResponse.height ? { width: rawResponse.width, height: rawResponse.height } : null;
+                     (rawResponse.width && rawResponse.height ? { width: rawResponse.width, height: rawResponse.height } : null);
 
   if (dimensions) {
     // Assume dimensions are in mm (Gelato typically uses mm)

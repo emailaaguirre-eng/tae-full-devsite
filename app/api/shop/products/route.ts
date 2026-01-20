@@ -1,81 +1,89 @@
 /**
  * Shop Products API
- * 
- * GET /api/shop/products - List general products (excludes gallery/artist/cocreator/collaboration products)
- * 
- * Shop page should only show general products like Cards, Invitations, Announcements, etc.
- * Gallery images are Assets (Lane B), not StoreProducts.
+ * GET /api/shop/products - List shop products (by category or all)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * GET - List general products only (excludes gallery/artist/cocreator/collaboration products)
- */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const activeOnly = searchParams.get('active') !== 'false'; // Default true
+    const categorySlug = searchParams.get('category');
+    const activeOnly = searchParams.get('active') !== 'false';
 
-    const where: any = {
-      // Exclude gallery products: category is null or doesn't start with 'gallery'
-      // AND artistName is null (general products only)
-      AND: [
-        {
-          OR: [
-            { category: null },
-            { category: { not: { startsWith: 'gallery' } } },
-          ],
-        },
-        { artistName: null },
-      ],
-    };
+    // Build query
+    const where: any = {};
+    if (activeOnly) where.active = true;
 
-    if (activeOnly) {
-      where.AND.push({ active: true });
+    if (categorySlug) {
+      const category = await prisma.shopCategory.findUnique({
+        where: { slug: categorySlug },
+      });
+      if (!category) {
+        return NextResponse.json(
+          { success: false, error: 'Category not found' },
+          { status: 404 }
+        );
+      }
+      where.categoryId = category.id;
     }
 
-    const products = await prisma.storeProduct.findMany({
+    const products = await prisma.shopProduct.findMany({
       where,
-      orderBy: [
-        { featured: 'desc' },
-        { sortOrder: 'asc' },
-        { name: 'asc' },
-      ],
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
-        gelatoCatalog: {
+        category: {
           select: {
-            catalogUid: true,
-            title: true,
+            taeId: true,
+            slug: true,
+            name: true,
+            taeBaseFee: true,
+            requiresQrCode: true,
           },
         },
       },
     });
 
+    // Calculate final prices
+    const productsWithPricing = products.map(product => {
+      const basePrice = product.gelatoBasePrice;
+      const categoryFee = product.category.taeBaseFee;
+      const productFee = product.taeAddOnFee;
+      const finalPrice = basePrice + categoryFee + productFee;
+
+      return {
+        id: product.id,
+        taeId: product.taeId,
+        slug: product.slug,
+        name: product.name,
+        description: product.description,
+        sizeLabel: product.sizeLabel,
+        paperType: product.paperType,
+        finishType: product.finishType,
+        orientation: product.orientation,
+        heroImage: product.heroImage,
+        category: product.category,
+        pricing: {
+          basePrice,
+          categoryFee,
+          productFee,
+          finalPrice,
+        },
+        requiresQrCode: product.category.requiresQrCode,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      data: products.map(p => ({
-        id: p.id,
-        slug: p.slug,
-        name: p.name,
-        description: p.description,
-        shortDescription: p.shortDescription,
-        icon: p.icon,
-        heroImage: p.heroImage,
-        basePrice: p.basePrice,
-        featured: p.featured,
-        gelatoCatalog: p.gelatoCatalog,
-      })),
+      data: productsWithPricing,
     });
   } catch (error) {
     console.error('[Shop Products API] Error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch shop products' },
+      { success: false, error: 'Failed to fetch products' },
       { status: 500 }
     );
   }

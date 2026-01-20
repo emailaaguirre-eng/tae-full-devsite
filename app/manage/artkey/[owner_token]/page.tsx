@@ -34,26 +34,8 @@ export default function OwnerManagementPage({ params }: { params: Promise<{ owne
     async function fetchData() {
       try {
         // Use client helper to fetch owner data
-        const ownerData = await fetchArtKeyOwner(ownerToken);
+        const ownerData = await fetchArtKeyOwner(ownerToken!);
         setData(ownerData);
-
-        const guestbookData = await guestbookRes.json();
-        const mediaData = await mediaRes.json();
-
-        setData({
-          artkey_id: guestbookData.artkey_id,
-          artkey_title: guestbookData.artkey_title,
-          public_token: guestbookData.public_token || mediaData.public_token || '',
-          guestbook: {
-            entries: guestbookData.entries,
-            stats: guestbookData.stats,
-          },
-          media: {
-            all: mediaData.media.all,
-            byType: mediaData.media.byType,
-            stats: mediaData.stats,
-          },
-        });
       } catch (err: any) {
         setError(err.message || 'Failed to load management data');
       } finally {
@@ -126,7 +108,7 @@ export default function OwnerManagementPage({ params }: { params: Promise<{ owne
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
               <h1 className="text-2xl font-bold">ArtKey Management</h1>
-              <p className="text-sm text-white/80 mt-1">{data.artkey_title}</p>
+              <p className="text-sm text-white/80 mt-1">{data.title}</p>
             </div>
             {publicUrl && (
               <div className="text-right">
@@ -186,9 +168,9 @@ export default function OwnerManagementPage({ params }: { params: Promise<{ owne
               {data.allGuestbookEntries.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">No guestbook entries yet</p>
               ) : (
-                data.allGuestbookEntries.map((entry) => (
+                data.allGuestbookEntries.map((entry, idx) => (
                   <div
-                    key={entry.id}
+                    key={entry.id ?? `entry-${idx}`}
                     className={`border-2 rounded-lg p-4 ${
                       entry.approved ? 'border-green-200 bg-green-50' : 'border-yellow-300 bg-yellow-50'
                     }`}
@@ -212,7 +194,7 @@ export default function OwnerManagementPage({ params }: { params: Promise<{ owne
                         )}
                         <p className="text-sm text-gray-700 mt-1">{entry.message}</p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {new Date(entry.createdAt).toLocaleString()}
+                          {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : 'Unknown date'}
                         </p>
                         {!entry.approved && (
                           <span className="inline-block mt-2 px-2 py-1 text-xs font-semibold rounded bg-yellow-200 text-yellow-800">
@@ -221,43 +203,45 @@ export default function OwnerManagementPage({ params }: { params: Promise<{ owne
                         )}
                       </div>
                       <div className="flex gap-2 ml-4">
-                        {!entry.approved && (
+                        {!entry.approved && entry.id && (
                           <button
-                            onClick={() => handleModerate('guestbook', entry.id, 'approve')}
+                            onClick={() => handleModerate('guestbook', entry.id!, 'approve')}
                             disabled={moderating === entry.id}
                             className="px-3 py-1 text-xs font-semibold rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
                           >
                             {moderating === entry.id ? '...' : '✓ Approve'}
                           </button>
                         )}
-                        {entry.approved && (
+                        {entry.approved && entry.id && (
                           <button
-                            onClick={() => handleModerate('guestbook', entry.id, 'reject')}
+                            onClick={() => handleModerate('guestbook', entry.id!, 'reject')}
                             disabled={moderating === entry.id}
                             className="px-3 py-1 text-xs font-semibold rounded bg-yellow-600 text-white hover:bg-yellow-700 disabled:opacity-50"
                           >
                             {moderating === entry.id ? '...' : 'Reject'}
                           </button>
                         )}
-                        <button
-                          onClick={() => {
-                            if (confirm('Are you sure you want to delete this entry?')) {
-                              handleModerate('guestbook', entry.id, 'delete');
-                            }
-                          }}
-                          disabled={moderating === entry.id}
-                          className="px-3 py-1 text-xs font-semibold rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-                        >
-                          {moderating === entry.id ? '...' : '✕ Delete'}
-                        </button>
+                        {entry.id && (
+                          <button
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this entry?')) {
+                                handleModerate('guestbook', entry.id!, 'delete');
+                              }
+                            }}
+                            disabled={moderating === entry.id}
+                            className="px-3 py-1 text-xs font-semibold rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {moderating === entry.id ? '...' : '✕ Delete'}
+                          </button>
+                        )}
                       </div>
                     </div>
 
                     {/* Replies */}
-                    {entry.children.length > 0 && (
+                    {entry.children && entry.children.length > 0 && (
                       <div className="ml-4 mt-3 space-y-2 border-l-2 pl-3" style={{ borderColor: COLOR_ALT }}>
-                        {entry.children.map((reply) => (
-                          <div key={reply.id} className="flex justify-between items-start">
+                        {entry.children.map((reply, replyIdx) => (
+                          <div key={reply.id ?? `reply-${replyIdx}`} className="flex justify-between items-start">
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <p className="font-semibold text-sm" style={{ color: COLOR_ACCENT }}>
@@ -282,26 +266,28 @@ export default function OwnerManagementPage({ params }: { params: Promise<{ owne
                               )}
                             </div>
                             <div className="flex gap-2 ml-2">
-                              {!reply.approved && (
+                              {!reply.approved && reply.id && (
                                 <button
-                                  onClick={() => handleModerate('guestbook', reply.id, 'approve')}
+                                  onClick={() => handleModerate('guestbook', reply.id!, 'approve')}
                                   disabled={moderating === reply.id}
                                   className="px-2 py-1 text-xs rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
                                 >
                                   ✓
                                 </button>
                               )}
-                              <button
-                                onClick={() => {
-                                  if (confirm('Delete this reply?')) {
-                                    handleModerate('guestbook', reply.id, 'delete');
-                                  }
-                                }}
-                                disabled={moderating === reply.id}
-                                className="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-                              >
-                                ✕
-                              </button>
+                              {reply.id && (
+                                <button
+                                  onClick={() => {
+                                    if (confirm('Delete this reply?')) {
+                                      handleModerate('guestbook', reply.id!, 'delete');
+                                    }
+                                  }}
+                                  disabled={moderating === reply.id}
+                                  className="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                                >
+                                  ✕
+                                </button>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -332,8 +318,8 @@ export default function OwnerManagementPage({ params }: { params: Promise<{ owne
                 Images ({data.allMediaItems.filter((m) => m.type === 'image').length})
               </h3>
               <div className="grid grid-cols-4 gap-3">
-                {data.allMediaItems.filter((m) => m.type === 'image').map((item) => (
-                  <div key={item.id} className="relative group">
+                {data.allMediaItems.filter((m) => m.type === 'image').map((item, idx) => (
+                  <div key={item.id ?? `img-${idx}`} className="relative group">
                     <img
                       src={item.url}
                       alt={item.caption || ''}
@@ -344,30 +330,32 @@ export default function OwnerManagementPage({ params }: { params: Promise<{ owne
                         Pending
                       </div>
                     )}
-                    <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                      {!item.approved && (
+                    {item.id && (
+                      <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        {!item.approved && (
+                          <button
+                            onClick={() => handleModerate('media', item.id!, 'approve')}
+                            disabled={moderating === item.id}
+                            className="px-2 py-1 text-xs rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                            title="Approve"
+                          >
+                            ✓
+                          </button>
+                        )}
                         <button
-                          onClick={() => handleModerate('media', item.id, 'approve')}
+                          onClick={() => {
+                            if (confirm('Delete this media?')) {
+                              handleModerate('media', item.id!, 'delete');
+                            }
+                          }}
                           disabled={moderating === item.id}
-                          className="px-2 py-1 text-xs rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                          title="Approve"
+                          className="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                          title="Delete"
                         >
-                          ✓
+                          ✕
                         </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          if (confirm('Delete this media?')) {
-                            handleModerate('media', item.id, 'delete');
-                          }
-                        }}
-                        disabled={moderating === item.id}
-                        className="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-                        title="Delete"
-                      >
-                        ✕
-                      </button>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -379,36 +367,38 @@ export default function OwnerManagementPage({ params }: { params: Promise<{ owne
                 Videos ({data.allMediaItems.filter((m) => m.type === 'video').length})
               </h3>
               <div className="grid grid-cols-2 gap-3">
-                {data.allMediaItems.filter((m) => m.type === 'video').map((item) => (
-                  <div key={item.id} className="relative group">
+                {data.allMediaItems.filter((m) => m.type === 'video').map((item, idx) => (
+                  <div key={item.id ?? `vid-${idx}`} className="relative group">
                     <video src={item.url} className="w-full rounded-lg" controls />
                     {!item.approved && (
                       <div className="absolute top-1 left-1 px-2 py-1 text-xs font-semibold rounded bg-yellow-500 text-white">
                         Pending
                       </div>
                     )}
-                    <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                      {!item.approved && (
+                    {item.id && (
+                      <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        {!item.approved && (
+                          <button
+                            onClick={() => handleModerate('media', item.id!, 'approve')}
+                            disabled={moderating === item.id}
+                            className="px-2 py-1 text-xs rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                          >
+                            ✓
+                          </button>
+                        )}
                         <button
-                          onClick={() => handleModerate('media', item.id, 'approve')}
+                          onClick={() => {
+                            if (confirm('Delete this media?')) {
+                              handleModerate('media', item.id!, 'delete');
+                            }
+                          }}
                           disabled={moderating === item.id}
-                          className="px-2 py-1 text-xs rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                          className="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
                         >
-                          ✓
+                          ✕
                         </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          if (confirm('Delete this media?')) {
-                            handleModerate('media', item.id, 'delete');
-                          }
-                        }}
-                        disabled={moderating === item.id}
-                        className="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-                      >
-                        ✕
-                      </button>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,16 +26,18 @@ export async function GET(request: Request) {
         },
         items: {
           include: {
-            product: {
+            shopProduct: {
               select: {
                 name: true,
                 slug: true,
+                taeId: true,
               },
             },
-            asset: {
+            artwork: {
               select: {
                 title: true,
                 slug: true,
+                taeId: true,
               },
             },
           },
@@ -57,4 +57,3 @@ export async function GET(request: Request) {
     );
   }
 }
-

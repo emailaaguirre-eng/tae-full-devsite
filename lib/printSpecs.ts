@@ -69,7 +69,7 @@ function inchesToMm(inches: number): number {
   return inches * 25.4;
 }
 
-// Print Specs
+// Print Specs (legacy specs updated with required mm fields)
 export const printSpecs: Record<string, PrintSpec> = {
   poster_simple: {
     id: 'poster_simple',
@@ -77,10 +77,13 @@ export const printSpecs: Record<string, PrintSpec> = {
     sides: [
       {
         id: 'front',
-        canvasPx: { w: inchesToPx(18), h: inchesToPx(24) }, // 18x24 inches
-        bleedPx: inchesToPx(0.125), // 1/8 inch bleed
-        trimPx: inchesToPx(0.125), // 1/8 inch trim
-        safePx: inchesToPx(0.25), // 1/4 inch safe zone
+        trimMm: { w: inchesToMm(18), h: inchesToMm(24) }, // 18x24 inches
+        bleedMm: inchesToMm(0.125), // 1/8 inch bleed
+        safeMm: inchesToMm(0.25), // 1/4 inch safe zone
+        canvasPx: { w: inchesToPx(18), h: inchesToPx(24) },
+        bleedPx: inchesToPx(0.125),
+        trimPx: inchesToPx(0.125),
+        safePx: inchesToPx(0.25),
       },
     ],
     folded: false,
@@ -92,33 +95,42 @@ export const printSpecs: Record<string, PrintSpec> = {
     sides: [
       {
         id: 'front',
-        canvasPx: { w: inchesToPx(5), h: inchesToPx(7) }, // 5x7 inches per side
+        trimMm: { w: inchesToMm(5), h: inchesToMm(7) },
+        bleedMm: inchesToMm(0.125),
+        safeMm: inchesToMm(0.25),
+        canvasPx: { w: inchesToPx(5), h: inchesToPx(7) },
         bleedPx: inchesToPx(0.125),
         trimPx: inchesToPx(0.125),
         safePx: inchesToPx(0.25),
         foldLines: [
-          { x1: inchesToPx(5), y1: 0, x2: inchesToPx(5), y2: inchesToPx(7) }, // Vertical fold at right edge (fold to inside)
+          { x1: inchesToPx(5), y1: 0, x2: inchesToPx(5), y2: inchesToPx(7) },
         ],
       },
       {
         id: 'inside',
+        trimMm: { w: inchesToMm(5), h: inchesToMm(7) },
+        bleedMm: inchesToMm(0.125),
+        safeMm: inchesToMm(0.25),
         canvasPx: { w: inchesToPx(5), h: inchesToPx(7) },
         bleedPx: inchesToPx(0.125),
         trimPx: inchesToPx(0.125),
         safePx: inchesToPx(0.25),
         foldLines: [
-          { x1: 0, y1: 0, x2: 0, y2: inchesToPx(7) }, // Vertical fold at left edge (fold from front)
-          { x1: inchesToPx(5), y1: 0, x2: inchesToPx(5), y2: inchesToPx(7) }, // Vertical fold at right edge (fold to back)
+          { x1: 0, y1: 0, x2: 0, y2: inchesToPx(7) },
+          { x1: inchesToPx(5), y1: 0, x2: inchesToPx(5), y2: inchesToPx(7) },
         ],
       },
       {
         id: 'back',
+        trimMm: { w: inchesToMm(5), h: inchesToMm(7) },
+        bleedMm: inchesToMm(0.125),
+        safeMm: inchesToMm(0.25),
         canvasPx: { w: inchesToPx(5), h: inchesToPx(7) },
         bleedPx: inchesToPx(0.125),
         trimPx: inchesToPx(0.125),
         safePx: inchesToPx(0.25),
         foldLines: [
-          { x1: 0, y1: 0, x2: 0, y2: inchesToPx(7) }, // Vertical fold at left edge (fold from inside)
+          { x1: 0, y1: 0, x2: 0, y2: inchesToPx(7) },
         ],
       },
     ],
@@ -131,13 +143,19 @@ export const printSpecs: Record<string, PrintSpec> = {
     sides: [
       {
         id: 'front',
-        canvasPx: { w: inchesToPx(4), h: inchesToPx(6) }, // 4x6 inches
+        trimMm: { w: inchesToMm(4), h: inchesToMm(6) },
+        bleedMm: inchesToMm(0.125),
+        safeMm: inchesToMm(0.25),
+        canvasPx: { w: inchesToPx(4), h: inchesToPx(6) },
         bleedPx: inchesToPx(0.125),
         trimPx: inchesToPx(0.125),
         safePx: inchesToPx(0.25),
       },
       {
         id: 'back',
+        trimMm: { w: inchesToMm(4), h: inchesToMm(6) },
+        bleedMm: inchesToMm(0.125),
+        safeMm: inchesToMm(0.25),
         canvasPx: { w: inchesToPx(4), h: inchesToPx(6) },
         bleedPx: inchesToPx(0.125),
         trimPx: inchesToPx(0.125),
@@ -153,7 +171,10 @@ export const printSpecs: Record<string, PrintSpec> = {
     sides: [
       {
         id: 'front',
-        canvasPx: { w: inchesToPx(5), h: inchesToPx(7) }, // 5x7 inches
+        trimMm: { w: inchesToMm(5), h: inchesToMm(7) },
+        bleedMm: inchesToMm(0.125),
+        safeMm: inchesToMm(0.25),
+        canvasPx: { w: inchesToPx(5), h: inchesToPx(7) },
         bleedPx: inchesToPx(0.125),
         trimPx: inchesToPx(0.125),
         safePx: inchesToPx(0.25),
@@ -168,7 +189,10 @@ export const printSpecs: Record<string, PrintSpec> = {
     sides: [
       {
         id: 'front',
-        canvasPx: { w: inchesToPx(5), h: inchesToPx(7) }, // 5x7 inches
+        trimMm: { w: inchesToMm(5), h: inchesToMm(7) },
+        bleedMm: inchesToMm(0.125),
+        safeMm: inchesToMm(0.25),
+        canvasPx: { w: inchesToPx(5), h: inchesToPx(7) },
         bleedPx: inchesToPx(0.125),
         trimPx: inchesToPx(0.125),
         safePx: inchesToPx(0.25),

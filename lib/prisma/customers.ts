@@ -96,10 +96,10 @@ export function getGelatoCustomerRefId(customer: { id: string; gelatoCustomerRef
  * Update customer's Gelato reference ID
  * Called after first successful Gelato order submission
  */
-export async function setGelatoCustomerRefId(customerId: string, gelatoCustomerRefId: string) {
+export async function setGelatoCustomerId(customerId: string, gelatoCustomerId: string) {
   return prisma.customer.update({
     where: { id: customerId },
-    data: { gelatoCustomerRefId },
+    data: { gelatoCustomerId },
   });
 }
 

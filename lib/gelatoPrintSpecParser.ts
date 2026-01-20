@@ -267,8 +267,15 @@ function parseFoldLines(data: any, canvasWidth: number, canvasHeight: number): A
 }
 
 /**
+ * Converts pixels to mm at specified DPI
+ */
+function pxToMm(px: number, dpi: number = DPI): number {
+  return (px / dpi) * 25.4;
+}
+
+/**
  * Converts Gelato API response to PrintSpec format
- * 
+ *
  * @param gelatoData Raw response from Gelato API
  * @param productUid Gelato product UID
  * @param variantUid Optional variant UID
@@ -287,62 +294,91 @@ export function gelatoDataToPrintSpec(
       return null;
     }
 
-    // Extract bleed, trim, safe zone
+    // Extract bleed, trim, safe zone (in pixels)
     const bleedPx = parseBleed(gelatoData);
-    const trimPx = parseTrim(gelatoData);
     const safePx = parseSafeZone(gelatoData);
+
+    // Convert to mm for required PrintSide fields
+    const trimMm = { w: pxToMm(dimensions.width), h: pxToMm(dimensions.height) };
+    const bleedMm = pxToMm(bleedPx);
+    const safeMm = pxToMm(safePx);
 
     // Extract fold lines
     const foldLines = parseFoldLines(gelatoData, dimensions.width, dimensions.height);
+    // Convert fold lines to mm
+    const foldLinesMm = foldLines.length > 0 ? foldLines.map(line => ({
+      x1: pxToMm(line.x1),
+      y1: pxToMm(line.y1),
+      x2: pxToMm(line.x2),
+      y2: pxToMm(line.y2),
+    })) : undefined;
 
     // Determine sides based on product type
     // For cards, typically: front, inside, back
     // For posters: just front
     const isCard = productUid.includes('card') || productUid.includes('invitation') || productUid.includes('announcement');
-    
+
     const sides: PrintSide[] = [];
-    
+    const sideIds: Array<'front' | 'inside' | 'inside-left' | 'inside-right' | 'inside-top' | 'inside-bottom' | 'back'> = [];
+
     if (isCard) {
       // Bifold card: front, inside, back
       sides.push({
         id: 'front',
+        name: 'Front',
+        trimMm,
+        bleedMm,
+        safeMm,
         canvasPx: { w: dimensions.width, h: dimensions.height },
         bleedPx,
-        trimPx,
         safePx,
-        foldLines: foldLines.length > 0 ? foldLines : undefined,
+        foldLines: foldLinesMm,
       });
-      
+      sideIds.push('front');
+
       sides.push({
         id: 'inside',
+        name: 'Inside',
+        trimMm,
+        bleedMm,
+        safeMm,
         canvasPx: { w: dimensions.width, h: dimensions.height },
         bleedPx,
-        trimPx,
         safePx,
       });
-      
+      sideIds.push('inside');
+
       sides.push({
         id: 'back',
+        name: 'Back',
+        trimMm,
+        bleedMm,
+        safeMm,
         canvasPx: { w: dimensions.width, h: dimensions.height },
         bleedPx,
-        trimPx,
         safePx,
       });
+      sideIds.push('back');
     } else {
       // Single-sided (poster, postcard)
       sides.push({
         id: 'front',
+        name: 'Front',
+        trimMm,
+        bleedMm,
+        safeMm,
         canvasPx: { w: dimensions.width, h: dimensions.height },
         bleedPx,
-        trimPx,
         safePx,
       });
+      sideIds.push('front');
     }
 
     return {
       id: `gelato_${productUid}${variantUid ? `_${variantUid}` : ''}`,
       name: `Gelato ${productUid}${variantUid ? ` (${variantUid})` : ''}`,
       sides,
+      sideIds,
     };
   } catch (error) {
     console.error('[GelatoPrintSpecParser] Error converting Gelato data to PrintSpec:', error);

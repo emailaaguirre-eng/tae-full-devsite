@@ -2,35 +2,40 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Prisma } from '@prisma/client';
 
-type OrderWithRelations = Prisma.OrderGetPayload<{
-  include: {
-    customer: {
-      select: {
-        id: true;
-        email: true;
-        name: true;
-      };
-    };
-    items: {
-      include: {
-        product: {
-          select: {
-            name: true;
-            slug: true;
-          };
-        };
-        asset: {
-          select: {
-            title: true;
-            slug: true;
-          };
-        };
-      };
-    };
-  };
-}>;
+// Simple type matching API response
+interface OrderWithRelations {
+  id: string;
+  orderNumber: string;
+  status: string;
+  total: number;
+  artKeyFee: number;
+  taeFee: number;
+  customerEmail: string | null;
+  customerName: string | null;
+  gelatoOrderId: string | null;
+  gelatoStatus: string | null;
+  createdAt: string;
+  customer: {
+    id: string;
+    email: string;
+    name: string | null;
+  } | null;
+  items: Array<{
+    id: string;
+    itemName: string;
+    shopProduct: {
+      name: string;
+      slug: string;
+      taeId: string;
+    } | null;
+    artwork: {
+      title: string;
+      slug: string;
+      taeId: string;
+    } | null;
+  }>;
+}
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<OrderWithRelations[]>([]);
@@ -206,9 +211,9 @@ export default function OrdersPage() {
                     <div className="text-sm font-medium text-gray-900">
                       {formatCurrency(order.total)}
                     </div>
-                    {order.premiumFees > 0 && (
+                    {(order.artKeyFee + order.taeFee) > 0 && (
                       <div className="text-xs text-gray-500">
-                        +{formatCurrency(order.premiumFees)} premium
+                        +{formatCurrency(order.artKeyFee + order.taeFee)} fees
                       </div>
                     )}
                   </td>

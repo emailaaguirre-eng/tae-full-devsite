@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 import { Image as KonvaImage } from 'react-konva';
-import { Image as KonvaImageType } from 'konva';
+import Konva from 'konva';
 import useImage from 'use-image';
+
+type KonvaImageType = Konva.Image;
 import { type UploadedAsset, type KonvaObject } from '@/lib/projectEditorStore';
 
 interface ImageObjectProps {

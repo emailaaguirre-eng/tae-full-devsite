@@ -515,15 +515,15 @@ function EditorPageContent() {
     if (!selectedObjectId || !currentSide) return;
     const obj = objects.find(o => o.id === selectedObjectId);
     if (!obj) return;
-    
+
     const trimX = currentSide.bleedMm;
     const trimY = currentSide.bleedMm;
     const trimW = currentSide.trimMm.w;
     const trimH = currentSide.trimMm.h;
-    
+
     let newX = obj.x;
     let newY = obj.y;
-    
+
     switch (alignment) {
       case 'left': newX = trimX + currentSide.safeMm; break;
       case 'center': newX = trimX + (trimW - obj.width) / 2; break;
@@ -532,9 +532,12 @@ function EditorPageContent() {
       case 'middle': newY = trimY + (trimH - obj.height) / 2; break;
       case 'bottom': newY = trimY + trimH - obj.height - currentSide.safeMm; break;
     }
-    
-    updateObject(selectedObjectId, { x: newX, y: newY });
-  }, [selectedObjectId, currentSide, objects, updateObject]);
+
+    // Inline update to avoid circular dependency with updateObject
+    setObjects(prev => prev.map(o =>
+      o.id === selectedObjectId ? { ...o, x: newX, y: newY } : o
+    ));
+  }, [selectedObjectId, currentSide, objects]);
 
   // Set canvas background
   const [canvasBackground, setCanvasBackground] = useState<string>('#ffffff');

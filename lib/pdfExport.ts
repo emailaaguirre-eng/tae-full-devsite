@@ -3,8 +3,8 @@
  * SPRINT 4: Print-native PDF export with vector text, ornaments, and images
  */
 
+// @ts-ignore - pdfkit types may vary
 import PDFDocument from 'pdfkit';
-import type { PDFDocument as PDFDocumentType } from 'pdfkit';
 import { PrintSpec, PrintSide } from './printSpecs';
 import type { EditorObject } from '@/components/ProjectEditor/types';
 import { getOrnamentById } from './ornaments';
@@ -88,7 +88,7 @@ export async function exportDesignToPDF(
  * Render an object to PDF
  */
 async function renderObjectToPDF(
-  doc: PDFDocumentType,
+  doc: InstanceType<typeof PDFDocument>,
   obj: EditorObject,
   side: PrintSide,
   bleedOffset: number,
@@ -140,7 +140,7 @@ async function renderObjectToPDF(
  * Render text as PDF text (vector)
  */
 async function renderTextToPDF(
-  doc: PDFDocumentType,
+  doc: InstanceType<typeof PDFDocument>,
   obj: EditorObject,
   x: number,
   y: number,
@@ -183,7 +183,7 @@ async function renderTextToPDF(
  * Render image embedded at correct resolution
  */
 async function renderImageToPDF(
-  doc: PDFDocumentType,
+  doc: InstanceType<typeof PDFDocument>,
   obj: EditorObject,
   x: number,
   y: number,
@@ -231,7 +231,7 @@ async function renderImageToPDF(
  * Render label shape (with text)
  */
 async function renderLabelShapeToPDF(
-  doc: PDFDocumentType,
+  doc: InstanceType<typeof PDFDocument>,
   obj: EditorObject,
   x: number,
   y: number,
@@ -268,7 +268,7 @@ async function renderLabelShapeToPDF(
  * Render ornament as vector path
  */
 async function renderOrnamentToPDF(
-  doc: PDFDocumentType,
+  doc: InstanceType<typeof PDFDocument>,
   obj: EditorObject,
   x: number,
   y: number

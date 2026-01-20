@@ -154,9 +154,9 @@ export default function CustomersPage() {
                       <div className="text-sm text-gray-900">
                         {customer.phone || '—'}
                       </div>
-                      {customer.gelatoCustomerRefId && (
+                      {customer.gelatoCustomerId && (
                         <div className="text-xs text-gray-500">
-                          Gelato: {customer.gelatoCustomerRefId}
+                          Gelato: {customer.gelatoCustomerId}
                         </div>
                       )}
                     </td>

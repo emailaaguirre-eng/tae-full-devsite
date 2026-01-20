@@ -43,17 +43,17 @@ export async function POST(request: NextRequest) {
     
     // Convert Design JSON to format expected by preflight
     // (Preflight expects PrintSpec and sideStates format)
-    const printSpec = {
+    const printSpec: import('@/lib/printSpecs').PrintSpec = {
       id: 'export',
       name: 'Export',
       sides: design.pages.map(page => ({
-        id: page.id,
+        id: page.id as 'front' | 'inside' | 'inside-left' | 'inside-right' | 'inside-top' | 'inside-bottom' | 'back',
         name: page.name,
         trimMm: { w: design.printSpec.trimW_mm, h: design.printSpec.trimH_mm },
         bleedMm: design.printSpec.bleed_mm,
         safeMm: design.printSpec.safe_mm,
       })),
-      sideIds: design.pages.map(p => p.id),
+      sideIds: design.pages.map(p => p.id) as Array<'front' | 'inside' | 'inside-left' | 'inside-right' | 'inside-top' | 'inside-bottom' | 'back'>,
       dpi: design.printSpec.dpi || 300,
     };
     
@@ -64,14 +64,16 @@ export async function POST(request: NextRequest) {
         objects: page.elements.map(el => {
           // Minimal conversion for preflight checks
           if (el.type === 'text' || el.type === 'label') {
+            const w_mm = el.w_mm ?? 50;
+            const h_mm = el.h_mm ?? 20;
             return {
               type: el.type === 'label' ? 'label-shape' : 'text',
-              text: el.type === 'text' ? el.text : el.textProps.text,
+              text: el.type === 'text' ? el.text : el.textProps?.text ?? '',
               x: el.x_mm * (96 / 25.4), // Convert mm to screen px
               y: el.y_mm * (96 / 25.4),
-              width: el.w_mm * (96 / 25.4),
-              height: el.h_mm * (96 / 25.4),
-              fontSize: el.type === 'text' ? (el.fontSize_pt / 0.75) : (el.textProps.fontSize_pt / 0.75),
+              width: w_mm * (96 / 25.4),
+              height: h_mm * (96 / 25.4),
+              fontSize: el.type === 'text' ? ((el.fontSize_pt ?? 12) / 0.75) : ((el.textProps?.fontSize_pt ?? 12) / 0.75),
               scaleX: 1,
               scaleY: 1,
             };
@@ -114,7 +116,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Export] PNG saved to ${filepath}`);
     
     // Return PNG
-    return new NextResponse(pngBuffer, {
+    return new NextResponse(new Uint8Array(pngBuffer), {
       headers: {
         'Content-Type': 'image/png',
         'Content-Disposition': `attachment; filename="${filename}"`,
