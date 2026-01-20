@@ -8,14 +8,15 @@
  * - CoCreators (Kimber Cross, Lance Jones)
  * - Default artwork-to-product links
  *
- * Run: DATABASE_URL="file:C:/Users/email/tae-full-devsite/prisma/dev.db" node scripts/seed-all.js
+ * Run: node scripts/seed-all.js
  */
 
-const { PrismaClient } = require('@prisma/client');
+const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('crypto');
 
-const prisma = new PrismaClient();
+const db = new Database(path.join(__dirname, '../prisma/dev.db'));
 
 // =============================================================================
 // SHOP CATEGORIES - Master product types
@@ -111,27 +112,63 @@ const SHOP_CATEGORIES = [
 // SEED FUNCTIONS
 // =============================================================================
 
-async function seedShopCategories() {
+function seedShopCategories() {
   console.log('\n📦 Seeding Shop Categories...');
 
+  const checkStmt = db.prepare('SELECT id FROM ShopCategory WHERE taeId = ?');
+  const insertStmt = db.prepare(`
+    INSERT INTO ShopCategory (
+      id, taeId, slug, name, description, icon, gelatoCatalogUid,
+      taeBaseFee, requiresQrCode, heroImage, active, featured, sortOrder, createdAt, updatedAt
+    ) VALUES (
+      @id, @taeId, @slug, @name, @description, @icon, @gelatoCatalogUid,
+      @taeBaseFee, @requiresQrCode, @heroImage, @active, @featured, @sortOrder, @createdAt, @updatedAt
+    )
+  `);
+
   for (const cat of SHOP_CATEGORIES) {
-    const existing = await prisma.shopCategory.findUnique({ where: { taeId: cat.taeId } });
+    const existing = checkStmt.get(cat.taeId);
     if (existing) {
       console.log(`  ⏭️  ${cat.name} already exists`);
       continue;
     }
 
-    await prisma.shopCategory.create({ data: cat });
+    const now = Date.now();
+    insertStmt.run({
+      id: randomUUID(),
+      taeId: cat.taeId,
+      slug: cat.slug,
+      name: cat.name,
+      description: cat.description,
+      icon: cat.icon,
+      gelatoCatalogUid: cat.gelatoCatalogUid,
+      taeBaseFee: cat.taeBaseFee,
+      requiresQrCode: cat.requiresQrCode ? 1 : 0,
+      heroImage: null,
+      active: 1,
+      featured: cat.featured ? 1 : 0,
+      sortOrder: cat.sortOrder,
+      createdAt: now,
+      updatedAt: now,
+    });
     console.log(`  ✅ Created: ${cat.name} (${cat.taeId})`);
   }
 }
 
-async function seedArtists() {
+function seedArtists() {
   console.log('\n🎨 Seeding Artists...');
 
   // Read backup files
-  const bryantBackup = JSON.parse(fs.readFileSync(path.join(__dirname, '../backup/bryant-colman-images.json')));
-  const deannaBackup = JSON.parse(fs.readFileSync(path.join(__dirname, '../backup/deanna-lankin-images.json')));
+  const bryantBackupPath = path.join(__dirname, '../backup/bryant-colman-images.json');
+  const deannaBackupPath = path.join(__dirname, '../backup/deanna-lankin-images.json');
+
+  if (!fs.existsSync(bryantBackupPath) || !fs.existsSync(deannaBackupPath)) {
+    console.log('  ❌ Backup files not found in backup/ directory');
+    return;
+  }
+
+  const bryantBackup = JSON.parse(fs.readFileSync(bryantBackupPath));
+  const deannaBackup = JSON.parse(fs.readFileSync(deannaBackupPath));
 
   const artists = [
     {
@@ -160,24 +197,50 @@ async function seedArtists() {
     },
   ];
 
+  const checkStmt = db.prepare('SELECT id FROM Artist WHERE slug = ?');
+  const insertStmt = db.prepare(`
+    INSERT INTO Artist (
+      id, slug, name, title, bio, description, thumbnailImage, bioImage,
+      royaltyFee, featured, sortOrder, createdAt, updatedAt
+    ) VALUES (
+      @id, @slug, @name, @title, @bio, @description, @thumbnailImage, @bioImage,
+      @royaltyFee, @featured, @sortOrder, @createdAt, @updatedAt
+    )
+  `);
+
   for (const artist of artists) {
-    const existing = await prisma.artist.findUnique({ where: { slug: artist.slug } });
+    const existing = checkStmt.get(artist.slug);
     if (existing) {
       console.log(`  ⏭️  ${artist.name} already exists`);
       continue;
     }
 
-    await prisma.artist.create({ data: artist });
+    const now = Date.now();
+    insertStmt.run({
+      id: randomUUID(),
+      slug: artist.slug,
+      name: artist.name,
+      title: artist.title,
+      bio: artist.bio,
+      description: artist.description,
+      thumbnailImage: artist.thumbnailImage,
+      bioImage: artist.bioImage,
+      royaltyFee: artist.royaltyFee,
+      featured: artist.featured ? 1 : 0,
+      sortOrder: artist.sortOrder,
+      createdAt: now,
+      updatedAt: now,
+    });
     console.log(`  ✅ Created: ${artist.name}`);
   }
 }
 
-async function seedArtistArtworks() {
+function seedArtistArtworks() {
   console.log('\n🖼️  Seeding Artist Artworks...');
 
   // Get artists
-  const deanna = await prisma.artist.findUnique({ where: { slug: 'deanna-lankin' } });
-  const bryant = await prisma.artist.findUnique({ where: { slug: 'bryant-colman' } });
+  const deanna = db.prepare('SELECT id FROM Artist WHERE slug = ?').get('deanna-lankin');
+  const bryant = db.prepare('SELECT id FROM Artist WHERE slug = ?').get('bryant-colman');
 
   if (!deanna || !bryant) {
     console.log('  ❌ Artists not found, run seedArtists first');
@@ -185,8 +248,25 @@ async function seedArtistArtworks() {
   }
 
   // Read backup files
-  const bryantBackup = JSON.parse(fs.readFileSync(path.join(__dirname, '../backup/bryant-colman-images.json')));
-  const deannaBackup = JSON.parse(fs.readFileSync(path.join(__dirname, '../backup/deanna-lankin-images.json')));
+  const bryantBackupPath = path.join(__dirname, '../backup/bryant-colman-images.json');
+  const deannaBackupPath = path.join(__dirname, '../backup/deanna-lankin-images.json');
+
+  if (!fs.existsSync(bryantBackupPath) || !fs.existsSync(deannaBackupPath)) {
+    console.log('  ❌ Backup files not found');
+    return;
+  }
+
+  const bryantBackup = JSON.parse(fs.readFileSync(bryantBackupPath));
+  const deannaBackup = JSON.parse(fs.readFileSync(deannaBackupPath));
+
+  const checkStmt = db.prepare('SELECT id FROM ArtistArtwork WHERE taeId = ?');
+  const insertStmt = db.prepare(`
+    INSERT INTO ArtistArtwork (
+      id, artistId, taeId, slug, title, imageUrl, forSale, sortOrder, createdAt, updatedAt
+    ) VALUES (
+      @id, @artistId, @taeId, @slug, @title, @imageUrl, @forSale, @sortOrder, @createdAt, @updatedAt
+    )
+  `);
 
   // Seed Deanna's artwork
   for (let i = 0; i < deannaBackup.portfolio.length; i++) {
@@ -194,130 +274,148 @@ async function seedArtistArtworks() {
     const taeId = `TAE-ART-DL-${String(i + 1).padStart(3, '0')}`;
     const slug = `deanna-lankin-${art.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}`;
 
-    const existing = await prisma.artistArtwork.findUnique({ where: { taeId } });
+    const existing = checkStmt.get(taeId);
     if (existing) {
       console.log(`  ⏭️  ${art.title} (Deanna) already exists`);
       continue;
     }
 
-    await prisma.artistArtwork.create({
-      data: {
-        artistId: deanna.id,
-        taeId,
-        slug,
-        title: art.title,
-        imageUrl: art.image,
-        forSale: art.forSale,
-        sortOrder: i + 1,
-      },
+    const now = Date.now();
+    insertStmt.run({
+      id: randomUUID(),
+      artistId: deanna.id,
+      taeId,
+      slug,
+      title: art.title,
+      imageUrl: art.image,
+      forSale: art.forSale ? 1 : 0,
+      sortOrder: i + 1,
+      createdAt: now,
+      updatedAt: now,
     });
     console.log(`  ✅ Created: ${art.title} (Deanna) - ${taeId}`);
   }
 
-  // Seed Bryant's artwork (26 images)
+  // Seed Bryant's artwork
   for (let i = 0; i < bryantBackup.portfolio.length; i++) {
     const art = bryantBackup.portfolio[i];
     const taeId = `TAE-ART-BC-${String(i + 1).padStart(3, '0')}`;
     const slug = `bryant-colman-${String(i + 1).padStart(2, '0')}`;
 
-    const existing = await prisma.artistArtwork.findUnique({ where: { taeId } });
+    const existing = checkStmt.get(taeId);
     if (existing) {
       console.log(`  ⏭️  ${art.title} (Bryant) already exists`);
       continue;
     }
 
-    await prisma.artistArtwork.create({
-      data: {
-        artistId: bryant.id,
-        taeId,
-        slug,
-        title: art.title,
-        imageUrl: art.image,
-        forSale: art.forSale,
-        sortOrder: i + 1,
-      },
+    const now = Date.now();
+    insertStmt.run({
+      id: randomUUID(),
+      artistId: bryant.id,
+      taeId,
+      slug,
+      title: art.title,
+      imageUrl: art.image,
+      forSale: art.forSale ? 1 : 0,
+      sortOrder: i + 1,
+      createdAt: now,
+      updatedAt: now,
     });
     console.log(`  ✅ Created: ${art.title} (Bryant) - ${taeId}`);
   }
 }
 
-async function seedCoCreators() {
+function seedCoCreators() {
   console.log('\n🤝 Seeding CoCreators...');
 
   // Read backup file
-  const backup = JSON.parse(fs.readFileSync(path.join(__dirname, '../backup/cocreators-backup.json')));
+  const backupPath = path.join(__dirname, '../backup/cocreators-backup.json');
+  if (!fs.existsSync(backupPath)) {
+    console.log('  ❌ CoCreators backup file not found');
+    return;
+  }
+
+  const backup = JSON.parse(fs.readFileSync(backupPath));
+
+  const checkStmt = db.prepare('SELECT id FROM CoCreator WHERE slug = ?');
+  const insertStmt = db.prepare(`
+    INSERT INTO CoCreator (
+      id, slug, name, title, bio, description, thumbnailImage, heroImage,
+      royaltyFee, featured, sortOrder, createdAt, updatedAt
+    ) VALUES (
+      @id, @slug, @name, @title, @bio, @description, @thumbnailImage, @heroImage,
+      @royaltyFee, @featured, @sortOrder, @createdAt, @updatedAt
+    )
+  `);
 
   for (let i = 0; i < backup.cocreators.length; i++) {
     const cc = backup.cocreators[i];
 
-    const existing = await prisma.coCreator.findUnique({ where: { slug: cc.slug } });
+    const existing = checkStmt.get(cc.slug);
     if (existing) {
       console.log(`  ⏭️  ${cc.name} already exists`);
       continue;
     }
 
-    await prisma.coCreator.create({
-      data: {
-        slug: cc.slug,
-        name: cc.name,
-        title: cc.title || null,
-        bio: cc.bio || null,
-        description: cc.description || null,
-        thumbnailImage: cc.image,
-        heroImage: cc.mountainImage || null,
-        royaltyFee: 5.00,
-        featured: i === 0, // First one is featured
-        sortOrder: i + 1,
-      },
+    const now = Date.now();
+    insertStmt.run({
+      id: randomUUID(),
+      slug: cc.slug,
+      name: cc.name,
+      title: cc.title || null,
+      bio: cc.bio || null,
+      description: cc.description || null,
+      thumbnailImage: cc.image,
+      heroImage: cc.mountainImage || null,
+      royaltyFee: 5.00,
+      featured: i === 0 ? 1 : 0,
+      sortOrder: i + 1,
+      createdAt: now,
+      updatedAt: now,
     });
     console.log(`  ✅ Created: ${cc.name}`);
   }
 }
 
-async function seedArtworkProductLinks() {
+function seedArtworkProductLinks() {
   console.log('\n🔗 Seeding Artwork-Product Links...');
 
   // Get all artworks
-  const artworks = await prisma.artistArtwork.findMany();
+  const artworks = db.prepare('SELECT id FROM ArtistArtwork').all();
 
   // Get categories that artwork can be purchased as (Wall Art, Canvas, Framed)
-  const printCategories = await prisma.shopCategory.findMany({
-    where: {
-      slug: {
-        in: ['wall-art', 'canvas-prints', 'framed-prints'],
-      },
-    },
-  });
+  const printCategories = db.prepare(`
+    SELECT id FROM ShopCategory WHERE slug IN ('wall-art', 'canvas-prints', 'framed-prints')
+  `).all();
 
   if (printCategories.length === 0) {
     console.log('  ❌ Print categories not found, run seedShopCategories first');
     return;
   }
 
+  const checkStmt = db.prepare('SELECT id FROM ArtworkProductLink WHERE artworkId = ? AND categoryId = ?');
+  const insertStmt = db.prepare(`
+    INSERT INTO ArtworkProductLink (id, artworkId, categoryId, createdAt)
+    VALUES (@id, @artworkId, @categoryId, @createdAt)
+  `);
+
   let created = 0;
   let skipped = 0;
 
   for (const artwork of artworks) {
     for (const category of printCategories) {
-      const existing = await prisma.artworkProductLink.findUnique({
-        where: {
-          artworkId_categoryId: {
-            artworkId: artwork.id,
-            categoryId: category.id,
-          },
-        },
-      });
+      const existing = checkStmt.get(artwork.id, category.id);
 
       if (existing) {
         skipped++;
         continue;
       }
 
-      await prisma.artworkProductLink.create({
-        data: {
-          artworkId: artwork.id,
-          categoryId: category.id,
-        },
+      insertStmt.run({
+        id: randomUUID(),
+        artworkId: artwork.id,
+        categoryId: category.id,
+        createdAt: Date.now(),
       });
       created++;
     }
@@ -330,25 +428,25 @@ async function seedArtworkProductLinks() {
 // MAIN
 // =============================================================================
 
-async function main() {
+function main() {
   console.log('🌱 Starting seed process...\n');
   console.log('='.repeat(50));
 
-  await seedShopCategories();
-  await seedArtists();
-  await seedArtistArtworks();
-  await seedCoCreators();
-  await seedArtworkProductLinks();
+  seedShopCategories();
+  seedArtists();
+  seedArtistArtworks();
+  seedCoCreators();
+  seedArtworkProductLinks();
 
   console.log('\n' + '='.repeat(50));
   console.log('🎉 Seed complete!\n');
 
   // Print summary
-  const categories = await prisma.shopCategory.count();
-  const artists = await prisma.artist.count();
-  const artworks = await prisma.artistArtwork.count();
-  const cocreators = await prisma.coCreator.count();
-  const links = await prisma.artworkProductLink.count();
+  const categories = db.prepare('SELECT COUNT(*) as count FROM ShopCategory').get().count;
+  const artists = db.prepare('SELECT COUNT(*) as count FROM Artist').get().count;
+  const artworks = db.prepare('SELECT COUNT(*) as count FROM ArtistArtwork').get().count;
+  const cocreators = db.prepare('SELECT COUNT(*) as count FROM CoCreator').get().count;
+  const links = db.prepare('SELECT COUNT(*) as count FROM ArtworkProductLink').get().count;
 
   console.log('Summary:');
   console.log(`  - Shop Categories: ${categories}`);
@@ -358,10 +456,11 @@ async function main() {
   console.log(`  - Artwork-Product Links: ${links}`);
 }
 
-main()
-  .then(() => prisma.$disconnect())
-  .catch((error) => {
-    console.error('❌ Seed failed:', error);
-    prisma.$disconnect();
-    process.exit(1);
-  });
+try {
+  main();
+} catch (error) {
+  console.error('❌ Seed failed:', error);
+  process.exit(1);
+} finally {
+  db.close();
+}
