@@ -3,12 +3,15 @@
  * Run: node scripts/seed-products.js
  */
 
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const Database = require('better-sqlite3');
+const path = require('path');
+const { randomUUID } = require('crypto');
 
-async function main() {
+const db = new Database(path.join(__dirname, '../prisma/dev.db'));
+
+function main() {
   console.log('Fetching categories...');
-  const categories = await prisma.shopCategory.findMany();
+  const categories = db.prepare('SELECT * FROM ShopCategory').all();
 
   console.log('Found categories:');
   categories.forEach(c => console.log(`  ${c.slug}: ${c.name} (fee: $${c.taeBaseFee})`));
@@ -57,6 +60,18 @@ async function main() {
 
   console.log(`\nSeeding ${products.length} products...`);
 
+  const insertStmt = db.prepare(`
+    INSERT INTO ShopProduct (
+      id, taeId, categoryId, slug, name, sizeLabel, paperType, finishType,
+      gelatoProductUid, gelatoBasePrice, taeAddOnFee, active, sortOrder, createdAt, updatedAt
+    ) VALUES (
+      @id, @taeId, @categoryId, @slug, @name, @sizeLabel, @paperType, @finishType,
+      @gelatoProductUid, @gelatoBasePrice, @taeAddOnFee, @active, @sortOrder, @createdAt, @updatedAt
+    )
+  `);
+
+  const checkStmt = db.prepare('SELECT id FROM ShopProduct WHERE taeId = ?');
+
   let created = 0;
   let skipped = 0;
 
@@ -69,28 +84,30 @@ async function main() {
     }
 
     // Check if already exists
-    const existing = await prisma.shopProduct.findUnique({ where: { taeId: p.taeId } });
+    const existing = checkStmt.get(p.taeId);
     if (existing) {
       console.log(`  SKIP: ${p.taeId} already exists`);
       skipped++;
       continue;
     }
 
-    await prisma.shopProduct.create({
-      data: {
-        taeId: p.taeId,
-        categoryId,
-        slug: p.slug,
-        name: p.name,
-        sizeLabel: p.sizeLabel || null,
-        paperType: p.paperType || null,
-        finishType: p.finishType || null,
-        gelatoProductUid: p.gelatoProductUid || null,
-        gelatoBasePrice: p.gelatoBasePrice || 0,
-        taeAddOnFee: p.taeAddOnFee || 0,
-        active: true,
-        sortOrder: created,
-      }
+    const now = Date.now();
+    insertStmt.run({
+      id: randomUUID(),
+      taeId: p.taeId,
+      categoryId,
+      slug: p.slug,
+      name: p.name,
+      sizeLabel: p.sizeLabel || null,
+      paperType: p.paperType || null,
+      finishType: p.finishType || null,
+      gelatoProductUid: p.gelatoProductUid || null,
+      gelatoBasePrice: p.gelatoBasePrice || 0,
+      taeAddOnFee: p.taeAddOnFee || 0,
+      active: 1,
+      sortOrder: created,
+      createdAt: now,
+      updatedAt: now,
     });
     console.log(`  ✓ Created: ${p.taeId} - ${p.name}`);
     created++;
@@ -99,10 +116,14 @@ async function main() {
   console.log(`\nDone! Created: ${created}, Skipped: ${skipped}`);
 
   // Show final counts
-  const finalCount = await prisma.shopProduct.count();
+  const finalCount = db.prepare('SELECT COUNT(*) as count FROM ShopProduct').get().count;
   console.log(`Total products in database: ${finalCount}`);
 }
 
-main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+try {
+  main();
+} catch (error) {
+  console.error('Error:', error);
+} finally {
+  db.close();
+}
