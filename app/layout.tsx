@@ -28,6 +28,7 @@ import {
 } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/contexts/CartContext";
+import ARIChatbot from "@/components/ARIChatbot";
 
 // Elegant Serif fonts
 const playfairDisplay = Playfair_Display({
@@ -225,6 +226,7 @@ export default function RootLayout({
       <body className="antialiased">
         <CartProvider>
           {children}
+          <ARIChatbot />
         </CartProvider>
       </body>
     </html>
