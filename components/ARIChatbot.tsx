@@ -18,10 +18,12 @@ const FAQ_RESPONSES: Record<string, string> = {
   'artkey': `ArtKey is our digital experience feature! Each physical art piece can include a QR code that links to a personalized digital portal with photos, videos, guestbook, and more. It's a way to add meaning and memories to your art.`,
   'custom': `We offer custom art commissions and personalized products. Visit our Contact page to discuss your project, or explore our Design Studio to create something unique.`,
   'artists': `We work with talented artists who share their work through our gallery. Each artist sets their own royalty, ensuring fair compensation for their creativity. Visit the Gallery to explore their collections.`,
+  'order_status': `You can track your order at any time! Visit our Order Status page at /order-status and enter your email and order number (found in your confirmation email). You'll see your order status, items, and tracking information once shipped.`,
 };
 
 // Keywords to match for FAQ responses
 const FAQ_KEYWORDS: Record<string, string[]> = {
+  'order_status': ['order status', 'where is my order', 'track my order', 'my order', 'order number', 'check order', 'find order', 'order lookup'],
   'shipping': ['ship', 'shipping', 'delivery', 'deliver', 'track', 'tracking', 'arrive', 'when will'],
   'returns': ['return', 'refund', 'exchange', 'damaged', 'wrong', 'quality issue'],
   'pricing': ['price', 'pricing', 'cost', 'how much', 'expensive', 'fee', 'royalty'],
