@@ -67,6 +67,8 @@ function generateResponse(message: string): string {
 }
 
 export default function ARIChatbot() {
+  const [isEnabled, setIsEnabled] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -80,6 +82,20 @@ export default function ARIChatbot() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Check if chatbot is enabled
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => {
+        setIsEnabled(data.chatbotEnabled ?? false);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setIsEnabled(false);
+        setIsLoading(false);
+      });
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -87,6 +103,11 @@ export default function ARIChatbot() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Don't render if disabled or still loading
+  if (isLoading || !isEnabled) {
+    return null;
+  }
 
   const handleSend = async () => {
     if (!input.trim()) return;
