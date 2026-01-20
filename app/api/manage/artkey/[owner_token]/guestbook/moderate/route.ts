@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { db, artKeys, artkeyGuestbookEntries, eq, and } from '@/lib/db';
 
 /**
  * Guestbook Moderation API
- * Allows owner to approve, reject, or delete guestbook entries
+ * Allows owner to delete guestbook entries
  * Only accessible with owner_token
  */
 export async function POST(
@@ -22,17 +22,15 @@ export async function POST(
       );
     }
 
-    if (!['approve', 'reject', 'delete'].includes(action)) {
+    if (!['delete'].includes(action)) {
       return NextResponse.json(
-        { error: 'Invalid action. Must be approve, reject, or delete' },
+        { error: 'Invalid action. Must be delete' },
         { status: 400 }
       );
     }
 
     // Find ArtKey by owner token
-    const artKey = await prisma.artKey.findUnique({
-      where: { ownerToken: owner_token },
-    });
+    const artKey = await db.select().from(artKeys).where(eq(artKeys.ownerToken, owner_token)).get();
 
     if (!artKey) {
       return NextResponse.json(
@@ -42,16 +40,16 @@ export async function POST(
     }
 
     // Find the guestbook entry and verify it belongs to this ArtKey
-    const entry = await prisma.guestbookEntry.findFirst({
-      where: {
-        id: entry_id,
-        artkeyId: artKey.id,
-      },
-      include: {
-        replies: true,
-        mediaItems: true,
-      },
-    });
+    const entry = await db
+      .select()
+      .from(artkeyGuestbookEntries)
+      .where(
+        and(
+          eq(artkeyGuestbookEntries.id, entry_id),
+          eq(artkeyGuestbookEntries.artkeyId, artKey.id)
+        )
+      )
+      .get();
 
     if (!entry) {
       return NextResponse.json(
@@ -61,26 +59,10 @@ export async function POST(
     }
 
     // Apply the action
-    if (action === 'approve') {
-      await prisma.guestbookEntry.update({
-        where: { id: entry_id },
-        data: { approved: true },
-      });
-    } else if (action === 'reject') {
-      await prisma.guestbookEntry.update({
-        where: { id: entry_id },
-        data: { approved: false },
-      });
-    } else if (action === 'delete') {
-      // Delete the entry and all its replies (cascade will handle this via Prisma)
-      // Also delete associated media items
-      await prisma.mediaItem.deleteMany({
-        where: { guestbookEntryId: entry_id },
-      });
-      
-      await prisma.guestbookEntry.delete({
-        where: { id: entry_id },
-      });
+    if (action === 'delete') {
+      await db
+        .delete(artkeyGuestbookEntries)
+        .where(eq(artkeyGuestbookEntries.id, entry_id));
     }
 
     return NextResponse.json({
@@ -97,4 +79,3 @@ export async function POST(
     );
   }
 }
-

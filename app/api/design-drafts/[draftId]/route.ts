@@ -1,13 +1,38 @@
+/**
+ * Individual Design Draft API
+ * Copyright (c) 2026 B&D Servicing LLC. All rights reserved.
+ *
+ * NOTE: Design drafts functionality is temporarily disabled.
+ * The designDrafts table is not currently in the database schema.
+ * This route will return a "feature not available" response.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getDesignDraft, updateDesignDraft } from '@/lib/prisma/designDrafts';
+
+interface RouteParams {
+  params: Promise<{ draftId: string }>;
+}
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { draftId: string } }
+  { params }: RouteParams
 ) {
+  const { draftId } = await params;
+
+  // Design drafts feature not available - table not in schema
+  return NextResponse.json(
+    {
+      error: 'Design drafts feature is not currently available',
+      requestedId: draftId
+    },
+    { status: 501 }
+  );
+
+  /* Original Prisma implementation - commented out as designDrafts table not in schema
   try {
-    const { draftId } = params;
-    const draft = await getDesignDraft(draftId);
+    const { draftId } = await params;
+    // Would use Drizzle here if table existed:
+    // const draft = db.select().from(designDrafts).where(eq(designDrafts.id, draftId)).get();
 
     if (!draft) {
       return NextResponse.json({ error: 'Draft not found' }, { status: 404 });
@@ -44,17 +69,31 @@ export async function GET(
       { status: 500 }
     );
   }
+  */
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { draftId: string } }
+  { params }: RouteParams
 ) {
+  const { draftId } = await params;
+
+  // Design drafts feature not available - table not in schema
+  return NextResponse.json(
+    {
+      error: 'Design drafts feature is not currently available',
+      requestedId: draftId
+    },
+    { status: 501 }
+  );
+
+  /* Original Prisma implementation - commented out as designDrafts table not in schema
   try {
-    const { draftId } = params;
+    const { draftId } = await params;
     const body = await request.json();
 
-    const updated = await updateDesignDraft(draftId, body);
+    // Would use Drizzle here if table existed:
+    // const updated = db.update(designDrafts).set({...body, updatedAt: new Date().toISOString()}).where(eq(designDrafts.id, draftId)).returning().get();
 
     return NextResponse.json({
       draftId: updated.id,
@@ -71,4 +110,5 @@ export async function PUT(
       { status: 500 }
     );
   }
+  */
 }

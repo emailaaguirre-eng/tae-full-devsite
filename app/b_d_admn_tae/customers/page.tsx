@@ -2,21 +2,25 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Prisma } from '@prisma/client';
 
-type CustomerWithOrders = Prisma.CustomerGetPayload<{
-  include: {
-    orders: {
-      select: {
-        id: true;
-        orderNumber: true;
-        status: true;
-        total: true;
-        createdAt: true;
-      };
-    };
-  };
-}>;
+// Type matching API response
+interface CustomerWithOrders {
+  id: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+  gelatoCustomerId: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  orders: Array<{
+    id: string;
+    orderNumber: string;
+    status: string;
+    total: number;
+    createdAt: string;
+  }>;
+}
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerWithOrders[]>([]);

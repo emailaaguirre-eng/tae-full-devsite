@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, generatePublicToken, generateOwnerToken, ArtKeyData } from '@/lib/db';
+import { db, artKeys, eq, generatePublicToken, generateOwnerToken, generateId, ArtKeyData } from '@/lib/db';
 import { getAppBaseUrl } from '@/lib/wp';
 
 /**
@@ -64,49 +64,52 @@ export async function POST(request: NextRequest) {
     // Determine if we're updating or creating
     let existingArtKey = null;
     if (data.id) {
-      existingArtKey = await prisma.artKey.findUnique({
-        where: { id: data.id },
-      });
+      existingArtKey = await db.select().from(artKeys).where(eq(artKeys.id, data.id)).get();
     } else if (data.public_token) {
-      existingArtKey = await prisma.artKey.findUnique({
-        where: { publicToken: data.public_token },
-      });
+      existingArtKey = await db.select().from(artKeys).where(eq(artKeys.publicToken, data.public_token)).get();
     } else if (owner_token) {
-      existingArtKey = await prisma.artKey.findUnique({
-        where: { ownerToken: owner_token },
-      });
+      existingArtKey = await db.select().from(artKeys).where(eq(artKeys.ownerToken, owner_token)).get();
     }
 
     let publicToken: string;
-    let ownerToken: string;
+    let ownerTokenValue: string;
+    const now = new Date().toISOString();
+
+    // Build customization JSON containing all the data
+    const customizationJson = JSON.stringify({
+      theme: artKeyData.theme,
+      features: artKeyData.features,
+      links: artKeyData.links,
+      spotify: artKeyData.spotify,
+      featured_video: artKeyData.featured_video,
+      customizations: artKeyData.customizations,
+      uploadedImages: artKeyData.uploadedImages,
+      uploadedVideos: artKeyData.uploadedVideos,
+    });
 
     if (existingArtKey) {
       // Update existing ArtKey
       publicToken = existingArtKey.publicToken;
-      ownerToken = existingArtKey.ownerToken;
-      
-      await prisma.artKey.update({
-        where: { id: existingArtKey.id },
-        data: {
+      ownerTokenValue = existingArtKey.ownerToken;
+
+      await db.update(artKeys)
+        .set({
           title: artKeyData.title,
-          theme: JSON.stringify(artKeyData.theme),
-          features: JSON.stringify(artKeyData.features),
-          links: JSON.stringify(artKeyData.links),
-          spotify: JSON.stringify(artKeyData.spotify),
-          featuredVideo: artKeyData.featured_video ? JSON.stringify(artKeyData.featured_video) : null,
-          customizations: JSON.stringify(artKeyData.customizations),
-          uploadedImages: JSON.stringify(artKeyData.uploadedImages),
-          uploadedVideos: JSON.stringify(artKeyData.uploadedVideos),
-        },
-      });
+          template: artKeyData.theme.template || 'classic',
+          customization: customizationJson,
+          guestbookEnabled: artKeyData.features.show_guestbook,
+          mediaEnabled: artKeyData.features.enable_gallery,
+          updatedAt: now,
+        })
+        .where(eq(artKeys.id, existingArtKey.id));
     } else {
       // Create new ArtKey
       publicToken = generatePublicToken();
-      ownerToken = generateOwnerToken();
-      
+      ownerTokenValue = generateOwnerToken();
+
       // Ensure publicToken is unique
       let attempts = 0;
-      while (await prisma.artKey.findUnique({ where: { publicToken } })) {
+      while (await db.select().from(artKeys).where(eq(artKeys.publicToken, publicToken)).get()) {
         publicToken = generatePublicToken();
         attempts++;
         if (attempts > 10) {
@@ -117,32 +120,32 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      await prisma.artKey.create({
-        data: {
-          publicToken: publicToken,
-          ownerToken: ownerToken,
-          title: artKeyData.title,
-          theme: JSON.stringify(artKeyData.theme),
-          features: JSON.stringify(artKeyData.features),
-          links: JSON.stringify(artKeyData.links),
-          spotify: JSON.stringify(artKeyData.spotify),
-          featuredVideo: artKeyData.featured_video ? JSON.stringify(artKeyData.featured_video) : null,
-          customizations: JSON.stringify(artKeyData.customizations),
-          uploadedImages: JSON.stringify(artKeyData.uploadedImages),
-          uploadedVideos: JSON.stringify(artKeyData.uploadedVideos),
-        },
+      const artKeyId = generateId();
+
+      await db.insert(artKeys).values({
+        id: artKeyId,
+        publicToken: publicToken,
+        ownerToken: ownerTokenValue,
+        title: artKeyData.title,
+        template: artKeyData.theme.template || 'classic',
+        customization: customizationJson,
+        guestbookEnabled: artKeyData.features.show_guestbook,
+        mediaEnabled: artKeyData.features.enable_gallery,
+        isDemo: false,
+        createdAt: now,
+        updatedAt: now,
       });
     }
 
     const baseUrl = getAppBaseUrl();
     const shareUrl = `${baseUrl}/artkey/${publicToken}`;
-    const manageUrl = `${baseUrl}/manage/artkey/${ownerToken}`;
+    const manageUrl = `${baseUrl}/manage/artkey/${ownerTokenValue}`;
 
     return NextResponse.json({
       success: true,
       id: existingArtKey?.id || 'new',
       public_token: publicToken,
-      owner_token: ownerToken, // Only return when saving from editor context
+      owner_token: ownerTokenValue, // Only return when saving from editor context
       share_url: shareUrl,
       shareUrl,
       manage_url: manageUrl,

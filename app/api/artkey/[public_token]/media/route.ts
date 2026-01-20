@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { db, artKeys, artkeyMedia, eq, desc, generateId } from '@/lib/db';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
@@ -7,7 +7,7 @@ import { existsSync } from 'fs';
 /**
  * Media Upload and Listing API
  * POST: Upload media files (images, videos, audio) from guests
- * GET: List approved media for public display
+ * GET: List media for public display
  */
 export async function POST(
   request: NextRequest,
@@ -17,7 +17,6 @@ export async function POST(
     const { public_token } = await params;
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const guestbook_entry_id = formData.get('guestbook_entry_id') as string | null;
 
     if (!file) {
       return NextResponse.json(
@@ -27,9 +26,7 @@ export async function POST(
     }
 
     // Find ArtKey by public token
-    const artKey = await prisma.artKey.findUnique({
-      where: { publicToken: public_token },
-    });
+    const artKey = await db.select().from(artKeys).where(eq(artKeys.publicToken, public_token)).get();
 
     if (!artKey) {
       return NextResponse.json(
@@ -38,13 +35,27 @@ export async function POST(
       );
     }
 
-    // Parse features to check upload permissions
-    const features = JSON.parse(artKey.features);
+    // Parse customization to check feature flags
+    let customization: Record<string, any> = {};
+    if (artKey.customization) {
+      try {
+        customization = JSON.parse(artKey.customization);
+      } catch (e) {
+        console.error('Error parsing customization JSON:', e);
+      }
+    }
+
+    const features = customization.features || {
+      enable_gallery: artKey.mediaEnabled ?? true,
+      enable_video: false,
+      allow_img_uploads: false,
+      allow_vid_uploads: false,
+    };
 
     // Determine file type
     const fileType = file.type.split('/')[0]; // 'image', 'video', or 'audio'
     let mediaType: 'image' | 'video' | 'audio';
-    
+
     if (fileType === 'image') {
       if (!features.enable_gallery || !features.allow_img_uploads) {
         return NextResponse.json(
@@ -70,34 +81,9 @@ export async function POST(
       );
     }
 
-    // Validate guestbook_entry_id if provided
-    if (guestbook_entry_id) {
-      const entry = await prisma.guestbookEntry.findFirst({
-        where: {
-          id: guestbook_entry_id,
-          artkeyId: artKey.id,
-        },
-      });
-
-      if (!entry) {
-        return NextResponse.json(
-          { error: 'Invalid guestbook entry' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Determine approval status
-    const requiresApproval = 
-      (mediaType === 'image' && features.img_require_approval) ||
-      (mediaType === 'video' && features.vid_require_approval) ||
-      (mediaType === 'audio' && features.vid_require_approval); // Use vid_require_approval for audio too
-
-    const approved = !requiresApproval;
-
     // Save file to public/uploads directory
     const uploadsDir = join(process.cwd(), 'public', 'uploads', 'artkey', public_token);
-    
+
     // Ensure directory exists
     if (!existsSync(uploadsDir)) {
       await mkdir(uploadsDir, { recursive: true });
@@ -120,26 +106,44 @@ export async function POST(
     const publicUrl = `${baseUrl}/uploads/artkey/${public_token}/${filename}`;
 
     // Create media item in database
-    const mediaItem = await prisma.mediaItem.create({
-      data: {
-        artkeyId: artKey.id,
-        guestbookEntryId: guestbook_entry_id || null,
-        type: mediaType,
-        url: publicUrl,
-        caption: null,
-        approved,
-      },
+    const mediaId = generateId();
+    const now = new Date().toISOString();
+
+    // Get max sort order
+    const existingMedia = await db
+      .select()
+      .from(artkeyMedia)
+      .where(eq(artkeyMedia.artkeyId, artKey.id))
+      .orderBy(desc(artkeyMedia.sortOrder))
+      .limit(1)
+      .all();
+
+    const maxSortOrder = existingMedia.length > 0 ? (existingMedia[0].sortOrder || 0) : 0;
+
+    await db.insert(artkeyMedia).values({
+      id: mediaId,
+      artkeyId: artKey.id,
+      type: mediaType,
+      url: publicUrl,
+      caption: null,
+      sortOrder: maxSortOrder + 1,
+      createdAt: now,
     });
+
+    // Get the created media item
+    const mediaItem = await db
+      .select()
+      .from(artkeyMedia)
+      .where(eq(artkeyMedia.id, mediaId))
+      .get();
 
     return NextResponse.json({
       success: true,
       media: {
-        id: mediaItem.id,
-        type: mediaItem.type,
-        url: mediaItem.url,
-        approved: mediaItem.approved,
-        requiresApproval: !approved,
-        createdAt: mediaItem.createdAt.toISOString(),
+        id: mediaItem?.id,
+        type: mediaItem?.type,
+        url: mediaItem?.url,
+        createdAt: mediaItem?.createdAt,
       },
     });
   } catch (error: any) {
@@ -152,7 +156,7 @@ export async function POST(
 }
 
 /**
- * GET: List approved media for public display
+ * GET: List media for public display
  */
 export async function GET(
   request: NextRequest,
@@ -162,9 +166,7 @@ export async function GET(
     const { public_token } = await params;
 
     // Find ArtKey by public token
-    const artKey = await prisma.artKey.findUnique({
-      where: { publicToken: public_token },
-    });
+    const artKey = await db.select().from(artKeys).where(eq(artKeys.publicToken, public_token)).get();
 
     if (!artKey) {
       return NextResponse.json(
@@ -173,14 +175,13 @@ export async function GET(
       );
     }
 
-    // Get all approved media items
-    const mediaItems = await prisma.mediaItem.findMany({
-      where: {
-        artkeyId: artKey.id,
-        approved: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    // Get all media items
+    const mediaItems = await db
+      .select()
+      .from(artkeyMedia)
+      .where(eq(artkeyMedia.artkeyId, artKey.id))
+      .orderBy(desc(artkeyMedia.createdAt))
+      .all();
 
     // Group by type
     const mediaByType = {
@@ -196,26 +197,26 @@ export async function GET(
           type: m.type,
           url: m.url,
           caption: m.caption,
-          createdAt: m.createdAt.toISOString(),
+          createdAt: m.createdAt,
         })),
         byType: {
           images: mediaByType.images.map((m) => ({
             id: m.id,
             url: m.url,
             caption: m.caption,
-            createdAt: m.createdAt.toISOString(),
+            createdAt: m.createdAt,
           })),
           videos: mediaByType.videos.map((m) => ({
             id: m.id,
             url: m.url,
             caption: m.caption,
-            createdAt: m.createdAt.toISOString(),
+            createdAt: m.createdAt,
           })),
           audio: mediaByType.audio.map((m) => ({
             id: m.id,
             url: m.url,
             caption: m.caption,
-            createdAt: m.createdAt.toISOString(),
+            createdAt: m.createdAt,
           })),
         },
       },
@@ -228,4 +229,3 @@ export async function GET(
     );
   }
 }
-

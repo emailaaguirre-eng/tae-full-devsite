@@ -1,31 +1,33 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { db, artKeys, desc } from "@/lib/db";
 
 /**
  * Admin ArtKeys API
  * Lists all ArtKeys for admin management
- * Now uses Prisma database instead of WordPress
+ * Now uses Drizzle ORM instead of Prisma
  */
 export async function GET() {
   try {
-    // Fetch all ArtKeys from database
-    const artKeys = await prisma.artKey.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100, // Limit to 100 most recent
-    });
+    // Fetch all ArtKeys from database using Drizzle
+    const artKeysList = await db
+      .select()
+      .from(artKeys)
+      .orderBy(desc(artKeys.createdAt))
+      .limit(100) // Limit to 100 most recent
+      .all();
 
     // Format ArtKeys for admin display
-    const formattedArtKeys = artKeys.map((artKey) => ({
+    const formattedArtKeys = artKeysList.map((artKey) => ({
       id: artKey.id,
       token: artKey.publicToken,
       title: artKey.title,
-      createdAt: artKey.createdAt.toISOString(),
-      updatedAt: artKey.updatedAt.toISOString(),
+      createdAt: artKey.createdAt,
+      updatedAt: artKey.updatedAt,
     }));
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       artkeys: formattedArtKeys,
-      total: artKeys.length,
+      total: artKeysList.length,
     });
   } catch (err: any) {
     console.error('Error fetching ArtKeys:', err);

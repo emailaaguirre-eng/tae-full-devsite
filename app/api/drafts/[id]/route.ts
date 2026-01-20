@@ -1,12 +1,13 @@
 /**
  * Individual Draft API
  * Copyright (c) 2026 B&D Servicing LLC. All rights reserved.
+ *
+ * NOTE: Design drafts functionality is temporarily disabled.
+ * The designDrafts table is not currently in the database schema.
+ * This route will return a "feature not available" response.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -14,6 +15,19 @@ interface RouteParams {
 
 // GET /api/drafts/[id] - Get a specific draft
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
+
+  // Design drafts feature not available - table not in schema
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'Design drafts feature is not currently available',
+      requestedId: id
+    },
+    { status: 501 }
+  );
+
+  /* Original Prisma implementation - commented out as designDrafts table not in schema
   try {
     const { id } = await params;
 
@@ -44,10 +58,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       { status: 500 }
     );
   }
+  */
 }
 
 // DELETE /api/drafts/[id] - Delete a draft
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
+
+  // Design drafts feature not available - table not in schema
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'Design drafts feature is not currently available',
+      requestedId: id
+    },
+    { status: 501 }
+  );
+
+  /* Original Prisma implementation - commented out as designDrafts table not in schema
   try {
     const { id } = await params;
 
@@ -66,4 +94,5 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       { status: 500 }
     );
   }
+  */
 }

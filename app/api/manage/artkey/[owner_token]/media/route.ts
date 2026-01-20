@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { db, artKeys, artkeyMedia, eq, desc, and } from '@/lib/db';
 
 /**
  * Owner Media Management API
- * GET: Returns all media (approved and pending) for owner moderation
- * POST: Moderate media items (approve/reject/delete)
+ * GET: Returns all media for owner moderation
+ * POST: Moderate media items (delete)
  */
 export async function GET(
   request: NextRequest,
@@ -14,14 +14,7 @@ export async function GET(
     const { owner_token } = await params;
 
     // Find ArtKey by owner token
-    const artKey = await prisma.artKey.findUnique({
-      where: { ownerToken: owner_token },
-      include: {
-        mediaItems: {
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    });
+    const artKey = await db.select().from(artKeys).where(eq(artKeys.ownerToken, owner_token)).get();
 
     if (!artKey) {
       return NextResponse.json(
@@ -30,60 +23,58 @@ export async function GET(
       );
     }
 
-    // Group by type and approval status
-    const mediaByType = {
-      images: artKey.mediaItems.filter((m) => m.type === 'image'),
-      videos: artKey.mediaItems.filter((m) => m.type === 'video'),
-      audio: artKey.mediaItems.filter((m) => m.type === 'audio'),
-    };
+    // Get all media items for this artkey
+    const mediaItems = await db
+      .select()
+      .from(artkeyMedia)
+      .where(eq(artkeyMedia.artkeyId, artKey.id))
+      .orderBy(desc(artkeyMedia.createdAt))
+      .all();
 
-    const pendingCount = artKey.mediaItems.filter((m) => !m.approved).length;
+    // Group by type
+    const mediaByType = {
+      images: mediaItems.filter((m) => m.type === 'image'),
+      videos: mediaItems.filter((m) => m.type === 'video'),
+      audio: mediaItems.filter((m) => m.type === 'audio'),
+    };
 
     return NextResponse.json({
       artkey_id: artKey.id,
       artkey_title: artKey.title,
       public_token: artKey.publicToken,
       media: {
-        all: artKey.mediaItems.map((m) => ({
+        all: mediaItems.map((m) => ({
           id: m.id,
           type: m.type,
           url: m.url,
           caption: m.caption,
-          approved: m.approved,
-          guestbookEntryId: m.guestbookEntryId,
-          createdAt: m.createdAt.toISOString(),
+          createdAt: m.createdAt,
         })),
         byType: {
           images: mediaByType.images.map((m) => ({
             id: m.id,
             url: m.url,
             caption: m.caption,
-            approved: m.approved,
-            guestbookEntryId: m.guestbookEntryId,
-            createdAt: m.createdAt.toISOString(),
+            createdAt: m.createdAt,
           })),
           videos: mediaByType.videos.map((m) => ({
             id: m.id,
             url: m.url,
             caption: m.caption,
-            approved: m.approved,
-            guestbookEntryId: m.guestbookEntryId,
-            createdAt: m.createdAt.toISOString(),
+            createdAt: m.createdAt,
           })),
           audio: mediaByType.audio.map((m) => ({
             id: m.id,
             url: m.url,
             caption: m.caption,
-            approved: m.approved,
-            guestbookEntryId: m.guestbookEntryId,
-            createdAt: m.createdAt.toISOString(),
+            createdAt: m.createdAt,
           })),
         },
       },
       stats: {
-        total: artKey.mediaItems.length,
-        approved: artKey.mediaItems.filter((m) => m.approved).length,
-        pending: pendingCount,
+        total: mediaItems.length,
+        approved: mediaItems.length, // All items are visible in simplified schema
+        pending: 0,
       },
     });
   } catch (error: any) {
@@ -114,17 +105,15 @@ export async function POST(
       );
     }
 
-    if (!['approve', 'reject', 'delete'].includes(action)) {
+    if (!['delete'].includes(action)) {
       return NextResponse.json(
-        { error: 'Invalid action. Must be approve, reject, or delete' },
+        { error: 'Invalid action. Must be delete' },
         { status: 400 }
       );
     }
 
     // Find ArtKey by owner token
-    const artKey = await prisma.artKey.findUnique({
-      where: { ownerToken: owner_token },
-    });
+    const artKey = await db.select().from(artKeys).where(eq(artKeys.ownerToken, owner_token)).get();
 
     if (!artKey) {
       return NextResponse.json(
@@ -134,12 +123,16 @@ export async function POST(
     }
 
     // Find the media item and verify it belongs to this ArtKey
-    const mediaItem = await prisma.mediaItem.findFirst({
-      where: {
-        id: media_id,
-        artkeyId: artKey.id,
-      },
-    });
+    const mediaItem = await db
+      .select()
+      .from(artkeyMedia)
+      .where(
+        and(
+          eq(artkeyMedia.id, media_id),
+          eq(artkeyMedia.artkeyId, artKey.id)
+        )
+      )
+      .get();
 
     if (!mediaItem) {
       return NextResponse.json(
@@ -149,21 +142,11 @@ export async function POST(
     }
 
     // Apply the action
-    if (action === 'approve') {
-      await prisma.mediaItem.update({
-        where: { id: media_id },
-        data: { approved: true },
-      });
-    } else if (action === 'reject') {
-      await prisma.mediaItem.update({
-        where: { id: media_id },
-        data: { approved: false },
-      });
-    } else if (action === 'delete') {
+    if (action === 'delete') {
       // TODO: Optionally delete the physical file from the filesystem
-      await prisma.mediaItem.delete({
-        where: { id: media_id },
-      });
+      await db
+        .delete(artkeyMedia)
+        .where(eq(artkeyMedia.id, media_id));
     }
 
     return NextResponse.json({
@@ -180,4 +163,3 @@ export async function POST(
     );
   }
 }
-

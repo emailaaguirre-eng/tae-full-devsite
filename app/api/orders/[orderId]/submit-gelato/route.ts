@@ -1,7 +1,37 @@
+/**
+ * Submit Order to Gelato API
+ * Copyright (c) 2026 B&D Servicing LLC. All rights reserved.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, generatePublicToken, generateOwnerToken } from '@/lib/db';
+import {
+  db,
+  orders,
+  customers,
+  artKeys,
+  shopProducts,
+  shopCategories,
+  eq,
+  generatePublicToken,
+  generateOwnerToken,
+  generateId,
+} from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
+
+interface RouteParams {
+  params: Promise<{ orderId: string }>;
+}
+
+interface OrderItem {
+  id: string;
+  itemName: string;
+  shopProductId?: string;
+  artworkId?: string;
+  artKeyId?: string;
+  qrCodeUrl?: string;
+  categoryRequiresQrCode?: boolean;
+}
 
 /**
  * POST /api/orders/[orderId]/submit-gelato
@@ -12,33 +42,17 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { orderId: string } | Promise<{ orderId: string }> }
+  { params }: RouteParams
 ) {
   try {
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const { orderId } = resolvedParams;
+    const { orderId } = await params;
 
-    // Get order with all relations
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: {
-        customer: true,
-        items: {
-          include: {
-            shopProduct: {
-              include: {
-                category: true,
-              },
-            },
-            artwork: {
-              include: {
-                artist: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    // Get order from database
+    const order = db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .get();
 
     if (!order) {
       return NextResponse.json(
@@ -61,96 +75,149 @@ export async function POST(
       );
     }
 
-    // TODO: Build Gelato order items from order.items
-    // Each item needs:
-    // - productUid from shopProduct.gelatoProductUid or from category mapping
-    // - quantity
-    // - files (design files from designDraftId)
+    // Get customer if exists
+    let customer = null;
+    if (order.customerId) {
+      customer = db
+        .select()
+        .from(customers)
+        .where(eq(customers.id, order.customerId))
+        .get();
+    }
 
-    // For now, update order status to processing
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: {
+    // Parse order items from JSON
+    let orderItems: OrderItem[] = [];
+    if (order.itemsJson) {
+      try {
+        orderItems = JSON.parse(order.itemsJson);
+      } catch (e) {
+        console.error('[SubmitGelato] Failed to parse order items:', e);
+      }
+    }
+
+    // Update order status to processing
+    db.update(orders)
+      .set({
         status: 'processing',
-        gelatoStatus: 'pending_submission',
-      },
-    });
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(orders.id, orderId))
+      .run();
 
-    // Create ArtKey portals for items that require QR codes
-    for (const item of order.items) {
-      // Check if item's category requires QR code
-      const requiresQrCode = item.shopProduct?.category?.requiresQrCode ?? false;
+    // Process each item - create ArtKeys for items that need QR codes
+    const updatedItems: OrderItem[] = [];
+    for (const item of orderItems) {
+      let needsQrCode = item.categoryRequiresQrCode || false;
 
-      if (requiresQrCode && !item.artKeyId) {
+      // If we have a shopProductId, check if category requires QR code
+      if (item.shopProductId && !needsQrCode) {
+        const shopProduct = db
+          .select()
+          .from(shopProducts)
+          .where(eq(shopProducts.id, item.shopProductId))
+          .get();
+
+        if (shopProduct?.categoryId) {
+          const category = db
+            .select()
+            .from(shopCategories)
+            .where(eq(shopCategories.id, shopProduct.categoryId))
+            .get();
+
+          // Check if this category requires QR codes (stored in JSON or column)
+          // For now we'll rely on the item's categoryRequiresQrCode flag
+        }
+      }
+
+      if (needsQrCode && !item.artKeyId) {
         try {
-          // Generate unique tokens
+          // Generate unique public token
           let publicToken = generatePublicToken();
           let attempts = 0;
-          while (await prisma.artKey.findUnique({ where: { publicToken } })) {
+
+          // Check for duplicates
+          while (
+            db
+              .select()
+              .from(artKeys)
+              .where(eq(artKeys.publicToken, publicToken))
+              .get()
+          ) {
             publicToken = generatePublicToken();
             attempts++;
             if (attempts > 10) {
               console.error(`[SubmitGelato] Failed to generate unique token for item ${item.id}`);
-              continue;
+              break;
             }
           }
 
-          const ownerToken = generateOwnerToken();
+          if (attempts <= 10) {
+            const ownerToken = generateOwnerToken();
+            const artKeyId = generateId();
 
-          // Create ArtKey portal
-          const artKey = await prisma.artKey.create({
-            data: {
-              publicToken,
-              ownerToken,
-              title: `${item.itemName} - Order ${order.orderNumber}`,
-              theme: JSON.stringify({
+            // Create ArtKey portal
+            db.insert(artKeys)
+              .values({
+                id: artKeyId,
+                publicToken,
+                ownerToken,
+                title: `${item.itemName} - Order ${order.orderNumber}`,
                 template: 'classic',
-                bg_color: '#F6F7FB',
-                font: 'g:Playfair Display',
-                text_color: '#111111',
-                title_color: '#4f46e5',
-              }),
-              features: JSON.stringify({
-                enable_gallery: false,
-                show_guestbook: true,
-                gb_require_approval: true,
-              }),
-              links: JSON.stringify([]),
-              spotify: JSON.stringify({ url: '', autoplay: false }),
-              customizations: JSON.stringify({}),
-              uploadedImages: JSON.stringify([]),
-              uploadedVideos: JSON.stringify([]),
-            },
-          });
+                customization: JSON.stringify({
+                  bg_color: '#F6F7FB',
+                  font: 'g:Playfair Display',
+                  text_color: '#111111',
+                  title_color: '#4f46e5',
+                }),
+                guestbookEnabled: true,
+                mediaEnabled: true,
+                isDemo: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              })
+              .run();
 
-          // Generate QR code URL (actual QR generation happens on render)
-          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://theartfulexperience.com';
-          const artKeyUrl = `${baseUrl}/artkey/${publicToken}`;
+            // Generate QR code URL (actual QR generation happens on render)
+            const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://theartfulexperience.com';
+            const artKeyUrl = `${baseUrl}/artkey/${publicToken}`;
 
-          // Update order item
-          await prisma.orderItem.update({
-            where: { id: item.id },
-            data: {
-              artKeyId: artKey.id,
-              qrCodeUrl: artKeyUrl, // Store URL, generate QR on demand
-            },
-          });
+            // Update item with ArtKey info
+            item.artKeyId = artKeyId;
+            item.qrCodeUrl = artKeyUrl;
 
-          console.log(`[SubmitGelato] Created ArtKey for item ${item.id}: ${artKeyUrl}`);
+            console.log(`[SubmitGelato] Created ArtKey for item ${item.id}: ${artKeyUrl}`);
+          }
         } catch (error) {
           console.error(`[SubmitGelato] Error creating ArtKey for item ${item.id}:`, error);
         }
       }
+
+      updatedItems.push(item);
     }
+
+    // Update order with modified items (including ArtKey IDs)
+    db.update(orders)
+      .set({
+        itemsJson: JSON.stringify(updatedItems),
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(orders.id, orderId))
+      .run();
+
+    // Get the updated order
+    const updatedOrder = db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .get();
 
     return NextResponse.json({
       success: true,
       message: 'Order queued for Gelato submission',
       order: {
-        id: updatedOrder.id,
-        orderNumber: updatedOrder.orderNumber,
-        status: updatedOrder.status,
-        gelatoStatus: updatedOrder.gelatoStatus,
+        id: updatedOrder?.id,
+        orderNumber: updatedOrder?.orderNumber,
+        status: updatedOrder?.status,
       },
     });
   } catch (error: any) {

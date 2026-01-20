@@ -1,6 +1,11 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+/**
+ * Design Drafts Helper Functions
+ * Copyright (c) 2026 B&D Servicing LLC. All rights reserved.
+ *
+ * NOTE: Design drafts functionality is temporarily disabled.
+ * The designDrafts table is not currently in the database schema.
+ * These functions will throw errors if called.
+ */
 
 export type DesignDraftInput = {
   productId?: string;
@@ -28,62 +33,18 @@ export type DesignDraftInput = {
   userId?: string;
 };
 
-export async function createDesignDraft(input: DesignDraftInput) {
-  // Support both new format (direct fields) and legacy format (nested objects)
-  const designJsonFront = input.designJsonFront ?? input.designJsonBySide?.front ?? null;
-  const designJsonBack = input.designJsonBack ?? input.designJsonBySide?.back ?? null;
-  const previewPngFront = input.previewPngFront ?? input.previewPngBySide?.front ?? null;
-  const previewPngBack = input.previewPngBack ?? input.previewPngBySide?.back ?? null;
-  
-  return prisma.designDraft.create({
-    data: {
-      productId: input.productId || null,
-      variantId: input.variantId || null,
-      printSpecId: input.printSpecId,
-      dpi: input.dpi || 300,
-      cornerStyle: input.cornerStyle || 'square',
-      cornerRadiusMm: input.cornerRadiusMm || 0,
-      designJsonFront,
-      designJsonBack,
-      previewPngFront,
-      previewPngBack,
-      usedAssetIds: input.usedAssetIds || null,
-      premiumFees: input.premiumFees || 0,
-      sessionId: input.sessionId || null,
-      userId: input.userId || null,
-      status: 'draft',
-    },
-  });
+export async function createDesignDraft(input: DesignDraftInput): Promise<never> {
+  throw new Error('Design drafts feature is not currently available - designDrafts table not in schema');
 }
 
-export async function getDesignDraft(draftId: string) {
-  return prisma.designDraft.findUnique({
-    where: { id: draftId },
-  });
+export async function getDesignDraft(draftId: string): Promise<null> {
+  console.warn('Design drafts feature is not currently available - designDrafts table not in schema');
+  return null;
 }
 
 export async function updateDesignDraft(
   draftId: string,
   updates: Partial<DesignDraftInput & { artKeyData?: string; status?: string }>
-) {
-  return prisma.designDraft.update({
-    where: { id: draftId },
-    data: {
-      ...(updates.designJsonBySide && {
-        designJsonFront: updates.designJsonBySide.front,
-        designJsonBack: updates.designJsonBySide.back,
-      }),
-      ...(updates.previewPngBySide && {
-        previewPngFront: updates.previewPngBySide.front,
-        previewPngBack: updates.previewPngBySide.back,
-      }),
-      ...(updates.printSpecId && { printSpecId: updates.printSpecId }),
-      ...(updates.dpi && { dpi: updates.dpi }),
-      ...(updates.cornerStyle && { cornerStyle: updates.cornerStyle }),
-      ...(updates.cornerRadiusMm !== undefined && { cornerRadiusMm: updates.cornerRadiusMm }),
-      ...(updates.artKeyData && { artKeyData: typeof updates.artKeyData === 'string' ? updates.artKeyData : JSON.stringify(updates.artKeyData) }),
-      ...(updates.status && { status: updates.status }),
-      updatedAt: new Date(),
-    },
-  });
+): Promise<never> {
+  throw new Error('Design drafts feature is not currently available - designDrafts table not in schema');
 }

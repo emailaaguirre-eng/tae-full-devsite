@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { db, shopCategories, gelatoProductCache, eq, and, asc } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,9 +24,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Get category info
-    const category = await prisma.shopCategory.findUnique({
-      where: { slug: categorySlug },
-    });
+    const category = await db
+      .select()
+      .from(shopCategories)
+      .where(eq(shopCategories.slug, categorySlug))
+      .get();
 
     if (!category) {
       return NextResponse.json({
@@ -35,13 +37,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get cached products for this category using raw SQL
-    // (Prisma client may not have GelatoProductCache model regenerated yet)
-    const cachedProducts: any[] = await prisma.$queryRaw`
-      SELECT * FROM GelatoProductCache
-      WHERE categorySlug = ${categorySlug} AND available = 1
-      ORDER BY size ASC, frameColor ASC
-    `;
+    // Get cached products for this category
+    const cachedProducts = await db
+      .select()
+      .from(gelatoProductCache)
+      .where(
+        and(
+          eq(gelatoProductCache.categorySlug, categorySlug),
+          eq(gelatoProductCache.available, true)
+        )
+      )
+      .orderBy(asc(gelatoProductCache.size), asc(gelatoProductCache.frameColor))
+      .all();
 
     // If no cached products, return empty with fallback flag
     if (cachedProducts.length === 0) {
@@ -70,8 +77,8 @@ export async function GET(request: NextRequest) {
       if (product.paperType) paperTypes.add(product.paperType);
 
       // Group by size
-      if (!sizeMap.has(product.size)) {
-        sizeMap.set(product.size, {
+      if (!sizeMap.has(product.size!)) {
+        sizeMap.set(product.size!, {
           size: product.size,
           sizeLabel: product.sizeLabel,
           widthInches: product.widthInches,
@@ -82,7 +89,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Add variant
-      sizeMap.get(product.size).variants.push({
+      sizeMap.get(product.size!).variants.push({
         gelatoProductUid: product.gelatoProductUid,
         paperType: product.paperType,
         frameColor: product.frameColor,
@@ -90,8 +97,8 @@ export async function GET(request: NextRequest) {
       });
 
       // Update base price to lowest
-      const sizeEntry = sizeMap.get(product.size);
-      if (product.gelatoPrice < sizeEntry.basePrice) {
+      const sizeEntry = sizeMap.get(product.size!);
+      if ((product.gelatoPrice || 0) < sizeEntry.basePrice) {
         sizeEntry.basePrice = product.gelatoPrice;
       }
     }
@@ -107,7 +114,7 @@ export async function GET(request: NextRequest) {
     const sizesWithPricing = sizes.map(size => ({
       ...size,
       taeBaseFee: category.taeBaseFee,
-      totalPrice: size.basePrice + category.taeBaseFee, // Artist royalty added by frontend
+      totalPrice: size.basePrice + (category.taeBaseFee || 0), // Artist royalty added by frontend
     }));
 
     return NextResponse.json({

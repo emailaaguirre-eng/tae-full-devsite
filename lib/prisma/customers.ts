@@ -1,10 +1,9 @@
 /**
  * Customer management helpers
+ * Updated for Drizzle ORM
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { db, customers, orders, eq, desc, generateId } from '@/lib/db';
 
 /**
  * Find or create a customer by email
@@ -16,32 +15,51 @@ export async function findOrCreateCustomer(data: {
   phone?: string;
 }) {
   // Try to find existing customer
-  let customer = await prisma.customer.findUnique({
-    where: { email: data.email },
-  });
+  let customer = await db
+    .select()
+    .from(customers)
+    .where(eq(customers.email, data.email))
+    .get();
 
   if (!customer) {
     // Create new customer
-    customer = await prisma.customer.create({
-      data: {
-        email: data.email,
-        name: data.name || null,
-        phone: data.phone || null,
-      },
+    await db.insert(customers).values({
+      id: generateId(),
+      email: data.email,
+      name: data.name || null,
+      phone: data.phone || null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
+
+    customer = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.email, data.email))
+      .get();
   } else {
     // Update existing customer if new data provided
+    const updates: any = {};
+
     if (data.name && !customer.name) {
-      customer = await prisma.customer.update({
-        where: { id: customer.id },
-        data: { name: data.name },
-      });
+      updates.name = data.name;
     }
     if (data.phone && !customer.phone) {
-      customer = await prisma.customer.update({
-        where: { id: customer.id },
-        data: { phone: data.phone },
-      });
+      updates.phone = data.phone;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      updates.updatedAt = new Date().toISOString();
+      await db
+        .update(customers)
+        .set(updates)
+        .where(eq(customers.id, customer.id));
+
+      customer = await db
+        .select()
+        .from(customers)
+        .where(eq(customers.id, customer.id))
+        .get();
     }
   }
 
@@ -52,44 +70,46 @@ export async function findOrCreateCustomer(data: {
  * Get customer with order count
  */
 export async function getCustomerWithStats(customerId: string) {
-  const customer = await prisma.customer.findUnique({
-    where: { id: customerId },
-    include: {
-      orders: {
-        select: {
-          id: true,
-          orderNumber: true,
-          status: true,
-          total: true,
-          createdAt: true,
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      },
-    },
-  });
+  const customer = await db
+    .select()
+    .from(customers)
+    .where(eq(customers.id, customerId))
+    .get();
 
   if (!customer) return null;
 
+  const customerOrders = await db
+    .select({
+      id: orders.id,
+      orderNumber: orders.orderNumber,
+      status: orders.status,
+      total: orders.total,
+      createdAt: orders.createdAt,
+    })
+    .from(orders)
+    .where(eq(orders.customerId, customerId))
+    .orderBy(desc(orders.createdAt))
+    .all();
+
   const stats = {
-    totalOrders: customer.orders.length,
-    totalSpent: customer.orders.reduce((sum, order) => sum + order.total, 0),
-    lastOrderDate: customer.orders[0]?.createdAt || null,
+    totalOrders: customerOrders.length,
+    totalSpent: customerOrders.reduce((sum, order) => sum + (order.total || 0), 0),
+    lastOrderDate: customerOrders[0]?.createdAt || null,
   };
 
   return {
     ...customer,
+    orders: customerOrders,
     stats,
   };
 }
 
 /**
  * Get customer reference ID for Gelato
- * Uses gelatoCustomerRefId if set, otherwise falls back to customer.id
+ * Uses gelatoCustomerId if set, otherwise falls back to customer.id
  */
-export function getGelatoCustomerRefId(customer: { id: string; gelatoCustomerRefId?: string | null }): string {
-  return customer.gelatoCustomerRefId || customer.id;
+export function getGelatoCustomerRefId(customer: { id: string; gelatoCustomerId?: string | null }): string {
+  return customer.gelatoCustomerId || customer.id;
 }
 
 /**
@@ -97,9 +117,17 @@ export function getGelatoCustomerRefId(customer: { id: string; gelatoCustomerRef
  * Called after first successful Gelato order submission
  */
 export async function setGelatoCustomerId(customerId: string, gelatoCustomerId: string) {
-  return prisma.customer.update({
-    where: { id: customerId },
-    data: { gelatoCustomerId },
-  });
-}
+  await db
+    .update(customers)
+    .set({
+      gelatoCustomerId,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(customers.id, customerId));
 
+  return db
+    .select()
+    .from(customers)
+    .where(eq(customers.id, customerId))
+    .get();
+}

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { db, shopProducts, shopCategories, eq, and, asc } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,44 +14,58 @@ export async function GET(request: NextRequest) {
     const categorySlug = searchParams.get('category');
     const activeOnly = searchParams.get('active') !== 'false';
 
-    // Build query
-    const where: any = {};
-    if (activeOnly) where.active = true;
+    // Build conditions
+    const conditions = [];
+    if (activeOnly) conditions.push(eq(shopProducts.active, true));
 
+    // If category slug provided, find category first
     if (categorySlug) {
-      const category = await prisma.shopCategory.findUnique({
-        where: { slug: categorySlug },
-      });
+      const category = await db
+        .select()
+        .from(shopCategories)
+        .where(eq(shopCategories.slug, categorySlug))
+        .get();
+
       if (!category) {
         return NextResponse.json(
           { success: false, error: 'Category not found' },
           { status: 404 }
         );
       }
-      where.categoryId = category.id;
+      conditions.push(eq(shopProducts.categoryId, category.id));
     }
 
-    const products = await prisma.shopProduct.findMany({
-      where,
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: {
-        category: {
-          select: {
-            taeId: true,
-            slug: true,
-            name: true,
-            taeBaseFee: true,
-            requiresQrCode: true,
-          },
-        },
-      },
-    });
+    // Query products with category join
+    const products = await db
+      .select({
+        id: shopProducts.id,
+        taeId: shopProducts.taeId,
+        slug: shopProducts.slug,
+        name: shopProducts.name,
+        description: shopProducts.description,
+        sizeLabel: shopProducts.sizeLabel,
+        paperType: shopProducts.paperType,
+        finishType: shopProducts.finishType,
+        orientation: shopProducts.orientation,
+        heroImage: shopProducts.heroImage,
+        gelatoBasePrice: shopProducts.gelatoBasePrice,
+        taeAddOnFee: shopProducts.taeAddOnFee,
+        categoryTaeId: shopCategories.taeId,
+        categorySlug: shopCategories.slug,
+        categoryName: shopCategories.name,
+        categoryFee: shopCategories.taeBaseFee,
+      })
+      .from(shopProducts)
+      .innerJoin(shopCategories, eq(shopProducts.categoryId, shopCategories.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(shopProducts.sortOrder), asc(shopProducts.name))
+      .all();
 
     // Calculate final prices
     const productsWithPricing = products.map(product => {
-      const basePrice = product.gelatoBasePrice;
-      const categoryFee = product.category.taeBaseFee;
-      const productFee = product.taeAddOnFee;
+      const basePrice = product.gelatoBasePrice || 0;
+      const categoryFee = product.categoryFee || 0;
+      const productFee = product.taeAddOnFee || 0;
       const finalPrice = basePrice + categoryFee + productFee;
 
       return {
@@ -65,14 +79,18 @@ export async function GET(request: NextRequest) {
         finishType: product.finishType,
         orientation: product.orientation,
         heroImage: product.heroImage,
-        category: product.category,
+        category: {
+          taeId: product.categoryTaeId,
+          slug: product.categorySlug,
+          name: product.categoryName,
+          taeBaseFee: product.categoryFee,
+        },
         pricing: {
           basePrice,
           categoryFee,
           productFee,
           finalPrice,
         },
-        requiresQrCode: product.category.requiresQrCode,
       };
     });
 

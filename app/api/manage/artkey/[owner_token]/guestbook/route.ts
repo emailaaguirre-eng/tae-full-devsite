@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { db, artKeys, artkeyGuestbookEntries, eq, desc } from '@/lib/db';
 
 /**
  * Owner Guestbook Management API
- * Returns ALL guestbook entries (approved and pending) for owner moderation
+ * Returns ALL guestbook entries for owner moderation
  * Only accessible with owner_token
  */
 export async function GET(
@@ -14,23 +14,7 @@ export async function GET(
     const { owner_token } = await params;
 
     // Find ArtKey by owner token
-    const artKey = await prisma.artKey.findUnique({
-      where: { ownerToken: owner_token },
-      include: {
-        guestbookEntries: {
-          orderBy: { createdAt: 'desc' },
-          include: {
-            replies: {
-              orderBy: { createdAt: 'asc' },
-              include: {
-                mediaItems: true,
-              },
-            },
-            mediaItems: true,
-          },
-        },
-      },
-    });
+    const artKey = await db.select().from(artKeys).where(eq(artKeys.ownerToken, owner_token)).get();
 
     if (!artKey) {
       return NextResponse.json(
@@ -39,70 +23,33 @@ export async function GET(
       );
     }
 
-    // Build nested structure with all entries (approved and pending)
-    const guestbookMap = new Map();
-    const guestbookEntries: any[] = [];
+    // Get all guestbook entries for this artkey
+    const guestbookEntries = await db
+      .select()
+      .from(artkeyGuestbookEntries)
+      .where(eq(artkeyGuestbookEntries.artkeyId, artKey.id))
+      .orderBy(desc(artkeyGuestbookEntries.createdAt))
+      .all();
 
-    // First pass: create map of all top-level entries
-    artKey.guestbookEntries
-      .filter((entry) => !entry.parentId)
-      .forEach((entry) => {
-        guestbookMap.set(entry.id, {
-          id: entry.id,
-          name: entry.name,
-          email: entry.email || undefined, // Include email for owner view
-          message: entry.message,
-          role: entry.role || 'guest', // Include role
-          approved: entry.approved,
-          createdAt: entry.createdAt.toISOString(),
-          children: [],
-          media: entry.mediaItems.map((m) => ({
-            id: m.id,
-            type: m.type,
-            url: m.url,
-            caption: m.caption,
-            approved: m.approved,
-          })),
-        });
-        guestbookEntries.push(guestbookMap.get(entry.id));
-      });
-
-    // Second pass: add replies to their parents
-    artKey.guestbookEntries
-      .filter((entry) => entry.parentId)
-      .forEach((entry) => {
-        if (guestbookMap.has(entry.parentId)) {
-          guestbookMap.get(entry.parentId).children.push({
-            id: entry.id,
-            name: entry.name,
-            email: entry.email || undefined, // Include email for owner view
-            message: entry.message,
-            role: entry.role || 'guest', // Include role
-            approved: entry.approved,
-            createdAt: entry.createdAt.toISOString(),
-            media: entry.mediaItems.map((m) => ({
-              id: m.id,
-              type: m.type,
-              url: m.url,
-              caption: m.caption,
-              approved: m.approved,
-            })),
-          });
-        }
-      });
-
-    // Count pending entries
-    const pendingCount = artKey.guestbookEntries.filter((e) => !e.approved).length;
+    // Format entries for the response
+    const formattedEntries = guestbookEntries.map((entry) => ({
+      id: entry.id,
+      name: entry.senderName,
+      message: entry.message,
+      createdAt: entry.createdAt,
+      children: [],
+      media: [],
+    }));
 
     return NextResponse.json({
       artkey_id: artKey.id,
       artkey_title: artKey.title,
       public_token: artKey.publicToken,
-      entries: guestbookEntries,
+      entries: formattedEntries,
       stats: {
-        total: artKey.guestbookEntries.length,
-        approved: artKey.guestbookEntries.filter((e) => e.approved).length,
-        pending: pendingCount,
+        total: guestbookEntries.length,
+        approved: guestbookEntries.length, // All entries are visible in simplified schema
+        pending: 0,
       },
     });
   } catch (error: any) {
@@ -113,4 +60,3 @@ export async function GET(
     );
   }
 }
-

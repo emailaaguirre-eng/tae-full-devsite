@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { db, artKeys, artkeyGuestbookEntries, artkeyMedia, eq, desc, asc } from '@/lib/db';
 
 /**
  * Public ArtKey Portal API
- * Returns ArtKey data with approved guestbook entries and media for public display
+ * Returns ArtKey data with guestbook entries and media for public display
  * This endpoint is used by the public portal page
  */
 export async function GET(
@@ -14,28 +14,7 @@ export async function GET(
     const { public_token } = await params;
 
     // Find ArtKey by public token
-    const artKey = await prisma.artKey.findUnique({
-      where: { publicToken: public_token },
-      include: {
-        guestbookEntries: {
-          where: { approved: true },
-          orderBy: { createdAt: 'asc' },
-          include: {
-            replies: {
-              where: { approved: true },
-              orderBy: { createdAt: 'asc' },
-            },
-            mediaItems: {
-              where: { approved: true },
-            },
-          },
-        },
-        mediaItems: {
-          where: { approved: true },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    });
+    const artKey = await db.select().from(artKeys).where(eq(artKeys.publicToken, public_token)).get();
 
     if (!artKey) {
       return NextResponse.json(
@@ -44,75 +23,91 @@ export async function GET(
       );
     }
 
-    // Parse JSON fields
-    const theme = JSON.parse(artKey.theme);
-    const features = JSON.parse(artKey.features);
-    const links = JSON.parse(artKey.links);
-    const spotify = JSON.parse(artKey.spotify);
-    const featuredVideo = artKey.featuredVideo ? JSON.parse(artKey.featuredVideo) : null;
-    const customizations = JSON.parse(artKey.customizations);
-    const uploadedImages = JSON.parse(artKey.uploadedImages);
-    const uploadedVideos = JSON.parse(artKey.uploadedVideos);
+    // Get guestbook entries for this artkey
+    const guestbookEntries = await db
+      .select()
+      .from(artkeyGuestbookEntries)
+      .where(eq(artkeyGuestbookEntries.artkeyId, artKey.id))
+      .orderBy(asc(artkeyGuestbookEntries.createdAt))
+      .all();
 
-    // Build nested guestbook structure (replies nested under parents)
-    const guestbookMap = new Map();
-    const guestbookEntries: any[] = [];
+    // Get media items for this artkey
+    const mediaItems = await db
+      .select()
+      .from(artkeyMedia)
+      .where(eq(artkeyMedia.artkeyId, artKey.id))
+      .orderBy(desc(artkeyMedia.createdAt))
+      .all();
 
-    // First pass: create map of all entries
-    artKey.guestbookEntries.forEach((entry) => {
-      if (!entry.parentId) {
-        // Top-level entry
-        guestbookMap.set(entry.id, {
-          id: entry.id,
-          name: entry.name,
-          email: entry.email || undefined, // Include email if present
-          message: entry.message,
-          role: entry.role || 'guest', // Include role (default to 'guest' for backward compatibility)
-          createdAt: entry.createdAt.toISOString(),
-          children: [],
-          media: entry.mediaItems.map((m) => ({
-            id: m.id,
-            type: m.type,
-            url: m.url,
-            caption: m.caption,
-          })),
-        });
-        guestbookEntries.push(guestbookMap.get(entry.id));
+    // Parse customization JSON if present
+    let customization: Record<string, any> = {};
+    if (artKey.customization) {
+      try {
+        customization = JSON.parse(artKey.customization);
+      } catch (e) {
+        console.error('Error parsing customization JSON:', e);
       }
-    });
+    }
 
-    // Second pass: add replies to their parents
-    artKey.guestbookEntries.forEach((entry) => {
-      if (entry.parentId && guestbookMap.has(entry.parentId)) {
-        guestbookMap.get(entry.parentId).children.push({
-          id: entry.id,
-          name: entry.name,
-          email: entry.email || undefined, // Include email if present
-          message: entry.message,
-          role: entry.role || 'guest', // Include role
-          createdAt: entry.createdAt.toISOString(),
-          media: entry.mediaItems.map((m) => ({
-            id: m.id,
-            type: m.type,
-            url: m.url,
-            caption: m.caption,
-          })),
-        });
-      }
-    });
+    // Extract theme, features, links, etc. from customization
+    const theme = customization.theme || {
+      template: artKey.template || 'classic',
+      bg_color: '#F6F7FB',
+      bg_image_id: 0,
+      bg_image_url: '',
+      font: 'g:Playfair Display',
+      text_color: '#111111',
+      title_color: '#4f46e5',
+      title_style: 'solid',
+      button_color: '#4f46e5',
+      button_gradient: '',
+      color_scope: 'content',
+    };
+    const features = customization.features || {
+      enable_gallery: artKey.mediaEnabled ?? true,
+      enable_video: false,
+      show_guestbook: artKey.guestbookEnabled ?? true,
+      enable_custom_links: false,
+      enable_spotify: false,
+      allow_img_uploads: false,
+      allow_vid_uploads: false,
+      gb_btn_view: true,
+      gb_signing_status: 'open',
+      gb_signing_start: '',
+      gb_signing_end: '',
+      gb_require_approval: false,
+      img_require_approval: false,
+      vid_require_approval: false,
+      order: ['gallery', 'guestbook', 'video'],
+    };
+    const links = customization.links || [];
+    const spotify = customization.spotify || { url: 'https://', autoplay: false };
+    const featuredVideo = customization.featured_video || null;
+    const uploadedImages = customization.uploadedImages || [];
+    const uploadedVideos = customization.uploadedVideos || [];
+
+    // Format guestbook entries
+    const formattedGuestbook = guestbookEntries.map((entry) => ({
+      id: entry.id,
+      name: entry.senderName,
+      message: entry.message,
+      createdAt: entry.createdAt,
+      children: [],
+      media: [],
+    }));
 
     // Group media by type
     const mediaByType = {
-      image: artKey.mediaItems.filter((m) => m.type === 'image'),
-      video: artKey.mediaItems.filter((m) => m.type === 'video'),
-      audio: artKey.mediaItems.filter((m) => m.type === 'audio'),
+      image: mediaItems.filter((m) => m.type === 'image'),
+      video: mediaItems.filter((m) => m.type === 'video'),
+      audio: mediaItems.filter((m) => m.type === 'audio'),
     };
 
-    // Check if guestbook signing is enabled and not closed
-    const canSign = features.show_guestbook && 
+    // Check if guestbook signing is enabled
+    const canSign = features.show_guestbook &&
                    features.gb_signing_status !== 'closed' &&
-                   (features.gb_signing_status === 'open' || 
-                    (features.gb_signing_status === 'scheduled' && 
+                   (features.gb_signing_status === 'open' ||
+                    (features.gb_signing_status === 'scheduled' &&
                      checkSigningSchedule(features.gb_signing_start, features.gb_signing_end)));
 
     return NextResponse.json({
@@ -124,45 +119,45 @@ export async function GET(
       links,
       spotify,
       featured_video: featuredVideo,
-      customizations,
+      customizations: customization.customizations || {},
       uploadedImages,
       uploadedVideos,
       guestbook: {
-        entries: guestbookEntries,
+        entries: formattedGuestbook,
         canSign,
         requiresApproval: features.gb_require_approval || false,
       },
       media: {
-        all: artKey.mediaItems.map((m) => ({
+        all: mediaItems.map((m) => ({
           id: m.id,
           type: m.type,
           url: m.url,
           caption: m.caption,
-          createdAt: m.createdAt.toISOString(),
+          createdAt: m.createdAt,
         })),
         byType: {
           images: mediaByType.image.map((m) => ({
             id: m.id,
             url: m.url,
             caption: m.caption,
-            createdAt: m.createdAt.toISOString(),
+            createdAt: m.createdAt,
           })),
           videos: mediaByType.video.map((m) => ({
             id: m.id,
             url: m.url,
             caption: m.caption,
-            createdAt: m.createdAt.toISOString(),
+            createdAt: m.createdAt,
           })),
           audio: mediaByType.audio.map((m) => ({
             id: m.id,
             url: m.url,
             caption: m.caption,
-            createdAt: m.createdAt.toISOString(),
+            createdAt: m.createdAt,
           })),
         },
       },
-      createdAt: artKey.createdAt.toISOString(),
-      updatedAt: artKey.updatedAt.toISOString(),
+      createdAt: artKey.createdAt,
+      updatedAt: artKey.updatedAt,
     });
   } catch (error: any) {
     console.error('Error fetching ArtKey:', error);
@@ -183,4 +178,3 @@ function checkSigningSchedule(start: string, end: string): boolean {
   const endDate = new Date(end);
   return now >= startDate && now <= endDate;
 }
-

@@ -1,15 +1,27 @@
 /**
  * Design Drafts API
  * Copyright (c) 2026 B&D Servicing LLC. All rights reserved.
+ *
+ * NOTE: Design drafts functionality is temporarily disabled.
+ * The designDrafts table is not currently in the database schema.
+ * This route will return a "feature not available" response.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
 
 // GET /api/drafts - List drafts (optionally filter by sessionId or userId)
 export async function GET(request: NextRequest) {
+  // Design drafts feature not available - table not in schema
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'Design drafts feature is not currently available',
+      data: []
+    },
+    { status: 501 }
+  );
+
+  /* Original Prisma implementation - commented out as designDrafts table not in schema
   try {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('sessionId');
@@ -67,10 +79,21 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+  */
 }
 
 // POST /api/drafts - Create or update a draft
 export async function POST(request: NextRequest) {
+  // Design drafts feature not available - table not in schema
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'Design drafts feature is not currently available'
+    },
+    { status: 501 }
+  );
+
+  /* Original Prisma implementation - commented out as designDrafts table not in schema
   try {
     const body = await request.json();
     const {
@@ -147,4 +170,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+  */
 }

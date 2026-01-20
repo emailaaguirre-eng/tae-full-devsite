@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { db, artKeys, artkeyGuestbookEntries, eq, generateId } from '@/lib/db';
 
 /**
  * Guestbook Posting API
- * Allows guests to post top-level entries or replies to the guestbook
- * Respects feature flags for approval requirements
+ * Allows guests to post entries to the guestbook
+ * Respects feature flags from customization JSON
  */
 export async function POST(
   request: NextRequest,
@@ -13,7 +13,7 @@ export async function POST(
   try {
     const { public_token } = await params;
     const body = await request.json();
-    const { name, email, message, parent_id } = body;
+    const { name, message } = body;
 
     // Validate input
     if (!name || !message) {
@@ -24,9 +24,7 @@ export async function POST(
     }
 
     // Find ArtKey by public token
-    const artKey = await prisma.artKey.findUnique({
-      where: { publicToken: public_token },
-    });
+    const artKey = await db.select().from(artKeys).where(eq(artKeys.publicToken, public_token)).get();
 
     if (!artKey) {
       return NextResponse.json(
@@ -35,30 +33,28 @@ export async function POST(
       );
     }
 
-    // Parse features to check signing status
-    const features = JSON.parse(artKey.features);
+    // Parse customization to check feature flags
+    let customization: Record<string, any> = {};
+    if (artKey.customization) {
+      try {
+        customization = JSON.parse(artKey.customization);
+      } catch (e) {
+        console.error('Error parsing customization JSON:', e);
+      }
+    }
 
-    // Check if guestbook is enabled and signing is allowed
-    if (!features.show_guestbook) {
+    const features = customization.features || {
+      show_guestbook: artKey.guestbookEnabled ?? true,
+      gb_signing_status: 'open',
+      gb_signing_start: '',
+      gb_signing_end: '',
+    };
+
+    // Check if guestbook is enabled
+    if (!features.show_guestbook && !artKey.guestbookEnabled) {
       return NextResponse.json(
         { error: 'Guestbook is not enabled for this ArtKey' },
         { status: 403 }
-      );
-    }
-
-    // Validate email if required
-    if (features.require_email_for_guestbook && !email) {
-      return NextResponse.json(
-        { error: 'Email is required for guestbook entries' },
-        { status: 400 }
-      );
-    }
-
-    // Validate email format if provided
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
       );
     }
 
@@ -74,7 +70,7 @@ export async function POST(
       const now = new Date();
       const start = features.gb_signing_start ? new Date(features.gb_signing_start) : null;
       const end = features.gb_signing_end ? new Date(features.gb_signing_end) : null;
-      
+
       if (start && end && (now < start || now > end)) {
         return NextResponse.json(
           { error: 'Guestbook signing is not currently available' },
@@ -83,54 +79,32 @@ export async function POST(
       }
     }
 
-    // Validate parent_id if provided (must be a valid entry for this ArtKey)
-    if (parent_id) {
-      const parentEntry = await prisma.guestbookEntry.findFirst({
-        where: {
-          id: parent_id,
-          artkeyId: artKey.id,
-        },
-      });
+    // Create guestbook entry
+    const entryId = generateId();
+    const now = new Date().toISOString();
 
-      if (!parentEntry) {
-        return NextResponse.json(
-          { error: 'Invalid parent entry' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Determine approval status based on feature flag
-    const approved = !features.gb_require_approval;
-
-    // Create guestbook entry (role defaults to "guest" for public posts)
-    const entry = await prisma.guestbookEntry.create({
-      data: {
-        artkeyId: artKey.id,
-        parentId: parent_id || null,
-        name: name.trim(),
-        email: email ? email.trim() : null,
-        message: message.trim(),
-        role: 'guest', // Public posts are always from guests
-        approved,
-      },
-      include: {
-        mediaItems: true,
-      },
+    await db.insert(artkeyGuestbookEntries).values({
+      id: entryId,
+      artkeyId: artKey.id,
+      senderName: name.trim(),
+      message: message.trim(),
+      createdAt: now,
     });
+
+    // Get the created entry
+    const entry = await db
+      .select()
+      .from(artkeyGuestbookEntries)
+      .where(eq(artkeyGuestbookEntries.id, entryId))
+      .get();
 
     return NextResponse.json({
       success: true,
       entry: {
-        id: entry.id,
-        name: entry.name,
-        email: entry.email,
-        message: entry.message,
-        parentId: entry.parentId,
-        role: entry.role,
-        approved: entry.approved,
-        createdAt: entry.createdAt.toISOString(),
-        requiresApproval: !approved,
+        id: entry?.id,
+        name: entry?.senderName,
+        message: entry?.message,
+        createdAt: entry?.createdAt,
       },
     });
   } catch (error: any) {
@@ -141,4 +115,3 @@ export async function POST(
     );
   }
 }
-

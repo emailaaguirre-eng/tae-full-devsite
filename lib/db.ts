@@ -1,22 +1,14 @@
 /**
- * Database client and utilities for ArtKey Portal
- * Uses Prisma for type-safe database access
+ * Database client and utilities for TAE
+ * Uses Drizzle ORM for type-safe database access
  */
 
-import { PrismaClient } from '@prisma/client';
+// Re-export the Drizzle database connection and schema
+export { db } from '@/db';
+export * from '@/db/schema';
 
-// Prevent multiple instances of Prisma Client in development
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+// Re-export drizzle-orm operators for convenience
+export { eq, and, or, desc, asc, like, isNull, isNotNull, inArray, sql } from 'drizzle-orm';
 
 /**
  * Generate a short, URL-friendly public token
@@ -42,6 +34,15 @@ export function generateOwnerToken(): string {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
+}
+
+/**
+ * Generate a unique ID (cuid-like)
+ */
+export function generateId(): string {
+  const timestamp = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).substring(2, 15);
+  return `${timestamp}${randomPart}`;
 }
 
 /**
@@ -105,4 +106,3 @@ export interface ArtKeyData {
   uploadedVideos: string[];
   customizations: Record<string, any>;
 }
-
