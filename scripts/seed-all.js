@@ -11,12 +11,12 @@
  * Run: node scripts/seed-all.js
  */
 
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 
-const db = new Database(path.join(__dirname, '../prisma/dev.db'));
+const dbPath = path.join(__dirname, '../prisma/dev.db');
 
 // =============================================================================
 // SHOP CATEGORIES - Master product types
@@ -112,50 +112,31 @@ const SHOP_CATEGORIES = [
 // SEED FUNCTIONS
 // =============================================================================
 
-function seedShopCategories() {
+function seedShopCategories(db) {
   console.log('\n📦 Seeding Shop Categories...');
 
-  const checkStmt = db.prepare('SELECT id FROM ShopCategory WHERE taeId = ?');
-  const insertStmt = db.prepare(`
-    INSERT INTO ShopCategory (
-      id, taeId, slug, name, description, icon, gelatoCatalogUid,
-      taeBaseFee, requiresQrCode, heroImage, active, featured, sortOrder, createdAt, updatedAt
-    ) VALUES (
-      @id, @taeId, @slug, @name, @description, @icon, @gelatoCatalogUid,
-      @taeBaseFee, @requiresQrCode, @heroImage, @active, @featured, @sortOrder, @createdAt, @updatedAt
-    )
-  `);
-
   for (const cat of SHOP_CATEGORIES) {
-    const existing = checkStmt.get(cat.taeId);
-    if (existing) {
+    const existing = db.exec(`SELECT id FROM ShopCategory WHERE taeId = '${cat.taeId}'`);
+    if (existing.length > 0 && existing[0].values.length > 0) {
       console.log(`  ⏭️  ${cat.name} already exists`);
       continue;
     }
 
     const now = Date.now();
-    insertStmt.run({
-      id: randomUUID(),
-      taeId: cat.taeId,
-      slug: cat.slug,
-      name: cat.name,
-      description: cat.description,
-      icon: cat.icon,
-      gelatoCatalogUid: cat.gelatoCatalogUid,
-      taeBaseFee: cat.taeBaseFee,
-      requiresQrCode: cat.requiresQrCode ? 1 : 0,
-      heroImage: null,
-      active: 1,
-      featured: cat.featured ? 1 : 0,
-      sortOrder: cat.sortOrder,
-      createdAt: now,
-      updatedAt: now,
-    });
+    db.run(`
+      INSERT INTO ShopCategory (
+        id, taeId, slug, name, description, icon, gelatoCatalogUid,
+        taeBaseFee, requiresQrCode, heroImage, active, featured, sortOrder, createdAt, updatedAt
+      ) VALUES (
+        '${randomUUID()}', '${cat.taeId}', '${cat.slug}', '${cat.name}', '${cat.description}', '${cat.icon}', '${cat.gelatoCatalogUid}',
+        ${cat.taeBaseFee}, ${cat.requiresQrCode ? 1 : 0}, NULL, 1, ${cat.featured ? 1 : 0}, ${cat.sortOrder}, ${now}, ${now}
+      )
+    `);
     console.log(`  ✅ Created: ${cat.name} (${cat.taeId})`);
   }
 }
 
-function seedArtists() {
+function seedArtists(db) {
   console.log('\n🎨 Seeding Artists...');
 
   // Read backup files
@@ -197,50 +178,38 @@ function seedArtists() {
     },
   ];
 
-  const checkStmt = db.prepare('SELECT id FROM Artist WHERE slug = ?');
-  const insertStmt = db.prepare(`
-    INSERT INTO Artist (
-      id, slug, name, title, bio, description, thumbnailImage, bioImage,
-      royaltyFee, featured, sortOrder, createdAt, updatedAt
-    ) VALUES (
-      @id, @slug, @name, @title, @bio, @description, @thumbnailImage, @bioImage,
-      @royaltyFee, @featured, @sortOrder, @createdAt, @updatedAt
-    )
-  `);
-
   for (const artist of artists) {
-    const existing = checkStmt.get(artist.slug);
-    if (existing) {
+    const existing = db.exec(`SELECT id FROM Artist WHERE slug = '${artist.slug}'`);
+    if (existing.length > 0 && existing[0].values.length > 0) {
       console.log(`  ⏭️  ${artist.name} already exists`);
       continue;
     }
 
     const now = Date.now();
-    insertStmt.run({
-      id: randomUUID(),
-      slug: artist.slug,
-      name: artist.name,
-      title: artist.title,
-      bio: artist.bio,
-      description: artist.description,
-      thumbnailImage: artist.thumbnailImage,
-      bioImage: artist.bioImage,
-      royaltyFee: artist.royaltyFee,
-      featured: artist.featured ? 1 : 0,
-      sortOrder: artist.sortOrder,
-      createdAt: now,
-      updatedAt: now,
-    });
+    const bio = artist.bio ? artist.bio.replace(/'/g, "''") : '';
+    const desc = artist.description ? artist.description.replace(/'/g, "''") : '';
+    db.run(`
+      INSERT INTO Artist (
+        id, slug, name, title, bio, description, thumbnailImage, bioImage,
+        royaltyFee, featured, sortOrder, createdAt, updatedAt
+      ) VALUES (
+        '${randomUUID()}', '${artist.slug}', '${artist.name}', '${artist.title}', '${bio}', '${desc}', '${artist.thumbnailImage || ''}', '${artist.bioImage || ''}',
+        ${artist.royaltyFee}, ${artist.featured ? 1 : 0}, ${artist.sortOrder}, ${now}, ${now}
+      )
+    `);
     console.log(`  ✅ Created: ${artist.name}`);
   }
 }
 
-function seedArtistArtworks() {
+function seedArtistArtworks(db) {
   console.log('\n🖼️  Seeding Artist Artworks...');
 
   // Get artists
-  const deanna = db.prepare('SELECT id FROM Artist WHERE slug = ?').get('deanna-lankin');
-  const bryant = db.prepare('SELECT id FROM Artist WHERE slug = ?').get('bryant-colman');
+  const deannaResult = db.exec(`SELECT id FROM Artist WHERE slug = 'deanna-lankin'`);
+  const bryantResult = db.exec(`SELECT id FROM Artist WHERE slug = 'bryant-colman'`);
+
+  const deanna = deannaResult.length > 0 && deannaResult[0].values.length > 0 ? { id: deannaResult[0].values[0][0] } : null;
+  const bryant = bryantResult.length > 0 && bryantResult[0].values.length > 0 ? { id: bryantResult[0].values[0][0] } : null;
 
   if (!deanna || !bryant) {
     console.log('  ❌ Artists not found, run seedArtists first');
@@ -259,40 +228,27 @@ function seedArtistArtworks() {
   const bryantBackup = JSON.parse(fs.readFileSync(bryantBackupPath));
   const deannaBackup = JSON.parse(fs.readFileSync(deannaBackupPath));
 
-  const checkStmt = db.prepare('SELECT id FROM ArtistArtwork WHERE taeId = ?');
-  const insertStmt = db.prepare(`
-    INSERT INTO ArtistArtwork (
-      id, artistId, taeId, slug, title, imageUrl, forSale, sortOrder, createdAt, updatedAt
-    ) VALUES (
-      @id, @artistId, @taeId, @slug, @title, @imageUrl, @forSale, @sortOrder, @createdAt, @updatedAt
-    )
-  `);
-
   // Seed Deanna's artwork
   for (let i = 0; i < deannaBackup.portfolio.length; i++) {
     const art = deannaBackup.portfolio[i];
     const taeId = `TAE-ART-DL-${String(i + 1).padStart(3, '0')}`;
     const slug = `deanna-lankin-${art.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}`;
 
-    const existing = checkStmt.get(taeId);
-    if (existing) {
+    const existing = db.exec(`SELECT id FROM ArtistArtwork WHERE taeId = '${taeId}'`);
+    if (existing.length > 0 && existing[0].values.length > 0) {
       console.log(`  ⏭️  ${art.title} (Deanna) already exists`);
       continue;
     }
 
     const now = Date.now();
-    insertStmt.run({
-      id: randomUUID(),
-      artistId: deanna.id,
-      taeId,
-      slug,
-      title: art.title,
-      imageUrl: art.image,
-      forSale: art.forSale ? 1 : 0,
-      sortOrder: i + 1,
-      createdAt: now,
-      updatedAt: now,
-    });
+    const title = art.title.replace(/'/g, "''");
+    db.run(`
+      INSERT INTO ArtistArtwork (
+        id, artistId, taeId, slug, title, imageUrl, forSale, sortOrder, createdAt, updatedAt
+      ) VALUES (
+        '${randomUUID()}', '${deanna.id}', '${taeId}', '${slug}', '${title}', '${art.image}', ${art.forSale ? 1 : 0}, ${i + 1}, ${now}, ${now}
+      )
+    `);
     console.log(`  ✅ Created: ${art.title} (Deanna) - ${taeId}`);
   }
 
@@ -302,30 +258,26 @@ function seedArtistArtworks() {
     const taeId = `TAE-ART-BC-${String(i + 1).padStart(3, '0')}`;
     const slug = `bryant-colman-${String(i + 1).padStart(2, '0')}`;
 
-    const existing = checkStmt.get(taeId);
-    if (existing) {
+    const existing = db.exec(`SELECT id FROM ArtistArtwork WHERE taeId = '${taeId}'`);
+    if (existing.length > 0 && existing[0].values.length > 0) {
       console.log(`  ⏭️  ${art.title} (Bryant) already exists`);
       continue;
     }
 
     const now = Date.now();
-    insertStmt.run({
-      id: randomUUID(),
-      artistId: bryant.id,
-      taeId,
-      slug,
-      title: art.title,
-      imageUrl: art.image,
-      forSale: art.forSale ? 1 : 0,
-      sortOrder: i + 1,
-      createdAt: now,
-      updatedAt: now,
-    });
+    const title = art.title.replace(/'/g, "''");
+    db.run(`
+      INSERT INTO ArtistArtwork (
+        id, artistId, taeId, slug, title, imageUrl, forSale, sortOrder, createdAt, updatedAt
+      ) VALUES (
+        '${randomUUID()}', '${bryant.id}', '${taeId}', '${slug}', '${title}', '${art.image}', ${art.forSale ? 1 : 0}, ${i + 1}, ${now}, ${now}
+      )
+    `);
     console.log(`  ✅ Created: ${art.title} (Bryant) - ${taeId}`);
   }
 }
 
-function seedCoCreators() {
+function seedCoCreators(db) {
   console.log('\n🤝 Seeding CoCreators...');
 
   // Read backup file
@@ -337,86 +289,64 @@ function seedCoCreators() {
 
   const backup = JSON.parse(fs.readFileSync(backupPath));
 
-  const checkStmt = db.prepare('SELECT id FROM CoCreator WHERE slug = ?');
-  const insertStmt = db.prepare(`
-    INSERT INTO CoCreator (
-      id, slug, name, title, bio, description, thumbnailImage, heroImage,
-      royaltyFee, featured, sortOrder, createdAt, updatedAt
-    ) VALUES (
-      @id, @slug, @name, @title, @bio, @description, @thumbnailImage, @heroImage,
-      @royaltyFee, @featured, @sortOrder, @createdAt, @updatedAt
-    )
-  `);
-
   for (let i = 0; i < backup.cocreators.length; i++) {
     const cc = backup.cocreators[i];
 
-    const existing = checkStmt.get(cc.slug);
-    if (existing) {
+    const existing = db.exec(`SELECT id FROM CoCreator WHERE slug = '${cc.slug}'`);
+    if (existing.length > 0 && existing[0].values.length > 0) {
       console.log(`  ⏭️  ${cc.name} already exists`);
       continue;
     }
 
     const now = Date.now();
-    insertStmt.run({
-      id: randomUUID(),
-      slug: cc.slug,
-      name: cc.name,
-      title: cc.title || null,
-      bio: cc.bio || null,
-      description: cc.description || null,
-      thumbnailImage: cc.image,
-      heroImage: cc.mountainImage || null,
-      royaltyFee: 5.00,
-      featured: i === 0 ? 1 : 0,
-      sortOrder: i + 1,
-      createdAt: now,
-      updatedAt: now,
-    });
+    const bio = cc.bio ? cc.bio.replace(/'/g, "''") : '';
+    const desc = cc.description ? cc.description.replace(/'/g, "''") : '';
+    const title = cc.title ? cc.title.replace(/'/g, "''") : '';
+    db.run(`
+      INSERT INTO CoCreator (
+        id, slug, name, title, bio, description, thumbnailImage, heroImage,
+        royaltyFee, featured, sortOrder, createdAt, updatedAt
+      ) VALUES (
+        '${randomUUID()}', '${cc.slug}', '${cc.name}', '${title}', '${bio}', '${desc}', '${cc.image || ''}', '${cc.mountainImage || ''}',
+        5.00, ${i === 0 ? 1 : 0}, ${i + 1}, ${now}, ${now}
+      )
+    `);
     console.log(`  ✅ Created: ${cc.name}`);
   }
 }
 
-function seedArtworkProductLinks() {
+function seedArtworkProductLinks(db) {
   console.log('\n🔗 Seeding Artwork-Product Links...');
 
   // Get all artworks
-  const artworks = db.prepare('SELECT id FROM ArtistArtwork').all();
+  const artworksResult = db.exec('SELECT id FROM ArtistArtwork');
+  const artworks = artworksResult.length > 0 ? artworksResult[0].values.map(v => ({ id: v[0] })) : [];
 
   // Get categories that artwork can be purchased as (Wall Art, Canvas, Framed)
-  const printCategories = db.prepare(`
-    SELECT id FROM ShopCategory WHERE slug IN ('wall-art', 'canvas-prints', 'framed-prints')
-  `).all();
+  const categoriesResult = db.exec(`SELECT id FROM ShopCategory WHERE slug IN ('wall-art', 'canvas-prints', 'framed-prints')`);
+  const printCategories = categoriesResult.length > 0 ? categoriesResult[0].values.map(v => ({ id: v[0] })) : [];
 
   if (printCategories.length === 0) {
     console.log('  ❌ Print categories not found, run seedShopCategories first');
     return;
   }
 
-  const checkStmt = db.prepare('SELECT id FROM ArtworkProductLink WHERE artworkId = ? AND categoryId = ?');
-  const insertStmt = db.prepare(`
-    INSERT INTO ArtworkProductLink (id, artworkId, categoryId, createdAt)
-    VALUES (@id, @artworkId, @categoryId, @createdAt)
-  `);
-
   let created = 0;
   let skipped = 0;
 
   for (const artwork of artworks) {
     for (const category of printCategories) {
-      const existing = checkStmt.get(artwork.id, category.id);
+      const existing = db.exec(`SELECT id FROM ArtworkProductLink WHERE artworkId = '${artwork.id}' AND categoryId = '${category.id}'`);
 
-      if (existing) {
+      if (existing.length > 0 && existing[0].values.length > 0) {
         skipped++;
         continue;
       }
 
-      insertStmt.run({
-        id: randomUUID(),
-        artworkId: artwork.id,
-        categoryId: category.id,
-        createdAt: Date.now(),
-      });
+      db.run(`
+        INSERT INTO ArtworkProductLink (id, artworkId, categoryId, createdAt)
+        VALUES ('${randomUUID()}', '${artwork.id}', '${category.id}', ${Date.now()})
+      `);
       created++;
     }
   }
@@ -428,39 +358,63 @@ function seedArtworkProductLinks() {
 // MAIN
 // =============================================================================
 
-function main() {
+async function main() {
   console.log('🌱 Starting seed process...\n');
   console.log('='.repeat(50));
 
-  seedShopCategories();
-  seedArtists();
-  seedArtistArtworks();
-  seedCoCreators();
-  seedArtworkProductLinks();
+  // Initialize sql.js
+  const SQL = await initSqlJs();
 
-  console.log('\n' + '='.repeat(50));
-  console.log('🎉 Seed complete!\n');
+  // Load existing database or create new one
+  let db;
+  if (fs.existsSync(dbPath)) {
+    const fileBuffer = fs.readFileSync(dbPath);
+    db = new SQL.Database(fileBuffer);
+  } else {
+    db = new SQL.Database();
+    // Ensure directory exists
+    const dir = path.dirname(dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  }
 
-  // Print summary
-  const categories = db.prepare('SELECT COUNT(*) as count FROM ShopCategory').get().count;
-  const artists = db.prepare('SELECT COUNT(*) as count FROM Artist').get().count;
-  const artworks = db.prepare('SELECT COUNT(*) as count FROM ArtistArtwork').get().count;
-  const cocreators = db.prepare('SELECT COUNT(*) as count FROM CoCreator').get().count;
-  const links = db.prepare('SELECT COUNT(*) as count FROM ArtworkProductLink').get().count;
+  try {
+    seedShopCategories(db);
+    seedArtists(db);
+    seedArtistArtworks(db);
+    seedCoCreators(db);
+    seedArtworkProductLinks(db);
 
-  console.log('Summary:');
-  console.log(`  - Shop Categories: ${categories}`);
-  console.log(`  - Artists: ${artists}`);
-  console.log(`  - Artist Artworks: ${artworks}`);
-  console.log(`  - CoCreators: ${cocreators}`);
-  console.log(`  - Artwork-Product Links: ${links}`);
+    console.log('\n' + '='.repeat(50));
+    console.log('🎉 Seed complete!\n');
+
+    // Print summary
+    const categories = db.exec('SELECT COUNT(*) as count FROM ShopCategory')[0]?.values[0][0] || 0;
+    const artists = db.exec('SELECT COUNT(*) as count FROM Artist')[0]?.values[0][0] || 0;
+    const artworks = db.exec('SELECT COUNT(*) as count FROM ArtistArtwork')[0]?.values[0][0] || 0;
+    const cocreators = db.exec('SELECT COUNT(*) as count FROM CoCreator')[0]?.values[0][0] || 0;
+    const links = db.exec('SELECT COUNT(*) as count FROM ArtworkProductLink')[0]?.values[0][0] || 0;
+
+    console.log('Summary:');
+    console.log(`  - Shop Categories: ${categories}`);
+    console.log(`  - Artists: ${artists}`);
+    console.log(`  - Artist Artworks: ${artworks}`);
+    console.log(`  - CoCreators: ${cocreators}`);
+    console.log(`  - Artwork-Product Links: ${links}`);
+
+    // Save the database
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(dbPath, buffer);
+    console.log('\n💾 Database saved to', dbPath);
+
+  } catch (error) {
+    console.error('❌ Seed failed:', error);
+    process.exit(1);
+  } finally {
+    db.close();
+  }
 }
 
-try {
-  main();
-} catch (error) {
-  console.error('❌ Seed failed:', error);
-  process.exit(1);
-} finally {
-  db.close();
-}
+main().catch(console.error);

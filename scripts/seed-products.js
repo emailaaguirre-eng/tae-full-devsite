@@ -3,15 +3,40 @@
  * Run: node scripts/seed-products.js
  */
 
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 const path = require('path');
+const fs = require('fs');
 const { randomUUID } = require('crypto');
 
-const db = new Database(path.join(__dirname, '../prisma/dev.db'));
+const dbPath = path.join(__dirname, '../prisma/dev.db');
 
-function main() {
+async function main() {
+  // Initialize sql.js
+  const SQL = await initSqlJs();
+
+  // Load or create database
+  let db;
+  if (fs.existsSync(dbPath)) {
+    const fileBuffer = fs.readFileSync(dbPath);
+    db = new SQL.Database(fileBuffer);
+  } else {
+    console.error('Database file not found. Run seed-all.js first.');
+    process.exit(1);
+  }
+
   console.log('Fetching categories...');
-  const categories = db.prepare('SELECT * FROM ShopCategory').all();
+  const categoriesResult = db.exec('SELECT * FROM ShopCategory');
+
+  const categories = [];
+  if (categoriesResult.length > 0) {
+    const cols = categoriesResult[0].columns;
+    const rows = categoriesResult[0].values;
+    for (const row of rows) {
+      const cat = {};
+      cols.forEach((col, i) => cat[col] = row[i]);
+      categories.push(cat);
+    }
+  }
 
   console.log('Found categories:');
   categories.forEach(c => console.log(`  ${c.slug}: ${c.name} (fee: $${c.taeBaseFee})`));
@@ -60,18 +85,6 @@ function main() {
 
   console.log(`\nSeeding ${products.length} products...`);
 
-  const insertStmt = db.prepare(`
-    INSERT INTO ShopProduct (
-      id, taeId, categoryId, slug, name, sizeLabel, paperType, finishType,
-      gelatoProductUid, gelatoBasePrice, taeAddOnFee, active, sortOrder, createdAt, updatedAt
-    ) VALUES (
-      @id, @taeId, @categoryId, @slug, @name, @sizeLabel, @paperType, @finishType,
-      @gelatoProductUid, @gelatoBasePrice, @taeAddOnFee, @active, @sortOrder, @createdAt, @updatedAt
-    )
-  `);
-
-  const checkStmt = db.prepare('SELECT id FROM ShopProduct WHERE taeId = ?');
-
   let created = 0;
   let skipped = 0;
 
@@ -84,46 +97,56 @@ function main() {
     }
 
     // Check if already exists
-    const existing = checkStmt.get(p.taeId);
-    if (existing) {
+    const existing = db.exec(`SELECT id FROM ShopProduct WHERE taeId = '${p.taeId}'`);
+    if (existing.length > 0 && existing[0].values.length > 0) {
       console.log(`  SKIP: ${p.taeId} already exists`);
       skipped++;
       continue;
     }
 
     const now = Date.now();
-    insertStmt.run({
-      id: randomUUID(),
-      taeId: p.taeId,
-      categoryId,
-      slug: p.slug,
-      name: p.name,
-      sizeLabel: p.sizeLabel || null,
-      paperType: p.paperType || null,
-      finishType: p.finishType || null,
-      gelatoProductUid: p.gelatoProductUid || null,
-      gelatoBasePrice: p.gelatoBasePrice || 0,
-      taeAddOnFee: p.taeAddOnFee || 0,
-      active: 1,
-      sortOrder: created,
-      createdAt: now,
-      updatedAt: now,
-    });
-    console.log(`  ✓ Created: ${p.taeId} - ${p.name}`);
+    const id = randomUUID();
+    const sizeLabel = p.sizeLabel || null;
+    const paperType = p.paperType || null;
+    const finishType = p.finishType || null;
+    const gelatoProductUid = p.gelatoProductUid || null;
+    const gelatoBasePrice = p.gelatoBasePrice || 0;
+    const taeAddOnFee = p.taeAddOnFee || 0;
+
+    db.run(`
+      INSERT INTO ShopProduct (
+        id, taeId, categoryId, slug, name, sizeLabel, paperType, finishType,
+        gelatoProductUid, gelatoBasePrice, taeAddOnFee, active, sortOrder, createdAt, updatedAt
+      ) VALUES (
+        '${id}', '${p.taeId}', '${categoryId}', '${p.slug}', '${p.name}',
+        ${sizeLabel ? `'${sizeLabel}'` : 'NULL'},
+        ${paperType ? `'${paperType}'` : 'NULL'},
+        ${finishType ? `'${finishType}'` : 'NULL'},
+        ${gelatoProductUid ? `'${gelatoProductUid}'` : 'NULL'},
+        ${gelatoBasePrice}, ${taeAddOnFee}, 1, ${created}, ${now}, ${now}
+      )
+    `);
+    console.log(`  Created: ${p.taeId} - ${p.name}`);
     created++;
   }
 
   console.log(`\nDone! Created: ${created}, Skipped: ${skipped}`);
 
   // Show final counts
-  const finalCount = db.prepare('SELECT COUNT(*) as count FROM ShopProduct').get().count;
+  const finalResult = db.exec('SELECT COUNT(*) as count FROM ShopProduct');
+  const finalCount = finalResult.length > 0 ? finalResult[0].values[0][0] : 0;
   console.log(`Total products in database: ${finalCount}`);
-}
 
-try {
-  main();
-} catch (error) {
-  console.error('Error:', error);
-} finally {
+  // Save database to disk
+  const data = db.export();
+  const buffer = Buffer.from(data);
+  fs.writeFileSync(dbPath, buffer);
+  console.log('Database saved.');
+
   db.close();
 }
+
+main().catch(error => {
+  console.error('Error:', error);
+  process.exit(1);
+});
