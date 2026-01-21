@@ -25,7 +25,17 @@ async function initDatabase(): Promise<SqlJsDatabase> {
     return sqliteDb;
   }
 
-  const SQL = await initSqlJs();
+  // Locate the WASM file in node_modules
+  const wasmPath = path.join(process.cwd(), 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm');
+
+  const SQL = await initSqlJs({
+    locateFile: (file: string) => {
+      if (file === 'sql-wasm.wasm' && fs.existsSync(wasmPath)) {
+        return wasmPath;
+      }
+      return file;
+    }
+  });
 
   // Load existing database file if it exists
   if (fs.existsSync(dbPath)) {
