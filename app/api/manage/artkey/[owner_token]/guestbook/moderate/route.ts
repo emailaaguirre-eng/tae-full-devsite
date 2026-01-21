@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, artKeys, artkeyGuestbookEntries, eq, and } from '@/lib/db';
+import { getDb, artKeys, artkeyGuestbookEntries, eq, and } from '@/lib/db';
 
 /**
  * Guestbook Moderation API
@@ -11,6 +11,7 @@ export async function POST(
   { params }: { params: Promise<{ owner_token: string }> }
 ) {
   try {
+    const db = await getDb();
     const { owner_token } = await params;
     const body = await request.json();
     const { entry_id, action } = body;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, artKeys, eq, generatePublicToken, generateOwnerToken, generateId, ArtKeyData } from '@/lib/db';
+import { getDb, artKeys, eq, generatePublicToken, generateOwnerToken, generateId, ArtKeyData } from '@/lib/db';
 import { getAppBaseUrl } from '@/lib/wp';
 
 /**
@@ -10,6 +10,7 @@ import { getAppBaseUrl } from '@/lib/wp';
  */
 export async function POST(request: NextRequest) {
   try {
+    const db = await getDb();
     const body = await request.json();
     const { data, product_id, owner_token } = body;
 

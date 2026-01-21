@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db, artKeys, eq, sql } from '@/lib/db';
+import { getDb, artKeys, eq, sql } from '@/lib/db';
 
 /**
  * Get admin dashboard statistics
@@ -8,6 +8,7 @@ import { db, artKeys, eq, sql } from '@/lib/db';
  */
 export async function GET() {
   try {
+    const db = await getDb();
     // Get total ArtKey count using Drizzle
     const totalArtKeysResult = await db
       .select({ count: sql<number>`count(*)` })

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db, orders, customers, shopProducts, artistArtworks, desc, eq, inArray } from '@/lib/db';
+import { getDb, orders, customers, shopProducts, artistArtworks, desc, eq, inArray } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: Request) {
   try {
+    const db = await getDb();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 

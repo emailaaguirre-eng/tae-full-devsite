@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db, customers, orders, desc, eq } from '@/lib/db';
+import { getDb, customers, orders, desc, eq } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET() {
   try {
+    const db = await getDb();
     // Get all customers
     const customersList = await db.select().from(customers).orderBy(desc(customers.createdAt)).all();
 

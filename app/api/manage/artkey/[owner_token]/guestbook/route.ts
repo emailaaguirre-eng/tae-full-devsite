@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, artKeys, artkeyGuestbookEntries, eq, desc } from '@/lib/db';
+import { getDb, artKeys, artkeyGuestbookEntries, eq, desc } from '@/lib/db';
 
 /**
  * Owner Guestbook Management API
@@ -11,6 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ owner_token: string }> }
 ) {
   try {
+    const db = await getDb();
     const { owner_token } = await params;
 
     // Find ArtKey by owner token

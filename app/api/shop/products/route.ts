@@ -4,12 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db, shopProducts, shopCategories, eq, and, asc } from '@/lib/db';
+import { getDb, shopProducts, shopCategories, eq, and, asc } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    const db = await getDb();
     const { searchParams } = new URL(request.url);
     const categorySlug = searchParams.get('category');
     const activeOnly = searchParams.get('active') !== 'false';

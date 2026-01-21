@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  db,
+  getDb,
   orders,
   customers,
   artKeys,
@@ -45,10 +45,11 @@ export async function POST(
   { params }: RouteParams
 ) {
   try {
+    const db = await getDb();
     const { orderId } = await params;
 
     // Get order from database
-    const order = db
+    const order = await db
       .select()
       .from(orders)
       .where(eq(orders.id, orderId))
@@ -78,7 +79,7 @@ export async function POST(
     // Get customer if exists
     let customer = null;
     if (order.customerId) {
-      customer = db
+      customer = await db
         .select()
         .from(customers)
         .where(eq(customers.id, order.customerId))
@@ -96,13 +97,12 @@ export async function POST(
     }
 
     // Update order status to processing
-    db.update(orders)
+    await db.update(orders)
       .set({
         status: 'processing',
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(orders.id, orderId))
-      .run();
+      .where(eq(orders.id, orderId));
 
     // Process each item - create ArtKeys for items that need QR codes
     const updatedItems: OrderItem[] = [];
@@ -111,14 +111,14 @@ export async function POST(
 
       // If we have a shopProductId, check if category requires QR code
       if (item.shopProductId && !needsQrCode) {
-        const shopProduct = db
+        const shopProduct = await db
           .select()
           .from(shopProducts)
           .where(eq(shopProducts.id, item.shopProductId))
           .get();
 
         if (shopProduct?.categoryId) {
-          const category = db
+          const category = await db
             .select()
             .from(shopCategories)
             .where(eq(shopCategories.id, shopProduct.categoryId))
@@ -136,19 +136,23 @@ export async function POST(
           let attempts = 0;
 
           // Check for duplicates
-          while (
-            db
-              .select()
-              .from(artKeys)
-              .where(eq(artKeys.publicToken, publicToken))
-              .get()
-          ) {
+          let existingKey = await db
+            .select()
+            .from(artKeys)
+            .where(eq(artKeys.publicToken, publicToken))
+            .get();
+          while (existingKey) {
             publicToken = generatePublicToken();
             attempts++;
             if (attempts > 10) {
               console.error(`[SubmitGelato] Failed to generate unique token for item ${item.id}`);
               break;
             }
+            existingKey = await db
+              .select()
+              .from(artKeys)
+              .where(eq(artKeys.publicToken, publicToken))
+              .get();
           }
 
           if (attempts <= 10) {
@@ -156,7 +160,7 @@ export async function POST(
             const artKeyId = generateId();
 
             // Create ArtKey portal
-            db.insert(artKeys)
+            await db.insert(artKeys)
               .values({
                 id: artKeyId,
                 publicToken,
@@ -174,8 +178,7 @@ export async function POST(
                 isDemo: false,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
-              })
-              .run();
+              });
 
             // Generate QR code URL (actual QR generation happens on render)
             const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://theartfulexperience.com';
@@ -196,16 +199,15 @@ export async function POST(
     }
 
     // Update order with modified items (including ArtKey IDs)
-    db.update(orders)
+    await db.update(orders)
       .set({
         itemsJson: JSON.stringify(updatedItems),
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(orders.id, orderId))
-      .run();
+      .where(eq(orders.id, orderId));
 
     // Get the updated order
-    const updatedOrder = db
+    const updatedOrder = await db
       .select()
       .from(orders)
       .where(eq(orders.id, orderId))

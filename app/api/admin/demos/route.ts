@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, artKeys, generatePublicToken, generateOwnerToken, generateId, desc, eq } from '@/lib/db';
+import { getDb, artKeys, generatePublicToken, generateOwnerToken, generateId, desc, eq } from '@/lib/db';
 import { getAppBaseUrl } from '@/lib/wp';
 import QRCode from 'qrcode';
 
@@ -14,6 +14,7 @@ import QRCode from 'qrcode';
  */
 export async function POST(request: Request) {
   try {
+    const db = await getDb();
     const body = await request.json();
     const { title, description, artKeyData } = body;
 
@@ -167,6 +168,7 @@ export async function POST(request: Request) {
  */
 export async function GET() {
   try {
+    const db = await getDb();
     // Fetch all demo ArtKeys directly using the isDemo flag
     const demoArtKeys = await db
       .select()
@@ -237,6 +239,7 @@ export async function GET() {
  */
 export async function DELETE(request: Request) {
   try {
+    const db = await getDb();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

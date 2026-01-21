@@ -4,12 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db, artists, artistArtworks, eq, and, desc, asc, sql } from '@/lib/db';
+import { getDb, artists, artistArtworks, eq, and, desc, asc, sql } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    const db = await getDb();
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get('active') !== 'false';
     const featured = searchParams.get('featured') === 'true';

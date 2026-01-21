@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, artKeys, artkeyMedia, eq, desc, generateId } from '@/lib/db';
+import { getDb, artKeys, artkeyMedia, eq, desc, generateId } from '@/lib/db';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
@@ -14,6 +14,7 @@ export async function POST(
   { params }: { params: Promise<{ public_token: string }> }
 ) {
   try {
+    const db = await getDb();
     const { public_token } = await params;
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -163,6 +164,7 @@ export async function GET(
   { params }: { params: Promise<{ public_token: string }> }
 ) {
   try {
+    const db = await getDb();
     const { public_token } = await params;
 
     // Find ArtKey by public token

@@ -7,12 +7,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db, shopCategories, gelatoProductCache, eq, and, asc } from '@/lib/db';
+import { getDb, shopCategories, gelatoProductCache, eq, and, asc } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    const db = await getDb();
     const searchParams = request.nextUrl.searchParams;
     const categorySlug = searchParams.get('category');
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, artKeys, artkeyMedia, eq, desc, and } from '@/lib/db';
+import { getDb, artKeys, artkeyMedia, eq, desc, and } from '@/lib/db';
 
 /**
  * Owner Media Management API
@@ -11,6 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ owner_token: string }> }
 ) {
   try {
+    const db = await getDb();
     const { owner_token } = await params;
 
     // Find ArtKey by owner token
@@ -94,6 +95,7 @@ export async function POST(
   { params }: { params: Promise<{ owner_token: string }> }
 ) {
   try {
+    const db = await getDb();
     const { owner_token } = await params;
     const body = await request.json();
     const { media_id, action } = body;

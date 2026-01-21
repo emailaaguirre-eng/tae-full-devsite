@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db, artists, artistArtworks, artworkProductLinks, shopCategories, eq, and, desc, asc } from '@/lib/db';
+import { getDb, artists, artistArtworks, artworkProductLinks, shopCategories, eq, and, desc, asc } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +13,7 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const db = await getDb();
     const { slug } = await params;
 
     // Get artist

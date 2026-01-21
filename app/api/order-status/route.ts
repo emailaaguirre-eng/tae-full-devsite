@@ -4,12 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db, orders, orderItems, eq, and } from '@/lib/db';
+import { getDb, orders, orderItems, eq, and } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const db = await getDb();
     const body = await request.json();
     const { email, orderNumber } = body;
 

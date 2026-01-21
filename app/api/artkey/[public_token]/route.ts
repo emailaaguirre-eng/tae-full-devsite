@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, artKeys, artkeyGuestbookEntries, artkeyMedia, eq, desc, asc } from '@/lib/db';
+import { getDb, artKeys, artkeyGuestbookEntries, artkeyMedia, eq, desc, asc } from '@/lib/db';
 
 /**
  * Public ArtKey Portal API
@@ -11,6 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ public_token: string }> }
 ) {
   try {
+    const db = await getDb();
     const { public_token } = await params;
 
     // Find ArtKey by public token
