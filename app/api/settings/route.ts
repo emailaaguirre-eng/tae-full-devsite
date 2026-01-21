@@ -29,5 +29,6 @@ export async function GET() {
   // Only expose public settings
   return NextResponse.json({
     chatbotEnabled: settings.chatbotEnabled ?? false,
+    purchasingEnabled: settings.purchasingEnabled ?? false,
   });
 }

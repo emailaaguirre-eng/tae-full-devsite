@@ -84,6 +84,15 @@ export default function ArtworkPurchasePage({ params }: { params: Promise<{ slug
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedFrameColor, setSelectedFrameColor] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [purchasingEnabled, setPurchasingEnabled] = useState(false);
+
+  // Fetch purchasing enabled setting
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => setPurchasingEnabled(data.purchasingEnabled ?? false))
+      .catch(() => setPurchasingEnabled(false));
+  }, []);
 
   // Resolve params
   useEffect(() => {
@@ -304,7 +313,9 @@ export default function ArtworkPurchasePage({ params }: { params: Promise<{ slug
                         >
                           <span className="font-medium">{size.sizeLabel}</span>
                           <span className="block text-sm opacity-75">
-                            from ${(size.basePrice + size.taeBaseFee + (artist?.royaltyFee || 0)).toFixed(2)}
+                            {purchasingEnabled
+                              ? `from $${(size.basePrice + size.taeBaseFee + (artist?.royaltyFee || 0)).toFixed(2)}`
+                              : 'Coming Soon'}
                           </span>
                         </button>
                       ))}
@@ -334,28 +345,30 @@ export default function ArtworkPurchasePage({ params }: { params: Promise<{ slug
                   </div>
                 )}
 
-                {/* Quantity */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-brand-darkest mb-2">Quantity</label>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-10 h-10 rounded-lg bg-brand-lightest hover:bg-brand-light flex items-center justify-center"
-                    >
-                      -
-                    </button>
-                    <span className="text-lg font-medium w-8 text-center">{quantity}</span>
-                    <button
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="w-10 h-10 rounded-lg bg-brand-lightest hover:bg-brand-light flex items-center justify-center"
-                    >
-                      +
-                    </button>
+                {/* Quantity - only show when purchasing enabled */}
+                {purchasingEnabled && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-brand-darkest mb-2">Quantity</label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        className="w-10 h-10 rounded-lg bg-brand-lightest hover:bg-brand-light flex items-center justify-center"
+                      >
+                        -
+                      </button>
+                      <span className="text-lg font-medium w-8 text-center">{quantity}</span>
+                      <button
+                        onClick={() => setQuantity(quantity + 1)}
+                        className="w-10 h-10 rounded-lg bg-brand-lightest hover:bg-brand-light flex items-center justify-center"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Price Breakdown */}
-                {pricing && (
+                {purchasingEnabled && pricing && (
                   <div className="border-t border-brand-light pt-6 mb-6">
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
@@ -378,13 +391,19 @@ export default function ArtworkPurchasePage({ params }: { params: Promise<{ slug
                   </div>
                 )}
 
-                {/* Add to Cart Button */}
-                <button
-                  disabled={!selectedSize || (selectedCategory === 'framed-prints' && !selectedFrameColor)}
-                  className="w-full py-4 bg-brand-darkest text-white rounded-lg font-semibold hover:bg-brand-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Add to Cart
-                </button>
+                {/* Add to Cart Button or Coming Soon */}
+                {purchasingEnabled ? (
+                  <button
+                    disabled={!selectedSize || (selectedCategory === 'framed-prints' && !selectedFrameColor)}
+                    className="w-full py-4 bg-brand-darkest text-white rounded-lg font-semibold hover:bg-brand-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Add to Cart
+                  </button>
+                ) : (
+                  <div className="w-full py-4 bg-gray-200 text-gray-600 rounded-lg font-semibold text-center">
+                    Coming Soon
+                  </div>
+                )}
 
                 {/* Source indicator (for debugging) */}
                 {productOptions && (

@@ -1,3 +1,4 @@
 {
-  "chatbotEnabled": false
+  "chatbotEnabled": false,
+  "purchasingEnabled": false
 }

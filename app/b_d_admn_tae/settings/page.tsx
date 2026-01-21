@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Settings, MessageCircle, Save, RefreshCw } from 'lucide-react';
+import { Settings, MessageCircle, ShoppingCart, Save, RefreshCw } from 'lucide-react';
 
 interface SiteSettings {
   chatbotEnabled: boolean;
+  purchasingEnabled: boolean;
 }
 
 export default function AdminSettingsPage() {
-  const [settings, setSettings] = useState<SiteSettings>({ chatbotEnabled: false });
+  const [settings, setSettings] = useState<SiteSettings>({ chatbotEnabled: false, purchasingEnabled: false });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -137,9 +138,47 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* Future settings sections can be added here */}
-        <div className="bg-white rounded-lg shadow-md p-6 border-2 border-dashed border-gray-200">
-          <p className="text-gray-400 text-center">More settings coming soon...</p>
+        {/* Purchasing Settings */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5" />
+              Purchasing
+            </h2>
+            <p className="text-sm text-white/80">Enable or disable product purchasing</p>
+          </div>
+          <div className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium text-gray-900">Enable Purchasing</h3>
+                <p className="text-sm text-gray-500">
+                  Allow customers to add items to cart and checkout
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.purchasingEnabled}
+                  onChange={(e) => updateSetting('purchasingEnabled', e.target.checked)}
+                  disabled={saving}
+                  className="sr-only peer"
+                />
+                <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-green-500"></div>
+              </label>
+            </div>
+
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <strong>Current Status:</strong>{' '}
+                <span className={settings.purchasingEnabled ? 'text-green-600' : 'text-red-600'}>
+                  {settings.purchasingEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                When disabled, the "Add to Cart" button will be hidden and prices will show "Coming Soon" instead.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
