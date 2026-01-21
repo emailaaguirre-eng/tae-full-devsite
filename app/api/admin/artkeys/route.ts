@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, artKeys, desc } from "@/lib/db";
+import { getDb, artKeys, desc } from "@/lib/db";
 
 /**
  * Admin ArtKeys API
@@ -8,6 +8,7 @@ import { db, artKeys, desc } from "@/lib/db";
  */
 export async function GET() {
   try {
+    const db = await getDb();
     // Fetch all ArtKeys from database using Drizzle
     const artKeysList = await db
       .select()
