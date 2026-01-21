@@ -8,7 +8,10 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  
+
+  // Exclude sql.js from bundling - it needs to load WASM at runtime
+  serverExternalPackages: ['sql.js'],
+
   // Increase body size limit for API routes
   experimental: {
     // Allow useSearchParams without Suspense boundary (existing behavior)
