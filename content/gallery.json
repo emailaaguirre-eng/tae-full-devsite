@@ -1,0 +1,204 @@
+{
+  "title": "TheAE Gallery",
+  "subtitle": "Explore our curated collection of art and photography from internationally recognized artists",
+  "featuredArtist": {
+    "name": "Deanna Lankin",
+    "title": "ARTIST | ASTROLOGY | THETA GUIDE",
+    "image": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/IMG_8704-e1751264048493.jpg",
+    "bio": "World-renowned artist specializing in artful image enhancement and personalized art experiences.",
+    "description": "Deanna Lankin brings years of artistic expertise to transform your images into stunning works of art.",
+    "buttonText": "View Portfolio →",
+    "slug": "deanna-lankin"
+  },
+  "artists": [
+    {
+      "name": "Deanna Lankin",
+      "title": "ARTIST | ASTROLOGY | THETA GUIDE",
+      "image": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/IMG_8704-e1751264048493.jpg",
+      "bioImage": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/legacy-2.jpeg",
+      "bio": "Deanna Lankin is a world-renowned artist based in the rugged beauty of Tofino, BC, in the heart of the Pacific Northwest. Her art is a profound exploration of the connection between nature and the human spirit, inspired by diverse landscapes such as Torres del Paine in Chile and Mexico City's iconic \"Angel de La Independencia,\" where she experienced a life-altering moment of inspiration. Her work belongs in private collections all over the world.",
+      "description": "Deanna is also a passionate teacher and speaker, leading inspiring talks, workshops, and retreats that weave together the healing power of art, astrology, and inner muse work. Her immersive experiences focus on personal growth, self-discovery, and fostering a deeper connection to both self and the environment. Through her work, Deanna empowers others to align with their highest potential, embrace their unique path, and thrive with intention and authenticity.",
+      "slug": "deanna-lankin",
+      "portfolio": [
+        {
+          "title": "First Light",
+          "image": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/legacy-2.jpeg",
+          "forSale": true,
+          "price": null
+        }
+      ]
+    },
+    {
+      "name": "Bryant Colman",
+      "title": "PHOTOGRAPHER | EXPLORER | FOUNDER",
+      "image": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/FullSizeRender-1-scaled.jpeg",
+      "bioImage": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/IMG_7860-e1766120616753.png",
+      "bio": "",
+      "description": "I'm equally inspired by human-made environments: the quiet elegance of Mexican haciendas, the layered history of Paris, and the bold urban energy of cities like Rio de Janeiro, Istanbul, London and Moscow. Some of my most meaningful moments have come through adventure—kayaking in the Sea of Cortez during whale migration, long treks, and journeys that reward curiosity.\n\nAt the core of it all is a love of creating and being part of a thoughtful, creative community—people who value craftsmanship, ideas, and experiences that endure, from which emerged - The Artful Experience.",
+      "slug": "bryant-colman",
+      "portfolio": [
+        {
+          "title": "Untitled 1",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_9049-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 2",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_9328.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 3",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_9290.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 4",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_9078-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 5",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_8422-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 6",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_8466-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 7",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_7243-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 8",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_7236-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 9",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_7602-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 10",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_8203-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 11",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/GPTempDownload.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 12",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_9041-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 13",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_8519-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 14",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_7657-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 15",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_3193-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 16",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_9943-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 17",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_8299-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 18",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_3771-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 19",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_8203-1-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 20",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/16516A76-B1EC-4814-9013-5EEFE90AC2FC.jpg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 21",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/GPTempDownload-1.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 22",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_9562-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 23",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/919F5B67-311E-461E-ACE9-1EB2AD8205FD.jpg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 24",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_0390-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 25",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_9386-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        },
+        {
+          "title": "Untitled 26",
+          "image": "https://theartfulexperience.com/wp-content/uploads/2026/01/IMG_0101-scaled.jpeg",
+          "forSale": true,
+          "price": null
+        }
+      ]
+    }
+  ],
+  "comingSoon": {
+    "title": "More Artists Coming Soon",
+    "description": "We're continuously adding new talented artists to our gallery. Check back soon!"
+  }
+}
+

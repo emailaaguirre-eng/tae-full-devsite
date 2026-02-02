@@ -1,0 +1,904 @@
+{
+  "labels": [
+    {
+      "name": "LABEL_01",
+      "svg": "labels/LABEL_01.svg",
+      "png": "labels/LABEL_01.png",
+      "bbox_device_coords": {
+        "minx": 2141.340765306341,
+        "miny": 1415.733,
+        "maxx": 2715.4724610395597,
+        "maxy": 1806.8600000000001
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1367
+      }
+    },
+    {
+      "name": "LABEL_02",
+      "svg": "labels/LABEL_02.svg",
+      "png": "labels/LABEL_02.png",
+      "bbox_device_coords": {
+        "minx": 173.073,
+        "miny": 1426.1390000000001,
+        "maxx": 765.581,
+        "maxy": 1796.455
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1255
+      }
+    },
+    {
+      "name": "LABEL_03",
+      "svg": "labels/LABEL_03.svg",
+      "png": "labels/LABEL_03.png",
+      "bbox_device_coords": {
+        "minx": 846.374,
+        "miny": 1435.199,
+        "maxx": 1435.2,
+        "maxy": 1787.395
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1202
+      }
+    },
+    {
+      "name": "LABEL_04",
+      "svg": "labels/LABEL_04.svg",
+      "png": "labels/LABEL_04.png",
+      "bbox_device_coords": {
+        "minx": 1515.99,
+        "miny": 1458.154,
+        "maxx": 2060.54,
+        "maxy": 1764.439
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1131
+      }
+    },
+    {
+      "name": "LABEL_05",
+      "svg": "labels/LABEL_05.svg",
+      "png": "labels/LABEL_05.png",
+      "bbox_device_coords": {
+        "minx": 1515.99,
+        "miny": 982.12,
+        "maxx": 2060.54,
+        "maxy": 1373.2440000000001
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1441
+      }
+    },
+    {
+      "name": "LABEL_06",
+      "svg": "labels/LABEL_06.svg",
+      "png": "labels/LABEL_06.png",
+      "bbox_device_coords": {
+        "minx": 2158.33,
+        "miny": 989.86,
+        "maxx": 2698.48,
+        "maxy": 1365.5030000000002
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1395
+      }
+    },
+    {
+      "name": "LABEL_07",
+      "svg": "labels/LABEL_07.svg",
+      "png": "labels/LABEL_07.png",
+      "bbox_device_coords": {
+        "minx": 201.30724997946558,
+        "miny": 992.52,
+        "maxx": 737.3505000209592,
+        "maxy": 1362.838
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1386
+      }
+    },
+    {
+      "name": "LABEL_08",
+      "svg": "labels/LABEL_08.svg",
+      "png": "labels/LABEL_08.png",
+      "bbox_device_coords": {
+        "minx": 846.374,
+        "miny": 1001.582,
+        "maxx": 1435.2,
+        "maxy": 1353.778
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1202
+      }
+    },
+    {
+      "name": "LABEL_09",
+      "svg": "labels/LABEL_09.svg",
+      "png": "labels/LABEL_09.png",
+      "bbox_device_coords": {
+        "minx": 2119.96,
+        "miny": 584.3900000000001,
+        "maxx": 2736.85,
+        "maxy": 954.71
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1206
+      }
+    },
+    {
+      "name": "LABEL_10",
+      "svg": "labels/LABEL_10.svg",
+      "png": "labels/LABEL_10.png",
+      "bbox_device_coords": {
+        "minx": 846.374,
+        "miny": 593.45,
+        "maxx": 1435.2,
+        "maxy": 945.6500000000001
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1202
+      }
+    },
+    {
+      "name": "LABEL_11",
+      "svg": "labels/LABEL_11.svg",
+      "png": "labels/LABEL_11.png",
+      "bbox_device_coords": {
+        "minx": 1515.99,
+        "miny": 616.4100000000001,
+        "maxx": 2060.54,
+        "maxy": 922.69
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1131
+      }
+    },
+    {
+      "name": "LABEL_12",
+      "svg": "labels/LABEL_12.svg",
+      "png": "labels/LABEL_12.png",
+      "bbox_device_coords": {
+        "minx": 163.41,
+        "miny": 618.9300000000001,
+        "maxx": 775.244,
+        "maxy": 920.1600000000001
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 991
+      }
+    },
+    {
+      "name": "LABEL_13",
+      "svg": "labels/LABEL_13.svg",
+      "png": "labels/LABEL_13.png",
+      "bbox_device_coords": {
+        "minx": 168.359,
+        "miny": 193.1400000000001,
+        "maxx": 770.295,
+        "maxy": 584.27
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1304
+      }
+    },
+    {
+      "name": "LABEL_14",
+      "svg": "labels/LABEL_14.svg",
+      "png": "labels/LABEL_14.png",
+      "bbox_device_coords": {
+        "minx": 1491.5784248357036,
+        "miny": 234.20000000000005,
+        "maxx": 2084.95,
+        "maxy": 543.21
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1048
+      }
+    },
+    {
+      "name": "LABEL_15",
+      "svg": "labels/LABEL_15.svg",
+      "png": "labels/LABEL_15.png",
+      "bbox_device_coords": {
+        "minx": 2156.13,
+        "miny": 234.75,
+        "maxx": 2700.68,
+        "maxy": 542.6600000000001
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1137
+      }
+    },
+    {
+      "name": "LABEL_16",
+      "svg": "labels/LABEL_16.svg",
+      "png": "labels/LABEL_16.png",
+      "bbox_device_coords": {
+        "minx": 832.344,
+        "miny": 239.8900000000001,
+        "maxx": 1449.23,
+        "maxy": 537.51
+      },
+      "num_shapes": 3,
+      "render_png_size": {
+        "width": 2000,
+        "height": 972
+      }
+    }
+  ],
+  "borders": [
+    {
+      "name": "BORDER_01",
+      "svg": "borders/BORDER_01.svg",
+      "png": "borders/BORDER_01.png",
+      "bbox_device_coords": {
+        "minx": 971.431,
+        "miny": 1271.4279999999999,
+        "maxx": 1405.75,
+        "maxy": 1845.1814
+      },
+      "num_shapes": 20,
+      "render_png_size": {
+        "width": 1517,
+        "height": 2000
+      }
+    },
+    {
+      "name": "BORDER_02",
+      "svg": "borders/BORDER_02.svg",
+      "png": "borders/BORDER_02.png",
+      "bbox_device_coords": {
+        "minx": 1440.02,
+        "miny": 1271.916,
+        "maxx": 1849.64,
+        "maxy": 1844.6925999999999
+      },
+      "num_shapes": 1,
+      "render_png_size": {
+        "width": 1434,
+        "height": 2000
+      }
+    },
+    {
+      "name": "BORDER_03",
+      "svg": "borders/BORDER_03.svg",
+      "png": "borders/BORDER_03.png",
+      "bbox_device_coords": {
+        "minx": 60.7744,
+        "miny": 1278.425,
+        "maxx": 472.957,
+        "maxy": 1838.1838
+      },
+      "num_shapes": 42,
+      "render_png_size": {
+        "width": 1476,
+        "height": 2000
+      }
+    },
+    {
+      "name": "BORDER_04",
+      "svg": "borders/BORDER_04.svg",
+      "png": "borders/BORDER_04.png",
+      "bbox_device_coords": {
+        "minx": 537.502310919269,
+        "miny": 1290.7801943131583,
+        "maxx": 917.628,
+        "maxy": 1825.9562792665586
+      },
+      "num_shapes": 159,
+      "render_png_size": {
+        "width": 1425,
+        "height": 2000
+      }
+    },
+    {
+      "name": "BORDER_05",
+      "svg": "borders/BORDER_05.svg",
+      "png": "borders/BORDER_05.png",
+      "bbox_device_coords": {
+        "minx": 1430.11740586896,
+        "miny": 663.3971396511942,
+        "maxx": 1859.5392976038615,
+        "maxy": 1257.812179791784
+      },
+      "num_shapes": 12,
+      "render_png_size": {
+        "width": 1449,
+        "height": 2000
+      }
+    },
+    {
+      "name": "BORDER_06",
+      "svg": "borders/BORDER_06.svg",
+      "png": "borders/BORDER_06.png",
+      "bbox_device_coords": {
+        "minx": 509.78397334351354,
+        "miny": 667.7506343225807,
+        "maxx": 945.3650154023171,
+        "maxy": 1253.456565364363
+      },
+      "num_shapes": 21,
+      "render_png_size": {
+        "width": 1491,
+        "height": 2000
+      }
+    },
+    {
+      "name": "BORDER_07",
+      "svg": "borders/BORDER_07.svg",
+      "png": "borders/BORDER_07.png",
+      "bbox_device_coords": {
+        "minx": 973.6759981304325,
+        "miny": 668.7115426913213,
+        "maxx": 1403.5053466098261,
+        "maxy": 1250.4938351471906
+      },
+      "num_shapes": 24,
+      "render_png_size": {
+        "width": 1481,
+        "height": 2000
+      }
+    },
+    {
+      "name": "BORDER_08",
+      "svg": "borders/BORDER_08.svg",
+      "png": "borders/BORDER_08.png",
+      "bbox_device_coords": {
+        "minx": 73.6807,
+        "miny": 694.78,
+        "maxx": 460.051,
+        "maxy": 1229.4270000000001
+      },
+      "num_shapes": 16,
+      "render_png_size": {
+        "width": 1449,
+        "height": 2000
+      }
+    },
+    {
+      "name": "BORDER_09",
+      "svg": "borders/BORDER_09.svg",
+      "png": "borders/BORDER_09.png",
+      "bbox_device_coords": {
+        "minx": 1438.799075885192,
+        "miny": 47.19949999999995,
+        "maxx": 1850.8513496148307,
+        "maxy": 653.2605
+      },
+      "num_shapes": 64,
+      "render_png_size": {
+        "width": 1364,
+        "height": 2000
+      }
+    },
+    {
+      "name": "BORDER_10",
+      "svg": "borders/BORDER_10.svg",
+      "png": "borders/BORDER_10.png",
+      "bbox_device_coords": {
+        "minx": 507.4786045126302,
+        "miny": 48.49773545771416,
+        "maxx": 947.6703954873698,
+        "maxy": 651.9622645422859
+      },
+      "num_shapes": 12,
+      "render_png_size": {
+        "width": 1462,
+        "height": 2000
+      }
+    },
+    {
+      "name": "BORDER_11",
+      "svg": "borders/BORDER_11.svg",
+      "png": "borders/BORDER_11.png",
+      "bbox_device_coords": {
+        "minx": 53.4918204889817,
+        "miny": 54.937959577763834,
+        "maxx": 481.2401730675648,
+        "maxy": 645.5164072347804
+      },
+      "num_shapes": 12,
+      "render_png_size": {
+        "width": 1452,
+        "height": 2000
+      }
+    },
+    {
+      "name": "BORDER_12",
+      "svg": "borders/BORDER_12.svg",
+      "png": "borders/BORDER_12.png",
+      "bbox_device_coords": {
+        "minx": 989.852,
+        "miny": 70.45000000000005,
+        "maxx": 1387.33,
+        "maxy": 630.01
+      },
+      "num_shapes": 124,
+      "render_png_size": {
+        "width": 1425,
+        "height": 2000
+      }
+    }
+  ],
+  "accents": [
+    {
+      "name": "ACCENT_01",
+      "svg": "accents/ACCENT_01.svg",
+      "png": "accents/ACCENT_01.png",
+      "bbox_device_coords": {
+        "minx": 796.5655862925785,
+        "miny": 836.5224416676509,
+        "maxx": 944.6006814167596,
+        "maxy": 957.4398320820678
+      },
+      "num_shapes": 16,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1643
+      }
+    },
+    {
+      "name": "ACCENT_02",
+      "svg": "accents/ACCENT_02.svg",
+      "png": "accents/ACCENT_02.png",
+      "bbox_device_coords": {
+        "minx": 54.85149748795457,
+        "miny": 824.7653361036241,
+        "maxx": 300.77778820386453,
+        "maxy": 956.7742231978439
+      },
+      "num_shapes": 14,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1088
+      }
+    },
+    {
+      "name": "ACCENT_03",
+      "svg": "accents/ACCENT_03.svg",
+      "png": "accents/ACCENT_03.png",
+      "bbox_device_coords": {
+        "minx": 288.28036000766815,
+        "miny": 762.5408212295852,
+        "maxx": 552.8716399923319,
+        "maxy": 956.7091960463082
+      },
+      "num_shapes": 27,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1476
+      }
+    },
+    {
+      "name": "ACCENT_04",
+      "svg": "accents/ACCENT_04.svg",
+      "png": "accents/ACCENT_04.png",
+      "bbox_device_coords": {
+        "minx": 458.7,
+        "miny": 844.3807555806605,
+        "maxx": 642.673,
+        "maxy": 950.5542
+      },
+      "num_shapes": 9,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1172
+      }
+    },
+    {
+      "name": "ACCENT_05",
+      "svg": "accents/ACCENT_05.svg",
+      "png": "accents/ACCENT_05.png",
+      "bbox_device_coords": {
+        "minx": 663.3692219023804,
+        "miny": 834.1164166738222,
+        "maxx": 750.5625380741598,
+        "maxy": 948.9837107133183
+      },
+      "num_shapes": 4,
+      "render_png_size": {
+        "width": 1534,
+        "height": 2000
+      }
+    },
+    {
+      "name": "ACCENT_06",
+      "svg": "accents/ACCENT_06.svg",
+      "png": "accents/ACCENT_06.png",
+      "bbox_device_coords": {
+        "minx": 840.0072752229772,
+        "miny": 652.758,
+        "maxx": 942.5638790523857,
+        "maxy": 814.623010992875
+      },
+      "num_shapes": 13,
+      "render_png_size": {
+        "width": 1285,
+        "height": 2000
+      }
+    },
+    {
+      "name": "ACCENT_07",
+      "svg": "accents/ACCENT_07.svg",
+      "png": "accents/ACCENT_07.png",
+      "bbox_device_coords": {
+        "minx": 64.57292988588502,
+        "miny": 670.236,
+        "maxx": 560.8451420240607,
+        "maxy": 813.6314199050203
+      },
+      "num_shapes": 95,
+      "render_png_size": {
+        "width": 2000,
+        "height": 589
+      }
+    },
+    {
+      "name": "ACCENT_08",
+      "svg": "accents/ACCENT_08.svg",
+      "png": "accents/ACCENT_08.png",
+      "bbox_device_coords": {
+        "minx": 743.7003501010136,
+        "miny": 734.642,
+        "maxx": 826.3143423147104,
+        "maxy": 807.9706007605479
+      },
+      "num_shapes": 8,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1786
+      }
+    },
+    {
+      "name": "ACCENT_09",
+      "svg": "accents/ACCENT_09.svg",
+      "png": "accents/ACCENT_09.png",
+      "bbox_device_coords": {
+        "minx": 588.301,
+        "miny": 647.6702159037626,
+        "maxx": 816.4571330341655,
+        "maxy": 800.6746088417993
+      },
+      "num_shapes": 15,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1353
+      }
+    },
+    {
+      "name": "ACCENT_10",
+      "svg": "accents/ACCENT_10.svg",
+      "png": "accents/ACCENT_10.png",
+      "bbox_device_coords": {
+        "minx": 490.2432625778849,
+        "miny": 562.545824681186,
+        "maxx": 756.0497622464924,
+        "maxy": 649.914606388571
+      },
+      "num_shapes": 79,
+      "render_png_size": {
+        "width": 2000,
+        "height": 677
+      }
+    },
+    {
+      "name": "ACCENT_11",
+      "svg": "accents/ACCENT_11.svg",
+      "png": "accents/ACCENT_11.png",
+      "bbox_device_coords": {
+        "minx": 48.480063395227546,
+        "miny": 555.3657025780569,
+        "maxx": 450.81952892561986,
+        "maxy": 641.6220659360187
+      },
+      "num_shapes": 136,
+      "render_png_size": {
+        "width": 2000,
+        "height": 444
+      }
+    },
+    {
+      "name": "ACCENT_12",
+      "svg": "accents/ACCENT_12.svg",
+      "png": "accents/ACCENT_12.png",
+      "bbox_device_coords": {
+        "minx": 803.765783321816,
+        "miny": 459.52606718229714,
+        "maxx": 954.8037992402609,
+        "maxy": 625.8452134816614
+      },
+      "num_shapes": 10,
+      "render_png_size": {
+        "width": 1821,
+        "height": 2000
+      }
+    },
+    {
+      "name": "ACCENT_13",
+      "svg": "accents/ACCENT_13.svg",
+      "png": "accents/ACCENT_13.png",
+      "bbox_device_coords": {
+        "minx": 460.66031717284955,
+        "miny": 474.53983164304304,
+        "maxx": 782.5762928799734,
+        "maxy": 542.979
+      },
+      "num_shapes": 18,
+      "render_png_size": {
+        "width": 2000,
+        "height": 445
+      }
+    },
+    {
+      "name": "ACCENT_14",
+      "svg": "accents/ACCENT_14.svg",
+      "png": "accents/ACCENT_14.png",
+      "bbox_device_coords": {
+        "minx": 313.8140005912433,
+        "miny": 381.88806709366406,
+        "maxx": 430.4312214483291,
+        "maxy": 541.7910809768323
+      },
+      "num_shapes": 10,
+      "render_png_size": {
+        "width": 1472,
+        "height": 2000
+      }
+    },
+    {
+      "name": "ACCENT_15",
+      "svg": "accents/ACCENT_15.svg",
+      "png": "accents/ACCENT_15.png",
+      "bbox_device_coords": {
+        "minx": 44.360232631399796,
+        "miny": 362.6636938506033,
+        "maxx": 190.817,
+        "maxy": 541.652
+      },
+      "num_shapes": 79,
+      "render_png_size": {
+        "width": 1644,
+        "height": 2000
+      }
+    },
+    {
+      "name": "ACCENT_16",
+      "svg": "accents/ACCENT_16.svg",
+      "png": "accents/ACCENT_16.png",
+      "bbox_device_coords": {
+        "minx": 206.86471617231376,
+        "miny": 407.1705022797952,
+        "maxx": 307.35666151398345,
+        "maxy": 538.1600184387211
+      },
+      "num_shapes": 1,
+      "render_png_size": {
+        "width": 1548,
+        "height": 2000
+      }
+    },
+    {
+      "name": "ACCENT_17",
+      "svg": "accents/ACCENT_17.svg",
+      "png": "accents/ACCENT_17.png",
+      "bbox_device_coords": {
+        "minx": 468.27067740206013,
+        "miny": 346.9926346959393,
+        "maxx": 767.2424207471121,
+        "maxy": 445.0121243148866
+      },
+      "num_shapes": 21,
+      "render_png_size": {
+        "width": 2000,
+        "height": 673
+      }
+    },
+    {
+      "name": "ACCENT_18",
+      "svg": "accents/ACCENT_18.svg",
+      "png": "accents/ACCENT_18.png",
+      "bbox_device_coords": {
+        "minx": 808.5640809892736,
+        "miny": 363.3479627250978,
+        "maxx": 958.2057014084568,
+        "maxy": 438.678
+      },
+      "num_shapes": 9,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1033
+      }
+    },
+    {
+      "name": "ACCENT_19",
+      "svg": "accents/ACCENT_19.svg",
+      "png": "accents/ACCENT_19.png",
+      "bbox_device_coords": {
+        "minx": 141.007,
+        "miny": 294.5677834900781,
+        "maxx": 358.648,
+        "maxy": 386.54100000000005
+      },
+      "num_shapes": 35,
+      "render_png_size": {
+        "width": 2000,
+        "height": 866
+      }
+    },
+    {
+      "name": "ACCENT_20",
+      "svg": "accents/ACCENT_20.svg",
+      "png": "accents/ACCENT_20.png",
+      "bbox_device_coords": {
+        "minx": 380.3384126318236,
+        "miny": 256.7854646925239,
+        "maxx": 834.7783052287175,
+        "maxy": 341.48584425897076
+      },
+      "num_shapes": 16,
+      "render_png_size": {
+        "width": 2000,
+        "height": 387
+      }
+    },
+    {
+      "name": "ACCENT_21",
+      "svg": "accents/ACCENT_21.svg",
+      "png": "accents/ACCENT_21.png",
+      "bbox_device_coords": {
+        "minx": 50.547385697311725,
+        "miny": 188.35705720054744,
+        "maxx": 368.11287535922514,
+        "maxy": 340.4805611482334
+      },
+      "num_shapes": 91,
+      "render_png_size": {
+        "width": 2000,
+        "height": 971
+      }
+    },
+    {
+      "name": "ACCENT_22",
+      "svg": "accents/ACCENT_22.svg",
+      "png": "accents/ACCENT_22.png",
+      "bbox_device_coords": {
+        "minx": 801.0402330367584,
+        "miny": 42.094695358607424,
+        "maxx": 955.2040443983595,
+        "maxy": 335.0961233753569
+      },
+      "num_shapes": 76,
+      "render_png_size": {
+        "width": 1065,
+        "height": 2000
+      }
+    },
+    {
+      "name": "ACCENT_23",
+      "svg": "accents/ACCENT_23.svg",
+      "png": "accents/ACCENT_23.png",
+      "bbox_device_coords": {
+        "minx": 852.2461926433332,
+        "miny": 331.47496074580897,
+        "maxx": 853.287612039545,
+        "maxy": 332.4560376857278
+      },
+      "num_shapes": 1,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1976
+      }
+    },
+    {
+      "name": "ACCENT_24",
+      "svg": "accents/ACCENT_24.svg",
+      "png": "accents/ACCENT_24.png",
+      "bbox_device_coords": {
+        "minx": 660.348738902833,
+        "miny": 160.10118278448633,
+        "maxx": 790.9832610971672,
+        "maxy": 242.24179744794262
+      },
+      "num_shapes": 8,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1280
+      }
+    },
+    {
+      "name": "ACCENT_25",
+      "svg": "accents/ACCENT_25.svg",
+      "png": "accents/ACCENT_25.png",
+      "bbox_device_coords": {
+        "minx": 387.52683398095263,
+        "miny": 166.5513753255101,
+        "maxx": 636.5261520955012,
+        "maxy": 235.6982352725175
+      },
+      "num_shapes": 79,
+      "render_png_size": {
+        "width": 2000,
+        "height": 578
+      }
+    },
+    {
+      "name": "ACCENT_26",
+      "svg": "accents/ACCENT_26.svg",
+      "png": "accents/ACCENT_26.png",
+      "bbox_device_coords": {
+        "minx": 277.79,
+        "miny": 71.68163263991389,
+        "maxx": 363.924,
+        "maxy": 171.50563047162564
+      },
+      "num_shapes": 10,
+      "render_png_size": {
+        "width": 1736,
+        "height": 2000
+      }
+    },
+    {
+      "name": "ACCENT_27",
+      "svg": "accents/ACCENT_27.svg",
+      "png": "accents/ACCENT_27.png",
+      "bbox_device_coords": {
+        "minx": 54.8704219297581,
+        "miny": 42.278380445509946,
+        "maxx": 277.546544895567,
+        "maxy": 170.25300000000004
+      },
+      "num_shapes": 9,
+      "render_png_size": {
+        "width": 2000,
+        "height": 1164
+      }
+    },
+    {
+      "name": "ACCENT_28",
+      "svg": "accents/ACCENT_28.svg",
+      "png": "accents/ACCENT_28.png",
+      "bbox_device_coords": {
+        "minx": 401.776,
+        "miny": 52.48464012420093,
+        "maxx": 783.802,
+        "maxy": 150.87242678957784
+      },
+      "num_shapes": 28,
+      "render_png_size": {
+        "width": 2000,
+        "height": 530
+      }
+    }
+  ]
+}

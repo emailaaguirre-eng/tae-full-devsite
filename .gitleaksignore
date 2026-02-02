@@ -1,0 +1,11 @@
+# Ignore specific files or patterns that are safe
+# Add any legitimate files that might contain patterns that look like secrets
+
+# Example: If you have test files with fake credentials
+# **/test/**/*.env
+# **/__tests__/**/*.js
+
+# Ignore the .env.example file (it's safe, just a template)
+.env.example
+*.example
+
