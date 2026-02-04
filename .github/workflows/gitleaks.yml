@@ -1,0 +1,30 @@
+name: Gitleaks Secret Detection
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run weekly on Mondays
+    - cron: '0 0 * * 1'
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for full scan
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Fail the action if secrets are found
+          no-git: false
+          # Scan all commits in the push
+          extra-args: --verbose --redact
+

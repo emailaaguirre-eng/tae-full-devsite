@@ -1,0 +1,21 @@
+nohup: ignoring input
+
+> tae-full-devsite@0.1.1 start
+> next start
+
+ ⨯ Failed to start server
+Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:1817:16)
+    at listenInCluster (node:net:1865:12)
+    at Server.listen (node:net:1953:7)
+    at /home/artful/apps/tae-full-devsite/node_modules/next/dist/server/lib/start-server.js:280:16
+    at new Promise (<anonymous>)
+    at startServer (/home/artful/apps/tae-full-devsite/node_modules/next/dist/server/lib/start-server.js:191:11)
+    at Module.nextStart (/home/artful/apps/tae-full-devsite/node_modules/next/dist/cli/next-start.js:25:40)
+    at /home/artful/apps/tae-full-devsite/node_modules/next/dist/bin/next:105:856 {
+  code: 'EADDRINUSE',
+  errno: -98,
+  syscall: 'listen',
+  address: '::',
+  port: 3000
+}
