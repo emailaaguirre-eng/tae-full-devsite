@@ -63,6 +63,7 @@ export const shopCategories = sqliteTable('ShopCategory', {
 
 // =============================================================================
 // Shop Products - Individual products within categories
+// Supports both Gelato (legacy) and Printful fulfillment
 // =============================================================================
 export const shopProducts = sqliteTable('ShopProduct', {
   id: text('id').primaryKey(),
@@ -71,17 +72,49 @@ export const shopProducts = sqliteTable('ShopProduct', {
   slug: text('slug').unique().notNull(),
   name: text('name').notNull(),
   description: text('description'),
+
+  // Print provider: 'printful' or 'gelato'
+  printProvider: text('printProvider'),
+
+  // Gelato fields (legacy)
   gelatoProductUid: text('gelatoProductUid'),
   gelatoBasePrice: real('gelatoBasePrice').default(0),
+
+  // Printful fields
+  printfulProductId: integer('printfulProductId'),
+  printfulVariantId: integer('printfulVariantId'),
+  printfulPrintfileId: integer('printfulPrintfileId'),
+  printfulBasePrice: real('printfulBasePrice').default(0),
+
+  // Print specifications
+  printWidth: integer('printWidth'),
+  printHeight: integer('printHeight'),
+  printDpi: integer('printDpi').default(300),
+  printFillMode: text('printFillMode'),
+
+  // Product configuration
+  requiredPlacements: text('requiredPlacements'),
+  qrDefaultPosition: text('qrDefaultPosition'),
+
+  // Pricing
   taeAddOnFee: real('taeAddOnFee').default(0),
+
+  // Product details
   sizeLabel: text('sizeLabel'),
   paperType: text('paperType'),
   finishType: text('finishType'),
   orientation: text('orientation'),
   heroImage: text('heroImage'),
+
+  // Status
   active: integer('active', { mode: 'boolean' }).default(true),
   sortOrder: integer('sortOrder').default(0),
+
+  // Raw API data
   gelatoDataJson: text('gelatoDataJson'),
+  printfulDataJson: text('printfulDataJson'),
+
+  // Timestamps
   lastSyncedAt: text('lastSyncedAt'),
   createdAt: text('createdAt'),
   updatedAt: text('updatedAt'),

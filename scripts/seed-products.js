@@ -1,152 +1,271 @@
 /**
- * Seed ShopProducts
+ * TAE Complete Product Seeder
+ * ===========================
+ * Pulls ALL variants from Printful API for all 8 products.
+ * Seeds every variant into the database with real prices.
+ * YOU decide what to activate from the admin panel.
+ *
  * Run: node scripts/seed-products.js
  */
 
-const initSqlJs = require('sql.js');
 const path = require('path');
 const fs = require('fs');
 const { randomUUID } = require('crypto');
 
-const dbPath = path.join(__dirname, '../prisma/dev.db');
+const DB_PATH = path.join(__dirname, '..', 'prisma', 'dev.db');
 
+// ---------------------------------------------------------------------------
+// Load Printful token from .env.local or .env
+// ---------------------------------------------------------------------------
+function loadPrintfulToken() {
+  const envFiles = [
+    path.join(__dirname, '..', '.env.local'),
+    path.join(__dirname, '..', '.env'),
+  ];
+  for (const f of envFiles) {
+    if (fs.existsSync(f)) {
+      const lines = fs.readFileSync(f, 'utf-8').split('\n');
+      for (const line of lines) {
+        const match = line.match(/^\s*PRINTFUL_TOKEN\s*=\s*(.+)\s*$/);
+        if (match) return match[1].trim().replace(/^["']|["']$/g, '');
+      }
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Fetch product info + variants from Printful API
+// ---------------------------------------------------------------------------
+async function fetchPrintfulProduct(productId, token) {
+  const url = `https://api.printful.com/products/${productId}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    console.error(`  ⚠️  Printful API error for product ${productId}: ${res.status}`);
+    return { product: null, variants: [] };
+  }
+  const data = await res.json();
+  return {
+    product: data.result?.product || null,
+    variants: data.result?.variants || [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Slugify helper
+// ---------------------------------------------------------------------------
+function slugify(str) {
+  return str
+    .toLowerCase()
+    .replace(/[″"]/g, '')
+    .replace(/[×x]/g, 'x')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
 async function main() {
-  // Initialize sql.js
-  const SQL = await initSqlJs();
+  console.log('=== TAE Product Seeder ===');
+  console.log('Pulls ALL variants from Printful. You choose what to offer.\n');
 
-  // Load or create database
-  let db;
-  if (fs.existsSync(dbPath)) {
-    const fileBuffer = fs.readFileSync(dbPath);
-    db = new SQL.Database(fileBuffer);
-  } else {
-    console.error('Database file not found. Run seed-all.js first.');
+  if (!fs.existsSync(DB_PATH)) {
+    console.error('❌ Database file not found at:', DB_PATH);
     process.exit(1);
   }
 
-  console.log('Fetching categories...');
-  const categoriesResult = db.exec('SELECT * FROM ShopCategory');
-
-  const categories = [];
-  if (categoriesResult.length > 0) {
-    const cols = categoriesResult[0].columns;
-    const rows = categoriesResult[0].values;
-    for (const row of rows) {
-      const cat = {};
-      cols.forEach((col, i) => cat[col] = row[i]);
-      categories.push(cat);
-    }
+  const token = loadPrintfulToken();
+  if (!token) {
+    console.error('❌ PRINTFUL_TOKEN not found in .env.local or .env');
+    process.exit(1);
   }
+  console.log('✅ Printful token loaded\n');
 
-  console.log('Found categories:');
-  categories.forEach(c => console.log(`  ${c.slug}: ${c.name} (fee: $${c.taeBaseFee})`));
+  const SQL = require('sql.js');
+  const S = await SQL();
+  const db = new S.Database(fs.readFileSync(DB_PATH));
+  const now = Date.now().toString();
 
-  // Build category lookup
-  const catBySlug = {};
-  categories.forEach(c => catBySlug[c.slug] = c.id);
-
-  // Define products by category
-  const products = [
-    // GREETING CARDS (category slug is 'cards')
-    { categorySlug: 'cards', taeId: 'TAE-CARD-5X7-F', slug: 'greeting-card-5x7-folded', name: '5x7 Folded Greeting Card', sizeLabel: '5x7', gelatoProductUid: 'cards_pf_5x7_pt_350-gsm-uncoated_cl_4-4_ot_folded-horizontal_ct_matte', gelatoBasePrice: 1.50, taeAddOnFee: 0.50 },
-    { categorySlug: 'cards', taeId: 'TAE-CARD-4X6-F', slug: 'greeting-card-4x6-folded', name: '4x6 Folded Greeting Card', sizeLabel: '4x6', gelatoProductUid: 'cards_pf_4x6_pt_350-gsm-uncoated_cl_4-4_ot_folded-horizontal_ct_matte', gelatoBasePrice: 1.25, taeAddOnFee: 0.50 },
-    { categorySlug: 'cards', taeId: 'TAE-CARD-A7-F', slug: 'greeting-card-a7-folded', name: 'A7 Folded Greeting Card', sizeLabel: 'A7 (5x7)', gelatoProductUid: 'cards_pf_a7_pt_350-gsm-uncoated_cl_4-4_ot_folded-horizontal_ct_matte', gelatoBasePrice: 1.50, taeAddOnFee: 0.50 },
-
-    // INVITATIONS
-    { categorySlug: 'invitations', taeId: 'TAE-INV-5X7-F', slug: 'invitation-5x7-folded', name: '5x7 Folded Invitation', sizeLabel: '5x7', gelatoProductUid: 'cards_pf_5x7_pt_350-gsm-uncoated_cl_4-4_ot_folded-horizontal_ct_matte', gelatoBasePrice: 1.75, taeAddOnFee: 1.00 },
-    { categorySlug: 'invitations', taeId: 'TAE-INV-5X7-FL', slug: 'invitation-5x7-flat', name: '5x7 Flat Invitation', sizeLabel: '5x7', gelatoProductUid: 'cards_pf_5x7_pt_350-gsm-uncoated_cl_4-4_ot_flat_ct_matte', gelatoBasePrice: 1.50, taeAddOnFee: 1.00 },
-    { categorySlug: 'invitations', taeId: 'TAE-INV-4X9-FL', slug: 'invitation-4x9-flat', name: '4x9 Flat Invitation (Slim)', sizeLabel: '4x9', gelatoProductUid: 'cards_pf_4x9_pt_350-gsm-uncoated_cl_4-4_ot_flat_ct_matte', gelatoBasePrice: 1.50, taeAddOnFee: 1.00 },
-
-    // ANNOUNCEMENTS
-    { categorySlug: 'announcements', taeId: 'TAE-ANN-5X7-FL', slug: 'announcement-5x7-flat', name: '5x7 Flat Announcement', sizeLabel: '5x7', gelatoProductUid: 'cards_pf_5x7_pt_350-gsm-uncoated_cl_4-4_ot_flat_ct_matte', gelatoBasePrice: 1.50, taeAddOnFee: 0.75 },
-    { categorySlug: 'announcements', taeId: 'TAE-ANN-4X6-FL', slug: 'announcement-4x6-flat', name: '4x6 Flat Announcement', sizeLabel: '4x6', gelatoProductUid: 'cards_pf_4x6_pt_350-gsm-uncoated_cl_4-4_ot_flat_ct_matte', gelatoBasePrice: 1.25, taeAddOnFee: 0.75 },
-
-    // POSTCARDS
-    { categorySlug: 'postcards', taeId: 'TAE-POST-6X4', slug: 'postcard-6x4', name: '6x4 Postcard', sizeLabel: '6x4', gelatoProductUid: 'postcards_pf_6x4_pt_350-gsm-coated-silk_cl_4-4', gelatoBasePrice: 0.85, taeAddOnFee: 0.40 },
-    { categorySlug: 'postcards', taeId: 'TAE-POST-6X9', slug: 'postcard-6x9', name: '6x9 Postcard (Large)', sizeLabel: '6x9', gelatoProductUid: 'postcards_pf_6x9_pt_350-gsm-coated-silk_cl_4-4', gelatoBasePrice: 1.10, taeAddOnFee: 0.50 },
-
-    // WALL ART (Posters)
-    { categorySlug: 'wall-art', taeId: 'TAE-WALL-12X18', slug: 'poster-12x18', name: '12x18 Art Print', sizeLabel: '12x18', gelatoProductUid: 'posters_pf_12x18_pt_170-gsm-coated-silk', gelatoBasePrice: 4.50, taeAddOnFee: 2.00 },
-    { categorySlug: 'wall-art', taeId: 'TAE-WALL-18X24', slug: 'poster-18x24', name: '18x24 Art Print', sizeLabel: '18x24', gelatoProductUid: 'posters_pf_18x24_pt_170-gsm-coated-silk', gelatoBasePrice: 6.50, taeAddOnFee: 3.00 },
-    { categorySlug: 'wall-art', taeId: 'TAE-WALL-24X36', slug: 'poster-24x36', name: '24x36 Art Print', sizeLabel: '24x36', gelatoProductUid: 'posters_pf_24x36_pt_170-gsm-coated-silk', gelatoBasePrice: 9.00, taeAddOnFee: 4.00 },
-
-    // CANVAS PRINTS
-    { categorySlug: 'canvas-prints', taeId: 'TAE-CANVAS-12X12', slug: 'canvas-12x12', name: '12x12 Canvas Print', sizeLabel: '12x12', gelatoProductUid: 'canvas_pf_12x12_pt_canvas-matte_wr_1.5in', gelatoBasePrice: 18.00, taeAddOnFee: 8.00 },
-    { categorySlug: 'canvas-prints', taeId: 'TAE-CANVAS-16X20', slug: 'canvas-16x20', name: '16x20 Canvas Print', sizeLabel: '16x20', gelatoProductUid: 'canvas_pf_16x20_pt_canvas-matte_wr_1.5in', gelatoBasePrice: 25.00, taeAddOnFee: 10.00 },
-    { categorySlug: 'canvas-prints', taeId: 'TAE-CANVAS-24X36', slug: 'canvas-24x36', name: '24x36 Canvas Print', sizeLabel: '24x36', gelatoProductUid: 'canvas_pf_24x36_pt_canvas-matte_wr_1.5in', gelatoBasePrice: 45.00, taeAddOnFee: 15.00 },
-
-    // FRAMED PRINTS
-    { categorySlug: 'framed-prints', taeId: 'TAE-FRAME-8X10-BK', slug: 'framed-8x10-black', name: '8x10 Framed Print (Black)', sizeLabel: '8x10', paperType: 'Matte', finishType: 'Black Frame', gelatoProductUid: 'framedposters_pf_8x10_pt_170-gsm-coated-silk_fr_black-wood', gelatoBasePrice: 22.00, taeAddOnFee: 8.00 },
-    { categorySlug: 'framed-prints', taeId: 'TAE-FRAME-11X14-BK', slug: 'framed-11x14-black', name: '11x14 Framed Print (Black)', sizeLabel: '11x14', paperType: 'Matte', finishType: 'Black Frame', gelatoProductUid: 'framedposters_pf_11x14_pt_170-gsm-coated-silk_fr_black-wood', gelatoBasePrice: 32.00, taeAddOnFee: 12.00 },
-    { categorySlug: 'framed-prints', taeId: 'TAE-FRAME-16X20-BK', slug: 'framed-16x20-black', name: '16x20 Framed Print (Black)', sizeLabel: '16x20', paperType: 'Matte', finishType: 'Black Frame', gelatoProductUid: 'framedposters_pf_16x20_pt_170-gsm-coated-silk_fr_black-wood', gelatoBasePrice: 45.00, taeAddOnFee: 15.00 },
-    { categorySlug: 'framed-prints', taeId: 'TAE-FRAME-8X10-WH', slug: 'framed-8x10-white', name: '8x10 Framed Print (White)', sizeLabel: '8x10', paperType: 'Matte', finishType: 'White Frame', gelatoProductUid: 'framedposters_pf_8x10_pt_170-gsm-coated-silk_fr_white-wood', gelatoBasePrice: 22.00, taeAddOnFee: 8.00 },
-    { categorySlug: 'framed-prints', taeId: 'TAE-FRAME-11X14-WH', slug: 'framed-11x14-white', name: '11x14 Framed Print (White)', sizeLabel: '11x14', paperType: 'Matte', finishType: 'White Frame', gelatoProductUid: 'framedposters_pf_11x14_pt_170-gsm-coated-silk_fr_white-wood', gelatoBasePrice: 32.00, taeAddOnFee: 12.00 },
+  // ========================================================================
+  // STEP 1: Create / ensure all 7 categories
+  // ========================================================================
+  console.log('--- Step 1: Categories ---');
+  const categories = [
+    { slug: 'greeting-cards',  name: 'Greeting Cards',  icon: '💌', fee: 1.00, qr: 1, sort: 1 },
+    { slug: 'invitations',     name: 'Invitations',     icon: '✉️',  fee: 1.00, qr: 1, sort: 2 },
+    { slug: 'announcements',   name: 'Announcements',   icon: '📜', fee: 0.75, qr: 0, sort: 3 },
+    { slug: 'postcards',       name: 'Postcards',       icon: '🃏', fee: 0.40, qr: 0, sort: 4 },
+    { slug: 'wall-art',        name: 'Wall Art',        icon: '🖼️',  fee: 3.00, qr: 0, sort: 5 },
+    { slug: 'canvas-prints',   name: 'Canvas Prints',   icon: '🎨', fee: 8.00, qr: 0, sort: 6 },
+    { slug: 'framed-prints',   name: 'Framed Prints',   icon: '📷', fee: 8.00, qr: 0, sort: 7 },
   ];
 
-  console.log(`\nSeeding ${products.length} products...`);
+  const catIdMap = {}; // slug → id
 
-  let created = 0;
-  let skipped = 0;
-
-  for (const p of products) {
-    const categoryId = catBySlug[p.categorySlug];
-    if (!categoryId) {
-      console.log(`  SKIP: Category not found: ${p.categorySlug}`);
-      skipped++;
-      continue;
-    }
-
-    // Check if already exists
-    const existing = db.exec(`SELECT id FROM ShopProduct WHERE taeId = '${p.taeId}'`);
+  for (const c of categories) {
+    const existing = db.exec(`SELECT id FROM ShopCategory WHERE slug='${c.slug}'`);
     if (existing.length > 0 && existing[0].values.length > 0) {
-      console.log(`  SKIP: ${p.taeId} already exists`);
-      skipped++;
-      continue;
+      catIdMap[c.slug] = existing[0].values[0][0];
+      console.log(`  EXISTS: ${c.slug}`);
+    } else {
+      const id = randomUUID();
+      const taeId = 'TAE-CAT-' + c.slug.toUpperCase();
+      db.run(
+        `INSERT INTO ShopCategory(id, taeId, slug, name, icon, taeBaseFee, requiresQrCode, active, featured, sortOrder, createdAt, updatedAt)
+         VALUES(?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)`,
+        [id, taeId, c.slug, c.name, c.icon, c.fee, c.qr, c.sort, now, now]
+      );
+      catIdMap[c.slug] = id;
+      console.log(`  CREATED: ${c.slug}`);
     }
+  }
+  console.log('');
 
-    const now = Date.now();
-    const id = randomUUID();
-    const sizeLabel = p.sizeLabel || null;
-    const paperType = p.paperType || null;
-    const finishType = p.finishType || null;
-    const gelatoProductUid = p.gelatoProductUid || null;
-    const gelatoBasePrice = p.gelatoBasePrice || 0;
-    const taeAddOnFee = p.taeAddOnFee || 0;
+  // ========================================================================
+  // STEP 2: Define which Printful products go into which categories
+  // ========================================================================
+  // Each entry: { printfulProductId, category slug, placements }
+  const productMappings = [
+    { printfulProductId: 568, category: 'greeting-cards',  placements: 'front,back,inside1,inside2' },
+    { printfulProductId: 433, category: 'postcards',       placements: 'front,back' },
+    { printfulProductId: 433, category: 'invitations',     placements: 'front,back' },
+    { printfulProductId: 433, category: 'announcements',   placements: 'front,back' },
+    { printfulProductId: 1,   category: 'wall-art',        placements: 'front' },  // Enhanced Matte Poster
+    { printfulProductId: 171, category: 'wall-art',        placements: 'front' },  // Premium Luster Poster
+    { printfulProductId: 3,   category: 'canvas-prints',   placements: 'front' },  // Canvas
+    { printfulProductId: 614, category: 'canvas-prints',   placements: 'front' },  // Framed Canvas
+    { printfulProductId: 2,   category: 'framed-prints',   placements: 'front' },  // Enhanced Matte Framed Poster
+    { printfulProductId: 172, category: 'framed-prints',   placements: 'front' },  // Premium Luster Framed Poster
+  ];
 
-    db.run(`
-      INSERT INTO ShopProduct (
-        id, taeId, categoryId, slug, name, sizeLabel, paperType, finishType,
-        gelatoProductUid, gelatoBasePrice, taeAddOnFee, active, sortOrder, createdAt, updatedAt
-      ) VALUES (
-        '${id}', '${p.taeId}', '${categoryId}', '${p.slug}', '${p.name}',
-        ${sizeLabel ? `'${sizeLabel}'` : 'NULL'},
-        ${paperType ? `'${paperType}'` : 'NULL'},
-        ${finishType ? `'${finishType}'` : 'NULL'},
-        ${gelatoProductUid ? `'${gelatoProductUid}'` : 'NULL'},
-        ${gelatoBasePrice}, ${taeAddOnFee}, 1, ${created}, ${now}, ${now}
-      )
-    `);
-    console.log(`  Created: ${p.taeId} - ${p.name}`);
-    created++;
+  // ========================================================================
+  // STEP 3: Fetch ALL variants from Printful and seed them
+  // ========================================================================
+  // Avoid duplicate API calls for same product ID
+  const fetchedProducts = {};
+  const uniqueProductIds = [...new Set(productMappings.map(m => m.printfulProductId))];
+
+  console.log('--- Step 2: Fetching ALL variants from Printful ---');
+  for (const pid of uniqueProductIds) {
+    console.log(`  Fetching product ${pid}...`);
+    fetchedProducts[pid] = await fetchPrintfulProduct(pid, token);
+    const count = fetchedProducts[pid].variants.length;
+    const name = fetchedProducts[pid].product?.title || 'Unknown';
+    console.log(`    → "${name}" — ${count} variants`);
+  }
+  console.log('');
+
+  // ========================================================================
+  // STEP 4: Seed every variant into the database
+  // ========================================================================
+  console.log('--- Step 3: Seeding products ---');
+  let created = 0;
+  let updated = 0;
+  let errors = 0;
+
+  for (const mapping of productMappings) {
+    const { printfulProductId, category, placements } = mapping;
+    const catId = catIdMap[category];
+    const { product: pfProduct, variants } = fetchedProducts[printfulProductId];
+    const pfName = pfProduct?.title || `Product ${printfulProductId}`;
+
+    console.log(`\n  [${category}] ${pfName} (Printful #${printfulProductId}) — ${variants.length} variants`);
+
+    for (const v of variants) {
+      const variantName = v.name || `Variant ${v.id}`;
+      const price = parseFloat(v.price) || 0;
+      const size = v.size || variantName;
+
+      // Build unique taeId and slug per category+variant combo
+      const taeId = `TAE-${category.toUpperCase()}-PF${printfulProductId}-V${v.id}`;
+      const slug = slugify(`${category}-${pfName}-${variantName}`);
+
+      // Build display name
+      const displayName = `${pfName} — ${variantName}`;
+
+      // Check if already exists by taeId
+      const existing = db.exec(`SELECT id FROM ShopProduct WHERE taeId='${taeId}'`);
+      if (existing.length > 0 && existing[0].values.length > 0) {
+        // Update with latest price from Printful
+        db.run(
+          `UPDATE ShopProduct SET
+            printfulBasePrice=?, name=?, sizeLabel=?, updatedAt=?
+           WHERE taeId=?`,
+          [price, displayName, size, now, taeId]
+        );
+        updated++;
+        continue;
+      }
+
+      // Insert new — active=0 by default, YOU activate what you want
+      const id = randomUUID();
+      try {
+        db.run(
+          `INSERT INTO ShopProduct(
+            id, taeId, categoryId, slug, name, description,
+            printProvider, printfulProductId, printfulVariantId, printfulBasePrice,
+            taeAddOnFee, sizeLabel, active, sortOrder, printDpi,
+            createdAt, updatedAt
+          ) VALUES(?, ?, ?, ?, ?, ?, 'printful', ?, ?, ?, 0, ?, 0, 0, 300, ?, ?)`,
+          [
+            id, taeId, catId, slug, displayName,
+            `${displayName} — printed by Printful`,
+            printfulProductId, v.id, price,
+            size, now, now,
+          ]
+        );
+        created++;
+      } catch (err) {
+        console.log(`    ❌ ERROR: ${displayName}: ${err.message}`);
+        errors++;
+      }
+    }
   }
 
-  console.log(`\nDone! Created: ${created}, Skipped: ${skipped}`);
-
-  // Show final counts
-  const finalResult = db.exec('SELECT COUNT(*) as count FROM ShopProduct');
-  const finalCount = finalResult.length > 0 ? finalResult[0].values[0][0] : 0;
-  console.log(`Total products in database: ${finalCount}`);
-
-  // Save database to disk
+  // ========================================================================
+  // STEP 5: Save and report
+  // ========================================================================
   const data = db.export();
-  const buffer = Buffer.from(data);
-  fs.writeFileSync(dbPath, buffer);
-  console.log('Database saved.');
+  fs.writeFileSync(DB_PATH, Buffer.from(data));
+
+  console.log('\n\n=== RESULTS ===');
+  console.log(`New products created: ${created}`);
+  console.log(`Existing updated:     ${updated}`);
+  console.log(`Errors:               ${errors}`);
+
+  // Final counts
+  const catCount = db.exec('SELECT COUNT(*) FROM ShopCategory');
+  const prodCount = db.exec('SELECT COUNT(*) FROM ShopProduct');
+  const activeCount = db.exec("SELECT COUNT(*) FROM ShopProduct WHERE active=1");
+  console.log(`\nTotal categories: ${catCount[0].values[0][0]}`);
+  console.log(`Total products:   ${prodCount[0].values[0][0]}`);
+  console.log(`Active products:  ${activeCount[0].values[0][0]}`);
+  console.log('\n💡 New products are INACTIVE by default.');
+  console.log('   Go to your admin panel to activate the ones you want to offer.');
+
+  // Summary by category
+  console.log('\n--- By Category ---');
+  const byCat = db.exec(`
+    SELECT c.name, COUNT(p.id) as total,
+           SUM(CASE WHEN p.active=1 THEN 1 ELSE 0 END) as active
+    FROM ShopCategory c
+    LEFT JOIN ShopProduct p ON p.categoryId = c.id
+    GROUP BY c.id
+    ORDER BY c.sortOrder
+  `);
+  if (byCat.length > 0) {
+    for (const row of byCat[0].values) {
+      console.log(`  ${row[0]}: ${row[1]} total, ${row[2]} active`);
+    }
+  }
 
   db.close();
 }
 
-main().catch(error => {
-  console.error('Error:', error);
+main().catch(err => {
+  console.error('Fatal error:', err);
   process.exit(1);
 });
