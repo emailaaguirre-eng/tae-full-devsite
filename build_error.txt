@@ -1,0 +1,34 @@
+
+> tae-full-devsite@0.1.1 build
+> next build
+
+  Γû▓ Next.js 14.2.35
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    ┬╖ missingSuspenseWithCSRBailout
+
+   Creating an optimized production build ...
+Failed to compile.
+
+./app/shop/[product]/page.tsx
+Error: 
+  x Unexpected token `main`. Expected jsx identifier
+     ,-[C:\Users\email\tae-full-devsite\app\shop\[product]\page.tsx:602:1]
+ 602 |   };
+ 603 | 
+ 604 |   return (
+ 605 |     <main className="min-h-screen bg-brand-lightest">
+     :      ^^^^
+ 606 |       <Navbar />
+ 607 |       
+ 607 |       <div className="pt-24 pb-12">
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./app/shop/[product]/page.tsx
+
+
+> Build failed because of webpack errors

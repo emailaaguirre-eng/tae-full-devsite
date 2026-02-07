@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlite3:*)",
+      "Bash(git push:*)",
+      "Bash(node -e:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma db push)",
+      "Bash(DATABASE_URL=\"file:C:/Users/email/tae-full-devsite/prisma/dev.db\" node:*)",
+      "Bash(npm run db:push:*)",
+      "WebFetch(domain:theartfulexperience.com)",
+      "Bash(node:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

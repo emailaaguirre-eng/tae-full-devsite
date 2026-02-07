@@ -1,0 +1,50 @@
+node_modules/
+.next/
+.turbo/
+dist/
+out/
+
+# Environment files - NEVER COMMIT THESE
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.test
+.env.*
+*.env
+*.local.env
+.local.env
+local.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build artifacts
+*.zip
+artkey-rest-api-folder/
+# Local environment files
+local.env/
+
+# Database
+*.db
+*.db-journal
+prisma/dev.db
+prisma/dev.db-journal
+
+# Database backups
+backups/
+*.db.backup
+
+# Uploads
+public/uploads/
+
+# Temp and backup files
+temp_*.tsx
+temp_*.ts
+*.backup
+*.backup.*
+types/*.backup
+# local quarantine
+_QUARANTINE_untracked_*/

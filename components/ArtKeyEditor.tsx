@@ -1,0 +1,2488 @@
+"use client";
+// @ts-nocheck
+// Note: TypeScript checking disabled temporarily for faster iteration
+
+/**
+ * ArtKey Editor - Full UI (Converted from WordPress to Next.js)
+ * Palette:
+ *   Primary: #FFFFFF
+ *   Alt: #ECECE9
+ *   Accent: #353535
+ */
+import React, { useEffect, useMemo, useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useCart } from '@/contexts/CartContext';
+import { 
+  TEMPLATE_CATEGORIES, 
+  getTemplatesByCategory, 
+  findTemplate,
+  BUTTON_SHAPES,
+  BUTTON_STYLES,
+  getButtonBorderRadius,
+  type TemplateCategory,
+  type ButtonShape,
+  type ButtonStyle,
+  type ArtKeyTemplate,
+} from './artkey/templates';
+import { 
+  ElegantIcon, 
+  ELEGANT_ICONS, 
+  type ElegantIconKey 
+} from './artkey/ElegantIcons';
+import { CustomIcon } from './CustomIcons';
+
+// Palette
+const COLOR_PRIMARY = '#FFFFFF';
+const COLOR_ALT = '#ECECE9';
+const COLOR_ACCENT = '#353535';
+
+interface ArtKeyEditorProps {
+  artkeyId?: string | null;
+}
+
+interface Link {
+  label: string;
+  url: string;
+}
+
+interface ArtKeyData {
+  title: string;
+  theme: {
+    template: string;
+    bg_color: string;
+    bg_image_id: number;
+    bg_image_url: string;
+    font: string;
+    text_color: string;
+    title_color: string;
+    title_style: string;
+    button_color: string;
+    button_gradient: string;
+    color_scope: string;
+    button_shape?: string;
+    button_style?: string;
+    header_icon?: string;
+    button_border?: string;
+  };
+  links: Link[];
+  spotify: { url: string; autoplay: boolean };
+  featured_video: { video_url: string; button_label: string } | null;
+  features: {
+    enable_gallery: boolean;
+    enable_video: boolean;
+    show_guestbook: boolean;
+    enable_custom_links: boolean;
+    enable_spotify: boolean;
+    allow_img_uploads: boolean;
+    allow_vid_uploads: boolean;
+    gb_btn_view: boolean;
+    gb_signing_status: string;
+    gb_signing_start: string;
+    gb_signing_end: string;
+    gb_require_approval: boolean;
+    img_require_approval: boolean;
+    vid_require_approval: boolean;
+    order: string[];
+  };
+  uploadedImages: string[];
+  uploadedVideos: string[];
+  customizations: Record<string, any>;
+}
+
+function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { addToCart } = useCart();
+  const productId = searchParams.get('product_id');
+  const fromShop = searchParams.get('from_shop') === 'true' || searchParams.get('from_customize') === 'true'; // Support both for backward compatibility
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is logged in as admin
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const adminToken = localStorage.getItem('admin_token');
+      setIsAdmin(!!adminToken);
+    }
+  }, []);
+
+  // Core state
+  const [designMode, setDesignMode] = useState<'template' | 'custom' | null>(null);
+  const [templatePage, setTemplatePage] = useState(0);
+  const [bgColorPage, setBgColorPage] = useState(0);
+  const [buttonColorPage, setButtonColorPage] = useState(0);
+  const [titleColorPage, setTitleColorPage] = useState(0);
+  const [bgTab, setBgTab] = useState('solid');
+  const [templateCategory, setTemplateCategory] = useState<TemplateCategory>('classic');
+  const [buttonShape, setButtonShape] = useState<ButtonShape>('pill');
+  const [buttonStyle, setButtonStyle] = useState<ButtonStyle>('solid');
+  const [headerIcon, setHeaderIcon] = useState<ElegantIconKey>('none');
+  // Default to desktop on PC, mobile on mobile devices
+  const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768 ? 'desktop' : 'mobile';
+    }
+    return 'desktop';
+  });
+  const [customLinks, setCustomLinks] = useState<Link[]>([]);
+  const [newLinkLabel, setNewLinkLabel] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('https://www.');
+  const [customizationData, setCustomizationData] = useState<any>(null);
+  const [editingLinkIndex, setEditingLinkIndex] = useState<number | null>(null);
+  const [editLinkLabel, setEditLinkLabel] = useState('');
+  const [editLinkUrl, setEditLinkUrl] = useState('');
+  const [showColorPicker, setShowColorPicker] = useState<{ type: 'button' | 'title' | 'background' | null }>({ type: null });
+  const [customColor, setCustomColor] = useState<string>('#000000');
+  const [openedGallery, setOpenedGallery] = useState<'images' | 'videos' | null>(null); // Track which gallery is opened
+  
+  // QR Code & Skeleton Key state (only for cards/invitations/postcards)
+  const [productInfo, setProductInfo] = useState<any>(null);
+  const [skeletonKey, setSkeletonKey] = useState<string>('template-1'); // Default template
+  const [qrPosition, setQrPosition] = useState<string>('bottom-right'); // Default position
+
+  // ArtKey data
+  const [artKeyData, setArtKeyData] = useState<ArtKeyData>({
+    title: 'Your Personalized Design',
+    theme: {
+      template: 'classic',
+      bg_color: '#F6F7FB',
+      bg_image_id: 0,
+      bg_image_url: '',
+      font: 'g:Playfair Display',
+      text_color: '#111111',
+      title_color: '#4f46e5',
+      title_style: 'solid',
+      button_color: '#4f46e5',
+      button_gradient: '',
+      color_scope: 'content',
+      button_shape: 'pill',
+      button_style: 'solid',
+      header_icon: 'none',
+      button_border: '',
+    },
+    links: [],
+    spotify: { url: 'https://', autoplay: false },
+    featured_video: null,
+    features: {
+      enable_gallery: false,
+      enable_video: false,
+      show_guestbook: false,
+      allow_img_uploads: false,
+      allow_vid_uploads: false,
+      gb_btn_view: true,
+      gb_signing_status: 'open',
+      gb_signing_start: '',
+      gb_signing_end: '',
+      gb_require_approval: true,
+      img_require_approval: true,
+      vid_require_approval: true,
+      enable_custom_links: false,
+      enable_spotify: false,
+      order: ['gallery', 'guestbook', 'video'],
+    },
+    uploadedImages: [],
+    uploadedVideos: [],
+    customizations: {},
+  });
+
+  // Load customization data if coming from design editor
+  useEffect(() => {
+    if (fromShop && typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('productCustomization');
+      if (stored) setCustomizationData(JSON.parse(stored));
+    }
+  }, [fromShop]);
+
+  // Product info loading removed - no longer using WooCommerce
+  // QR code requirements are now determined by product type and quantity in the shop flow
+
+  // Load existing ArtKey if provided
+  useEffect(() => {
+    if (artkeyId) loadArtKey(artkeyId);
+  }, [artkeyId]);
+
+  const loadArtKey = async (id: string) => {
+    try {
+      // Try localStorage first (for demo mode)
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem(`artkey_${id}`);
+        if (stored) {
+          const savedData = JSON.parse(stored);
+          console.log('[ARTKEY EDITOR] Loaded from localStorage:', id);
+          setArtKeyData(savedData);
+          setCustomLinks(savedData.links || []);
+          if (savedData.featureDefs) {
+            setFeatureDefs(savedData.featureDefs);
+          } else {
+            // Rebuild featureDefs from customLinks if not saved
+            const baseFeatures = [...featureDefsDefault];
+            const linkFeatures = (savedData.links || []).map((link: Link, idx: number) => ({
+              key: `custom_link_${idx}_${Date.now()}`,
+              label: link.label,
+              field: `custom_link_${idx}`,
+              type: 'custom_link' as const,
+              linkData: link,
+            }));
+            setFeatureDefs([...baseFeatures, ...linkFeatures]);
+          }
+          if (savedData.customizations?.skeleton_key) {
+            setSkeletonKey(savedData.customizations.skeleton_key);
+          }
+          if (savedData.customizations?.qr_position) {
+            setQrPosition(savedData.customizations.qr_position);
+          }
+          return;
+        }
+      }
+      
+      // Fallback to API (won't work without WordPress, but that's OK)
+      const res = await fetch(`/api/artkey/get/${id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.data) {
+        setArtKeyData(data.data);
+        setCustomLinks(data.data.links || []);
+        // Rebuild featureDefs from customLinks
+        const baseFeatures = [...featureDefsDefault];
+        const linkFeatures = (data.data.links || []).map((link: Link, idx: number) => ({
+          key: `custom_link_${idx}_${Date.now()}`,
+          label: link.label,
+          field: `custom_link_${idx}`,
+          type: 'custom_link' as const,
+          linkData: link,
+        }));
+        setFeatureDefs([...baseFeatures, ...linkFeatures]);
+        if (data.data.customizations?.skeleton_key) {
+          setSkeletonKey(data.data.customizations.skeleton_key);
+        }
+        if (data.data.customizations?.qr_position) {
+          setQrPosition(data.data.customizations.qr_position);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load ArtKey', e);
+    }
+  };
+
+  // Templates - now using categorized system
+  const templatesPerPage = 8;
+
+  // Colors - Primary colors only for solid, gradients separate
+  const buttonColors = useMemo(() => ([
+    // Page 1: Primary solid colors (12 colors)
+    { bg: '#ffffff', color: '#ffffff', label: 'White', type: 'solid' },
+    { bg: '#000000', color: '#000000', label: 'Black', type: 'solid' },
+    { bg: '#ef4444', color: '#ef4444', label: 'Red', type: 'solid' },
+    { bg: '#f97316', color: '#f97316', label: 'Orange', type: 'solid' },
+    { bg: '#fde047', color: '#fde047', label: 'Yellow', type: 'solid' },
+    { bg: '#10b981', color: '#10b981', label: 'Green', type: 'solid' },
+    { bg: '#3b82f6', color: '#3b82f6', label: 'Blue', type: 'solid' },
+    { bg: '#8b5cf6', color: '#8b5cf6', label: 'Purple', type: 'solid' },
+    { bg: '#ec4899', color: '#ec4899', label: 'Pink', type: 'solid' },
+    { bg: '#64748b', color: '#64748b', label: 'Gray', type: 'solid' },
+    { bg: '#f59e0b', color: '#f59e0b', label: 'Amber', type: 'solid' },
+    { bg: '#06b6d4', color: '#06b6d4', label: 'Cyan', type: 'solid' },
+    // Page 2: Additional solid colors (12 colors)
+    { bg: '#dc2626', color: '#dc2626', label: 'Dark Red', type: 'solid' },
+    { bg: '#ea580c', color: '#ea580c', label: 'Dark Orange', type: 'solid' },
+    { bg: '#ca8a04', color: '#ca8a04', label: 'Dark Yellow', type: 'solid' },
+    { bg: '#059669', color: '#059669', label: 'Dark Green', type: 'solid' },
+    { bg: '#2563eb', color: '#2563eb', label: 'Dark Blue', type: 'solid' },
+    { bg: '#7c3aed', color: '#7c3aed', label: 'Dark Purple', type: 'solid' },
+    { bg: '#db2777', color: '#db2777', label: 'Dark Pink', type: 'solid' },
+    { bg: '#475569', color: '#475569', label: 'Dark Gray', type: 'solid' },
+    { bg: '#d97706', color: '#d97706', label: 'Dark Amber', type: 'solid' },
+    { bg: '#0891b2', color: '#0891b2', label: 'Dark Cyan', type: 'solid' },
+    { bg: '#991b1b', color: '#991b1b', label: 'Maroon', type: 'solid' },
+    // Page 3: Gradients (12 colors)
+    { bg: 'linear-gradient(135deg,#ffecd2,#fcb69f)', color: 'gradient', label: 'Peachy', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#ff9a9e,#fecfef)', color: 'gradient', label: 'Pink Blush', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#a8edea,#fed6e3)', color: 'gradient', label: 'Cotton Candy', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', color: 'gradient', label: 'Electric Blue', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#ff6b6b,#feca57)', color: 'gradient', label: 'Fire Glow', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#434343,#666666)', color: 'gradient', label: 'Steel Gray', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#667eea,#764ba2)', color: 'gradient', label: 'Purple Dream', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#f093fb,#f5576c)', color: 'gradient', label: 'Rose Gold', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#4facfe,#00f2fe)', color: 'gradient', label: 'Ocean Breeze', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#43e97b,#38f9d7)', color: 'gradient', label: 'Mint Fresh', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#fa709a,#fee140)', color: 'gradient', label: 'Sunset', type: 'gradient' },
+    { bg: 'linear-gradient(135deg,#30cfd0,#330867)', color: 'gradient', label: 'Deep Space', type: 'gradient' },
+  ]), []);
+
+  const stockBackgrounds = useMemo(() => [
+    { label: 'Cloudy Sky', url: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Golden Sunset', url: 'https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Mountain Lake', url: 'https://images.unsplash.com/photo-1439066615861-d1af74d74000?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Aurora Borealis', url: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Starry Night', url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Pink Clouds', url: 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Ocean Waves', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Tropical Beach', url: 'https://images.unsplash.com/photo-1506953823976-52e1fdc0149a?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Sunset Beach', url: 'https://images.unsplash.com/photo-1414609245224-afa02bfb3fda?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Crystal Water', url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Palm Trees', url: 'https://images.unsplash.com/photo-1509233725247-49e657c54213?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Coastal Cliffs', url: 'https://images.unsplash.com/photo-1468581264429-2548ef9eb732?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Forest Mist', url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Autumn Forest', url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Cherry Blossoms', url: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Lavender Field', url: 'https://images.unsplash.com/photo-1499002238440-d264edd596ec?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Sunflowers', url: 'https://images.unsplash.com/photo-1470509037663-253afd7f0f51?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Bamboo Grove', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'City Nightline', url: 'https://images.unsplash.com/photo-1494783367193-149034c05e8f?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Desert Dunes', url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Marble Texture', url: 'https://images.unsplash.com/photo-1525362081669-2b476bb628c3?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Rose Gold', url: 'https://images.unsplash.com/photo-1557683316-973673bdar2?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Geometric Pattern', url: 'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=1600&q=80&auto=format&fit=crop' },
+    { label: 'Watercolor', url: 'https://images.unsplash.com/photo-1550859492-d5da9d8e45f3?w=1600&q=80&auto=format&fit=crop' },
+  ], []);
+
+  const stockBgPerPage = 6;
+  const [stockBgPage, setStockBgPage] = useState(0);
+  const totalStockPages = Math.ceil(stockBackgrounds.length / stockBgPerPage);
+  const getCurrentStockBackgrounds = () => stockBackgrounds.slice(stockBgPage * stockBgPerPage, stockBgPage * stockBgPerPage + stockBgPerPage);
+
+  const fonts = [
+    { value: 'system', label: 'System' },
+    { value: 'serif', label: 'Serif' },
+    { value: 'mono', label: 'Monospace' },
+    { value: 'g:Inter', label: 'Inter' },
+    { value: 'g:Poppins', label: 'Poppins' },
+    { value: 'g:Lato', label: 'Lato' },
+    { value: 'g:Montserrat', label: 'Montserrat' },
+    { value: 'g:Roboto', label: 'Roboto' },
+    { value: 'g:Playfair Display', label: 'Playfair Display' },
+    { value: 'g:Open Sans', label: 'Open Sans' },
+  ];
+
+  const featureDefsDefault = [
+    { key: 'custom_links', label: '🔗 Share A Link', field: 'enable_custom_links', type: 'feature' },
+    { key: 'spotify', label: '🎵 Share Your Playlist', field: 'enable_spotify', type: 'feature' },
+    { key: 'gallery', label: '📸 Image Gallery', field: 'enable_gallery', type: 'feature' },
+    { key: 'guestbook', label: '📖 Guestbook', field: 'show_guestbook', type: 'feature' },
+    { key: 'video', label: '🎥 Video Gallery', field: 'enable_video', type: 'feature' },
+  ];
+  const [featureDefs, setFeatureDefs] = useState<Array<typeof featureDefsDefault[0] & { type?: 'feature' | 'custom_link'; linkData?: Link }>>(featureDefsDefault);
+  const [editingFeatureIndex, setEditingFeatureIndex] = useState<number | null>(null);
+  const [editFeatureLabel, setEditFeatureLabel] = useState('');
+  const [draggedFeature, setDraggedFeature] = useState<number | null>(null);
+  const [draggedLink, setDraggedLink] = useState<number | null>(null);
+
+  // Helpers
+  const handleTemplateSelect = (tpl: ArtKeyTemplate) => {
+    setArtKeyData((prev) => ({
+      ...prev,
+      theme: {
+        ...prev.theme,
+        template: tpl.value,
+        bg_color: typeof tpl.bg === 'string' && !tpl.bg.startsWith('linear-gradient') ? tpl.bg : tpl.bg,
+        button_color: tpl.button,
+        title_color: tpl.title,
+        text_color: tpl.text || prev.theme.text_color,
+        bg_image_url: '',
+        button_shape: tpl.buttonShape || 'pill',
+        button_style: tpl.buttonStyle || 'solid',
+        header_icon: tpl.headerIcon || 'none',
+        button_border: tpl.buttonBorder || tpl.button,
+        font: tpl.titleFont || prev.theme.font,
+      },
+    }));
+    if (tpl.buttonShape) setButtonShape(tpl.buttonShape);
+    if (tpl.buttonStyle) setButtonStyle(tpl.buttonStyle);
+    if (tpl.headerIcon) setHeaderIcon(tpl.headerIcon);
+  };
+
+  const handleColorSelect = (color: typeof buttonColors[0], type: 'button' | 'title' | 'background') => {
+    const isGradient = color.type === 'gradient' || (typeof color.bg === 'string' && color.bg.startsWith('linear-gradient'));
+    if (type === 'button') {
+      setArtKeyData((prev) => ({
+        ...prev,
+        theme: { ...prev.theme, button_color: isGradient ? (color.bg.match(/#[0-9a-fA-F]{6}/)?.[0] || '#667eea') : color.color, button_gradient: isGradient ? color.bg : '' },
+      }));
+    } else if (type === 'title') {
+      setArtKeyData((prev) => ({
+        ...prev,
+        theme: { ...prev.theme, title_color: isGradient ? (color.bg.match(/#[0-9a-fA-F]{6}/)?.[0] || '#4f46e5') : color.color },
+      }));
+    } else if (type === 'background') {
+      setArtKeyData((prev) => ({
+        ...prev,
+        theme: { ...prev.theme, bg_color: color.bg || color.color, bg_image_url: '' },
+      }));
+    }
+  };
+
+  const getColorsForPage = (page: number, arr: typeof buttonColors) => arr.slice(page * 12, page * 12 + 12);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
+        if (!res.ok) continue;
+        const result = await res.json();
+        setArtKeyData((prev) => ({ ...prev, uploadedImages: [...prev.uploadedImages, result.url] }));
+      } catch (err) {
+        console.error('Upload failed', err);
+      }
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const formData = new FormData();
+    Array.from(files).forEach((f) => formData.append('file', f));
+    try {
+      const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
+      if (!res.ok) return;
+      const result = await res.json();
+      const videoUrl = result.url || result.fileUrl;
+      setArtKeyData((prev) => ({ ...prev, uploadedVideos: [...prev.uploadedVideos, videoUrl] }));
+    } catch (err) {
+      console.error('Upload failed', err);
+    }
+  };
+
+  const handleSetFeaturedVideo = (videoUrl: string, isFeatured: boolean) => {
+    if (isFeatured) {
+      // Set this video as featured (only one can be featured)
+      setArtKeyData((prev) => ({
+        ...prev,
+        featured_video: {
+          video_url: videoUrl,
+          button_label: prev.featured_video?.button_label || 'Watch Video',
+        },
+      }));
+    } else {
+      // Remove featured status
+      setArtKeyData((prev) => ({
+        ...prev,
+        featured_video: null,
+      }));
+    }
+  };
+
+  const handleBackgroundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
+      if (!res.ok) return;
+      const result = await res.json();
+      setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_image_url: result.url, bg_image_id: result.id || 0 } }));
+    } catch (err) {
+      console.error('Background upload failed', err);
+    }
+  };
+
+  const handleSave = async (redirectToShop = false) => {
+    try {
+      // Validate skeleton key and QR position if product requires it
+      if (productInfo?.requiresQR || productInfo?.requiresSkeletonKey) {
+        if (!skeletonKey || !qrPosition) {
+          alert('⚠️ Please select a skeleton key template and QR code position before saving.\n\nThis is required for cards, invitations, postcards, and announcements.');
+          // Scroll to QR Code Placement section
+          const qrSection = document.querySelector('[data-section="qr-placement"]');
+          if (qrSection) {
+            qrSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          return;
+        }
+      }
+
+      // Include skeleton key and QR position in customizations if product requires QR
+      const customizations = {
+        ...artKeyData.customizations,
+        ...(productInfo?.requiresQR || productInfo?.requiresSkeletonKey ? {
+          skeleton_key: skeletonKey,
+          qr_position: qrPosition,
+        } : {}),
+      };
+
+      // Rebuild customLinks from featureDefs custom_link entries
+      const customLinkEntries = featureDefs.filter(f => f.type === 'custom_link' && f.linkData);
+      const rebuiltCustomLinks = customLinkEntries.map(f => f.linkData!);
+      
+      const dataToSave = {
+        ...artKeyData,
+        links: rebuiltCustomLinks.length > 0 ? rebuiltCustomLinks : customLinks,
+        customizations,
+        featureDefs, // Save feature definitions including custom links
+        token: artkeyId,
+      };
+
+      // Save to localStorage for immediate persistence (demo mode)
+      if (typeof window !== 'undefined' && artkeyId) {
+        localStorage.setItem(`artkey_${artkeyId}`, JSON.stringify({
+          ...dataToSave,
+          savedAt: new Date().toISOString(),
+        }));
+        console.log('[ARTKEY EDITOR] Saved to localStorage:', artkeyId);
+      }
+
+      const res = await fetch('/api/artkey/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: dataToSave,
+          product_id: productId,
+        }),
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        // If it's just missing WordPress config, that's OK for demos
+        if (err.message?.includes('demo mode')) {
+          alert('✅ Demo saved successfully!');
+          if (redirectToShop) {
+            router.push('/customize');
+          }
+          return;
+        }
+        alert(err.error || err.message || 'Save failed');
+        return;
+      }
+      
+      const result = await res.json();
+      alert(`✅ ArtKey saved! ${result.share_url ? `\nURL: ${result.share_url}` : ''}`);
+      
+      // If coming from customize page and redirecting to shop, add item to cart
+      if (redirectToShop && customizationData && productId) {
+        const cartItem = {
+          id: `${productId}-${artkeyId || Date.now()}`,
+          name: customizationData.productName || 'Custom Product',
+          price: customizationData.totalPrice || customizationData.basePrice || 0,
+          quantity: customizationData.customizations?.quantity || 1,
+          imageUrl: customizationData.designData?.imageDataUrl,
+          customization: {
+            size: customizationData.customizations?.size,
+            material: customizationData.customizations?.material,
+            frame: customizationData.customizations?.frame,
+            frameColor: customizationData.customizations?.frameColor,
+            uploadedImage: customizationData.designData?.imageDataUrl,
+            artkeyId: artkeyId || result.token,
+            artkeyUrl: result.share_url,
+          },
+        };
+        addToCart(cartItem);
+      }
+      
+      if (redirectToShop) {
+        router.push('/customize');
+      }
+    } catch (err) {
+      console.error('Save failed', err);
+      alert('Failed to save ArtKey');
+    }
+  };
+
+  const handleSaveAndContinue = () => handleSave(false);
+  const handleSaveAndCheckout = () => handleSave(true);
+
+  const toggleFeature = (field: keyof ArtKeyData['features']) => {
+    setArtKeyData((prev) => ({
+      ...prev,
+      features: { ...prev.features, [field]: !prev.features[field] },
+    }));
+  };
+
+  const handleAddLink = () => {
+    if (!newLinkLabel || !newLinkUrl) return;
+    const newLink: Link = { label: newLinkLabel, url: newLinkUrl };
+    const updated = [...customLinks, newLink];
+    setCustomLinks(updated);
+    setArtKeyData((prev) => ({ ...prev, links: updated }));
+    
+    // Add as a featureDef entry so it can be edited and rearranged
+    const linkId = `custom_link_${Date.now()}`;
+    const newFeatureDef = {
+      key: linkId,
+      label: newLinkLabel,
+      field: linkId,
+      type: 'custom_link' as const,
+      linkData: newLink,
+    };
+    setFeatureDefs((prev) => [...prev, newFeatureDef]);
+    
+    setNewLinkLabel('');
+    setNewLinkUrl('https://www.');
+  };
+
+  const handleRemoveLink = (idx: number) => {
+    const updated = customLinks.filter((_, i) => i !== idx);
+    setCustomLinks(updated);
+    setArtKeyData((prev) => ({ ...prev, links: updated }));
+    setEditingLinkIndex(null);
+  };
+
+  const handleEditLink = (idx: number) => {
+    const link = customLinks[idx];
+    setEditingLinkIndex(idx);
+    setEditLinkLabel(link.label);
+    setEditLinkUrl(link.url);
+  };
+
+  const handleSaveEditLink = () => {
+    if (editingLinkIndex === null || !editLinkLabel || !editLinkUrl) return;
+    const updated = [...customLinks];
+    updated[editingLinkIndex] = { label: editLinkLabel, url: editLinkUrl };
+    setCustomLinks(updated);
+    setArtKeyData((prev) => ({ ...prev, links: updated }));
+    setEditingLinkIndex(null);
+    setEditLinkLabel('');
+    setEditLinkUrl('');
+  };
+
+  const handleCancelEditLink = () => {
+    setEditingLinkIndex(null);
+    setEditLinkLabel('');
+    setEditLinkUrl('');
+  };
+
+  const getPreviewBackground = () => {
+    if (artKeyData.theme.bg_image_url) {
+      return { backgroundImage: `url(${artKeyData.theme.bg_image_url})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: COLOR_ALT };
+    }
+    if (artKeyData.theme.bg_color?.startsWith('linear-gradient')) {
+      return { background: artKeyData.theme.bg_color, backgroundColor: COLOR_ALT };
+    }
+    return { backgroundColor: artKeyData.theme.bg_color || COLOR_ALT };
+  };
+
+  const getButtonTextColor = (color: string) => {
+    if (!color) return '#fff';
+    const c = color.toLowerCase();
+    if (c === '#ffffff' || c === '#fefefe' || c === '#fef3c7' || c === '#fde047' || c === '#fffff0') return '#000000';
+    return '#ffffff';
+  };
+
+  const getButtonPreviewStyles = (
+    buttonColor: string,
+    style: ButtonStyle,
+    shape: ButtonShape
+  ): React.CSSProperties => {
+    const borderRadius = getButtonBorderRadius(shape);
+    
+    switch (style) {
+      case 'solid':
+        return {
+          background: buttonColor,
+          color: getButtonTextColor(buttonColor),
+          borderRadius,
+          border: 'none',
+        };
+      case 'outline':
+        return {
+          background: 'transparent',
+          color: buttonColor,
+          borderRadius,
+          border: `2px solid ${buttonColor}`,
+        };
+      case 'glass':
+        return {
+          background: `${buttonColor}15`,
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          color: buttonColor,
+          borderRadius,
+          border: `1px solid ${buttonColor}30`,
+        };
+      default:
+        return {
+          background: buttonColor,
+          color: getButtonTextColor(buttonColor),
+          borderRadius,
+        };
+    }
+  };
+
+  // Load Google Font when font changes
+  useEffect(() => {
+    if (artKeyData?.theme?.font && artKeyData.theme.font.startsWith('g:')) {
+      const fontName = artKeyData.theme.font.replace('g:', '').replace(/\s+/g, '+');
+      const linkId = `google-font-${fontName}`;
+      if (typeof window !== 'undefined' && !document.getElementById(linkId)) {
+        const link = document.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;600;700&display=swap`;
+        document.head.appendChild(link);
+      }
+    }
+  }, [artKeyData?.theme?.font]);
+
+  // Parse font value and return font-family CSS
+  const getFontFamily = (fontValue: string) => {
+    if (!fontValue) return 'inherit';
+    
+    if (fontValue.startsWith('g:')) {
+      // Google Font - extract font name
+      const fontName = fontValue.replace('g:', '').replace(/\s+/g, '+');
+      // Load Google Font dynamically (fallback if useEffect didn't catch it)
+      if (typeof window !== 'undefined') {
+        const linkId = `google-font-${fontName}`;
+        if (!document.getElementById(linkId)) {
+          const link = document.createElement('link');
+          link.id = linkId;
+          link.rel = 'stylesheet';
+          link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;600;700&display=swap`;
+          document.head.appendChild(link);
+        }
+      }
+      return `"${fontValue.replace('g:', '')}", sans-serif`;
+    }
+    
+    switch (fontValue) {
+      case 'system':
+        return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+      case 'serif':
+        return 'Georgia, "Times New Roman", Times, serif';
+      case 'mono':
+        return '"Courier New", Courier, monospace';
+      default:
+        return 'inherit';
+    }
+  };
+
+  // Drag reorder
+  const handleFeatureDragStart = (index: number) => setDraggedFeature(index);
+  const handleFeatureDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedFeature === null || draggedFeature === index) return;
+    const newFeatures = [...featureDefs];
+    const draggedItem = newFeatures[draggedFeature];
+    newFeatures.splice(draggedFeature, 1);
+    newFeatures.splice(index, 0, draggedItem);
+    setFeatureDefs(newFeatures);
+    setDraggedFeature(index);
+  };
+  const handleFeatureDragEnd = () => setDraggedFeature(null);
+
+  // Drag reorder for links (including featured video)
+  const handleLinkDragStart = (index: number) => setDraggedLink(index);
+  const handleLinkDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedLink === null || draggedLink === index) return;
+    
+    // Create combined list for reordering
+    const combinedList = [...customLinks];
+    const hasFeatured = artKeyData.featured_video !== null;
+    const featuredIndex = hasFeatured ? combinedList.length : -1;
+    
+    // Determine if we're dragging featured video or a regular link
+    const isDraggingFeatured = hasFeatured && draggedLink === featuredIndex;
+    const isDroppingOnFeatured = hasFeatured && index === featuredIndex;
+    
+    if (isDraggingFeatured) {
+      // Can't reorder featured video within links - it stays at the end
+      return;
+    }
+    
+    // Reorder regular links
+    if (draggedLink < combinedList.length && index < combinedList.length) {
+      const newLinks = [...customLinks];
+      const draggedItem = newLinks[draggedLink];
+      newLinks.splice(draggedLink, 1);
+      newLinks.splice(index, 0, draggedItem);
+      setCustomLinks(newLinks);
+      setArtKeyData((prev) => ({ ...prev, links: newLinks }));
+      setDraggedLink(index);
+    }
+  };
+  const handleLinkDragEnd = () => setDraggedLink(null);
+
+  return (
+    <div style={{ background: COLOR_ALT }} className="min-h-screen">
+      {/* Top Bar */}
+      <div style={{ background: COLOR_ACCENT }} className="text-white sticky top-0 z-50 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              {isAdmin && (
+                <button
+                  onClick={() => router.push('/manage/dashboard')}
+                  className="px-4 py-2 rounded-lg font-medium transition-all text-sm"
+                  style={{ background: 'rgba(255,255,255,0.2)', color: COLOR_PRIMARY, border: '1px solid rgba(255,255,255,0.3)' }}
+                  title="Back to Admin Dashboard"
+                >
+                  ← Dashboard
+                </button>
+              )}
+              <h1 className="text-2xl font-bold font-playfair flex items-center gap-2">
+                <CustomIcon name="sparkle" size={28} color={COLOR_ACCENT} />
+                Edit Your ArtKey Page
+              </h1>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleSave(false)}
+                className="px-6 py-2 rounded-lg font-semibold transition-all"
+                style={{ background: COLOR_PRIMARY, color: COLOR_ACCENT, border: '1px solid rgba(255,255,255,0.2)' }}
+              >
+                💾 Save
+              </button>
+              <button
+                onClick={handleSaveAndContinue}
+                className="px-6 py-2 rounded-lg font-semibold transition-all"
+                style={{ background: COLOR_PRIMARY, color: COLOR_ACCENT, border: '1px solid rgba(255,255,255,0.2)' }}
+              >
+                💾 Save & Continue
+              </button>
+              <button
+                onClick={handleSaveAndCheckout}
+                className="px-6 py-2 rounded-lg font-semibold transition-all"
+                style={{ background: COLOR_PRIMARY, color: COLOR_ACCENT, border: '1px solid rgba(255,255,255,0.2)' }}
+              >
+                ✅ Save & Checkout
+              </button>
+            </div>
+          </div>
+          {customizationData && (
+            <p className="text-sm text-white/80 mt-2">
+              Customizing: {customizationData.productName} - ${customizationData.totalPrice}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Left Preview */}
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-24 border border-[#e2e2e0]">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold font-playfair" style={{ color: COLOR_ACCENT }}>Live Preview</h3>
+                <div className="flex gap-2 p-1 rounded-lg" style={{ background: COLOR_ALT }}>
+                  <button
+                    onClick={() => setPreviewDevice('mobile')}
+                    className={`px-3 py-1 rounded text-sm font-medium transition-all ${previewDevice === 'mobile' ? 'shadow' : ''}`}
+                    style={previewDevice === 'mobile' ? { background: COLOR_PRIMARY, color: COLOR_ACCENT } : { color: '#666' }}
+                  >
+                    📱 Mobile
+                  </button>
+                  <button
+                    onClick={() => setPreviewDevice('desktop')}
+                    className={`px-3 py-1 rounded text-sm font-medium transition-all ${previewDevice === 'desktop' ? 'shadow' : ''}`}
+                    style={previewDevice === 'desktop' ? { background: COLOR_PRIMARY, color: COLOR_ACCENT } : { color: '#666' }}
+                  >
+                    🖥️ Desktop
+                  </button>
+                </div>
+              </div>
+
+              {previewDevice === 'mobile' && (
+                // Mobile preview: Fullscreen, no phone container
+                <div className="w-full rounded-xl overflow-hidden border-2" style={{ borderColor: '#e2e2e0', ...getPreviewBackground(), minHeight: '600px' }}>
+                  <div className="h-full w-full pt-6 pb-6 px-6 flex flex-col items-center text-center min-h-[600px]">
+                    {(artKeyData.theme.header_icon && artKeyData.theme.header_icon !== 'none') && (
+                      <div className="mb-2 mt-16">
+                        <ElegantIcon 
+                          icon={artKeyData.theme.header_icon as ElegantIconKey} 
+                          size={48} 
+                          color={artKeyData.theme.title_color}
+                          strokeWidth={1.5}
+                        />
+                      </div>
+                    )}
+                    <h1
+                      className="text-2xl md:text-3xl font-bold mb-3 break-words"
+                      style={{
+                        fontFamily: getFontFamily(artKeyData.theme.font),
+                        color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
+                        background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
+                        backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                        WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                        marginTop: (artKeyData.theme.header_icon && artKeyData.theme.header_icon !== 'none') ? '0' : '4rem',
+                      }}
+                    >
+                      {artKeyData.title || 'Your Title Here'}
+                    </h1>
+
+                        {/* Buttons Preview - Two columns when many buttons */}
+                        {(() => {
+                          const allButtons = [
+                            ...customLinks,
+                            ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}` }] : []),
+                            ...(artKeyData.spotify.url?.length > 10 ? [{ label: featureDefs.find(f => f.key === 'spotify')?.label || '🎵 Share Your Playlist' }] : []),
+                            ...(artKeyData.features.show_guestbook ? [{ label: featureDefs.find(f => f.key === 'guestbook')?.label || '📖 Guestbook' }] : []),
+                            ...(artKeyData.features.enable_gallery ? [{ label: featureDefs.find(f => f.key === 'gallery')?.label || '📸 Image Gallery' }] : []),
+                            ...(artKeyData.features.enable_video ? [{ label: featureDefs.find(f => f.key === 'video')?.label || '🎥 Video Gallery' }] : []),
+                          ];
+                          const useTwoColumns = allButtons.length > 6;
+                          const maxChars = 40; // Max characters per button text
+                          const fontSize = useTwoColumns ? 'text-xs' : 'text-sm';
+                          
+                          return (
+                            <div className={`mt-3 w-full max-w-sm ${useTwoColumns ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
+                              {allButtons.map((btn, idx) => {
+                                const displayText = (btn.label || `Link ${idx + 1}`).length > maxChars 
+                                  ? (btn.label || `Link ${idx + 1}`).substring(0, maxChars - 3) + '...'
+                                  : (btn.label || `Link ${idx + 1}`);
+                                return (
+                                  <button
+                                    key={idx}
+                                    className={`${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md`}
+                                    style={getButtonPreviewStyles(
+                                      artKeyData.theme.button_color, 
+                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle, 
+                                      (artKeyData.theme.button_shape as ButtonShape) || buttonShape
+                                    )}
+                                  >
+                                    {displayText}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+
+                        {artKeyData.uploadedImages.length > 0 && (
+                          <div className="grid grid-cols-4 gap-1 mt-3 w-full max-w-sm">
+                            {artKeyData.uploadedImages.slice(0, 4).map((img, idx) => (
+                              <img key={idx} src={img} alt="" className="w-full h-12 object-cover rounded-md border border-white/50 shadow-sm" />
+                            ))}
+                          </div>
+                        )}
+                  </div>
+                </div>
+              )}
+
+              {previewDevice === 'desktop' && (
+                // Desktop preview: Phone container frame
+                <div className="flex justify-center">
+                  <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-[32px] p-2 shadow-2xl relative" style={{ width: 'min(380px, 100%)' }}>
+                    <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-10">
+                      <div className="bg-black rounded-full w-24 h-7 flex items-center justify-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-gray-800 ring-1 ring-gray-700"></div>
+                        <div className="w-3 h-3 rounded-full bg-gray-800 ring-1 ring-gray-700"></div>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-[28px] overflow-hidden relative" style={{ height: 'min(700px, 75vh)', width: '100%' }}>
+                      <div
+                        className="h-full w-full pt-6 pb-6 px-6 flex flex-col items-center text-center"
+                        style={getPreviewBackground()}
+                      >
+                    {(artKeyData.theme.header_icon && artKeyData.theme.header_icon !== 'none') && (
+                      <div className="mb-2 mt-16">
+                        <ElegantIcon 
+                          icon={artKeyData.theme.header_icon as ElegantIconKey} 
+                          size={48} 
+                          color={artKeyData.theme.title_color}
+                          strokeWidth={1.5}
+                        />
+                      </div>
+                    )}
+                    <h1
+                      className="text-2xl md:text-3xl font-bold mb-3 break-words"
+                      style={{
+                        fontFamily: getFontFamily(artKeyData.theme.font),
+                        color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
+                        background: artKeyData.theme.title_style === 'gradient' ? `linear-gradient(135deg, ${artKeyData.theme.title_color}, ${artKeyData.theme.button_color})` : 'none',
+                        backgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                        WebkitBackgroundClip: artKeyData.theme.title_style === 'gradient' ? 'text' : 'unset',
+                        marginTop: (artKeyData.theme.header_icon && artKeyData.theme.header_icon !== 'none') ? '0' : '4rem',
+                      }}
+                    >
+                      {artKeyData.title || 'Your Title Here'}
+                    </h1>
+
+                        {/* Buttons Preview - Two columns when many buttons */}
+                        {(() => {
+                          const allButtons = [
+                            ...customLinks,
+                            ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}` }] : []),
+                            ...(artKeyData.spotify.url?.length > 10 ? [{ label: featureDefs.find(f => f.key === 'spotify')?.label || '🎵 Share Your Playlist' }] : []),
+                            ...(artKeyData.features.show_guestbook ? [{ label: featureDefs.find(f => f.key === 'guestbook')?.label || '📖 Guestbook' }] : []),
+                            ...(artKeyData.features.enable_gallery ? [{ label: featureDefs.find(f => f.key === 'gallery')?.label || '📸 Image Gallery' }] : []),
+                            ...(artKeyData.features.enable_video ? [{ label: featureDefs.find(f => f.key === 'video')?.label || '🎥 Video Gallery' }] : []),
+                          ];
+                          const useTwoColumns = allButtons.length > 6;
+                          const maxChars = 40; // Max characters per button text
+                          const fontSize = useTwoColumns ? 'text-xs' : 'text-sm';
+                          
+                          return (
+                            <div className={`mt-3 w-full max-w-sm ${useTwoColumns ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
+                              {allButtons.map((btn, idx) => {
+                                const displayText = (btn.label || `Link ${idx + 1}`).length > maxChars 
+                                  ? (btn.label || `Link ${idx + 1}`).substring(0, maxChars - 3) + '...'
+                                  : (btn.label || `Link ${idx + 1}`);
+                                return (
+                                  <button
+                                    key={idx}
+                                    className={`${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md`}
+                                    style={getButtonPreviewStyles(
+                                      artKeyData.theme.button_color, 
+                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle, 
+                                      (artKeyData.theme.button_shape as ButtonShape) || buttonShape
+                                    )}
+                                  >
+                                    {displayText}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+
+                        {artKeyData.uploadedImages.length > 0 && (
+                          <div className="grid grid-cols-4 gap-1 mt-3 w-full max-w-sm">
+                            {artKeyData.uploadedImages.slice(0, 4).map((img, idx) => (
+                              <img key={idx} src={img} alt="" className="w-full h-12 object-cover rounded-md border border-white/50 shadow-sm" />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Editor */}
+          <div className="space-y-6">
+            {/* Step 1 chooser */}
+            {designMode === null && (
+              <Card title="Choose a Template or Design Your Own ArtKey" step="1">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <PrimaryButton onClick={() => setDesignMode('template')} icon={<CustomIcon name="art" size={40} color={COLOR_ACCENT} />} accent>
+                    Choose a Template
+                    <div className="text-sm text-[#444] mt-1">Pick from 40 templates</div>
+                  </PrimaryButton>
+                  <PrimaryButton onClick={() => setDesignMode('custom')} icon={<CustomIcon name="sparkle" size={40} color={COLOR_ACCENT} />}>
+                    Design Your Own
+                    <div className="text-sm text-[#444] mt-1">Start from scratch</div>
+                  </PrimaryButton>
+                </div>
+              </Card>
+            )}
+
+            {/* Template selection */}
+            {designMode === 'template' && (
+              <Card title="Choose Template" step="1" onBack={() => setDesignMode(null)}>
+                {/* Category Tabs */}
+                <div className="flex gap-2 mb-4">
+                  {TEMPLATE_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        setTemplateCategory(cat.id);
+                        setTemplatePage(0);
+                      }}
+                      className={`flex-1 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
+                        templateCategory === cat.id ? 'shadow-md' : ''
+                      }`}
+                      style={{
+                        background: templateCategory === cat.id ? COLOR_ACCENT : COLOR_ALT,
+                        color: templateCategory === cat.id ? COLOR_PRIMARY : COLOR_ACCENT,
+                      }}
+                    >
+                      <CustomIcon name={cat.icon as any} size={18} color="currentColor" className="mr-2" />
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                <Carousel
+                  page={templatePage}
+                  setPage={setTemplatePage}
+                  total={Math.ceil(getTemplatesByCategory(templateCategory).length / templatesPerPage)}
+                  labelPrefix={`${templateCategory} Templates`}
+                >
+                  <div className="grid grid-cols-4 gap-2">
+                    {getTemplatesByCategory(templateCategory)
+                      .slice(templatePage * templatesPerPage, (templatePage + 1) * templatesPerPage)
+                      .map((tpl) => (
+                        <button
+                          key={tpl.value}
+                          onClick={() => handleTemplateSelect(tpl)}
+                          className={`p-2 rounded-xl border-2 transition-all ${artKeyData.theme.template === tpl.value ? 'shadow-lg' : ''}`}
+                          style={{
+                            borderColor: artKeyData.theme.template === tpl.value ? COLOR_ACCENT : '#e2e2e0',
+                            background: tpl.bg?.startsWith('linear-gradient') ? tpl.bg : tpl.bg,
+                          }}
+                        >
+                          <div className="w-full h-16 rounded-lg mb-2 relative overflow-hidden">
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="text-xs font-bold" style={{ color: tpl.title }}>Aa</div>
+                            </div>
+                            <div className="absolute bottom-1 right-1">
+                              <div 
+                                className="w-4 h-4" 
+                                style={{ 
+                                  background: tpl.buttonStyle === 'outline' ? 'transparent' : tpl.button,
+                                  border: tpl.buttonStyle === 'outline' ? `2px solid ${tpl.button}` : 'none',
+                                  borderRadius: tpl.buttonShape === 'square' ? '0' : tpl.buttonShape === 'rounded' ? '2px' : '4px'
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div className="text-xs font-semibold text-center" style={{ color: COLOR_ACCENT }}>{tpl.name}</div>
+                        </button>
+                      ))}
+                  </div>
+                </Carousel>
+              </Card>
+            )}
+
+            {/* Custom background */}
+            {designMode === 'custom' && (
+              <Card title="Design Your Own - Choose Background" step="1" onBack={() => setDesignMode(null)}>
+                <Tabs value={bgTab} onChange={setBgTab} tabs={[
+                  { id: 'solid', label: 'Solid Color' },
+                  { id: 'stock', label: 'Stock Photos' },
+                  { id: 'upload', label: 'Upload' },
+                ]} />
+
+                {bgTab === 'solid' && (
+                  <>
+                    <ColorPicker
+                      page={bgColorPage}
+                      setPage={setBgColorPage}
+                      pages={3}
+                      label={(page) => (page === 0 ? 'Page 1' : page === 1 ? 'Page 2' : 'Page 3')}
+                      colors={buttonColors}
+                      selected={artKeyData.theme.bg_color}
+                      onSelect={(c) => handleColorSelect(c, 'background')}
+                      onCustomColor={() => {
+                        const currentColor = artKeyData.theme.bg_color?.startsWith('#') ? artKeyData.theme.bg_color : '#000000';
+                        setCustomColor(currentColor);
+                        setShowColorPicker({ type: 'background' });
+                      }}
+                    />
+                    {showColorPicker.type === 'background' && (
+                      <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
+                          <input
+                            type="color"
+                            value={customColor}
+                            onChange={(e) => {
+                              setCustomColor(e.target.value);
+                              handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'background');
+                            }}
+                            className="h-8 w-16 rounded border"
+                            style={{ borderColor: '#d8d8d6' }}
+                          />
+                          <input
+                            type="text"
+                            value={customColor}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                                setCustomColor(val);
+                                handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'background');
+                              }
+                            }}
+                            className="flex-1 px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6' }}
+                            placeholder="#000000"
+                          />
+                          <button
+                            onClick={() => setShowColorPicker({ type: null })}
+                            className="px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {bgTab === 'stock' && (
+                  <div>
+                    <Carousel page={stockBgPage} setPage={setStockBgPage} total={totalStockPages} labelPrefix="Backgrounds">
+                      <div className="grid grid-cols-3 gap-3">
+                        {getCurrentStockBackgrounds().map((stock, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_image_url: stock.url, bg_image_id: idx + 1 } }))}
+                            className="aspect-square rounded-lg overflow-hidden border-2 transition-all"
+                            style={{
+                              borderColor: artKeyData.theme.bg_image_url === stock.url ? COLOR_ACCENT : '#e2e2e0',
+                              backgroundImage: `url(${stock.url})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                            }}
+                            title={stock.label}
+                          />
+                        ))}
+                      </div>
+                    </Carousel>
+                  </div>
+                )}
+
+                {bgTab === 'upload' && (
+                  <div className="border-2 border-dashed rounded-xl p-8 text-center" style={{ borderColor: '#d8d8d6', background: COLOR_ALT }}>
+                    <div className="text-5xl mb-4">📤</div>
+                    <input type="file" accept="image/*" onChange={handleBackgroundUpload} className="hidden" id="bg-upload" />
+                    <label
+                      htmlFor="bg-upload"
+                      className="inline-block px-6 py-3 rounded-full font-semibold cursor-pointer transition-all"
+                      style={{ background: COLOR_ACCENT, color: '#fff' }}
+                    >
+                      Upload Background
+                    </label>
+                    <p className="text-xs mt-2" style={{ color: '#666' }}>JPG, PNG up to 10MB</p>
+                  </div>
+                )}
+
+                {artKeyData.theme.bg_image_url && (
+                  <button
+                    onClick={() => setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_image_url: '', bg_image_id: 0 } }))}
+                    className="w-full mt-3 px-4 py-2 rounded-lg transition-all"
+                    style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                  >
+                    Clear Background Image
+                  </button>
+                )}
+              </Card>
+            )}
+
+            {/* Step 2 Title */}
+            {designMode !== null && (
+              <Card title={designMode === 'template' ? 'Add Your Title' : 'Add Your Title and Title Color'} step="2">
+                <input
+                  type="text"
+                  value={artKeyData.title}
+                  onChange={(e) => setArtKeyData((prev) => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-lg"
+                  style={{ border: '2px solid #e2e2e0' }}
+                  placeholder="Enter your title..."
+                />
+                {designMode === 'custom' && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-semibold mb-2" style={{ color: COLOR_ACCENT }}>Title Color</h4>
+                    <ColorPicker
+                      page={titleColorPage}
+                      setPage={setTitleColorPage}
+                      pages={3}
+                      label={(page) => (page === 0 ? 'Page 1' : page === 1 ? 'Page 2' : 'Page 3')}
+                      colors={buttonColors}
+                      selected={artKeyData.theme.title_color}
+                      onSelect={(c) => handleColorSelect(c, 'title')}
+                      onCustomColor={() => {
+                        const currentColor = artKeyData.theme.title_color?.startsWith('#') ? artKeyData.theme.title_color : '#000000';
+                        setCustomColor(currentColor);
+                        setShowColorPicker({ type: 'title' });
+                      }}
+                    />
+                    {showColorPicker.type === 'title' && (
+                      <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
+                          <input
+                            type="color"
+                            value={customColor}
+                            onChange={(e) => {
+                              setCustomColor(e.target.value);
+                              handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'title');
+                            }}
+                            className="h-8 w-16 rounded border"
+                            style={{ borderColor: '#d8d8d6' }}
+                          />
+                          <input
+                            type="text"
+                            value={customColor}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                                setCustomColor(val);
+                                handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'title');
+                              }
+                            }}
+                            className="flex-1 px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6' }}
+                            placeholder="#000000"
+                          />
+                          <button
+                            onClick={() => setShowColorPicker({ type: null })}
+                            className="px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold mb-2" style={{ color: COLOR_ACCENT }}>Font</label>
+                  <select
+                    value={artKeyData.theme.font}
+                    onChange={(e) => setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, font: e.target.value } }))}
+                    className="w-full px-4 py-3 rounded-lg"
+                    style={{ border: '2px solid #e2e2e0' }}
+                  >
+                    {fonts.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                  </select>
+                </div>
+              </Card>
+            )}
+
+            {/* Step 3 Features & Colors */}
+            {designMode !== null && (
+              <Card title="Choose ArtKey Features and Colors" step="3">
+                <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
+                  <h4 className="text-sm font-semibold mb-3">Button Color</h4>
+                  <ColorPicker
+                    page={buttonColorPage}
+                    setPage={setButtonColorPage}
+                    pages={3}
+                    label={(page) => (page === 0 ? 'Page 1' : page === 1 ? 'Page 2' : 'Page 3')}
+                    colors={buttonColors}
+                    selected={artKeyData.theme.button_color}
+                    onSelect={(c) => handleColorSelect(c, 'button')}
+                    onCustomColor={() => {
+                      const currentColor = artKeyData.theme.button_color?.startsWith('#') ? artKeyData.theme.button_color : '#000000';
+                      setCustomColor(currentColor);
+                      setShowColorPicker({ type: 'button' });
+                    }}
+                  />
+                  {showColorPicker.type === 'button' && (
+                    <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
+                        <input
+                          type="color"
+                          value={customColor}
+                          onChange={(e) => {
+                            setCustomColor(e.target.value);
+                            handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'button');
+                          }}
+                          className="h-8 w-16 rounded border"
+                          style={{ borderColor: '#d8d8d6' }}
+                        />
+                        <input
+                          type="text"
+                          value={customColor}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                              setCustomColor(val);
+                              handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'button');
+                            }
+                          }}
+                          className="flex-1 px-2 py-1 rounded text-xs"
+                          style={{ border: '1px solid #d8d8d6' }}
+                          placeholder="#000000"
+                        />
+                        <button
+                          onClick={() => setShowColorPicker({ type: null })}
+                          className="px-2 py-1 rounded text-xs"
+                          style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                        >
+                          ✓
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Button Style Customization */}
+                <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
+                  <h4 className="text-sm font-semibold mb-3">Button Shape</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {BUTTON_SHAPES.map((shape) => (
+                      <button
+                        key={shape.id}
+                        onClick={() => {
+                          setButtonShape(shape.id);
+                          setArtKeyData((prev) => ({
+                            ...prev,
+                            theme: { ...prev.theme, button_shape: shape.id },
+                          }));
+                        }}
+                        className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
+                          buttonShape === shape.id ? 'shadow-md' : ''
+                        }`}
+                        style={{
+                          background: buttonShape === shape.id ? COLOR_ACCENT : COLOR_ALT,
+                          color: buttonShape === shape.id ? COLOR_PRIMARY : COLOR_ACCENT,
+                          borderRadius: shape.borderRadius,
+                        }}
+                      >
+                        {shape.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
+                  <h4 className="text-sm font-semibold mb-3">Button Style</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {BUTTON_STYLES.map((style) => (
+                      <button
+                        key={style.id}
+                        onClick={() => {
+                          setButtonStyle(style.id);
+                          setArtKeyData((prev) => ({
+                            ...prev,
+                            theme: { ...prev.theme, button_style: style.id },
+                          }));
+                        }}
+                        className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
+                          buttonStyle === style.id ? 'shadow-md' : ''
+                        }`}
+                        style={{
+                          background: buttonStyle === style.id ? COLOR_ACCENT : COLOR_ALT,
+                          color: buttonStyle === style.id ? COLOR_PRIMARY : COLOR_ACCENT,
+                        }}
+                      >
+                        {style.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
+                  <h4 className="text-sm font-semibold mb-3">Header Icon</h4>
+                  <div className="grid grid-cols-4 gap-2">
+                    {Object.entries(ELEGANT_ICONS).map(([key, iconData]) => (
+                      <button
+                        key={key}
+                        onClick={() => {
+                          setHeaderIcon(key as ElegantIconKey);
+                          setArtKeyData((prev) => ({
+                            ...prev,
+                            theme: { ...prev.theme, header_icon: key },
+                          }));
+                        }}
+                        className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center justify-center ${
+                          headerIcon === key ? 'shadow-md' : ''
+                        }`}
+                        style={{
+                          borderColor: headerIcon === key ? COLOR_ACCENT : '#e2e2e0',
+                          background: headerIcon === key ? COLOR_ALT : COLOR_PRIMARY,
+                        }}
+                        title={iconData.label}
+                      >
+                        <ElegantIcon 
+                          icon={key as ElegantIconKey} 
+                          size={32} 
+                          color={headerIcon === key ? COLOR_ACCENT : '#999'}
+                          strokeWidth={1.5}
+                        />
+                        <span className="text-xs mt-1" style={{ color: COLOR_ACCENT }}>
+                          {iconData.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-start gap-2">
+                  <span className="text-lg">💡</span>
+                  <span className="text-xs text-blue-800">Click to toggle; drag to reorder.</span>
+                </div>
+
+                <div className="space-y-2">
+                  {featureDefs.map((f, idx) => {
+                    const isCustomLink = f.type === 'custom_link';
+                    return (
+                      <div key={f.key}>
+                        {editingFeatureIndex === idx ? (
+                          // Edit mode
+                          <div className="p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                value={editFeatureLabel}
+                                onChange={(e) => setEditFeatureLabel(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg text-sm"
+                                style={{ border: '1px solid #d8d8d6' }}
+                                autoFocus
+                                placeholder="Enter button name"
+                              />
+                              {isCustomLink && (
+                                <input
+                                  type="url"
+                                  value={editLinkUrl}
+                                  onChange={(e) => setEditLinkUrl(e.target.value)}
+                                  className="w-full px-3 py-2 rounded-lg text-sm"
+                                  style={{ border: '1px solid #d8d8d6' }}
+                                  placeholder="https://..."
+                                />
+                              )}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    if (editFeatureLabel.trim()) {
+                                      const updated = [...featureDefs];
+                                      if (isCustomLink) {
+                                        // Update custom link
+                                        const linkData = { label: editFeatureLabel, url: editLinkUrl };
+                                        updated[idx] = { ...updated[idx], label: editFeatureLabel, linkData };
+                                        // Update customLinks array - find by matching the old linkData
+                                        const oldLinkData = f.linkData;
+                                        if (oldLinkData) {
+                                          const linkIndex = customLinks.findIndex(l => l.url === oldLinkData.url && l.label === oldLinkData.label);
+                                          if (linkIndex >= 0) {
+                                            const newCustomLinks = [...customLinks];
+                                            newCustomLinks[linkIndex] = linkData;
+                                            setCustomLinks(newCustomLinks);
+                                            setArtKeyData((prev) => ({ ...prev, links: newCustomLinks }));
+                                          }
+                                        }
+                                      } else {
+                                        updated[idx] = { ...updated[idx], label: editFeatureLabel };
+                                      }
+                                      setFeatureDefs(updated);
+                                    }
+                                    setEditingFeatureIndex(null);
+                                    setEditFeatureLabel('');
+                                    setEditLinkUrl('');
+                                  }}
+                                  className="px-3 py-2 rounded-lg text-sm font-medium"
+                                  style={{ background: COLOR_ACCENT, color: COLOR_PRIMARY }}
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingFeatureIndex(null);
+                                    setEditFeatureLabel('');
+                                    setEditLinkUrl('');
+                                  }}
+                                  className="px-3 py-2 rounded-lg text-sm font-medium"
+                                  style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                                >
+                                  ✕
+                                </button>
+                                {isCustomLink && (
+                                  <button
+                                    onClick={() => {
+                                      // Remove custom link
+                                      const updated = featureDefs.filter((_, i) => i !== idx);
+                                      setFeatureDefs(updated);
+                                      const linkData = f.linkData;
+                                      if (linkData) {
+                                        const newCustomLinks = customLinks.filter(l => l.url !== linkData.url);
+                                        setCustomLinks(newCustomLinks);
+                                        setArtKeyData((prev) => ({ ...prev, links: newCustomLinks }));
+                                      }
+                                      setEditingFeatureIndex(null);
+                                      setEditFeatureLabel('');
+                                      setEditLinkUrl('');
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-sm font-medium"
+                                    style={{ background: '#ef4444', color: COLOR_PRIMARY }}
+                                  >
+                                    🗑️ Delete
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          // Display mode
+                          <div
+                            draggable
+                            onDragStart={() => handleFeatureDragStart(idx)}
+                            onDragOver={(e) => handleFeatureDragOver(e, idx)}
+                            onDragEnd={handleFeatureDragEnd}
+                            className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-grab transition-all"
+                            style={{
+                              borderColor: (isCustomLink || artKeyData.features[f.field]) ? COLOR_ACCENT : '#e2e2e0',
+                              background: (isCustomLink || artKeyData.features[f.field]) ? COLOR_ALT : COLOR_PRIMARY,
+                              opacity: draggedFeature === idx ? 0.5 : 1,
+                            }}
+                          >
+                            <div className="text-gray-400">⋮⋮</div>
+                            {!isCustomLink && (
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFeature(f.field);
+                                }}
+                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer"
+                                style={{ borderColor: artKeyData.features[f.field] ? COLOR_ACCENT : '#d0d0ce', background: artKeyData.features[f.field] ? COLOR_ACCENT : 'transparent' }}
+                              >
+                                {artKeyData.features[f.field] && <span className="text-white text-xs">✓</span>}
+                              </div>
+                            )}
+                            {isCustomLink && (
+                              <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: COLOR_ACCENT, background: COLOR_ACCENT }}>
+                                <span className="text-white text-xs">🔗</span>
+                              </div>
+                            )}
+                            <span 
+                              onClick={(e) => {
+                                if (!isCustomLink) {
+                                  e.stopPropagation();
+                                  toggleFeature(f.field);
+                                }
+                              }}
+                              className="flex-1 text-sm font-medium cursor-pointer" 
+                              style={{ color: COLOR_ACCENT }}
+                            >
+                              {f.label}
+                            </span>
+                            {isCustomLink && f.linkData && (
+                              <a
+                                href={f.linkData.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs text-blue-500 hover:text-blue-700"
+                                title={f.linkData.url}
+                              >
+                                🔗
+                              </a>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingFeatureIndex(idx);
+                                setEditFeatureLabel(f.label);
+                                if (isCustomLink && f.linkData) {
+                                  setEditLinkUrl(f.linkData.url);
+                                }
+                              }}
+                              className="text-blue-500 hover:text-blue-700 p-2 text-base"
+                              title="Edit button"
+                            >
+                              ✏️
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+
+            {/* Add New Link Button - Simplified */}
+            {designMode !== null && (
+              <Card title="Add New Link Button">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Button Name</label>
+                    <input
+                      type="text"
+                      value={newLinkLabel}
+                      onChange={(e) => setNewLinkLabel(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg text-sm"
+                      style={{ border: '1px solid #d8d8d6' }}
+                      placeholder="e.g., Instagram, Website, Portfolio"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>URL</label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🔗</span>
+                      <input
+                        type="url"
+                        value={newLinkUrl}
+                        onChange={(e) => setNewLinkUrl(e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-lg text-sm"
+                        style={{ border: '1px solid #d8d8d6' }}
+                        placeholder="https://..."
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleAddLink}
+                    className="w-full px-4 py-3 rounded-lg text-sm font-semibold transition-all"
+                    style={{ background: COLOR_ACCENT, color: COLOR_PRIMARY }}
+                  >
+                    ✨ Add Link Button
+                  </button>
+                  <p className="text-xs text-gray-500 text-center">
+                    Your link will appear as a toggleable button above in the features list
+                  </p>
+                </div>
+              </Card>
+            )}
+
+            {/* Step 5 Spotify */}
+            {designMode !== null && artKeyData.features.enable_spotify && (
+              <Card title="Share Your Playlist">
+                <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Playlist URL</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔗</span>
+                  <input
+                    type="url"
+                    value={artKeyData.spotify.url}
+                    onChange={(e) => setArtKeyData((prev) => ({ ...prev, spotify: { ...prev.spotify, url: e.target.value } }))}
+                    className="flex-1 px-3 py-2 rounded-lg text-sm"
+                    style={{ border: '1px solid #d8d8d6' }}
+                    placeholder="https://open.spotify.com/playlist/..."
+                  />
+                </div>
+                <label className="flex items-center gap-2 mt-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={artKeyData.spotify.autoplay}
+                    onChange={(e) => setArtKeyData((prev) => ({ ...prev, spotify: { ...prev.spotify, autoplay: e.target.checked } }))}
+                  />
+                  <span>Auto-play when page loads</span>
+                </label>
+              </Card>
+            )}
+
+            {/* Step 6 Media */}
+            {designMode !== null && (artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
+              <Card title="Media Gallery">
+                <div className="grid grid-cols-2 gap-4">
+                  <div 
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      !artKeyData.features.enable_gallery 
+                        ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200' 
+                        : openedGallery === 'videos'
+                        ? 'opacity-50 cursor-pointer bg-gray-100 border-gray-300'
+                        : openedGallery === 'images'
+                        ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                        : 'border-gray-300 bg-gray-50 cursor-pointer'
+                    }`}
+                    onClick={() => {
+                      if (artKeyData.features.enable_gallery) {
+                        setOpenedGallery(openedGallery === 'images' ? null : 'images');
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className={`font-semibold text-sm ${!artKeyData.features.enable_gallery ? 'text-gray-400' : ''}`}>
+                        📸 Image Gallery
+                      </h4>
+                      {openedGallery === 'images' && <span className="text-xs text-blue-600">▼ Open</span>}
+                      {openedGallery !== 'images' && artKeyData.features.enable_gallery && <span className="text-xs text-gray-500">▶ Closed</span>}
+                      {!artKeyData.features.enable_gallery && <span className="text-xs text-gray-400">Disabled</span>}
+                    </div>
+                    {openedGallery === 'images' && artKeyData.features.enable_gallery && (
+                      <MediaColumn
+                        title="Images"
+                        items={artKeyData.uploadedImages}
+                        onRemove={(idx) => setArtKeyData((prev) => ({ ...prev, uploadedImages: prev.uploadedImages.filter((_, i) => i !== idx) }))}
+                        onUpload={handleImageUpload}
+                        accept="image/*"
+                        inputId="image-upload"
+                        buttonLabel="+ Upload"
+                      />
+                    )}
+                  </div>
+                  <div 
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      !artKeyData.features.enable_video 
+                        ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200' 
+                        : openedGallery === 'images'
+                        ? 'opacity-50 cursor-pointer bg-gray-100 border-gray-300'
+                        : openedGallery === 'videos'
+                        ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                        : 'border-gray-300 bg-gray-50 cursor-pointer'
+                    }`}
+                    onClick={() => {
+                      if (artKeyData.features.enable_video) {
+                        setOpenedGallery(openedGallery === 'videos' ? null : 'videos');
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className={`font-semibold text-sm ${!artKeyData.features.enable_video ? 'text-gray-400' : ''}`}>
+                        🎥 Video Gallery
+                      </h4>
+                      {openedGallery === 'videos' && <span className="text-xs text-blue-600">▼ Open</span>}
+                      {openedGallery !== 'videos' && artKeyData.features.enable_video && <span className="text-xs text-gray-500">▶ Closed</span>}
+                      {!artKeyData.features.enable_video && <span className="text-xs text-gray-400">Disabled</span>}
+                    </div>
+                    {openedGallery === 'videos' && artKeyData.features.enable_video && (
+                      <MediaColumn
+                        title="Videos"
+                        items={artKeyData.uploadedVideos}
+                        onRemove={(idx) => {
+                          const removedUrl = artKeyData.uploadedVideos[idx];
+                          setArtKeyData((prev) => {
+                            const newVideos = prev.uploadedVideos.filter((_, i) => i !== idx);
+                            // If removed video was featured, clear featured video
+                            const newFeatured = prev.featured_video?.video_url === removedUrl ? null : prev.featured_video;
+                            return { ...prev, uploadedVideos: newVideos, featured_video: newFeatured };
+                          });
+                        }}
+                        onUpload={handleVideoUpload}
+                        accept="video/*"
+                        inputId="video-upload"
+                        buttonLabel="+ Upload"
+                        isVideo
+                        featuredVideoUrl={artKeyData.featured_video?.video_url || null}
+                        onSetFeatured={handleSetFeaturedVideo}
+                        featuredVideoLabel={artKeyData.featured_video?.button_label}
+                        onUpdateFeaturedLabel={(label) => {
+                          if (artKeyData.featured_video) {
+                            setArtKeyData((prev) => ({
+                              ...prev,
+                              featured_video: prev.featured_video ? { ...prev.featured_video, button_label: label } : null,
+                            }));
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Step 7 Settings */}
+            {designMode !== null && (artKeyData.features.show_guestbook || artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
+              <Card title="ArtKey Settings">
+                {artKeyData.features.show_guestbook && (
+                  <SettingsBlock title="📖 Guestbook Settings">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={artKeyData.features.gb_btn_view}
+                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_btn_view: e.target.checked } }))}
+                      />
+                      <span>Allow guests to view the Guestbook</span>
+                    </label>
+                    <div className="flex gap-2 mt-2">
+                      {['open', 'closed', 'scheduled'].map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_signing_status: v } }))}
+                          className="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                          style={{
+                            background: artKeyData.features.gb_signing_status === v ? (v === 'open' ? '#22c55e' : v === 'closed' ? '#ef4444' : '#3b82f6') : '#e5e7eb',
+                            color: artKeyData.features.gb_signing_status === v ? '#fff' : '#444',
+                          }}
+                        >
+                          {v === 'open' ? '✅ Open' : v === 'closed' ? '🚫 Closed' : '📅 Scheduled'}
+                        </button>
+                      ))}
+                    </div>
+                    {artKeyData.features.gb_signing_status === 'scheduled' && (
+                      <div className="grid grid-cols-2 gap-3 mt-3 p-3 rounded-lg" style={{ background: '#e0f2fe' }}>
+                        <div>
+                          <label className="block text-xs font-medium mb-1">Start Date</label>
+                          <input
+                            type="datetime-local"
+                            value={artKeyData.features.gb_signing_start}
+                            onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_signing_start: e.target.value } }))}
+                            className="w-full px-2 py-1.5 rounded-lg text-sm"
+                            style={{ border: '1px solid #d8d8d6' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium mb-1">End Date</label>
+                          <input
+                            type="datetime-local"
+                            value={artKeyData.features.gb_signing_end}
+                            onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_signing_end: e.target.value } }))}
+                            className="w-full px-2 py-1.5 rounded-lg text-sm"
+                            style={{ border: '1px solid #d8d8d6' }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <label className="flex items-center gap-2 text-sm mt-3">
+                      <input
+                        type="checkbox"
+                        checked={artKeyData.features.gb_require_approval}
+                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_require_approval: e.target.checked } }))}
+                      />
+                      <span>🛡️ Require approval before entries appear</span>
+                    </label>
+                  </SettingsBlock>
+                )}
+
+                {artKeyData.features.enable_gallery && (
+                  <SettingsBlock title="📸 Image Gallery Settings">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={artKeyData.features.allow_img_uploads}
+                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, allow_img_uploads: e.target.checked } }))}
+                      />
+                      <span>Allow guests to upload images</span>
+                    </label>
+                    {artKeyData.features.allow_img_uploads && (
+                      <div className="mt-2 p-3 rounded-lg" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                        <div className="text-sm font-medium" style={{ color: '#b45309' }}>🛡️ Moderation enabled</div>
+                        <p className="text-xs mt-1" style={{ color: '#92400e' }}>Guest uploads require approval.</p>
+                      </div>
+                    )}
+                  </SettingsBlock>
+                )}
+
+                {artKeyData.features.enable_video && (
+                  <SettingsBlock title="🎥 Video Gallery Settings">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={artKeyData.features.allow_vid_uploads}
+                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, allow_vid_uploads: e.target.checked } }))}
+                      />
+                      <span>Allow guests to upload videos</span>
+                    </label>
+                    {artKeyData.features.allow_vid_uploads && (
+                      <div className="mt-2 p-3 rounded-lg" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                        <div className="text-sm font-medium" style={{ color: '#b45309' }}>🛡️ Moderation enabled</div>
+                        <p className="text-xs mt-1" style={{ color: '#92400e' }}>Guest uploads require approval.</p>
+                      </div>
+                    )}
+                  </SettingsBlock>
+                )}
+
+              </Card>
+            )}
+
+            {/* Step 8: QR Code & Skeleton Key (only for cards/invitations/postcards) */}
+            {designMode !== null && (productInfo?.requiresQR || productInfo?.requiresSkeletonKey) && (
+              <Card title="QR Code Placement" data-section="qr-placement">
+                {(productInfo?.requiresQR || productInfo?.requiresSkeletonKey) && !skeletonKey && (
+                  <div className="mb-4 p-3 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
+                    <p className="text-sm font-semibold text-yellow-800">
+                      ⚠️ Required: Please select a skeleton key template and QR code position
+                    </p>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      This product requires a skeleton key template and QR code placement.</p>
+                  </div>
+                )}
+                <div className="space-y-6">
+                  {/* Skeleton Key Selection */}
+                  <div>
+                    <label className="block text-sm font-semibold mb-3" style={{ color: COLOR_ACCENT }}>
+                      🔑 Choose Skeleton Key Template
+                    </label>
+                    <p className="text-xs text-gray-600 mb-3">
+                      Select a template layout for your card/invitation/postcard where the QR code will be placed.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {[
+                        { 
+                          id: 'template-1', 
+                          name: 'Classic Corner', 
+                          description: 'QR code in bottom-right corner',
+                          qrArea: 'bottom-right',
+                          preview: (
+                            <div className="w-full h-32 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden">
+                              <div className="absolute bottom-2 right-2 w-16 h-16 bg-white rounded border-2 border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR</div>
+                                <div className="text-[8px] text-gray-500 mt-0.5">Scan</div>
+                              </div>
+                            </div>
+                          )
+                        },
+                        { 
+                          id: 'template-2', 
+                          name: 'Top Header', 
+                          description: 'QR code in top-right with text',
+                          qrArea: 'top-right',
+                          preview: (
+                            <div className="w-full h-32 bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden">
+                              <div className="absolute top-2 right-2 w-16 h-16 bg-white rounded border-2 border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR</div>
+                                <div className="text-[8px] text-gray-500 mt-0.5">Scan</div>
+                              </div>
+                              <div className="absolute top-2 left-2 text-xs font-semibold text-gray-700">Scan QR Code</div>
+                            </div>
+                          )
+                        },
+                        { 
+                          id: 'template-3', 
+                          name: 'Center Bottom', 
+                          description: 'QR code centered at bottom',
+                          qrArea: 'bottom-center',
+                          preview: (
+                            <div className="w-full h-32 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden">
+                              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-16 h-16 bg-white rounded border-2 border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR</div>
+                                <div className="text-[8px] text-gray-500 mt-0.5">Scan</div>
+                              </div>
+                              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 -translate-y-6 text-xs font-semibold text-gray-700">Scan QR Code</div>
+                            </div>
+                          )
+                        },
+                        { 
+                          id: 'template-4', 
+                          name: 'Side Panel', 
+                          description: 'QR code on left side',
+                          qrArea: 'center-left',
+                          preview: (
+                            <div className="w-full h-32 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden">
+                              <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-16 h-16 bg-white rounded border-2 border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR</div>
+                                <div className="text-[8px] text-gray-500 mt-0.5">Scan</div>
+                              </div>
+                              <div className="absolute left-20 top-1/2 transform -translate-y-1/2 text-xs font-semibold text-gray-700">Scan QR Code</div>
+                            </div>
+                          )
+                        },
+                        { 
+                          id: 'template-5', 
+                          name: 'Back Cover', 
+                          description: 'QR code centered on back',
+                          qrArea: 'center',
+                          preview: (
+                            <div className="w-full h-32 bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden">
+                              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white rounded border-2 border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR</div>
+                                <div className="text-[8px] text-gray-500 mt-0.5">Scan</div>
+                              </div>
+                              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700">Scan QR Code</div>
+                            </div>
+                          )
+                        },
+                      ].map((template) => (
+                        <button
+                          key={template.id}
+                          onClick={() => {
+                            setSkeletonKey(template.id);
+                            // Auto-set QR position based on template default
+                            if (template.qrArea) {
+                              setQrPosition(template.qrArea);
+                            }
+                          }}
+                          className={`p-3 rounded-xl border-2 transition-all ${
+                            skeletonKey === template.id ? 'shadow-lg scale-105' : ''
+                          }`}
+                          style={{
+                            borderColor: skeletonKey === template.id ? COLOR_ACCENT : '#e2e2e0',
+                            background: skeletonKey === template.id ? '#f0f9ff' : COLOR_PRIMARY,
+                          }}
+                        >
+                          {template.preview}
+                          <div className="mt-2 text-center">
+                            <div className="text-xs font-semibold" style={{ color: COLOR_ACCENT }}>
+                              {template.name}
+                            </div>
+                            <div className="text-[10px] text-gray-500 mt-0.5">
+                              {template.description}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* QR Code Position */}
+                  <div>
+                    <label className="block text-sm font-semibold mb-3" style={{ color: COLOR_ACCENT }}>
+                      📍 QR Code Position
+                    </label>
+                    <p className="text-xs text-gray-600 mb-3">
+                      Choose where on the skeleton key template the QR code should be placed.
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'top-left', label: 'Top Left', icon: '↖️' },
+                        { id: 'top-center', label: 'Top Center', icon: '⬆️' },
+                        { id: 'top-right', label: 'Top Right', icon: '↗️' },
+                        { id: 'center-left', label: 'Center Left', icon: '⬅️' },
+                        { id: 'center', label: 'Center', icon: '🎯' },
+                        { id: 'center-right', label: 'Center Right', icon: '➡️' },
+                        { id: 'bottom-left', label: 'Bottom Left', icon: '↙️' },
+                        { id: 'bottom-center', label: 'Bottom Center', icon: '⬇️' },
+                        { id: 'bottom-right', label: 'Bottom Right', icon: '↘️' },
+                      ].map((position) => (
+                        <button
+                          key={position.id}
+                          onClick={() => setQrPosition(position.id)}
+                          className={`p-3 rounded-lg border-2 transition-all text-center ${
+                            qrPosition === position.id ? 'shadow-md' : ''
+                          }`}
+                          style={{
+                            borderColor: qrPosition === position.id ? COLOR_ACCENT : '#e2e2e0',
+                            background: qrPosition === position.id ? '#f0f9ff' : COLOR_PRIMARY,
+                          }}
+                        >
+                          <div className="text-xl mb-1">{position.icon}</div>
+                          <div className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>
+                            {position.label}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Validation Status */}
+                  {(!skeletonKey || !qrPosition) && (
+                    <div className="p-3 bg-red-50 border-2 border-red-300 rounded-lg">
+                      <p className="text-sm font-semibold text-red-800">
+                        ⚠️ Required Fields Missing
+                      </p>
+                      <ul className="text-xs text-red-700 mt-2 list-disc list-inside space-y-1">
+                        {!skeletonKey && <li>Please select a skeleton key template</li>}
+                        {!qrPosition && <li>Please select a QR code position</li>}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Validation Status */}
+                  {(!skeletonKey || !qrPosition) && (
+                    <div className="p-3 bg-red-50 border-2 border-red-300 rounded-lg mb-4">
+                      <p className="text-sm font-semibold text-red-800 mb-2">
+                        ⚠️ Required: Complete QR Code Setup
+                      </p>
+                      <ul className="text-xs text-red-700 list-disc list-inside space-y-1">
+                        {!skeletonKey && <li>Select a skeleton key template above</li>}
+                        {!qrPosition && <li>Select a QR code position above</li>}
+                      </ul>
+                      <p className="text-xs text-red-600 mt-2">
+                        You cannot save until both are selected.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Preview of Selected Template */}
+                  {skeletonKey && (
+                    <div>
+                      <label className="block text-sm font-semibold mb-3" style={{ color: COLOR_ACCENT }}>
+                        📋 Template Preview
+                      </label>
+                      <div className="p-4 rounded-lg border-2" style={{ borderColor: '#e2e2e0', background: COLOR_ALT }}>
+                        <div className="bg-white rounded-lg p-6 relative" style={{ minHeight: '200px', aspectRatio: '5/7' }}>
+                          {/* Template-specific layout preview */}
+                          {skeletonKey === 'template-1' && (
+                            <div className="absolute bottom-4 right-4">
+                              <div className="w-20 h-20 bg-gray-100 rounded border-2 border-dashed border-gray-400 flex flex-col items-center justify-center">
+                                <div className="text-xs font-bold text-gray-600">QR Code</div>
+                                <div className="text-[10px] text-gray-500 mt-1">Scan QR Code</div>
+                              </div>
+                            </div>
+                          )}
+                          {skeletonKey === 'template-2' && (
+                            <>
+                              <div className="absolute top-4 right-4">
+                                <div className="w-20 h-20 bg-gray-100 rounded border-2 border-dashed border-gray-400 flex flex-col items-center justify-center">
+                                  <div className="text-xs font-bold text-gray-600">QR Code</div>
+                                  <div className="text-[10px] text-gray-500 mt-1">Scan</div>
+                                </div>
+                              </div>
+                              <div className="absolute top-4 left-4 text-sm font-semibold text-gray-700">Scan QR Code</div>
+                            </>
+                          )}
+                          {skeletonKey === 'template-3' && (
+                            <>
+                              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+                                <div className="w-20 h-20 bg-gray-100 rounded border-2 border-dashed border-gray-400 flex flex-col items-center justify-center">
+                                  <div className="text-xs font-bold text-gray-600">QR Code</div>
+                                  <div className="text-[10px] text-gray-500 mt-1">Scan</div>
+                                </div>
+                              </div>
+                              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 -translate-y-8 text-sm font-semibold text-gray-700">Scan QR Code</div>
+                            </>
+                          )}
+                          {skeletonKey === 'template-4' && (
+                            <>
+                              <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                                <div className="w-20 h-20 bg-gray-100 rounded border-2 border-dashed border-gray-400 flex flex-col items-center justify-center">
+                                  <div className="text-xs font-bold text-gray-600">QR Code</div>
+                                  <div className="text-[10px] text-gray-500 mt-1">Scan</div>
+                                </div>
+                              </div>
+                              <div className="absolute left-28 top-1/2 transform -translate-y-1/2 text-sm font-semibold text-gray-700">Scan QR Code</div>
+                            </>
+                          )}
+                          {skeletonKey === 'template-5' && (
+                            <>
+                              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                                <div className="w-20 h-20 bg-gray-100 rounded border-2 border-dashed border-gray-400 flex flex-col items-center justify-center">
+                                  <div className="text-xs font-bold text-gray-600">QR Code</div>
+                                  <div className="text-[10px] text-gray-500 mt-1">Scan</div>
+                                </div>
+                              </div>
+                              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-sm font-semibold text-gray-700">Scan QR Code</div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Info Box */}
+                  <div className="p-4 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fcd34d' }}>
+                    <div className="text-sm font-semibold mb-1" style={{ color: '#92400e' }}>
+                      💡 QR Code Information
+                    </div>
+                    <p className="text-xs" style={{ color: '#78350f' }}>
+                      A unique QR code will be generated for this ArtKey and placed on your selected template at the chosen position. 
+                      The QR code will include "Scan QR Code" text and will link directly to your ArtKey portal.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Helper Components
+function Card({ title, step, children, onBack }: { title: string; step?: string; children: React.ReactNode; onBack?: () => void }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-lg p-6 border border-[#e2e2e0]">
+      <div className="flex items-center gap-3 mb-4">
+        {step && (
+          <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white" style={{ background: COLOR_ACCENT }}>{step}</div>
+        )}
+        <div className="flex-1">
+          <h3 className="text-xl font-bold font-playfair" style={{ color: COLOR_ACCENT }}>{title}</h3>
+        </div>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="px-4 py-2 text-sm rounded-lg transition-all"
+            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+          >
+            ← Back
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Tabs({ value, onChange, tabs }: { value: string; onChange: (id: string) => void; tabs: { id: string; label: string }[] }) {
+  return (
+    <div className="flex gap-2 mb-4 p-1 rounded-lg" style={{ background: COLOR_ALT }}>
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+          style={value === t.id ? { background: COLOR_PRIMARY, boxShadow: '0 2px 6px rgba(0,0,0,0.08)', color: COLOR_ACCENT } : { color: '#666' }}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Carousel({ page, setPage, total, children, labelPrefix }: { page: number; setPage: (p: number) => void; total: number; children: React.ReactNode; labelPrefix?: string }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={() => setPage(Math.max(0, page - 1))}
+          disabled={page === 0}
+          className="w-10 h-10 rounded-lg border transition-all disabled:opacity-50"
+          style={{ borderColor: '#d8d8d6' }}
+        >
+          ‹
+        </button>
+        <div className="flex-1">{children}</div>
+        <button
+          onClick={() => setPage(Math.min(total - 1, page + 1))}
+          disabled={page >= total - 1}
+          className="w-10 h-10 rounded-lg border transition-all disabled:opacity-50"
+          style={{ borderColor: '#d8d8d6' }}
+        >
+          ›
+        </button>
+      </div>
+      <div className="text-center text-sm text-gray-500">
+        Page {page + 1} of {total} {labelPrefix || ''}
+      </div>
+    </div>
+  );
+}
+
+type ColorOption = { bg: string; color: string; label: string; type: string };
+
+function ColorPicker({ page, setPage, pages, label, colors, selected, onSelect, onCustomColor }: {
+  page: number;
+  setPage: (p: number) => void;
+  pages: number;
+  label: string | ((page: number) => string);
+  colors: ColorOption[];
+  selected: string;
+  onSelect: (color: ColorOption) => void;
+  onCustomColor?: () => void;
+}) {
+  const maxPage = pages - 1;
+  const getColorsForPage = (page: number, arr: ColorOption[]) => arr.slice(page * 12, page * 12 + 12);
+  
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          onClick={() => setPage(Math.max(0, page - 1))}
+          disabled={page === 0}
+          className="w-8 h-8 rounded border disabled:opacity-50"
+          style={{ borderColor: '#d8d8d6' }}
+        >
+          ‹
+        </button>
+        <span className="text-xs text-gray-500 flex-1 text-center">{typeof label === 'function' ? label(page) : label}</span>
+        <button
+          onClick={() => setPage(Math.min(maxPage, page + 1))}
+          disabled={page >= maxPage}
+          className="w-8 h-8 rounded border disabled:opacity-50"
+          style={{ borderColor: '#d8d8d6' }}
+        >
+          ›
+        </button>
+      </div>
+      <div className="grid grid-cols-6 gap-2 mb-2" style={{ gridTemplateRows: 'repeat(2, minmax(0, 1fr))' }}>
+        {getColorsForPage(page, colors).map((color, idx) => {
+          const isSelected =
+            selected === color.color ||
+            selected === color.bg ||
+            (color.type === 'gradient' && typeof selected === 'string' && selected.includes(color.bg?.match(/#[0-9a-fA-F]{6}/)?.[0] || ''));
+          return (
+            <button
+              key={idx}
+              onClick={() => onSelect(color)}
+              className="aspect-square rounded-lg border-2 transition-all"
+              style={{
+                background: color.bg || color.color,
+                borderColor: isSelected ? COLOR_ACCENT : '#e2e2e0',
+              }}
+              title={color.label}
+            />
+          );
+        })}
+      </div>
+      {onCustomColor && (
+        <button
+          onClick={onCustomColor}
+          className="w-full px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
+          style={{ border: '2px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+        >
+          🎨 More Colors
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, buttonLabel, isVideo, featuredVideoUrl, onSetFeatured, featuredVideoLabel, onUpdateFeaturedLabel }: {
+  title: string;
+  items: string[];
+  onRemove: (idx: number) => void;
+  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  accept: string;
+  inputId: string;
+  buttonLabel: string;
+  isVideo?: boolean;
+  featuredVideoUrl?: string | null;
+  onSetFeatured?: (url: string, isFeatured: boolean) => void;
+  featuredVideoLabel?: string;
+  onUpdateFeaturedLabel?: (label: string) => void;
+}) {
+  return (
+    <div>
+      <h4 className="text-sm font-semibold mb-2" style={{ color: COLOR_ACCENT }}>{title}</h4>
+      {items.length > 0 && (
+        <div className={isVideo ? 'space-y-2 mb-2' : 'grid grid-cols-3 gap-2 mb-2'}>
+          {items.map((it, idx) => (
+            <div key={idx} className="relative group">
+              {isVideo ? (
+                <>
+                  <video src={it} className="w-full h-20 object-cover rounded-lg" controls />
+                  {isVideo && onSetFeatured && (
+                    <div className="absolute bottom-1 left-1 flex items-center gap-1 bg-black/70 text-white px-2 py-1 rounded text-xs z-10">
+                      <input
+                        type="checkbox"
+                        checked={featuredVideoUrl === it}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          onSetFeatured(it, e.target.checked);
+                        }}
+                        className="w-3 h-3 cursor-pointer"
+                        title="Mark as Featured Video"
+                      />
+                      <span className="text-[10px]">Featured</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <img src={it} alt="" className="w-full h-20 object-cover rounded-lg" />
+              )}
+              <button
+                onClick={() => onRemove(idx)}
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs z-10"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {isVideo && featuredVideoUrl && onUpdateFeaturedLabel && (
+        <div className="mb-2 p-2 rounded-lg" style={{ background: COLOR_ALT, border: '1px solid #e2e2e0' }}>
+          <label className="block text-xs font-medium mb-1" style={{ color: COLOR_ACCENT }}>Featured Video Button Label:</label>
+          <input
+            type="text"
+            value={featuredVideoLabel || 'Watch Video'}
+            onChange={(e) => onUpdateFeaturedLabel(e.target.value)}
+            className="w-full px-2 py-1 rounded text-xs"
+            style={{ border: '1px solid #d8d8d6' }}
+            placeholder="Watch Video"
+          />
+        </div>
+      )}
+      <div className="flex gap-2">
+        <input type="file" accept={accept} multiple onChange={onUpload} className="hidden" id={inputId} />
+        <label
+          htmlFor={inputId}
+          className="flex-1 px-3 py-2 rounded-lg text-sm text-center cursor-pointer transition-all"
+          style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+        >
+          {buttonLabel}
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function SettingsBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
+      <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR_ACCENT }}>{title}</h4>
+      <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
+
+function PrimaryButton({ onClick, children, icon, accent }: { onClick: () => void; children: React.ReactNode; icon: string | React.ReactNode; accent?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className="group relative p-6 rounded-xl text-left transition-all border-2"
+      style={{
+        background: accent ? 'linear-gradient(135deg,#e2e2e0,#cfcfcf)' : 'linear-gradient(135deg,#f7f7f7,#ececec)',
+        borderColor: '#e2e2e0',
+      }}
+    >
+      <div className="mb-3" style={{ fontSize: '2.5rem', lineHeight: 1 }}>
+        {typeof icon === 'string' ? (
+          <span className="text-4xl">{icon}</span>
+        ) : (
+          <div style={{ display: 'inline-block', transform: 'scale(1.5)' }}>{icon}</div>
+        )}
+      </div>
+      <div className="text-xl font-bold font-playfair" style={{ color: COLOR_ACCENT }}>{children}</div>
+      <div className="absolute top-2 right-2 text-2xl opacity-20 group-hover:opacity-40 transition-opacity">→</div>
+    </button>
+  );
+}
+
+// Export with Suspense wrapper for useSearchParams
+export default function ArtKeyEditor({ artkeyId = null }: ArtKeyEditorProps) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ background: COLOR_ALT }}>
+        <div className="text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-brand-dark text-lg">Loading editor...</p>
+        </div>
+      </div>
+    }>
+      <ArtKeyEditorContent artkeyId={artkeyId} />
+    </Suspense>
+  );
+}
