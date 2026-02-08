@@ -70,12 +70,12 @@ const DEFAULT_ZOOM_INDEX = 3;
 // ============================================================================
 type ToolTab = "images" | "text" | "layouts" | "accents" | "labels";
 
-const TOOL_TAB_META: { id: ToolTab; label: string; icon: string }[] = [
-  { id: "images", label: "Images", icon: "🖼" },
-  { id: "text", label: "Text", icon: "T" },
-  { id: "layouts", label: "Layouts", icon: "⊞" },
-  { id: "accents", label: "Accents", icon: "✦" },
-  { id: "labels", label: "Labels", icon: "🏷" },
+const TOOL_TAB_META: { id: ToolTab; label: string; icon: string; hint: string }[] = [
+  { id: "images", label: "Images", icon: "🖼", hint: "Upload and manage photos or artwork" },
+  { id: "text", label: "Text", icon: "T", hint: "Add and style text on your design" },
+  { id: "layouts", label: "Layouts", icon: "⊞", hint: "Arrange multiple images in a grid layout" },
+  { id: "accents", label: "Accents", icon: "✦", hint: "Add decorative accents and borders" },
+  { id: "labels", label: "Labels", icon: "🏷", hint: "Add shapes, ribbons, and text labels" },
 ];
 
 // ============================================================================
@@ -1363,7 +1363,8 @@ export default function CustomizationStudio({
         <div className="flex items-center gap-3">
           <span className="text-lg font-bold" style={{ color: "#ffffff" }}>Customization Studio</span>
           <span className="text-sm" style={{ color: "#ded8d3" }}>{productSpec.name}</span>
-          <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#475569", color: "#ded8d3" }}>
+          <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#475569", color: "#ded8d3" }}
+            title="Print area dimensions — your design will be printed at this size and resolution">
             {printWidthIn}&quot; x {printHeightIn}&quot; @ {productSpec.printDpi}dpi
           </span>
         </div>
@@ -1380,26 +1381,31 @@ export default function CustomizationStudio({
           </button>
           <span className="w-px h-5" style={{ background: "#918c86" }} />
           <button onClick={() => setZoomIndex(Math.max(0, zoomIndex - 1))} disabled={zoomIndex <= 0}
-            className="px-2 py-1 text-xs rounded disabled:opacity-30" style={{ background: "#475569", color: "#f3f3f3" }}>
+            className="px-2 py-1 text-xs rounded disabled:opacity-30" style={{ background: "#475569", color: "#f3f3f3" }}
+            title="Zoom out">
             -
           </button>
-          <span className="text-xs font-medium min-w-[40px] text-center" style={{ color: "#ded8d3" }}>
+          <span className="text-xs font-medium min-w-[40px] text-center" style={{ color: "#ded8d3" }}
+            title="Current zoom level">
             {Math.round(zoom * 100)}%
           </span>
           <button onClick={() => setZoomIndex(Math.min(ZOOM_LEVELS.length - 1, zoomIndex + 1))} disabled={zoomIndex >= ZOOM_LEVELS.length - 1}
-            className="px-2 py-1 text-xs rounded disabled:opacity-30" style={{ background: "#475569", color: "#f3f3f3" }}>
+            className="px-2 py-1 text-xs rounded disabled:opacity-30" style={{ background: "#475569", color: "#f3f3f3" }}
+            title="Zoom in">
             +
           </button>
           <span className="w-px h-5" style={{ background: "#918c86" }} />
           {onExport && (
             <button onClick={handleExport}
-              className="px-3 py-1.5 text-xs rounded font-medium" style={{ background: "#475569", color: "#ffffff" }}>
+              className="px-3 py-1.5 text-xs rounded font-medium" style={{ background: "#475569", color: "#ffffff" }}
+              title="Export your design as a high-resolution print-ready file">
               Export Print File
             </button>
           )}
           {onSave && (
             <button onClick={() => onSave(designs as DesignState)}
-              className="px-3 py-1.5 text-xs rounded font-medium" style={{ background: "#475569", color: "#ffffff" }}>
+              className="px-3 py-1.5 text-xs rounded font-medium" style={{ background: "#475569", color: "#ffffff" }}
+              title="Save your current design as a draft to continue later">
               Save Draft
             </button>
           )}
@@ -1407,8 +1413,9 @@ export default function CustomizationStudio({
       </div>
 
       {/* ===== SURFACE TABS (always visible) ===== */}
-      <div className="px-4 py-1.5 flex items-center gap-2" style={{ background: "#475569" }}>
-        <span className="text-xs font-medium mr-2" style={{ color: "#ded8d3" }}>Surface:</span>
+      <div className="px-4 py-1.5 flex items-center gap-2 flex-wrap" style={{ background: "#475569" }}>
+        <span className="text-xs font-medium mr-2" style={{ color: "#ded8d3" }}
+          title="Choose which side of the product to design">Surface:</span>
         {productSpec.placements.map((placement) => (
           <button
             key={placement}
@@ -1418,15 +1425,35 @@ export default function CustomizationStudio({
               ? { background: "#000000", color: "#ffffff" }
               : { background: "#918c86", color: "#f3f3f3" }
             }
+            title={`Design the ${placement} of the product`}
           >
             {PLACEMENT_LABELS[placement]}
           </button>
         ))}
-        {productSpec.requiresQrCode && (
-          <span className="ml-auto text-xs px-2 py-0.5 rounded" style={{ background: "#918c86", color: "#f3f3f3" }}>
-            ArtKey QR Enabled
-          </span>
-        )}
+        {productSpec.requiresQrCode && artKeyItem && (<>
+          <span className="mx-2 text-gray-400">|</span>
+          <span className="text-xs font-medium" style={{ color: "#ded8d3" }}
+            title="Move the ArtKey QR code to a different surface">ArtKey:</span>
+          {productSpec.placements.map((p) => (
+            <button
+              key={`ak-${p}`}
+              onClick={() => {
+                setArtKeyItem((prev) => prev ? { ...prev, placement: p } : null);
+                setActivePlacement(p);
+                setSelectedId("artkey-template");
+                setSelectedType("artkey");
+              }}
+              className="px-2 py-0.5 rounded text-xs font-medium transition-all"
+              style={artKeyItem.placement === p
+                ? { background: "#f59e0b", color: "#000" }
+                : { background: "#64748b", color: "#f3f3f3" }
+              }
+              title={`Place the ArtKey QR code on the ${p}`}
+            >
+              {p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          ))}
+        </>)}
       </div>
 
       {/* ===== TOOL TABS (colored horizontal bar) ===== */}
@@ -1440,13 +1467,15 @@ export default function CustomizationStudio({
               ? { background: "#000000", color: "#ffffff" }
               : { background: "transparent", color: "#918c86" }
             }
+            title={tab.hint}
           >
             <span className="text-sm">{tab.icon}</span>
             {tab.label}
           </button>
         ))}
         <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs" style={{ color: "#918c86" }}>Background Color:</span>
+          <span className="text-xs" style={{ color: "#918c86" }}
+            title="Set the canvas background color for this surface">Background Color:</span>
           <ColorPicker value={bgColor} onChange={(c) => setBgColor(c)} />
         </div>
       </div>
@@ -1458,42 +1487,13 @@ export default function CustomizationStudio({
         <div className="w-64 bg-white border-r border-gray-200 flex flex-col overflow-y-auto">
           <div className="flex-1 p-3">
 
-            {/* ---- ARTKEY SURFACE PICKER (always visible when QR enabled) ---- */}
-            {productSpec.requiresQrCode && artKeyItem && (
-              <div className="mb-3 p-3 rounded-lg border-2 border-black space-y-2 bg-gray-50">
-                <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: "#333" }}>
-                  ArtKey Position
-                </h4>
-                <div className="flex gap-1">
-                  {productSpec.placements.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => {
-                        setArtKeyItem((prev) => prev ? { ...prev, placement: p } : null);
-                        setActivePlacement(p);
-                        setSelectedId("artkey-template");
-                        setSelectedType("artkey");
-                      }}
-                      className="flex-1 px-2 py-1.5 rounded text-xs font-semibold transition-all"
-                      style={artKeyItem.placement === p
-                        ? { background: "#000000", color: "#ffffff" }
-                        : { background: "#e5e5e5", color: "#333" }
-                      }
-                    >
-                      {p.charAt(0).toUpperCase() + p.slice(1)}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-gray-400">Click a surface to move the ArtKey. Drag on canvas to reposition.</p>
-              </div>
-            )}
-
             {/* ---- IMAGES TAB ---- */}
             {activeTab === "images" && (
               <div className="space-y-3">
                 <button onClick={() => fileInputRef.current?.click()}
                   className="w-full px-3 py-2 rounded-lg text-sm font-medium text-white"
-                  style={{ background: "#000000" }}>
+                  style={{ background: "#000000" }}
+                  title="Upload a photo or image from your device">
                   Upload Image
                 </button>
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
@@ -1526,28 +1526,36 @@ export default function CustomizationStudio({
                       <p>Original: {selectedImage.originalWidth} x {selectedImage.originalHeight}px</p>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">
-                      <button onClick={rotateImage90} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium">
+                      <button onClick={rotateImage90} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium"
+                        title="Rotate the image 90° clockwise">
                         Rotate 90°
                       </button>
-                      <button onClick={fitImageToCanvas} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium">
+                      <button onClick={fitImageToCanvas} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium"
+                        title="Resize the image to fill the entire canvas">
                         Fit to Canvas
                       </button>
-                      <button onClick={flipImageH} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium">
+                      <button onClick={flipImageH} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium"
+                        title="Flip the image horizontally (mirror left/right)">
                         Flip H
                       </button>
-                      <button onClick={flipImageV} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium">
+                      <button onClick={flipImageV} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium"
+                        title="Flip the image vertically (mirror top/bottom)">
                         Flip V
                       </button>
-                      <button onClick={duplicateImage} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium">
+                      <button onClick={duplicateImage} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium"
+                        title="Create a copy of this image on the canvas">
                         Duplicate
                       </button>
-                      <button onClick={sendToBack} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium">
+                      <button onClick={sendToBack} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium"
+                        title="Move this image behind all other elements">
                         Send to Back
                       </button>
-                      <button onClick={bringToFront} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium">
+                      <button onClick={bringToFront} className="px-2 py-1.5 text-xs rounded bg-gray-100 hover:bg-gray-200 font-medium"
+                        title="Move this image in front of all other elements">
                         Bring to Front
                       </button>
-                      <button onClick={deleteSelected} className="px-2 py-1.5 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 font-medium">
+                      <button onClick={deleteSelected} className="px-2 py-1.5 text-xs rounded bg-red-50 text-red-700 hover:bg-red-100 font-medium"
+                        title="Remove this image from the canvas">
                         Delete
                       </button>
                     </div>
@@ -1561,7 +1569,8 @@ export default function CustomizationStudio({
               <div className="space-y-3">
                 <button onClick={addText}
                   className="w-full px-3 py-2 rounded-lg text-sm font-medium text-white"
-                  style={{ background: "#000000" }}>
+                  style={{ background: "#000000" }}
+                  title="Add a new text element to the canvas">
                   Add Text
                 </button>
                 <p className="text-xs text-gray-400">Click text on the canvas to edit it directly.</p>
@@ -1587,10 +1596,11 @@ export default function CustomizationStudio({
                   <div className="border-t border-gray-200 pt-3 space-y-2">
                     <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Text Properties</h4>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Font</label>
+                      <label className="block text-xs text-gray-500 mb-1" title="Choose a typeface for this text">Font</label>
                       <select value={selectedText.fontFamily}
                         onChange={(e) => updateSelectedText({ fontFamily: e.target.value })}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                        title="Select a font family">
                         {FONT_OPTIONS.map((f) => (
                           <option key={f.family} value={f.family}>{f.name}</option>
                         ))}
@@ -1598,33 +1608,36 @@ export default function CustomizationStudio({
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Size</label>
+                        <label className="block text-xs text-gray-500 mb-1" title="Font size in pixels">Size</label>
                         <input type="number" value={selectedText.fontSize}
                           onChange={(e) => updateSelectedText({ fontSize: parseInt(e.target.value) || 14 })}
                           min={8} max={200}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                          title="Set the font size (8–200)" />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Color</label>
+                        <label className="block text-xs text-gray-500 mb-1" title="Change the text color">Color</label>
                         <ColorPicker value={selectedText.fill} onChange={(c) => updateSelectedText({ fill: c })} />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Style</label>
+                      <label className="block text-xs text-gray-500 mb-1" title="Set the text to normal, bold, or italic">Style</label>
                       <div className="flex gap-1">
                         {["normal", "bold", "italic"].map((style) => (
                           <button key={style} onClick={() => updateSelectedText({ fontStyle: style })}
                             className={`flex-1 py-1 text-xs rounded font-medium ${
                               selectedText.fontStyle === style
                                 ? "bg-black text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}>
+                            }`}
+                            title={`Set text style to ${style}`}>
                             {style.charAt(0).toUpperCase() + style.slice(1)}
                           </button>
                         ))}
                       </div>
                     </div>
                     <button onClick={deleteSelected}
-                      className="w-full px-3 py-1.5 bg-red-50 text-red-700 rounded text-xs hover:bg-red-100 font-medium">
+                      className="w-full px-3 py-1.5 bg-red-50 text-red-700 rounded text-xs hover:bg-red-100 font-medium"
+                      title="Remove this text from the canvas">
                       Delete Text
                     </button>
                   </div>
@@ -1635,10 +1648,11 @@ export default function CustomizationStudio({
                   <div className="border-t border-gray-200 pt-3 space-y-2">
                     <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Label Text Properties</h4>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Font</label>
+                      <label className="block text-xs text-gray-500 mb-1" title="Choose a typeface for the label text">Font</label>
                       <select value={selectedLabel.fontFamily}
                         onChange={(e) => updateSelectedLabel({ fontFamily: e.target.value })}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                        title="Select a font family">
                         {FONT_OPTIONS.map((f) => (
                           <option key={f.family} value={f.family}>{f.name}</option>
                         ))}
@@ -1646,30 +1660,33 @@ export default function CustomizationStudio({
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Size</label>
+                        <label className="block text-xs text-gray-500 mb-1" title="Font size in pixels">Size</label>
                         <input type="number" value={selectedLabel.fontSize}
                           onChange={(e) => updateSelectedLabel({ fontSize: parseInt(e.target.value) || 14 })}
                           min={8} max={200}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                          title="Set the font size (8–200)" />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Font Color</label>
+                        <label className="block text-xs text-gray-500 mb-1" title="Change the label text color">Font Color</label>
                         <ColorPicker value={selectedLabel.fill} onChange={(c) => updateSelectedLabel({ fill: c })} />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Fill Color</label>
+                        <label className="block text-xs text-gray-500 mb-1" title="Set a background fill color inside the shape">Fill Color</label>
                         <div className="flex items-center gap-1">
                           <ColorPicker value={selectedLabel.bgFill || "#ffffff"} onChange={(c) => updateSelectedLabel({ bgFill: c })} />
                           {selectedLabel.bgFill ? (
                             <button onClick={() => updateSelectedLabel({ bgFill: "" })}
-                              className="px-1.5 py-0.5 text-[10px] bg-gray-200 rounded hover:bg-gray-300">
+                              className="px-1.5 py-0.5 text-[10px] bg-gray-200 rounded hover:bg-gray-300"
+                              title="Remove the fill color (make transparent)">
                               Clear
                             </button>
                           ) : (
                             <button onClick={() => updateSelectedLabel({ bgFill: "#ffffff" })}
-                              className="px-1.5 py-0.5 text-[10px] bg-gray-200 rounded hover:bg-gray-300">
+                              className="px-1.5 py-0.5 text-[10px] bg-gray-200 rounded hover:bg-gray-300"
+                              title="Add a white fill color">
                               Add
                             </button>
                           )}
@@ -1677,27 +1694,29 @@ export default function CustomizationStudio({
                       </div>
                       {selectedLabel.assetId.startsWith("shape-") && (
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Border Color</label>
+                          <label className="block text-xs text-gray-500 mb-1" title="Change the shape outline color">Border Color</label>
                           <ColorPicker value={selectedLabel.borderColor || "#222222"} onChange={(c) => updateSelectedLabel({ borderColor: c })} />
                         </div>
                       )}
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Alignment</label>
+                      <label className="block text-xs text-gray-500 mb-1" title="Align text inside the label">Alignment</label>
                       <div className="flex gap-1">
                         {(["left", "center", "right"] as const).map((align) => (
                           <button key={align} onClick={() => updateSelectedLabel({ textAlign: align })}
                             className={`flex-1 py-1 text-xs rounded font-medium ${
                               selectedLabel.textAlign === align
                                 ? "bg-black text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}>
+                            }`}
+                            title={`Align label text to the ${align}`}>
                             {align.charAt(0).toUpperCase() + align.slice(1)}
                           </button>
                         ))}
                       </div>
                     </div>
                     <button onClick={deleteSelected}
-                      className="w-full px-3 py-1.5 bg-red-50 text-red-700 rounded text-xs hover:bg-red-100 font-medium">
+                      className="w-full px-3 py-1.5 bg-red-50 text-red-700 rounded text-xs hover:bg-red-100 font-medium"
+                      title="Remove this label from the canvas">
                       Delete Label
                     </button>
                   </div>
@@ -1730,9 +1749,10 @@ export default function CustomizationStudio({
             {/* ---- ACCENTS TAB ---- */}
             {activeTab === "accents" && (
               <div className="space-y-4">
-                <p className="text-xs text-gray-500">Click to add. Drag, resize, and rotate accents on the canvas.</p>
+                <p className="text-xs text-gray-500">Click to add. Drag, resize, and rotate accents on the canvas. Use Flip H/V from Image Tools to mirror.</p>
                 <div>
-                  <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Decorative Accents</h4>
+                  <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2"
+                    title="Ornamental flourishes — drag, resize, and rotate on the canvas">Decorative Accents</h4>
                   <div className="grid grid-cols-3 gap-1">
                     {assets.accents.map((a) => (
                       <button key={a.id} onClick={() => addDecorativeAsset(a, "accent")}
@@ -1743,7 +1763,8 @@ export default function CustomizationStudio({
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Borders</h4>
+                  <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2"
+                    title="Full-frame decorative borders — they resize to fit the canvas edges">Borders</h4>
                   <div className="grid grid-cols-3 gap-1">
                     {assets.borders.map((b) => (
                       <button key={b.id} onClick={() => addDecorativeAsset(b, "border")}
@@ -1768,6 +1789,7 @@ export default function CustomizationStudio({
                   <button
                     onClick={addTextLabel}
                     className="w-full px-3 py-2 rounded border border-dashed border-gray-400 hover:border-gray-600 text-xs text-gray-600 hover:text-gray-900 transition-colors"
+                    title="Add a plain text label without any shape"
                   >
                     + Add Text Label
                   </button>
@@ -1778,10 +1800,11 @@ export default function CustomizationStudio({
                   <div className="p-3 rounded-lg border border-gray-200 space-y-2 bg-gray-50">
                     <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Selected: {selectedLabel.text || "Label"}</h4>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Font</label>
+                      <label className="block text-xs text-gray-500 mb-1" title="Choose a typeface for the label text">Font</label>
                       <select value={selectedLabel.fontFamily}
                         onChange={(e) => updateSelectedLabel({ fontFamily: e.target.value })}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                        title="Select a font family">
                         {FONT_OPTIONS.map((f) => (
                           <option key={f.family} value={f.family}>{f.name}</option>
                         ))}
@@ -1789,30 +1812,33 @@ export default function CustomizationStudio({
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Size</label>
+                        <label className="block text-xs text-gray-500 mb-1" title="Font size in pixels">Size</label>
                         <input type="number" value={selectedLabel.fontSize}
                           onChange={(e) => updateSelectedLabel({ fontSize: parseInt(e.target.value) || 14 })}
                           min={8} max={200}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                          title="Set the font size (8–200)" />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Font Color</label>
+                        <label className="block text-xs text-gray-500 mb-1" title="Change the label text color">Font Color</label>
                         <ColorPicker value={selectedLabel.fill} onChange={(c) => updateSelectedLabel({ fill: c })} />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">Fill Color</label>
+                        <label className="block text-xs text-gray-500 mb-1" title="Set a background fill color inside the shape">Fill Color</label>
                         <div className="flex items-center gap-1">
                           <ColorPicker value={selectedLabel.bgFill || "#ffffff"} onChange={(c) => updateSelectedLabel({ bgFill: c })} />
                           {selectedLabel.bgFill ? (
                             <button onClick={() => updateSelectedLabel({ bgFill: "" })}
-                              className="px-1.5 py-0.5 text-[10px] bg-gray-200 rounded hover:bg-gray-300">
+                              className="px-1.5 py-0.5 text-[10px] bg-gray-200 rounded hover:bg-gray-300"
+                              title="Remove the fill color (make transparent)">
                               Clear
                             </button>
                           ) : (
                             <button onClick={() => updateSelectedLabel({ bgFill: "#ffffff" })}
-                              className="px-1.5 py-0.5 text-[10px] bg-gray-200 rounded hover:bg-gray-300">
+                              className="px-1.5 py-0.5 text-[10px] bg-gray-200 rounded hover:bg-gray-300"
+                              title="Add a white fill color">
                               Add
                             </button>
                           )}
@@ -1820,27 +1846,29 @@ export default function CustomizationStudio({
                       </div>
                       {selectedLabel.assetId.startsWith("shape-") && (
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Border Color</label>
+                          <label className="block text-xs text-gray-500 mb-1" title="Change the shape outline color">Border Color</label>
                           <ColorPicker value={selectedLabel.borderColor || "#222222"} onChange={(c) => updateSelectedLabel({ borderColor: c })} />
                         </div>
                       )}
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Alignment</label>
+                      <label className="block text-xs text-gray-500 mb-1" title="Align text inside the label">Alignment</label>
                       <div className="flex gap-1">
                         {(["left", "center", "right"] as const).map((align) => (
                           <button key={align} onClick={() => updateSelectedLabel({ textAlign: align })}
                             className={`flex-1 py-1 text-xs rounded font-medium ${
                               selectedLabel.textAlign === align
                                 ? "bg-black text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}>
+                            }`}
+                            title={`Align label text to the ${align}`}>
                             {align.charAt(0).toUpperCase() + align.slice(1)}
                           </button>
                         ))}
                       </div>
                     </div>
                     <button onClick={deleteSelected}
-                      className="w-full px-3 py-1.5 bg-red-50 text-red-700 rounded text-xs hover:bg-red-100 font-medium">
+                      className="w-full px-3 py-1.5 bg-red-50 text-red-700 rounded text-xs hover:bg-red-100 font-medium"
+                      title="Remove this label from the canvas">
                       Delete Label
                     </button>
                   </div>
@@ -1850,7 +1878,8 @@ export default function CustomizationStudio({
 
                 {/* ---- SHAPES & RIBBONS section ---- */}
                 <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider mb-2" style={{ color: "#1a1a2e" }}>Shapes &amp; Ribbons</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wider mb-2" style={{ color: "#1a1a2e" }}
+                    title="Choose a shape to add to the canvas — you can type inside it">Shapes &amp; Ribbons</h3>
                   <div className="grid grid-cols-3 gap-1.5">
                     {BUILTIN_SHAPES.map((shape) => (
                       <button key={shape.id} onClick={() => addShapeLabel(shape)}
@@ -1868,7 +1897,8 @@ export default function CustomizationStudio({
                 {/* ---- DECORATIVE section ---- */}
                 {assets.labels.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-bold uppercase tracking-wider mb-2" style={{ color: "#1a1a2e" }}>Decorative</h3>
+                    <h3 className="text-sm font-bold uppercase tracking-wider mb-2" style={{ color: "#1a1a2e" }}
+                      title="Pre-designed decorative labels — click to add to the canvas">Decorative</h3>
                     <div className="grid grid-cols-2 gap-2">
                       {assets.labels.map((label) => (
                         <button key={label.id} onClick={() => addLabel(label)}

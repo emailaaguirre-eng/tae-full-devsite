@@ -485,36 +485,18 @@
       }
     },
     {
-      "name": "ACCENT_03a",
-      "svg": "accents/ACCENT_03a.svg",
-      "png": "accents/ACCENT_03a.svg",
-      "bbox_device_coords": {
-        "minx": 288.28036000766815,
-        "miny": 762.5408212295852,
-        "maxx": 552.8716399923319,
-        "maxy": 956.7091960463082
-      },
-      "num_shapes": 20,
-      "render_png_size": {
-        "width": 2000,
-        "height": 1476
-      }
+      "name": "ACCENT_03 Top",
+      "svg": "accents/ACCENT_03_top.svg",
+      "png": "accents/ACCENT_03_top.svg",
+      "num_shapes": 1,
+      "render_png_size": { "width": 269, "height": 198 }
     },
     {
-      "name": "ACCENT_03b",
-      "svg": "accents/ACCENT_03b.svg",
-      "png": "accents/ACCENT_03b.svg",
-      "bbox_device_coords": {
-        "minx": 288.28036000766815,
-        "miny": 762.5408212295852,
-        "maxx": 552.8716399923319,
-        "maxy": 956.7091960463082
-      },
-      "num_shapes": 7,
-      "render_png_size": {
-        "width": 2000,
-        "height": 1476
-      }
+      "name": "ACCENT_03 Bottom",
+      "svg": "accents/ACCENT_03_bottom.svg",
+      "png": "accents/ACCENT_03_bottom.svg",
+      "num_shapes": 1,
+      "render_png_size": { "width": 269, "height": 198 }
     },
     {
       "name": "ACCENT_04",
@@ -565,38 +547,6 @@
       }
     },
     {
-      "name": "ACCENT_07a",
-      "svg": "accents/ACCENT_07a.svg",
-      "png": "accents/ACCENT_07a.svg",
-      "bbox_device_coords": {
-        "minx": 64.57292988588502,
-        "miny": 670.236,
-        "maxx": 560.8451420240607,
-        "maxy": 813.6314199050203
-      },
-      "num_shapes": 33,
-      "render_png_size": {
-        "width": 2000,
-        "height": 589
-      }
-    },
-    {
-      "name": "ACCENT_07b",
-      "svg": "accents/ACCENT_07b.svg",
-      "png": "accents/ACCENT_07b.svg",
-      "bbox_device_coords": {
-        "minx": 64.57292988588502,
-        "miny": 670.236,
-        "maxx": 560.8451420240607,
-        "maxy": 813.6314199050203
-      },
-      "num_shapes": 62,
-      "render_png_size": {
-        "width": 2000,
-        "height": 589
-      }
-    },
-    {
       "name": "ACCENT_08",
       "svg": "accents/ACCENT_08.svg",
       "png": "accents/ACCENT_08.png",
@@ -613,36 +563,18 @@
       }
     },
     {
-      "name": "ACCENT_09a",
-      "svg": "accents/ACCENT_09a.svg",
-      "png": "accents/ACCENT_09a.svg",
-      "bbox_device_coords": {
-        "minx": 588.301,
-        "miny": 647.6702159037626,
-        "maxx": 816.4571330341655,
-        "maxy": 800.6746088417993
-      },
-      "num_shapes": 9,
-      "render_png_size": {
-        "width": 2000,
-        "height": 1353
-      }
+      "name": "ACCENT_09 Top",
+      "svg": "accents/ACCENT_09_top.svg",
+      "png": "accents/ACCENT_09_top.svg",
+      "num_shapes": 1,
+      "render_png_size": { "width": 232, "height": 157 }
     },
     {
-      "name": "ACCENT_09b",
-      "svg": "accents/ACCENT_09b.svg",
-      "png": "accents/ACCENT_09b.svg",
-      "bbox_device_coords": {
-        "minx": 588.301,
-        "miny": 647.6702159037626,
-        "maxx": 816.4571330341655,
-        "maxy": 800.6746088417993
-      },
-      "num_shapes": 6,
-      "render_png_size": {
-        "width": 2000,
-        "height": 1353
-      }
+      "name": "ACCENT_09 Bottom",
+      "svg": "accents/ACCENT_09_bottom.svg",
+      "png": "accents/ACCENT_09_bottom.svg",
+      "num_shapes": 1,
+      "render_png_size": { "width": 232, "height": 157 }
     },
     {
       "name": "ACCENT_10",
@@ -805,68 +737,32 @@
       }
     },
     {
-      "name": "ACCENT_20a",
-      "svg": "accents/ACCENT_20a.svg",
-      "png": "accents/ACCENT_20a.svg",
-      "bbox_device_coords": {
-        "minx": 380.3384126318236,
-        "miny": 256.7854646925239,
-        "maxx": 834.7783052287175,
-        "maxy": 341.48584425897076
-      },
-      "num_shapes": 9,
-      "render_png_size": {
-        "width": 2000,
-        "height": 387
-      }
+      "name": "ACCENT_20 Top",
+      "svg": "accents/ACCENT_20_top.svg",
+      "png": "accents/ACCENT_20_top.svg",
+      "num_shapes": 1,
+      "render_png_size": { "width": 458, "height": 89 }
     },
     {
-      "name": "ACCENT_20b",
-      "svg": "accents/ACCENT_20b.svg",
-      "png": "accents/ACCENT_20b.svg",
-      "bbox_device_coords": {
-        "minx": 380.3384126318236,
-        "miny": 256.7854646925239,
-        "maxx": 834.7783052287175,
-        "maxy": 341.48584425897076
-      },
-      "num_shapes": 7,
-      "render_png_size": {
-        "width": 2000,
-        "height": 387
-      }
+      "name": "ACCENT_20 Bottom",
+      "svg": "accents/ACCENT_20_bottom.svg",
+      "png": "accents/ACCENT_20_bottom.svg",
+      "num_shapes": 1,
+      "render_png_size": { "width": 458, "height": 89 }
     },
     {
-      "name": "ACCENT_21a",
-      "svg": "accents/ACCENT_21a.svg",
-      "png": "accents/ACCENT_21a.svg",
-      "bbox_device_coords": {
-        "minx": 50.547385697311725,
-        "miny": 188.35705720054744,
-        "maxx": 368.11287535922514,
-        "maxy": 340.4805611482334
-      },
-      "num_shapes": 47,
-      "render_png_size": {
-        "width": 2000,
-        "height": 971
-      }
+      "name": "ACCENT_21 Top",
+      "svg": "accents/ACCENT_21_top.svg",
+      "png": "accents/ACCENT_21_top.svg",
+      "num_shapes": 1,
+      "render_png_size": { "width": 322, "height": 156 }
     },
     {
-      "name": "ACCENT_21b",
-      "svg": "accents/ACCENT_21b.svg",
-      "png": "accents/ACCENT_21b.svg",
-      "bbox_device_coords": {
-        "minx": 50.547385697311725,
-        "miny": 188.35705720054744,
-        "maxx": 368.11287535922514,
-        "maxy": 340.4805611482334
-      },
-      "num_shapes": 44,
-      "render_png_size": {
-        "width": 2000,
-        "height": 971
-      }
+      "name": "ACCENT_21 Bottom",
+      "svg": "accents/ACCENT_21_bottom.svg",
+      "png": "accents/ACCENT_21_bottom.svg",
+      "num_shapes": 1,
+      "render_png_size": { "width": 322, "height": 156 }
     },
     {
       "name": "ACCENT_22",
