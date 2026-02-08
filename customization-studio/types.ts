@@ -29,6 +29,7 @@ export type ImageItem = {
   rotation: number;
   originalWidth: number;
   originalHeight: number;
+  clip?: { x: number; y: number; width: number; height: number }; // layout slot clip
 };
 
 export type TextItem = {

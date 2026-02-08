@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       .all();
 
     // Format the response (hide sensitive internal data)
-    const statusInfo = getStatusInfo(order.status || 'pending', order.gelatoStatus);
+    const statusInfo = getStatusInfo(order.status || 'pending', order.fulfillmentStatus);
 
     return NextResponse.json({
       success: true,
@@ -66,8 +66,8 @@ export async function POST(request: NextRequest) {
           url: order.trackingUrl,
           carrier: order.carrier,
         } : null,
-        // Gelato production status
-        gelatoStatus: order.gelatoStatus,
+        // Fulfillment production status
+        fulfillmentStatus: order.fulfillmentStatus,
         // Items summary
         items: items.map(item => ({
           name: item.itemName,
@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function getStatusInfo(status: string, gelatoStatus: string | null): { label: string; description: string; color: string } {
-  // Map internal + Gelato status to customer-friendly info
+function getStatusInfo(status: string, fulfillmentStatus: string | null): { label: string; description: string; color: string } {
+  // Map internal + Printful fulfillment status to customer-friendly info
   const statusMap: Record<string, { label: string; description: string; color: string }> = {
     'pending': {
       label: 'Order Received',
@@ -126,17 +126,32 @@ function getStatusInfo(status: string, gelatoStatus: string | null): { label: st
     },
   };
 
-  // Check Gelato status for more detail
-  if (gelatoStatus) {
-    const gelatoLower = gelatoStatus.toLowerCase();
-    if (gelatoLower.includes('ship') || gelatoLower.includes('transit')) {
+  // Map Printful fulfillment statuses to our internal status labels
+  // Printful statuses: draft, pending, failed, canceled, inprocess, onhold, partial, fulfilled
+  if (fulfillmentStatus) {
+    const pfLower = fulfillmentStatus.toLowerCase();
+    if (pfLower === 'fulfilled' || pfLower === 'partial') {
       return statusMap['shipped'];
     }
-    if (gelatoLower.includes('produc') || gelatoLower.includes('print')) {
+    if (pfLower === 'inprocess') {
       return statusMap['processing'];
     }
-    if (gelatoLower.includes('deliver')) {
-      return statusMap['delivered'];
+    if (pfLower === 'canceled') {
+      return statusMap['cancelled'];
+    }
+    if (pfLower === 'failed') {
+      return {
+        label: 'Issue With Order',
+        description: 'There was an issue fulfilling your order. Our team is looking into it.',
+        color: 'red',
+      };
+    }
+    if (pfLower === 'onhold') {
+      return {
+        label: 'On Hold',
+        description: 'Your order is on hold. We may need additional information.',
+        color: 'orange',
+      };
     }
   }
 

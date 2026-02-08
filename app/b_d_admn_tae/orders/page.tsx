@@ -13,8 +13,8 @@ interface OrderWithRelations {
   taeFee: number;
   customerEmail: string | null;
   customerName: string | null;
-  gelatoOrderId: string | null;
-  gelatoStatus: string | null;
+  printfulOrderId: string | null;
+  printfulStatus: string | null;
   createdAt: string;
   customer: {
     id: string;
@@ -164,7 +164,7 @@ export default function OrdersPage() {
                 Status
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Gelato
+                Printful
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Date
@@ -223,11 +223,11 @@ export default function OrdersPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {order.gelatoOrderId ? (
+                    {order.printfulOrderId ? (
                       <div>
-                        <div className="text-sm text-gray-900">{order.gelatoOrderId}</div>
-                        {order.gelatoStatus && (
-                          <div className="text-xs text-gray-500">{order.gelatoStatus}</div>
+                        <div className="text-sm text-gray-900">{order.printfulOrderId}</div>
+                        {order.printfulStatus && (
+                          <div className="text-xs text-gray-500">{order.printfulStatus}</div>
                         )}
                       </div>
                     ) : (

@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         finishType: shopProducts.finishType,
         orientation: shopProducts.orientation,
         heroImage: shopProducts.heroImage,
-        gelatoBasePrice: shopProducts.gelatoBasePrice,
+        printfulBasePrice: shopProducts.printfulBasePrice,
         taeAddOnFee: shopProducts.taeAddOnFee,
         categoryTaeId: shopCategories.taeId,
         categorySlug: shopCategories.slug,
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate final prices
     const productsWithPricing = products.map(product => {
-      const basePrice = product.gelatoBasePrice || 0;
+      const basePrice = product.printfulBasePrice || 0;
       const categoryFee = product.categoryFee || 0;
       const productFee = product.taeAddOnFee || 0;
       const finalPrice = basePrice + categoryFee + productFee;

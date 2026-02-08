@@ -1,5 +1,7 @@
 /**
  * Show All Products in Product Management System
+ *
+ * NOTE: Gelato references in this script are legacy. Print fulfillment is now via Printful.
  */
 
 const { PrismaClient } = require('@prisma/client');

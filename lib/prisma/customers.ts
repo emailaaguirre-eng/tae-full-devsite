@@ -3,7 +3,7 @@
  * Updated for Drizzle ORM
  */
 
-import { db, customers, orders, eq, desc, generateId } from '@/lib/db';
+import { db, saveDatabase, customers, orders, eq, desc, generateId } from '@/lib/db';
 
 /**
  * Find or create a customer by email
@@ -32,6 +32,8 @@ export async function findOrCreateCustomer(data: {
       updatedAt: new Date().toISOString(),
     });
 
+    await saveDatabase();
+
     customer = await db
       .select()
       .from(customers)
@@ -54,6 +56,8 @@ export async function findOrCreateCustomer(data: {
         .update(customers)
         .set(updates)
         .where(eq(customers.id, customer.id));
+
+      await saveDatabase();
 
       customer = await db
         .select()
@@ -107,23 +111,28 @@ export async function getCustomerWithStats(customerId: string) {
 /**
  * Get customer reference ID for Gelato
  * Uses gelatoCustomerId if set, otherwise falls back to customer.id
+ * @deprecated gelatoCustomerId is legacy - kept for backward compatibility
  */
 export function getGelatoCustomerRefId(customer: { id: string; gelatoCustomerId?: string | null }): string {
+  // Legacy: gelatoCustomerId field
   return customer.gelatoCustomerId || customer.id;
 }
 
 /**
  * Update customer's Gelato reference ID
  * Called after first successful Gelato order submission
+ * @deprecated gelatoCustomerId is legacy - kept for backward compatibility
  */
 export async function setGelatoCustomerId(customerId: string, gelatoCustomerId: string) {
   await db
     .update(customers)
     .set({
-      gelatoCustomerId,
+      gelatoCustomerId, // Legacy field
       updatedAt: new Date().toISOString(),
     })
     .where(eq(customers.id, customerId));
+
+  await saveDatabase();
 
   return db
     .select()

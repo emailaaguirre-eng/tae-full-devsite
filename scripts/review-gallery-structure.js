@@ -5,6 +5,8 @@
  * - Artists (Lane B) with Assets
  * - StoreProducts by category
  * - Ensures separation between artist-specific and general products
+ *
+ * NOTE: Gelato references in this script are legacy. Print fulfillment is now via Printful.
  */
 
 const { PrismaClient } = require('@prisma/client');

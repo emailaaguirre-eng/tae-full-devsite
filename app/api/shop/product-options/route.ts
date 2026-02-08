@@ -2,12 +2,12 @@
  * Product Options API
  * GET /api/shop/product-options?category=wall-art
  *
- * Returns available product options (sizes, materials, frames, prices)
- * from LOCAL CACHE - fast and accurate.
+ * Returns available product options (sizes, materials, prices)
+ * from local ShopProduct table (Printful-backed).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, shopCategories, gelatoProductCache, eq, and, asc } from '@/lib/db';
+import { getDb, shopCategories, shopProducts, eq, and, asc } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,24 +38,23 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get cached products for this category
-    const cachedProducts = await db
+    // Get active products for this category
+    const products = await db
       .select()
-      .from(gelatoProductCache)
+      .from(shopProducts)
       .where(
         and(
-          eq(gelatoProductCache.categorySlug, categorySlug),
-          eq(gelatoProductCache.available, true)
+          eq(shopProducts.categoryId, category.id),
+          eq(shopProducts.active, true)
         )
       )
-      .orderBy(asc(gelatoProductCache.size), asc(gelatoProductCache.frameColor))
+      .orderBy(asc(shopProducts.sortOrder), asc(shopProducts.name))
       .all();
 
-    // If no cached products, return empty with fallback flag
-    if (cachedProducts.length === 0) {
+    if (products.length === 0) {
       return NextResponse.json({
         success: true,
-        source: 'fallback',
+        source: 'empty',
         category: {
           slug: category.slug,
           name: category.name,
@@ -63,75 +62,83 @@ export async function GET(request: NextRequest) {
         },
         products: [],
         sizes: getFallbackSizes(categorySlug),
-        message: 'No cached products available. Run sync script.',
+        message: 'No products configured. Add products in the admin panel.',
       });
     }
 
     // Group products by size for easier frontend consumption
     const sizeMap = new Map<string, any>();
-    const frameColors = new Set<string>();
     const paperTypes = new Set<string>();
+    const finishTypes = new Set<string>();
 
-    for (const product of cachedProducts) {
-      // Collect unique frame colors and paper types
-      if (product.frameColor) frameColors.add(product.frameColor);
+    for (const product of products) {
       if (product.paperType) paperTypes.add(product.paperType);
+      if (product.finishType) finishTypes.add(product.finishType);
 
-      // Group by size
-      if (!sizeMap.has(product.size!)) {
-        sizeMap.set(product.size!, {
-          size: product.size,
-          sizeLabel: product.sizeLabel,
-          widthInches: product.widthInches,
-          heightInches: product.heightInches,
-          basePrice: product.gelatoPrice,
+      const sizeKey = product.sizeLabel || product.name;
+
+      if (!sizeMap.has(sizeKey)) {
+        // Compute dimensions from print specs if available
+        let widthInches: number | null = null;
+        let heightInches: number | null = null;
+        if (product.printWidth && product.printHeight && product.printDpi) {
+          widthInches = product.printWidth / product.printDpi;
+          heightInches = product.printHeight / product.printDpi;
+        }
+
+        sizeMap.set(sizeKey, {
+          size: sizeKey,
+          sizeLabel: product.sizeLabel || product.name,
+          widthInches,
+          heightInches,
+          basePrice: product.printfulBasePrice || 0,
           variants: [],
         });
       }
 
       // Add variant
-      sizeMap.get(product.size!).variants.push({
-        gelatoProductUid: product.gelatoProductUid,
+      sizeMap.get(sizeKey).variants.push({
+        productId: product.id,
+        printfulVariantId: product.printfulVariantId,
+        printfulProductId: product.printfulProductId,
         paperType: product.paperType,
-        frameColor: product.frameColor,
-        price: product.gelatoPrice,
+        finishType: product.finishType,
+        price: product.printfulBasePrice || 0,
+        printWidth: product.printWidth,
+        printHeight: product.printHeight,
+        printDpi: product.printDpi,
       });
 
-      // Update base price to lowest
-      const sizeEntry = sizeMap.get(product.size!);
-      if ((product.gelatoPrice || 0) < sizeEntry.basePrice) {
-        sizeEntry.basePrice = product.gelatoPrice;
+      // Track lowest price for this size
+      const sizeEntry = sizeMap.get(sizeKey);
+      if ((product.printfulBasePrice || 0) < sizeEntry.basePrice) {
+        sizeEntry.basePrice = product.printfulBasePrice || 0;
       }
     }
 
-    // Convert to array and sort by size
-    const sizes = Array.from(sizeMap.values()).sort((a, b) => {
-      const aNum = parseInt(a.size);
-      const bNum = parseInt(b.size);
-      return aNum - bNum;
-    });
+    // Convert to array and sort by price
+    const sizes = Array.from(sizeMap.values()).sort((a, b) => a.basePrice - b.basePrice);
 
-    // Calculate total price (Gelato base + tAE fee + artist royalty placeholder)
+    // Calculate total price (Printful base + TAE fee + artist royalty placeholder)
     const sizesWithPricing = sizes.map(size => ({
       ...size,
       taeBaseFee: category.taeBaseFee,
-      totalPrice: size.basePrice + (category.taeBaseFee || 0), // Artist royalty added by frontend
+      totalPrice: size.basePrice + (category.taeBaseFee || 0),
     }));
 
     return NextResponse.json({
       success: true,
-      source: 'cache',
-      lastSynced: cachedProducts[0]?.lastSyncedAt || null,
+      source: 'database',
       category: {
         slug: category.slug,
         name: category.name,
         taeBaseFee: category.taeBaseFee,
-        gelatoCatalog: category.gelatoCatalogUid,
+        printfulProductId: category.printfulProductId,
       },
       sizes: sizesWithPricing,
-      frameColors: Array.from(frameColors),
       paperTypes: Array.from(paperTypes),
-      productCount: cachedProducts.length,
+      finishTypes: Array.from(finishTypes),
+      productCount: products.length,
     });
 
   } catch (error: any) {
@@ -144,7 +151,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Fallback sizes when cache is empty
+ * Fallback sizes when no products are configured
  */
 function getFallbackSizes(categorySlug: string) {
   const fallbacks: Record<string, any[]> = {

@@ -35,7 +35,7 @@ export async function GET(
     // Format entries for the response
     const formattedEntries = guestbookEntries.map((entry) => ({
       id: entry.id,
-      name: entry.senderName,
+      name: entry.name,
       message: entry.message,
       createdAt: entry.createdAt,
       children: [],

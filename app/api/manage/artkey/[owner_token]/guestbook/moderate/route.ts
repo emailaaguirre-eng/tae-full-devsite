@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, artKeys, artkeyGuestbookEntries, eq, and } from '@/lib/db';
+import { getDb, saveDatabase, artKeys, artkeyGuestbookEntries, eq, and } from '@/lib/db';
 
 /**
  * Guestbook Moderation API
@@ -64,6 +64,9 @@ export async function POST(
       await db
         .delete(artkeyGuestbookEntries)
         .where(eq(artkeyGuestbookEntries.id, entry_id));
+
+      // Persist in-memory SQLite to disk
+      await saveDatabase();
     }
 
     return NextResponse.json({

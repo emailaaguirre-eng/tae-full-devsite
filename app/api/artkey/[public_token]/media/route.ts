@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, artKeys, artkeyMedia, eq, desc, generateId } from '@/lib/db';
+import { getDb, saveDatabase, artKeys, artkeyMedia, eq, desc, generateId } from '@/lib/db';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
@@ -26,6 +26,34 @@ export async function POST(
       );
     }
 
+    // --- Security: File size limits ---
+    const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+    const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
+    const MAX_AUDIO_SIZE = 20 * 1024 * 1024; // 20 MB
+
+    // --- Security: MIME type allowlist (server-side validation) ---
+    const ALLOWED_MIME_TYPES: Record<string, string[]> = {
+      image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
+      video: ['video/mp4', 'video/webm', 'video/quicktime'],
+      audio: ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4'],
+    };
+
+    const allAllowed = [...ALLOWED_MIME_TYPES.image, ...ALLOWED_MIME_TYPES.video, ...ALLOWED_MIME_TYPES.audio];
+    if (!allAllowed.includes(file.type)) {
+      return NextResponse.json(
+        { error: `File type "${file.type}" is not allowed.` },
+        { status: 400 }
+      );
+    }
+
+    // --- Security: Validate public_token format (alphanumeric only) ---
+    if (!/^[a-z0-9]+$/.test(public_token)) {
+      return NextResponse.json(
+        { error: 'Invalid token format' },
+        { status: 400 }
+      );
+    }
+
     // Find ArtKey by public token
     const artKey = await db.select().from(artKeys).where(eq(artKeys.publicToken, public_token)).get();
 
@@ -36,22 +64,20 @@ export async function POST(
       );
     }
 
-    // Parse customization to check feature flags
-    let customization: Record<string, any> = {};
-    if (artKey.customization) {
-      try {
-        customization = JSON.parse(artKey.customization);
-      } catch (e) {
-        console.error('Error parsing customization JSON:', e);
-      }
-    }
-
-    const features = customization.features || {
-      enable_gallery: artKey.mediaEnabled ?? true,
+    // Parse features JSON from the schema column
+    let features: Record<string, any> = {
+      enable_gallery: true,
       enable_video: false,
       allow_img_uploads: false,
       allow_vid_uploads: false,
     };
+    if (artKey.features) {
+      try {
+        features = { ...features, ...JSON.parse(artKey.features) };
+      } catch (e) {
+        console.error('Error parsing features JSON:', e);
+      }
+    }
 
     // Determine file type
     const fileType = file.type.split('/')[0]; // 'image', 'video', or 'audio'
@@ -82,6 +108,18 @@ export async function POST(
       );
     }
 
+    // --- Security: Enforce size limit per media type ---
+    const sizeLimit = mediaType === 'image' ? MAX_IMAGE_SIZE
+                    : mediaType === 'video' ? MAX_VIDEO_SIZE
+                    : MAX_AUDIO_SIZE;
+    if (file.size > sizeLimit) {
+      const limitMb = Math.round(sizeLimit / (1024 * 1024));
+      return NextResponse.json(
+        { error: `File too large. Maximum size for ${mediaType} is ${limitMb} MB.` },
+        { status: 400 }
+      );
+    }
+
     // Save file to public/uploads directory
     const uploadsDir = join(process.cwd(), 'public', 'uploads', 'artkey', public_token);
 
@@ -90,11 +128,17 @@ export async function POST(
       await mkdir(uploadsDir, { recursive: true });
     }
 
-    // Generate unique filename
+    // --- Security: Generate safe filename (never use user-supplied file.name in path) ---
+    const MIME_TO_EXT: Record<string, string> = {
+      'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
+      'image/webp': 'webp', 'image/svg+xml': 'svg',
+      'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov',
+      'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a',
+    };
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 8);
-    const fileExtension = file.name.split('.').pop();
-    const filename = `${timestamp}-${randomStr}.${fileExtension}`;
+    const ext = MIME_TO_EXT[file.type] || 'bin';
+    const filename = `${timestamp}-${randomStr}.${ext}`;
     const filepath = join(uploadsDir, filename);
 
     // Write file
@@ -110,26 +154,17 @@ export async function POST(
     const mediaId = generateId();
     const now = new Date().toISOString();
 
-    // Get max sort order
-    const existingMedia = await db
-      .select()
-      .from(artkeyMedia)
-      .where(eq(artkeyMedia.artkeyId, artKey.id))
-      .orderBy(desc(artkeyMedia.sortOrder))
-      .limit(1)
-      .all();
-
-    const maxSortOrder = existingMedia.length > 0 ? (existingMedia[0].sortOrder || 0) : 0;
-
     await db.insert(artkeyMedia).values({
       id: mediaId,
       artkeyId: artKey.id,
       type: mediaType,
       url: publicUrl,
       caption: null,
-      sortOrder: maxSortOrder + 1,
       createdAt: now,
     });
+
+    // Persist in-memory SQLite to disk
+    await saveDatabase();
 
     // Get the created media item
     const mediaItem = await db

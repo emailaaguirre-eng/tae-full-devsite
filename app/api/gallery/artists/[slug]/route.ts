@@ -59,7 +59,7 @@ export async function GET(
 
         // Build product options with pricing
         const productOptions = links.map((link) => {
-          const basePrice = 0; // Will be filled by Gelato sync
+          const basePrice = 0; // Will be filled by product sync
           const categoryFee = link.categoryFee || 5;
           const artistRoyalty = artist.royaltyFee || 0;
           const estimatedPrice = basePrice + categoryFee + artistRoyalty;

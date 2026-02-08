@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { adminFetch } from '@/lib/admin-fetch';
 
 // Type matching API response
 interface CustomerWithOrders {
@@ -9,7 +10,7 @@ interface CustomerWithOrders {
   email: string;
   name: string | null;
   phone: string | null;
-  gelatoCustomerId: string | null;
+  printfulCustomerId: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -33,7 +34,7 @@ export default function CustomersPage() {
 
   const fetchCustomers = async () => {
     try {
-      const response = await fetch('/api/admin/customers');
+      const response = await adminFetch('/api/admin/customers');
       if (response.ok) {
         const data = await response.json();
         setCustomers(data);
@@ -158,9 +159,9 @@ export default function CustomersPage() {
                       <div className="text-sm text-gray-900">
                         {customer.phone || '—'}
                       </div>
-                      {customer.gelatoCustomerId && (
+                      {customer.printfulCustomerId && (
                         <div className="text-xs text-gray-500">
-                          Gelato: {customer.gelatoCustomerId}
+                          Printful: {customer.printfulCustomerId}
                         </div>
                       )}
                     </td>

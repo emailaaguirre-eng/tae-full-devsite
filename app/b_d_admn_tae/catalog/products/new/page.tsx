@@ -10,9 +10,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { adminFetch } from '@/lib/admin-fetch';
 import Link from 'next/link';
 
-interface GelatoCatalog {
+interface PrintfulCatalog {
   id: string;
   catalogUid: string;
   title: string;
@@ -23,10 +24,10 @@ interface FormData {
   name: string;
   description: string;
   shortDescription: string;
-  productType: 'gelato_print' | 'custom_artwork' | 'digital_product';
+  productType: 'printful_print' | 'custom_artwork' | 'digital_product';
   icon: string;
   heroImage: string;
-  gelatoCatalogUid: string;
+  printfulCatalogUid: string;
   basePrice: number;
   defaultBleedMm: number;
   defaultSafeMm: number;
@@ -52,10 +53,10 @@ const DEFAULT_FORM: FormData = {
   name: '',
   description: '',
   shortDescription: '',
-  productType: 'gelato_print',
+  productType: 'printful_print',
   icon: '🎨',
   heroImage: '',
-  gelatoCatalogUid: '',
+  printfulCatalogUid: '',
   basePrice: 0,
   defaultBleedMm: 4,
   defaultSafeMm: 4,
@@ -76,20 +77,20 @@ const DEFAULT_FORM: FormData = {
 export default function NewProductPage() {
   const router = useRouter();
   const [formData, setFormData] = useState<FormData>(DEFAULT_FORM);
-  const [catalogs, setCatalogs] = useState<GelatoCatalog[]>([]);
+  const [catalogs, setCatalogs] = useState<PrintfulCatalog[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch available Gelato catalogs
+    // Fetch available Printful catalogs
     fetchCatalogs();
   }, []);
 
   const fetchCatalogs = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/gelato/catalogs');
+      const response = await adminFetch('/api/admin/store-categories');
       const data = await response.json();
       if (data.success && data.data) {
         setCatalogs(data.data);
@@ -124,12 +125,12 @@ export default function NewProductPage() {
     setSaving(true);
 
     try {
-      const response = await fetch('/api/admin/store-products', {
+      const response = await adminFetch('/api/admin/store-products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          gelatoCatalogUid: formData.gelatoCatalogUid || null,
+          printfulCatalogUid: formData.printfulCatalogUid || null,
           allowedFormats: formData.allowedFormats.length > 0 ? formData.allowedFormats : null,
           allowedPapers: formData.allowedPapers.length > 0 ? formData.allowedPapers : null,
           allowedCoatings: formData.allowedCoatings.length > 0 ? formData.allowedCoatings : null,
@@ -244,7 +245,7 @@ export default function NewProductPage() {
               </div>
             </div>
 
-            {/* Product Type & Gelato Integration */}
+            {/* Product Type & Printful Integration */}
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Product Type</h2>
               
@@ -255,7 +256,7 @@ export default function NewProductPage() {
                   </label>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {[
-                      { value: 'gelato_print', label: 'Gelato Print', description: 'Print-on-demand via Gelato', icon: '🖨️' },
+                      { value: 'printful_print', label: 'Printful Print', description: 'Print-on-demand via Printful', icon: '🖨️' },
                       { value: 'custom_artwork', label: 'Custom Artwork', description: 'Commissioned or handmade art', icon: '🎨' },
                       { value: 'digital_product', label: 'Digital Product', description: 'Downloadable files', icon: '💾' },
                     ].map(type => (
@@ -277,14 +278,14 @@ export default function NewProductPage() {
                   </div>
                 </div>
 
-                {formData.productType === 'gelato_print' && (
+                {formData.productType === 'printful_print' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Gelato Catalog
+                      Printful Catalog
                     </label>
                     <select
-                      value={formData.gelatoCatalogUid}
-                      onChange={(e) => setFormData(prev => ({ ...prev, gelatoCatalogUid: e.target.value }))}
+                      value={formData.printfulCatalogUid}
+                      onChange={(e) => setFormData(prev => ({ ...prev, printfulCatalogUid: e.target.value }))}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select a catalog...</option>
@@ -295,7 +296,7 @@ export default function NewProductPage() {
                       ))}
                     </select>
                     <p className="text-xs text-gray-500 mt-1">
-                      Link to a synced Gelato catalog for print options
+                      Link to a synced Printful catalog for print options
                     </p>
                   </div>
                 )}
@@ -477,7 +478,7 @@ export default function NewProductPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Your markup added to Gelato cost
+                  Your markup added to Printful cost
                 </p>
               </div>
             </div>

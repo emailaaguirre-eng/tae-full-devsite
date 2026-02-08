@@ -3,166 +3,133 @@
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
-interface GelatoVariant {
-  uid: string;
+interface ProductVariant {
+  id: string;
   name: string;
-  dimensions?: {
-    width: number;
-    height: number;
-    unit: 'mm' | 'cm' | 'in';
-  };
-  trimMm?: {
-    w: number;
-    h: number;
-  };
-  attributes?: Record<string, string>;
-}
-
-interface GelatoProduct {
-  uid: string;
-  name: string;
-  catalogUid?: string;
-  variants: GelatoVariant[];
+  sizeLabel?: string;
+  printWidth?: number;
+  printHeight?: number;
+  printDpi?: number;
+  printfulVariantId?: number;
+  printfulProductId?: number;
+  printfulBasePrice?: number;
 }
 
 interface SizePickerProps {
   productSlug: string;
-  selectedVariantUid?: string;
-  onVariantSelect: (variant: { uid: string; productUid: string; trimMm: { w: number; h: number } }) => void;
+  selectedVariantId?: number;
+  onVariantSelect: (variant: { id: number; productId: number; trimMm: { w: number; h: number } }) => void;
   disabled?: boolean;
 }
 
 /**
  * Size Picker Component
- * SPRINT 2: Populates sizes from Gelato catalog
+ * Populates sizes from local product catalog (Printful-backed)
  */
 export default function SizePicker({
   productSlug,
-  selectedVariantUid,
+  selectedVariantId,
   onVariantSelect,
   disabled = false,
 }: SizePickerProps) {
-  const [products, setProducts] = useState<GelatoProduct[]>([]);
+  const [products, setProducts] = useState<ProductVariant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Map our product slugs to Gelato categories
-  const categoryMap: Record<string, string> = {
-    'card': 'card',
-    'postcard': 'postcard',
-    'invitation': 'invitation',
-    'announcement': 'announcement',
-    'print': 'print',
-    'wall-art': 'wall-art',
-  };
-  
-  const category = categoryMap[productSlug] || productSlug;
-  
+
   useEffect(() => {
-    // Fetch products from Gelato catalog
+    // Fetch products from local store for this product category
     setLoading(true);
     setError(null);
-    
-    fetch(`/api/gelato/products/search?category=${category}&limit=200`)
+
+    fetch(`/api/shop/products?category=${productSlug}&active=true`)
       .then(res => res.json())
       .then(data => {
         if (data.error) {
           setError(data.error);
           setProducts([]);
         } else {
-          setProducts(data.products || []);
+          // Filter to only products that have print dimensions
+          const withDimensions = (data.products || data || []).filter(
+            (p: ProductVariant) => p.printWidth && p.printHeight && p.printDpi && p.printfulVariantId
+          );
+          setProducts(withDimensions);
         }
         setLoading(false);
       })
       .catch(err => {
-        console.error('Error fetching Gelato products:', err);
+        console.error('Error fetching products:', err);
         setError('Failed to load product sizes');
         setProducts([]);
         setLoading(false);
       });
-  }, [category]);
-  
-  // Collect all variants from all products
-  const allVariants: Array<{ variant: GelatoVariant; productUid: string; productName: string }> = [];
-  for (const product of products) {
-    for (const variant of product.variants || []) {
-      if (variant.trimMm) {
-        allVariants.push({
-          variant,
-          productUid: product.uid,
-          productName: product.name,
-        });
-      }
-    }
-  }
-  
-  // Sort variants by size (smallest to largest)
-  allVariants.sort((a, b) => {
-    const areaA = (a.variant.trimMm?.w || 0) * (a.variant.trimMm?.h || 0);
-    const areaB = (b.variant.trimMm?.w || 0) * (b.variant.trimMm?.h || 0);
-    return areaA - areaB;
-  });
-  
-  const handleVariantClick = (variant: GelatoVariant, productUid: string) => {
-    if (disabled || !variant.trimMm) return;
-    
+  }, [productSlug]);
+
+  const handleProductClick = (product: ProductVariant) => {
+    if (disabled || !product.printWidth || !product.printHeight || !product.printDpi || !product.printfulVariantId) return;
+
+    // Convert px dimensions to mm
+    const wMm = (product.printWidth / product.printDpi) * 25.4;
+    const hMm = (product.printHeight / product.printDpi) * 25.4;
+
     onVariantSelect({
-      uid: variant.uid,
-      productUid,
-      trimMm: variant.trimMm,
+      id: product.printfulVariantId,
+      productId: product.printfulProductId || 0,
+      trimMm: { w: wMm, h: hMm },
     });
   };
-  
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-gray-600 p-4">
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Loading sizes from Gelato...</span>
+        <span>Loading sizes...</span>
       </div>
     );
   }
-  
+
   if (error) {
     return (
       <div className="text-sm text-red-600 p-4 bg-red-50 rounded border border-red-200">
         <p className="font-medium">Error loading sizes</p>
         <p className="text-xs mt-1">{error}</p>
-        <p className="text-xs mt-2 text-gray-600">
-          Make sure the Gelato catalog is cached: <code className="bg-gray-100 px-1 rounded">npm run refresh-catalog</code>
-        </p>
       </div>
     );
   }
-  
-  if (allVariants.length === 0) {
+
+  if (products.length === 0) {
     return (
       <div className="text-sm text-gray-600 p-4 bg-gray-50 rounded border border-gray-200">
         <p>No sizes available for this product category.</p>
-        <p className="text-xs mt-2">
-          Try refreshing the catalog: <code className="bg-gray-100 px-1 rounded">npm run refresh-catalog</code>
+        <p className="text-xs mt-2 text-gray-500">
+          Products need print dimensions configured in the admin panel.
         </p>
       </div>
     );
   }
-  
+
   return (
     <div className="space-y-2">
       <div className="text-xs font-medium text-gray-700 mb-2">
-        Select Size ({allVariants.length} available)
+        Select Size ({products.length} available)
       </div>
       <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-        {allVariants.map(({ variant, productUid, productName }) => {
-          const isSelected = variant.uid === selectedVariantUid;
-          const trimMm = variant.trimMm;
-          const sizeLabel = trimMm
-            ? `${(trimMm.w / 25.4).toFixed(1)}" × ${(trimMm.h / 25.4).toFixed(1)}"`
-            : variant.name;
-          
+        {products.map((product) => {
+          const isSelected = product.printfulVariantId === selectedVariantId;
+          const wMm = product.printWidth && product.printDpi
+            ? (product.printWidth / product.printDpi) * 25.4
+            : null;
+          const hMm = product.printHeight && product.printDpi
+            ? (product.printHeight / product.printDpi) * 25.4
+            : null;
+          const sizeLabel = wMm && hMm
+            ? `${(wMm / 25.4).toFixed(1)}" × ${(hMm / 25.4).toFixed(1)}"`
+            : product.sizeLabel || product.name;
+
           return (
             <button
-              key={variant.uid}
-              onClick={() => handleVariantClick(variant, productUid)}
-              disabled={disabled || !trimMm}
+              key={product.id}
+              onClick={() => handleProductClick(product)}
+              disabled={disabled}
               className={`
                 p-3 rounded border text-left transition-colors
                 ${isSelected
@@ -173,12 +140,17 @@ export default function SizePicker({
               `}
             >
               <div className="text-sm font-medium">{sizeLabel}</div>
-              {variant.name && variant.name !== sizeLabel && (
-                <div className="text-xs text-gray-500 mt-1">{variant.name}</div>
+              {product.name !== sizeLabel && (
+                <div className="text-xs text-gray-500 mt-1">{product.name}</div>
               )}
-              {trimMm && (
+              {wMm && hMm && (
                 <div className="text-xs text-gray-400 mt-1">
-                  {trimMm.w.toFixed(0)} × {trimMm.h.toFixed(0)} mm
+                  {wMm.toFixed(0)} × {hMm.toFixed(0)} mm
+                </div>
+              )}
+              {product.printfulBasePrice != null && product.printfulBasePrice > 0 && (
+                <div className="text-xs text-green-600 mt-1 font-medium">
+                  ${product.printfulBasePrice.toFixed(2)}
                 </div>
               )}
             </button>
@@ -188,4 +160,3 @@ export default function SizePicker({
     </div>
   );
 }
-

@@ -31,6 +31,7 @@ export function fitImageToSlot(
   slotWidth: number,
   slotHeight: number
 ): { width: number; height: number } {
+  // "Cover" fit — image fills the entire slot (may crop)
   const imageAspect = imageWidth / imageHeight;
   const slotAspect = slotWidth / slotHeight;
 
@@ -38,13 +39,13 @@ export function fitImageToSlot(
   let height: number;
 
   if (imageAspect > slotAspect) {
-    // Image is wider than slot - fit to width
-    width = slotWidth;
-    height = slotWidth / imageAspect;
-  } else {
-    // Image is taller than slot - fit to height
+    // Image is wider — match slot height, overflow width
     height = slotHeight;
     width = slotHeight * imageAspect;
+  } else {
+    // Image is taller — match slot width, overflow height
+    width = slotWidth;
+    height = slotWidth / imageAspect;
   }
 
   return { width, height };

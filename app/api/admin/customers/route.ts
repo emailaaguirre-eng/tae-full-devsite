@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getDb, customers, orders, desc, eq } from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,7 +8,10 @@ export const dynamic = 'force-dynamic';
  * GET /api/admin/customers
  * Get all customers with order counts
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = requireAdmin(request);
+  if (authError) return authError;
+
   try {
     const db = await getDb();
     // Get all customers

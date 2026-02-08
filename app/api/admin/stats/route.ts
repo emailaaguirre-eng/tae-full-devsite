@@ -1,34 +1,49 @@
-import { NextResponse } from 'next/server';
-import { getDb, artKeys, eq, sql } from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server';
+import { getDb, artKeys, shopProducts, sql } from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-auth';
 
 /**
  * Get admin dashboard statistics
  * GET /api/admin/stats
- * Now uses Drizzle ORM for ArtKey and demo counts
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = requireAdmin(request);
+  if (authError) return authError;
+
   try {
     const db = await getDb();
-    // Get total ArtKey count using Drizzle
+    // Get total ArtKey count
     const totalArtKeysResult = await db
       .select({ count: sql<number>`count(*)` })
       .from(artKeys)
       .get();
     const totalArtKeys = totalArtKeysResult?.count ?? 0;
 
-    // Get demo count (ArtKeys with isDemo === true)
-    const totalDemosResult = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(artKeys)
-      .where(eq(artKeys.isDemo, true))
-      .get();
-    const totalDemos = totalDemosResult?.count ?? 0;
+    // Get portal (demo) count
+    const allArtKeysForDemo = await db.select({ customizations: artKeys.customizations }).from(artKeys).all();
+    const totalDemos = allArtKeysForDemo.filter((ak) => {
+      try {
+        const c = ak.customizations ? JSON.parse(ak.customizations) : {};
+        return c.demo === true;
+      } catch { return false; }
+    }).length;
 
-    // Product count removed - no longer using WooCommerce
+    // Get product count from local store
+    let totalProducts = 0;
+    try {
+      const productCountResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(shopProducts)
+        .get();
+      totalProducts = productCountResult?.count ?? 0;
+    } catch {
+      // Table may not exist yet
+    }
+
     return NextResponse.json({
       totalArtKeys,
       totalDemos,
-      totalProducts: 0, // Products now managed via Gelato API, not WooCommerce
+      totalProducts,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

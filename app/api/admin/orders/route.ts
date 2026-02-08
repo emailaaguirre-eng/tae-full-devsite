@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getDb, orders, customers, shopProducts, artistArtworks, desc, eq, inArray } from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,7 +8,10 @@ export const dynamic = 'force-dynamic';
  * GET /api/admin/orders
  * Get all orders with customer and item relations
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const authError = requireAdmin(request);
+  if (authError) return authError;
+
   try {
     const db = await getDb();
     const { searchParams } = new URL(request.url);

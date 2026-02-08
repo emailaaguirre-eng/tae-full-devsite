@@ -1,12 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getDb, artKeys, desc } from "@/lib/db";
+import { requireAdmin } from "@/lib/admin-auth";
 
 /**
  * Admin ArtKeys API
  * Lists all ArtKeys for admin management
  * Now uses Drizzle ORM instead of Prisma
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = requireAdmin(request);
+  if (authError) return authError;
+
   try {
     const db = await getDb();
     // Fetch all ArtKeys from database using Drizzle

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { adminFetch } from '@/lib/admin-fetch';
 
 export default function ArtKeysPage() {
   const [artkeys, setArtkeys] = useState<any[]>([]);
@@ -10,7 +11,7 @@ export default function ArtKeysPage() {
 
   useEffect(() => {
     // Fetch ArtKeys from WordPress via API
-    fetch('/api/admin/artkeys')
+    adminFetch('/api/admin/artkeys')
       .then(res => res.json())
       .then(data => {
         if (data.error) {

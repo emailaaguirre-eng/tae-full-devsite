@@ -1,4 +1,5 @@
 {
   "chatbotEnabled": false,
-  "purchasingEnabled": false
+  "purchasingEnabled": false,
+  "artKeyPlaceholderQrUrl": "https://theartfulexperience.com/artkey-info"
 }

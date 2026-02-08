@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, artKeys, eq, generatePublicToken, generateOwnerToken, generateId, ArtKeyData } from '@/lib/db';
+import { getDb, saveDatabase, artKeys, eq, generatePublicToken, generateOwnerToken, generateId, ArtKeyData } from '@/lib/db';
 import { getAppBaseUrl } from '@/lib/wp';
 
 /**
@@ -76,17 +76,15 @@ export async function POST(request: NextRequest) {
     let ownerTokenValue: string;
     const now = new Date().toISOString();
 
-    // Build customization JSON containing all the data
-    const customizationJson = JSON.stringify({
-      theme: artKeyData.theme,
-      features: artKeyData.features,
-      links: artKeyData.links,
-      spotify: artKeyData.spotify,
-      featured_video: artKeyData.featured_video,
-      customizations: artKeyData.customizations,
-      uploadedImages: artKeyData.uploadedImages,
-      uploadedVideos: artKeyData.uploadedVideos,
-    });
+    // Serialize each field as JSON text to match schema columns
+    const themeJson = JSON.stringify(artKeyData.theme);
+    const featuresJson = JSON.stringify(artKeyData.features);
+    const linksJson = JSON.stringify(artKeyData.links);
+    const spotifyJson = JSON.stringify(artKeyData.spotify);
+    const featuredVideoJson = artKeyData.featured_video ? JSON.stringify(artKeyData.featured_video) : null;
+    const customizationsJson = JSON.stringify(artKeyData.customizations);
+    const uploadedImagesJson = JSON.stringify(artKeyData.uploadedImages);
+    const uploadedVideosJson = JSON.stringify(artKeyData.uploadedVideos);
 
     if (existingArtKey) {
       // Update existing ArtKey
@@ -96,10 +94,14 @@ export async function POST(request: NextRequest) {
       await db.update(artKeys)
         .set({
           title: artKeyData.title,
-          template: artKeyData.theme.template || 'classic',
-          customization: customizationJson,
-          guestbookEnabled: artKeyData.features.show_guestbook,
-          mediaEnabled: artKeyData.features.enable_gallery,
+          theme: themeJson,
+          features: featuresJson,
+          links: linksJson,
+          spotify: spotifyJson,
+          featuredVideo: featuredVideoJson,
+          customizations: customizationsJson,
+          uploadedImages: uploadedImagesJson,
+          uploadedVideos: uploadedVideosJson,
           updatedAt: now,
         })
         .where(eq(artKeys.id, existingArtKey.id));
@@ -128,15 +130,21 @@ export async function POST(request: NextRequest) {
         publicToken: publicToken,
         ownerToken: ownerTokenValue,
         title: artKeyData.title,
-        template: artKeyData.theme.template || 'classic',
-        customization: customizationJson,
-        guestbookEnabled: artKeyData.features.show_guestbook,
-        mediaEnabled: artKeyData.features.enable_gallery,
-        isDemo: false,
+        theme: themeJson,
+        features: featuresJson,
+        links: linksJson,
+        spotify: spotifyJson,
+        featuredVideo: featuredVideoJson,
+        customizations: customizationsJson,
+        uploadedImages: uploadedImagesJson,
+        uploadedVideos: uploadedVideosJson,
         createdAt: now,
         updatedAt: now,
       });
     }
+
+    // Persist in-memory SQLite to disk
+    await saveDatabase();
 
     const baseUrl = getAppBaseUrl();
     const shareUrl = `${baseUrl}/artkey/${publicToken}`;

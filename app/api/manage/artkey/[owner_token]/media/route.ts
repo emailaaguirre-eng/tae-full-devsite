@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, artKeys, artkeyMedia, eq, desc, and } from '@/lib/db';
+import { getDb, saveDatabase, artKeys, artkeyMedia, eq, desc, and } from '@/lib/db';
 
 /**
  * Owner Media Management API
@@ -149,6 +149,9 @@ export async function POST(
       await db
         .delete(artkeyMedia)
         .where(eq(artkeyMedia.id, media_id));
+
+      // Persist in-memory SQLite to disk
+      await saveDatabase();
     }
 
     return NextResponse.json({

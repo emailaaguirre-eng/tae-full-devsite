@@ -2,7 +2,7 @@
 // Defines print specifications for different product types
 // 
 // SPRINT 1: Refactored to use mm internally (spec-driven)
-// - trimBox: final cut size from Gelato (in mm)
+// - trimBox: final cut size from product data (in mm)
 // - bleedBox: trimBox + 4mm on all sides (default)
 // - safeBox: trimBox inset 4mm on all sides (default)
 // - All dimensions stored in mm, converted to pixels for display/export
@@ -11,7 +11,7 @@ export interface PrintSide {
   id: 'front' | 'inside' | 'inside-left' | 'inside-right' | 'inside-top' | 'inside-bottom' | 'back';
   name?: string; // Optional display name for clarity
   // Dimensions in mm (internal storage)
-  trimMm: { w: number; h: number }; // Final cut size (from Gelato)
+  trimMm: { w: number; h: number }; // Final cut size (from product data)
   bleedMm: number; // Bleed amount in mm (default 4mm)
   safeMm: number; // Safe zone inset in mm (default 4mm)
   foldLines?: Array<{ x1: number; y1: number; x2: number; y2: number }>; // Coordinates in mm
@@ -463,7 +463,7 @@ const CARD_PRODUCTS = ['card', 'invitation', 'announcement'];
 
 /**
  * Variant UID to PrintSpec ID Mapping
- * Maps Gelato variant UIDs to our PrintSpec IDs
+ * Maps variant UIDs to our PrintSpec IDs
  * 
  * Format: variantUid (or pattern) -> printSpecId
  * 
@@ -475,7 +475,7 @@ export const VARIANT_UID_TO_PRINTSPEC_MAP: Record<string, string> = {
   // Cards (bifold, multi-side)
   // Pattern: cards_*_a5_* -> greeting_card_bifold (5x7 inches)
   // Pattern: cards_*_a6_* -> greeting_card_bifold (smaller size, but same structure)
-  // Add specific variant UIDs as they are discovered from Gelato API
+  // Add specific variant UIDs as they are discovered from print provider API
   
   // Postcards (front/back)
   // Pattern: postcards_* -> postcard_front_back
@@ -491,9 +491,9 @@ export const VARIANT_UID_TO_PRINTSPEC_MAP: Record<string, string> = {
 };
 
 /**
- * Resolves PrintSpec ID from Gelato variant UID
+ * Resolves PrintSpec ID from variant UID
  * 
- * @param variantUid Gelato variant UID
+ * @param variantUid Variant UID from print provider
  * @returns PrintSpec ID or null if no mapping found
  */
 export function getPrintSpecIdForVariantUid(variantUid: string): string | null {
@@ -536,21 +536,21 @@ export function getPrintSpecIdForVariantUid(variantUid: string): string | null {
 }
 
 /**
- * Updated getPrintSpecForProduct to support gelatoVariantUid
+ * Updated getPrintSpecForProduct to support variantId
  * 
  * Priority:
- * 1. If gelatoVariantUid provided, use variant UID resolver
- * 2. If gelatoVariantUid exists but no mapping found, return error (enforcement)
- * 3. If no gelatoVariantUid, fall back to product slug mapping (only for simple posters)
+ * 1. If variantId provided, use variant UID resolver
+ * 2. If variantId exists but no mapping found, return error (enforcement)
+ * 3. If no variantId, fall back to product slug mapping (only for simple posters)
  */
 export function getPrintSpecForProduct(
   productSlugOrId: string,
   variationId?: string,
-  gelatoVariantUid?: string
+  variantId?: string
 ): PrintSpecResult {
-  // Priority 1: Use gelatoVariantUid if provided
-  if (gelatoVariantUid) {
-    const specId = getPrintSpecIdForVariantUid(gelatoVariantUid);
+  // Priority 1: Use variantId if provided
+  if (variantId) {
+    const specId = getPrintSpecIdForVariantUid(variantId);
     
     if (specId) {
       const spec = getPrintSpec(specId);
@@ -559,14 +559,14 @@ export function getPrintSpecForProduct(
       } else {
         return {
           spec: undefined,
-          error: `Print spec "${specId}" not found for variant ${gelatoVariantUid}.`,
+          error: `Print spec "${specId}" not found for variant ${variantId}.`,
         };
       }
     } else {
       // Enforcement: If variant UID exists but no mapping, block with error
       return {
         spec: undefined,
-        error: `This format (variant: ${gelatoVariantUid}) isn't configured for print yet. Please contact support.`,
+        error: `This format (variant: ${variantId}) isn't configured for print yet. Please contact support.`,
       };
     }
   }
@@ -606,11 +606,11 @@ export function getPrintSpecForProduct(
 }
 
 /**
- * Generate PrintSpec from Gelato variant dimensions
- * SPRINT 2: Creates PrintSpec from Gelato product variant data
+ * Generate PrintSpec from variant dimensions
+ * SPRINT 2: Creates PrintSpec from product variant data
  */
-export function generatePrintSpecFromGelatoVariant(
-  variantUid: string,
+export function generatePrintSpecFromVariant(
+  variantId: string,
   productType: 'card' | 'postcard' | 'invitation' | 'announcement' | 'print',
   trimMm: { w: number; h: number },
   orientation: 'portrait' | 'landscape' = 'portrait',
@@ -652,8 +652,8 @@ export function generatePrintSpecFromGelatoVariant(
   if (productType === 'card' && foldOption === 'bifold') {
     if (orientation === 'portrait') {
       return {
-        id: `gelato_${variantUid}_portrait_bifold`,
-        name: `Card (${variantUid})`,
+        id: `variant_${variantId}_portrait_bifold`,
+        name: `Card (${variantId})`,
         folded: true,
         sideIds: ['front', 'inside-left', 'inside-right', 'back'],
         sides: [
@@ -674,8 +674,8 @@ export function generatePrintSpecFromGelatoVariant(
       };
     } else {
       return {
-        id: `gelato_${variantUid}_landscape_bifold`,
-        name: `Card (${variantUid})`,
+        id: `variant_${variantId}_landscape_bifold`,
+        name: `Card (${variantId})`,
         folded: true,
         sideIds: ['front', 'inside-top', 'inside-bottom', 'back'],
         sides: [
@@ -699,8 +699,8 @@ export function generatePrintSpecFromGelatoVariant(
   } else if (productType === 'card' || productType === 'postcard') {
     // Flat card or postcard (front and back)
     return {
-      id: `gelato_${variantUid}_${orientation}`,
-      name: `${productType} (${variantUid})`,
+      id: `variant_${variantId}_${orientation}`,
+      name: `${productType} (${variantId})`,
       folded: false,
       sideIds: ['front', 'back'],
       sides: [
@@ -712,8 +712,8 @@ export function generatePrintSpecFromGelatoVariant(
   } else {
     // Single-sided (invitation, announcement, print)
     return {
-      id: `gelato_${variantUid}_${orientation}`,
-      name: `${productType} (${variantUid})`,
+      id: `variant_${variantId}_${orientation}`,
+      name: `${productType} (${variantId})`,
       folded: false,
       sideIds: ['front'],
       sides: [

@@ -1,3 +1,4 @@
+// NOTE: Gelato references in this script are legacy. Print fulfillment is now via Printful.
 const { PrismaClient } = require('@prisma/client');
 
 async function main() {

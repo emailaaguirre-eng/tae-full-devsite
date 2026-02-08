@@ -30,5 +30,6 @@ export async function GET() {
   return NextResponse.json({
     chatbotEnabled: settings.chatbotEnabled ?? false,
     purchasingEnabled: settings.purchasingEnabled ?? false,
+    artKeyPlaceholderQrUrl: settings.artKeyPlaceholderQrUrl ?? "https://theartfulexperience.com/artkey-info",
   });
 }

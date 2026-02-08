@@ -12,7 +12,7 @@ interface Message {
 
 // Pre-built responses for common questions
 const FAQ_RESPONSES: Record<string, string> = {
-  'shipping': `We partner with Gelato for worldwide print-on-demand shipping. Orders typically ship within 2-5 business days, with delivery times varying by location. You'll receive tracking information once your order ships.`,
+  'shipping': `We partner with Printful for worldwide print-on-demand shipping. Orders typically ship within 2-5 business days, with delivery times varying by location. You'll receive tracking information once your order ships.`,
   'returns': `We want you to love your purchase! If there's an issue with print quality or damage during shipping, please contact us within 14 days with photos and we'll make it right.`,
   'pricing': `Our pricing includes the base print cost, artist royalties, and a small platform fee. Final prices depend on the size, material, and finish you select. Artists receive a royalty from each sale of their work.`,
   'artkey': `ArtKey is our digital experience feature! Each physical art piece can include a QR code that links to a personalized digital portal with photos, videos, guestbook, and more. It's a way to add meaning and memories to your art.`,

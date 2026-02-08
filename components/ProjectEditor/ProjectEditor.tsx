@@ -4,9 +4,9 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Rect, Line, Transformer, Group, Ellipse } from 'react-konva';
 import useImage from 'use-image';
-import { Download, X, Type, Upload, Undo, Redo, Trash2, Save, Sparkles } from 'lucide-react';
+import { Download, X, Type, Upload, Undo, Redo, Trash2, Save, Sparkles, FlipHorizontal, FlipVertical, Copy, ArrowUp, ArrowDown, Minus, Plus, ZoomIn, Palette } from 'lucide-react';
 import { useAssetStore, type UploadedAsset } from '@/lib/assetStore';
-import { generatePrintSpecForSize, getSamplePostcardSpec, generatePrintSpecFromGelatoVariant, type PrintSpec, type PrintSide, mmToPx, DEFAULT_DPI } from '@/lib/printSpecs';
+import { generatePrintSpecForSize, getSamplePostcardSpec, type PrintSpec, type PrintSide, mmToPx, DEFAULT_DPI } from '@/lib/printSpecs';
 import { DEFAULT_FONT, DEFAULT_FONT_WEIGHT } from '@/lib/editorFonts';
 import { LABEL_SHAPES, type LabelShape } from '@/lib/labelShapes';
 import LabelInspector from './LabelInspector';
@@ -17,9 +17,9 @@ interface ProjectEditorRebuildProps {
   printSpecId?: string;
   productSlug?: string;
   config?: any;
-  gelatoVariantUid?: string;
+  printfulVariantId?: number;
   selectedVariant?: {
-    uid: string;
+    id?: number;
     size?: string | null;
     orientation?: 'portrait' | 'landscape';
     material?: string | null;
@@ -47,7 +47,7 @@ export default function ProjectEditor({
   printSpecId,
   productSlug = 'card',
   config,
-  gelatoVariantUid,
+  printfulVariantId,
   selectedVariant,
   onComplete,
   onClose,
@@ -70,6 +70,10 @@ export default function ProjectEditor({
   const [editingTextValue, setEditingTextValue] = useState<string>('');
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   
+  // Zoom control
+  const [zoomLevel, setZoomLevel] = useState(1); // 1 = auto-fit, user can override
+  const [userZoom, setUserZoom] = useState<number | null>(null); // null = auto-fit
+  
   // History for undo/redo
   const [history, setHistory] = useState<HistoryState[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -91,34 +95,38 @@ export default function ProjectEditor({
   const [cardFormat, setCardFormat] = useState<'flat' | 'bifold'>('flat');
   const isCardProduct = productSlug === 'card';
   
-  // SPRINT 2: State for Gelato variant data
-  const [gelatoVariantData, setGelatoVariantData] = useState<{
-    uid: string;
+  // State for product variant data (print dimensions)
+  const [variantData, setVariantData] = useState<{
+    id: number;
     trimMm: { w: number; h: number };
-    productUid: string;
+    productId: number;
   } | null>(null);
   
-  // SPRINT 2: Lock spec to productUid once selected (prevents spec changes)
-  const [lockedProductUid, setLockedProductUid] = useState<string | null>(null);
-  const [lockedVariantUid, setLockedVariantUid] = useState<string | null>(null);
+  // Lock spec to product once selected (prevents spec changes)
+  const [lockedProductId, setLockedProductId] = useState<number | null>(null);
+  const [lockedVariantId, setLockedVariantId] = useState<number | null>(null);
   
-  // Fetch Gelato variant data if gelatoVariantUid is provided
+  // Fetch variant data if printfulVariantId is provided
   useEffect(() => {
-    if (gelatoVariantUid && !gelatoVariantData) {
-      fetch(`/api/gelato/variant/${gelatoVariantUid}`)
+    if (printfulVariantId && !variantData) {
+      // Fetch product info from local store (not from external API)
+      fetch(`/api/shop/product-by-variant?variantId=${printfulVariantId}`)
         .then(res => res.json())
         .then(data => {
-          if (data.trimMm) {
-            setGelatoVariantData({
-              uid: data.uid,
-              trimMm: data.trimMm,
-              productUid: data.productUid,
+          if (data.printWidth && data.printHeight && data.printDpi) {
+            // Convert px dimensions to mm using DPI
+            const wMm = (data.printWidth / data.printDpi) * 25.4;
+            const hMm = (data.printHeight / data.printDpi) * 25.4;
+            setVariantData({
+              id: printfulVariantId,
+              trimMm: { w: wMm, h: hMm },
+              productId: data.printfulProductId || 0,
             });
           }
         })
         .catch(err => console.error('[ProjectEditor] Failed to fetch variant:', err));
     }
-  }, [gelatoVariantUid, gelatoVariantData]);
+  }, [printfulVariantId, variantData]);
   
   // Load premium assets when library is opened
   useEffect(() => {
@@ -146,27 +154,26 @@ export default function ProjectEditor({
     }
   }, []);
   
-  // Get print spec from Gelato variant or generate dynamically
-  // SPRINT 2: Prefer Gelato variant data over hardcoded sizes
+  // Get print spec from variant data or generate dynamically
+  // Prefer variant dimensions over hardcoded sizes
   const printSpec = useMemo<PrintSpec | null>(() => {
     const productType = productSlug as 'card' | 'postcard' | 'invitation' | 'announcement' | 'print';
     const orientation = editorOrientation;
     // Use cardFormat state (controlled in editor) instead of selectedVariant?.fold
     const foldOption = isCardProduct ? cardFormat : 'flat';
     
-    // SPRINT 2: Use Gelato variant dimensions if available
-    if (gelatoVariantData && gelatoVariantUid) {
+    // Use variant dimensions if available (from Printful product data)
+    if (variantData) {
       try {
-        const spec = generatePrintSpecFromGelatoVariant(
-          gelatoVariantUid,
+        const spec = generatePrintSpecForSize(
           productType,
-          gelatoVariantData.trimMm,
+          `${variantData.trimMm.w}x${variantData.trimMm.h}mm`,
           orientation,
           foldOption
         );
         return spec;
       } catch (e) {
-        console.error('[ProjectEditor] Failed to generate spec from Gelato variant:', e);
+        console.error('[ProjectEditor] Failed to generate spec from variant data:', e);
       }
     }
     
@@ -182,7 +189,7 @@ export default function ProjectEditor({
     
     // Final fallback: Sample spec
     return getSamplePostcardSpec();
-  }, [productSlug, selectedVariant?.size, cardFormat, isCardProduct, gelatoVariantData, gelatoVariantUid, editorOrientation, lockedVariantUid, lockedProductUid]);
+  }, [productSlug, selectedVariant?.size, cardFormat, isCardProduct, variantData, editorOrientation, lockedVariantId, lockedProductId]);
   
   // Track printSpec ID to detect changes
   const lastPrintSpecIdRef = useRef<string | null>(null);
@@ -337,6 +344,54 @@ export default function ProjectEditor({
     setSelectedId(undefined);
   }, [activeSideId, saveToHistory]);
   
+  // Duplicate object
+  const duplicateObject = useCallback((id: string) => {
+    setSideStates((prev) => {
+      const newStates = { ...prev };
+      const sideState = { ...newStates[activeSideId] };
+      const obj = sideState.objects.find((o) => o.id === id);
+      if (!obj) return prev;
+      const clone = { ...obj, id: `${obj.type}-${Date.now()}`, x: obj.x + 20, y: obj.y + 20 };
+      sideState.objects = [...sideState.objects, clone];
+      sideState.selectedId = clone.id;
+      newStates[activeSideId] = sideState;
+      saveToHistory(newStates);
+      return newStates;
+    });
+  }, [activeSideId, saveToHistory]);
+
+  // Move layer ordering
+  const moveLayer = useCallback((id: string, direction: 'up' | 'down') => {
+    setSideStates((prev) => {
+      const newStates = { ...prev };
+      const sideState = { ...newStates[activeSideId] };
+      const objs = [...sideState.objects];
+      const idx = objs.findIndex((o) => o.id === id);
+      if (idx === -1) return prev;
+      if (direction === 'up' && idx < objs.length - 1) {
+        [objs[idx], objs[idx + 1]] = [objs[idx + 1], objs[idx]];
+      } else if (direction === 'down' && idx > 0) {
+        [objs[idx], objs[idx - 1]] = [objs[idx - 1], objs[idx]];
+      }
+      sideState.objects = objs;
+      newStates[activeSideId] = sideState;
+      saveToHistory(newStates);
+      return newStates;
+    });
+  }, [activeSideId, saveToHistory]);
+
+  // Set background color for current side
+  const setBackgroundColor = useCallback((color: string) => {
+    setSideStates((prev) => {
+      const newStates = { ...prev };
+      const sideState = { ...newStates[activeSideId] };
+      sideState.backgroundColor = color;
+      newStates[activeSideId] = sideState;
+      saveToHistory(newStates);
+      return newStates;
+    });
+  }, [activeSideId, saveToHistory]);
+
   // Start editing text (double-click on text/label-shape)
   const startEditingText = useCallback((objectId: string) => {
     const obj = objects.find(o => o.id === objectId);
@@ -728,8 +783,8 @@ export default function ProjectEditor({
       }
       
       // Collect product/variant information
-      const productId = lockedProductUid || gelatoVariantData?.productUid || null;
-      const variantId = lockedVariantUid || gelatoVariantUid || null;
+      const productId = lockedProductId ? String(lockedProductId) : (variantData?.productId ? String(variantData.productId) : null);
+      const variantId = lockedVariantId ? String(lockedVariantId) : (printfulVariantId ? String(printfulVariantId) : null);
       
       // Calculate premium fees
       const totalPremiumFees = usedPremiumAssets.reduce((sum, asset) => sum + asset.fee, 0);
@@ -814,7 +869,7 @@ export default function ProjectEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [printSpec, sideStates, activeSideId, stageRef, lockedProductUid, lockedVariantUid, gelatoVariantData, gelatoVariantUid, productSlug, isSaving, router, usedPremiumAssets]);
+  }, [printSpec, sideStates, activeSideId, stageRef, lockedProductId, lockedVariantId, variantData, printfulVariantId, productSlug, isSaving, router, usedPremiumAssets]);
   
   // Export: PNG with bleed at 300 DPI
   // SPRINT 1: Export one side (current active side) with bleed included at print DPI
@@ -858,16 +913,16 @@ export default function ProjectEditor({
     };
     
     if (onComplete) {
-      // SPRINT 2: Include productUid and variantUid in export data
+      // Include product/variant IDs in export data
       onComplete({
         productSlug,
         printSpecId: printSpec.id,
-        productUid: lockedProductUid || gelatoVariantData?.productUid,
-        variantUid: lockedVariantUid || gelatoVariantUid,
+        productId: lockedProductId || variantData?.productId,
+        variantId: lockedVariantId || printfulVariantId,
         exports: [exportData],
       });
     }
-  }, [printSpec, currentSide, activeSideId, stageRef, runPreflight, onComplete, productSlug, gelatoVariantData, gelatoVariantUid]);
+  }, [printSpec, currentSide, activeSideId, stageRef, runPreflight, onComplete, productSlug, variantData, printfulVariantId]);
   
   if (!printSpec || !currentSide) {
     return (
@@ -894,7 +949,15 @@ export default function ProjectEditor({
   const STAGE_HEIGHT = mmToPx(canvasDimensionsMm.height, SCREEN_DPI);
   
   // Calculate display scale to fit viewport (800x600 max viewport)
-  const displayScale = Math.min(800 / STAGE_WIDTH, 600 / STAGE_HEIGHT, 1);
+  const autoScale = Math.min(800 / STAGE_WIDTH, 600 / STAGE_HEIGHT, 1);
+  const displayScale = userZoom !== null ? userZoom : autoScale;
+  
+  // Print dimensions for status bar
+  const printWidthInches = currentSide ? (currentSide.trimMm.w / 25.4).toFixed(1) : '0';
+  const printHeightInches = currentSide ? (currentSide.trimMm.h / 25.4).toFixed(1) : '0';
+  const printWidthMm = currentSide ? currentSide.trimMm.w.toFixed(0) : '0';
+  const printHeightMm = currentSide ? currentSide.trimMm.h.toFixed(0) : '0';
+  const zoomPercent = Math.round(displayScale * 100);
   
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -1055,39 +1118,39 @@ export default function ProjectEditor({
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-          {/* SPRINT 2: Size Picker (only show if no variant selected yet) */}
-          {!lockedVariantUid && !gelatoVariantUid && (
+          {/* Size Picker (only show if no variant selected yet) */}
+          {!lockedVariantId && !printfulVariantId && (
             <div className="p-4 border-b border-gray-200">
               <h3 className="text-sm font-semibold text-gray-900 mb-2">Select Product Size</h3>
               <SizePicker
                 productSlug={productSlug}
-                selectedVariantUid={gelatoVariantUid}
+                selectedVariantId={printfulVariantId}
                 onVariantSelect={(variant) => {
                   // Update variant data and trigger spec regeneration
-                  setGelatoVariantData({
-                    uid: variant.uid,
+                  setVariantData({
+                    id: variant.id,
                     trimMm: variant.trimMm,
-                    productUid: variant.productUid,
+                    productId: variant.productId,
                   });
                   // Lock to this variant
-                  setLockedVariantUid(variant.uid);
-                  setLockedProductUid(variant.productUid);
+                  setLockedVariantId(variant.id);
+                  setLockedProductId(variant.productId);
                 }}
-                disabled={!!lockedVariantUid}
+                disabled={!!lockedVariantId}
               />
             </div>
           )}
           
           {/* Show locked product info */}
-          {lockedProductUid && (
+          {lockedProductId && (
             <div className="p-4 border-b border-gray-200 bg-blue-50">
               <div className="text-xs font-medium text-blue-900">Product Locked</div>
               <div className="text-xs text-blue-700 mt-1">
-                Product: {lockedProductUid}
+                Product ID: {lockedProductId}
               </div>
-              {lockedVariantUid && (
+              {lockedVariantId && (
                 <div className="text-xs text-blue-700">
-                  Variant: {lockedVariantUid}
+                  Variant ID: {lockedVariantId}
                 </div>
               )}
             </div>
@@ -1144,6 +1207,28 @@ export default function ProjectEditor({
               </div>
             </div>
           )}
+          
+          {/* Background Color */}
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Background</h3>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={currentState.backgroundColor || '#ffffff'}
+                onChange={(e) => setBackgroundColor(e.target.value)}
+                className="w-8 h-8 rounded border border-gray-300 cursor-pointer"
+              />
+              <span className="text-xs text-gray-500">{currentState.backgroundColor || 'White (default)'}</span>
+              {currentState.backgroundColor && (
+                <button
+                  onClick={() => setBackgroundColor('')}
+                  className="text-xs text-red-500 hover:text-red-700 ml-auto"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
           
           {/* Label Shapes */}
           <div className="p-4 border-b border-gray-200">
@@ -1276,6 +1361,18 @@ export default function ProjectEditor({
                 }}
               >
               <Layer>
+                {/* Background color fill */}
+                {currentSide && currentState.backgroundColor && (
+                  <Rect
+                    x={mmToPx(currentSide.bleedMm, SCREEN_DPI)}
+                    y={mmToPx(currentSide.bleedMm, SCREEN_DPI)}
+                    width={mmToPx(currentSide.trimMm.w, SCREEN_DPI)}
+                    height={mmToPx(currentSide.trimMm.h, SCREEN_DPI)}
+                    fill={currentState.backgroundColor}
+                    listening={false}
+                  />
+                )}
+                
                 {/* Print Area Guides - Always Visible - CRITICAL FOR PRINT ACCURACY */}
                 {/* SPRINT 1: Guides use mm coordinates converted to screen pixels */}
                 {currentSide && (() => {
@@ -1480,6 +1577,136 @@ export default function ProjectEditor({
         </div>
       </div>
       
+      {/* Floating Object Toolbar */}
+      {selectedObject && (
+        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-2xl border border-gray-200 px-3 py-2 flex items-center gap-1 z-40">
+          {/* Flip controls (images only) */}
+          {selectedObject.type === 'image' && (
+            <>
+              <button
+                onClick={() => updateObject(selectedObject.id, { flipX: !selectedObject.flipX })}
+                className={`p-2 rounded-lg hover:bg-gray-100 ${selectedObject.flipX ? 'bg-blue-100 text-blue-600' : ''}`}
+                title="Flip Horizontal"
+              >
+                <FlipHorizontal className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => updateObject(selectedObject.id, { flipY: !selectedObject.flipY })}
+                className={`p-2 rounded-lg hover:bg-gray-100 ${selectedObject.flipY ? 'bg-blue-100 text-blue-600' : ''}`}
+                title="Flip Vertical"
+              >
+                <FlipVertical className="w-4 h-4" />
+              </button>
+              <div className="w-px h-6 bg-gray-200 mx-1" />
+            </>
+          )}
+          
+          {/* Opacity */}
+          <div className="flex items-center gap-1 px-1">
+            <span className="text-[10px] text-gray-500 w-8">Op:</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={Math.round((selectedObject.opacity ?? 1) * 100)}
+              onChange={(e) => updateObject(selectedObject.id, { opacity: parseInt(e.target.value) / 100 })}
+              className="w-16 h-1 accent-blue-600"
+              title={`Opacity: ${Math.round((selectedObject.opacity ?? 1) * 100)}%`}
+            />
+            <span className="text-[10px] text-gray-500 w-6">{Math.round((selectedObject.opacity ?? 1) * 100)}%</span>
+          </div>
+          
+          <div className="w-px h-6 bg-gray-200 mx-1" />
+          
+          {/* Layer ordering */}
+          <button
+            onClick={() => moveLayer(selectedObject.id, 'up')}
+            className="p-2 rounded-lg hover:bg-gray-100"
+            title="Bring Forward"
+          >
+            <ArrowUp className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => moveLayer(selectedObject.id, 'down')}
+            className="p-2 rounded-lg hover:bg-gray-100"
+            title="Send Backward"
+          >
+            <ArrowDown className="w-4 h-4" />
+          </button>
+          
+          <div className="w-px h-6 bg-gray-200 mx-1" />
+          
+          {/* Duplicate */}
+          <button
+            onClick={() => duplicateObject(selectedObject.id)}
+            className="p-2 rounded-lg hover:bg-gray-100"
+            title="Duplicate"
+          >
+            <Copy className="w-4 h-4" />
+          </button>
+          
+          {/* Delete */}
+          <button
+            onClick={() => deleteObject(selectedObject.id)}
+            className="p-2 rounded-lg hover:bg-red-50 text-red-600"
+            title="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      
+      {/* Status Bar — Print dimensions + Zoom */}
+      <div className="bg-white border-t border-gray-200 px-6 py-2 flex items-center justify-between text-xs text-gray-600">
+        <div className="flex items-center gap-4">
+          <span className="font-medium">
+            Print Size: {printWidthInches}" x {printHeightInches}" ({printWidthMm} x {printHeightMm} mm)
+          </span>
+          <span>|</span>
+          <span>300 DPI</span>
+          <span>|</span>
+          <span>{objects.length} object{objects.length !== 1 ? 's' : ''}</span>
+          {selectedObject && (
+            <>
+              <span>|</span>
+              <span className="text-blue-600">Selected: {selectedObject.type} ({selectedObject.id.split('-')[0]})</span>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setUserZoom(Math.max(0.1, (userZoom ?? autoScale) - 0.1))}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Zoom Out"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+          <input
+            type="range"
+            min="10"
+            max="200"
+            value={zoomPercent}
+            onChange={(e) => setUserZoom(parseInt(e.target.value) / 100)}
+            className="w-24 h-1 accent-gray-500"
+          />
+          <button
+            onClick={() => setUserZoom(Math.min(2, (userZoom ?? autoScale) + 0.1))}
+            className="p-1 hover:bg-gray-100 rounded"
+            title="Zoom In"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+          <span className="w-10 text-center font-mono">{zoomPercent}%</span>
+          <button
+            onClick={() => setUserZoom(null)}
+            className="px-2 py-0.5 text-[10px] bg-gray-100 rounded hover:bg-gray-200"
+            title="Fit to screen"
+          >
+            Fit
+          </button>
+        </div>
+      </div>
+      
       {/* Premium Library Modal */}
       {showPremiumLibrary && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -1635,10 +1862,13 @@ function ImageObject({
     >
       <KonvaImage
         image={img}
-        x={0}
-        y={0}
+        x={object.flipX ? (object.width || 100) : 0}
+        y={object.flipY ? (object.height || 100) : 0}
         width={object.width || 100}
         height={object.height || 100}
+        scaleX={object.flipX ? -1 : 1}
+        scaleY={object.flipY ? -1 : 1}
+        opacity={object.opacity ?? 1}
       />
       {isSelected && (
         <Group
@@ -1686,6 +1916,7 @@ function TextObject({
       scaleX={object.scaleX || 1}
       scaleY={object.scaleY || 1}
       rotation={object.rotation || 0}
+      opacity={object.opacity ?? 1}
       draggable
       onClick={onSelect}
       onTap={onSelect}

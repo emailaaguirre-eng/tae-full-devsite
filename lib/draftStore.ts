@@ -49,8 +49,10 @@ export interface PersistedAsset {
   bytesApprox: number;
 }
 
-export interface GelatoVariantData {
-  uid: string;
+// Product variant data (legacy name kept for IndexedDB backward compatibility)
+export interface ProductVariantData {
+  id?: number;             // Printful variant ID
+  uid?: string;            // Legacy field
   size?: string | null;
   material?: string | null;
   paper?: string | null;
@@ -58,6 +60,8 @@ export interface GelatoVariantData {
   foil?: string | null;
   price?: number;
 }
+/** @deprecated Use ProductVariantData instead */
+export type GelatoVariantData = ProductVariantData;
 
 export interface DraftData {
   version: number;
@@ -79,8 +83,9 @@ export interface DraftData {
   }>;
   persistedAssets?: PersistedAsset[];
   assetsPartial?: boolean; // true if some assets couldn't be persisted due to size cap
-  gelatoVariantUid?: string; // Gelato variant UID from Sprint 2A
-  selectedVariant?: GelatoVariantData; // Selected variant data
+  gelatoVariantUid?: string; // Legacy — kept for IndexedDB backward compat
+  printfulVariantId?: number; // Printful variant ID
+  selectedVariant?: ProductVariantData; // Selected variant data
   updatedAt: number;
 }
 

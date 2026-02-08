@@ -42,7 +42,7 @@ Use the Gelato Stock Availability API for real-time checks:
 ### 3. Pre-submission Validation (Final Check)
 
 Orders are validated one final time before submission:
-- Automatic check in `/api/orders/[orderId]/submit-gelato`
+- Automatic check in `/api/orders/[orderId]/submit-printful`
 - Validates all products in the order
 - Blocks submission if any product is unavailable
 
@@ -161,10 +161,10 @@ npm run check-products
    - If invalid: Show error, remove unavailable items, or block checkout
    - If valid: Proceed to payment
 
-4. **After Payment (Before Gelato Submission)**
-   - Automatic validation in `/api/orders/[orderId]/submit-gelato`
+4. **After Payment (Before Printful Submission)**
+   - Automatic validation in `/api/orders/[orderId]/submit-printful`
    - If unavailable: Refund payment, notify customer, log error
-   - If available: Submit to Gelato
+   - If available: Submit to Printful
 
 ### Example Checkout Validation
 

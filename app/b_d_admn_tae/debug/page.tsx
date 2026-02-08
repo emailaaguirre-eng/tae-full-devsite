@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { isAdminAuthenticated, getAdminToken } from '@/lib/admin-auth';
+import { adminFetch } from '@/lib/admin-fetch';
 
 export default function DebugPage() {
   const [authState, setAuthState] = useState<any>(null);

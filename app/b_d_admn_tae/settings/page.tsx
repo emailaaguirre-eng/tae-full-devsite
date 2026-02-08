@@ -1,15 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Settings, MessageCircle, ShoppingCart, Save, RefreshCw } from 'lucide-react';
+import { Settings, MessageCircle, ShoppingCart, Save, RefreshCw, QrCode } from 'lucide-react';
+import { adminFetch } from '@/lib/admin-fetch';
 
 interface SiteSettings {
   chatbotEnabled: boolean;
   purchasingEnabled: boolean;
+  artKeyPlaceholderQrUrl: string;
 }
 
 export default function AdminSettingsPage() {
-  const [settings, setSettings] = useState<SiteSettings>({ chatbotEnabled: false, purchasingEnabled: false });
+  const [settings, setSettings] = useState<SiteSettings>({
+    chatbotEnabled: false,
+    purchasingEnabled: false,
+    artKeyPlaceholderQrUrl: 'https://theartfulexperience.com/artkey-info',
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -20,7 +26,7 @@ export default function AdminSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('/api/admin/settings');
+      const response = await adminFetch('/api/admin/settings');
       if (response.ok) {
         const data = await response.json();
         setSettings(data);
@@ -37,7 +43,7 @@ export default function AdminSettingsPage() {
     setMessage(null);
 
     try {
-      const response = await fetch('/api/admin/settings', {
+      const response = await adminFetch('/api/admin/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [key]: value }),
@@ -176,6 +182,65 @@ export default function AdminSettingsPage() {
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 When disabled, the "Add to Cart" button will be hidden and prices will show "Coming Soon" instead.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ArtKey QR Code Settings */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="px-6 py-4 bg-gradient-to-r from-gray-700 to-gray-900 text-white">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <QrCode className="w-5 h-5" />
+              ArtKey QR Code
+            </h2>
+            <p className="text-sm text-white/80">Configure the placeholder QR code shown in the Customization Studio</p>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label htmlFor="artkey-qr-url" className="block font-medium text-gray-900 mb-1">
+                Placeholder QR URL
+              </label>
+              <p className="text-sm text-gray-500 mb-2">
+                This URL is encoded into the placeholder QR code shown on products in the editor.
+                It is replaced with the customer&apos;s unique ArtKey portal URL at checkout.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  id="artkey-qr-url"
+                  type="url"
+                  value={settings.artKeyPlaceholderQrUrl || ''}
+                  onChange={(e) => setSettings((s) => ({ ...s, artKeyPlaceholderQrUrl: e.target.value }))}
+                  disabled={saving}
+                  placeholder="https://theartfulexperience.com/artkey-info"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-400 focus:border-gray-400 outline-none"
+                />
+                <button
+                  onClick={() => updateSetting('artKeyPlaceholderQrUrl', settings.artKeyPlaceholderQrUrl)}
+                  disabled={saving}
+                  className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-700 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" />
+                  Save
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <strong>Current URL:</strong>{' '}
+                <a
+                  href={settings.artKeyPlaceholderQrUrl || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline break-all"
+                >
+                  {settings.artKeyPlaceholderQrUrl || 'Not set'}
+                </a>
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Tip: Point this to an informational page about ArtKeys. This page should not appear in the main navigation.
+                During checkout, this placeholder is automatically swapped with the customer&apos;s unique ArtKey portal link.
               </p>
             </div>
           </div>

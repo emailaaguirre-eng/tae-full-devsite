@@ -5,7 +5,7 @@
  * Full-Featured Product Design Editor
  * Uses Fabric.js for palette manipulation
  * All features work without external API keys
- * Export is optimized for Gelato print production
+ * Export is optimized for print production
  * 
  * © 2026 B&D Servicing LLC. All rights reserved.
  */

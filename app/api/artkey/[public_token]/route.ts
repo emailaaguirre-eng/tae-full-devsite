@@ -40,19 +40,14 @@ export async function GET(
       .orderBy(desc(artkeyMedia.createdAt))
       .all();
 
-    // Parse customization JSON if present
-    let customization: Record<string, any> = {};
-    if (artKey.customization) {
-      try {
-        customization = JSON.parse(artKey.customization);
-      } catch (e) {
-        console.error('Error parsing customization JSON:', e);
-      }
-    }
+    // Parse each JSON column from the schema
+    const safeJsonParse = (val: string | null, fallback: any) => {
+      if (!val) return fallback;
+      try { return JSON.parse(val); } catch { return fallback; }
+    };
 
-    // Extract theme, features, links, etc. from customization
-    const theme = customization.theme || {
-      template: artKey.template || 'classic',
+    const theme = safeJsonParse(artKey.theme, {
+      template: 'classic',
       bg_color: '#F6F7FB',
       bg_image_id: 0,
       bg_image_url: '',
@@ -63,11 +58,11 @@ export async function GET(
       button_color: '#4f46e5',
       button_gradient: '',
       color_scope: 'content',
-    };
-    const features = customization.features || {
-      enable_gallery: artKey.mediaEnabled ?? true,
+    });
+    const features = safeJsonParse(artKey.features, {
+      enable_gallery: true,
       enable_video: false,
-      show_guestbook: artKey.guestbookEnabled ?? true,
+      show_guestbook: true,
       enable_custom_links: false,
       enable_spotify: false,
       allow_img_uploads: false,
@@ -80,18 +75,23 @@ export async function GET(
       img_require_approval: false,
       vid_require_approval: false,
       order: ['gallery', 'guestbook', 'video'],
-    };
-    const links = customization.links || [];
-    const spotify = customization.spotify || { url: 'https://', autoplay: false };
-    const featuredVideo = customization.featured_video || null;
-    const uploadedImages = customization.uploadedImages || [];
-    const uploadedVideos = customization.uploadedVideos || [];
+    });
+    const links = safeJsonParse(artKey.links, []);
+    const spotify = safeJsonParse(artKey.spotify, { url: 'https://', autoplay: false });
+    const featuredVideo = safeJsonParse(artKey.featuredVideo, null);
+    const customizations = safeJsonParse(artKey.customizations, {});
+    const uploadedImages = safeJsonParse(artKey.uploadedImages, []);
+    const uploadedVideos = safeJsonParse(artKey.uploadedVideos, []);
 
-    // Format guestbook entries
+    // Format guestbook entries (schema column is `name`, not `senderName`)
     const formattedGuestbook = guestbookEntries.map((entry) => ({
       id: entry.id,
-      name: entry.senderName,
+      name: entry.name,
+      email: entry.email,
       message: entry.message,
+      role: entry.role,
+      approved: entry.approved,
+      parentId: entry.parentId,
       createdAt: entry.createdAt,
       children: [],
       media: [],
@@ -120,7 +120,7 @@ export async function GET(
       links,
       spotify,
       featured_video: featuredVideo,
-      customizations: customization.customizations || {},
+      customizations,
       uploadedImages,
       uploadedVideos,
       guestbook: {

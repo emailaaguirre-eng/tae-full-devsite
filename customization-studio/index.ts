@@ -1,6 +1,7 @@
 // customization-studio/index.ts
 
-export { CustomizationStudio } from "./CustomizationStudio";
+export { default as CustomizationStudio } from "./CustomizationStudio";
+export type { LabelItem, PlacementDesignExt, DesignStateExt } from "./CustomizationStudio";
 export type {
   Placement,
   ProductSpec,

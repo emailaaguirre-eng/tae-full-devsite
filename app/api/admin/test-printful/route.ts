@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,9 @@ async function pfFetch(path: string) {
   return { ok: true, status: res.status, body: json, path };
 }
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  const authError = requireAdmin(req);
+  if (authError) return authError;
   const { searchParams } = new URL(req.url);
   const action = (searchParams.get("action") || "summary").toLowerCase();
 

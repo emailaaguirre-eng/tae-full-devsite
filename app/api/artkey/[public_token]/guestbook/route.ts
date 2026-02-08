@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, artKeys, artkeyGuestbookEntries, eq, generateId } from '@/lib/db';
+import { getDb, saveDatabase, artKeys, artkeyGuestbookEntries, eq, generateId } from '@/lib/db';
 
 /**
  * Guestbook Posting API
@@ -34,25 +34,23 @@ export async function POST(
       );
     }
 
-    // Parse customization to check feature flags
-    let customization: Record<string, any> = {};
-    if (artKey.customization) {
-      try {
-        customization = JSON.parse(artKey.customization);
-      } catch (e) {
-        console.error('Error parsing customization JSON:', e);
-      }
-    }
-
-    const features = customization.features || {
-      show_guestbook: artKey.guestbookEnabled ?? true,
+    // Parse features JSON from the schema column
+    let features: Record<string, any> = {
+      show_guestbook: true,
       gb_signing_status: 'open',
       gb_signing_start: '',
       gb_signing_end: '',
     };
+    if (artKey.features) {
+      try {
+        features = { ...features, ...JSON.parse(artKey.features) };
+      } catch (e) {
+        console.error('Error parsing features JSON:', e);
+      }
+    }
 
     // Check if guestbook is enabled
-    if (!features.show_guestbook && !artKey.guestbookEnabled) {
+    if (!features.show_guestbook) {
       return NextResponse.json(
         { error: 'Guestbook is not enabled for this ArtKey' },
         { status: 403 }
@@ -87,10 +85,13 @@ export async function POST(
     await db.insert(artkeyGuestbookEntries).values({
       id: entryId,
       artkeyId: artKey.id,
-      senderName: name.trim(),
+      name: name.trim(),
       message: message.trim(),
       createdAt: now,
     });
+
+    // Persist in-memory SQLite to disk
+    await saveDatabase();
 
     // Get the created entry
     const entry = await db
@@ -103,7 +104,7 @@ export async function POST(
       success: true,
       entry: {
         id: entry?.id,
-        name: entry?.senderName,
+        name: entry?.name,
         message: entry?.message,
         createdAt: entry?.createdAt,
       },

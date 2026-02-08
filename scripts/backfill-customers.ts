@@ -10,7 +10,7 @@
  * Run with: npx tsx scripts/backfill-customers.ts
  */
 
-import { db, customers, orders } from '../db';
+import { db, saveDatabase, customers, orders } from '../db';
 import { eq, isNotNull } from 'drizzle-orm';
 
 function generateId(): string {
@@ -76,7 +76,7 @@ async function backfillCustomers() {
           email,
           name: mostRecentOrder?.customerName || null,
           phone: null,
-          gelatoCustomerId: null,
+          gelatoCustomerId: null, // Legacy field — kept for backward compatibility, not used by new code
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
@@ -108,6 +108,9 @@ async function backfillCustomers() {
         console.log(`  → Linked ${ordersToUpdate.length} orders to customer`);
       }
     }
+
+    // Persist all changes to disk
+    await saveDatabase();
 
     console.log('\n=== Backfill Summary ===');
     console.log(`Customers created: ${customersCreated}`);

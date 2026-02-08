@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from 'crypto';
+import { storeAdminToken } from '@/lib/admin-auth';
 
 // Generate a simple token (in production, use JWT)
 function generateToken() {
@@ -64,38 +65,12 @@ function getAdminUsers() {
   return admins;
 }
 
-// GET handler for testing admin configuration
+// GET handler — minimal health check (does NOT expose admin config)
 export async function GET() {
-  console.log('[LOGIN API] GET request received');
-  try {
-    const adminUsers = getAdminUsers();
-    console.log('[LOGIN API] GET - Admin users found:', adminUsers.length);
-    return NextResponse.json({
-      success: true,
-      message: 'Login API is accessible',
-      adminConfig: {
-        adminCount: adminUsers.length,
-        admins: adminUsers.map(a => ({ username: a.username })),
-        defaultCredentials: adminUsers.length > 0 ? {
-          username: adminUsers[0].username,
-          note: 'Use the password you set in environment variables, or default: admin123'
-        } : null,
-      },
-      environment: {
-        hasAdminUsers: !!process.env.ADMIN_USERS,
-        hasAdmin1: !!(process.env.ADMIN1_USERNAME && process.env.ADMIN1_PASSWORD),
-        hasAdminUsername: !!process.env.ADMIN_USERNAME,
-        hasAdminPassword: !!process.env.ADMIN_PASSWORD,
-        nodeEnv: process.env.NODE_ENV,
-      }
-    });
-  } catch (err: any) {
-    console.error('[LOGIN API] GET Error:', err);
-    return NextResponse.json(
-      { error: err.message || 'Test failed' },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    success: true,
+    message: 'Login API is accessible',
+  });
 }
 
 export async function POST(request: Request) {
@@ -117,11 +92,7 @@ export async function POST(request: Request) {
     
     const { username, password } = body;
     
-    console.log('[LOGIN API] Username received:', username);
-    console.log('[LOGIN API] Password length:', password?.length || 0);
-    
     if (!username || !password) {
-      console.log('[LOGIN API] Missing username or password');
       return NextResponse.json(
         { error: 'Username and password are required' },
         { status: 400 }
@@ -129,8 +100,6 @@ export async function POST(request: Request) {
     }
     
     const adminUsers = getAdminUsers();
-    console.log('[LOGIN API] Admin users found:', adminUsers.length);
-    console.log('[LOGIN API] Admin usernames:', adminUsers.map(a => a.username));
     
     // Check if credentials match any admin
     const admin = adminUsers.find(
@@ -139,12 +108,10 @@ export async function POST(request: Request) {
     
     if (admin) {
       const token = generateToken();
-      console.log('[LOGIN API] Login successful for:', admin.username);
-      console.log('[LOGIN API] Token generated, length:', token.length);
-      
-      // In production, store token in database or use sessions
-      // For now, return token (client should store it)
-      
+
+      // Store token server-side so API routes can verify it
+      storeAdminToken(token, admin.username);
+
       return NextResponse.json({
         success: true,
         token,
@@ -152,7 +119,6 @@ export async function POST(request: Request) {
         username: admin.username,
       });
     } else {
-      console.log('[LOGIN API] Invalid credentials');
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }

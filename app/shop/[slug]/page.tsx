@@ -109,22 +109,22 @@ export default function ProductPage() {
         
         setProduct(productData.data);
         
-        // Fetch available Gelato products for this catalog
-        if (productData.data.gelatoCatalog?.catalogUid) {
-          const gelatoRes = await fetch(
-            `/api/shop/gelato-products?catalog=${productData.data.gelatoCatalog.catalogUid}`
+        // Fetch available product options from local catalog
+        if (productData.data.category?.slug) {
+          const optionsRes = await fetch(
+            `/api/shop/product-options?category=${productData.data.category.slug}`
           );
-          const gelatoData = await gelatoRes.json();
+          const optionsData = await optionsRes.json();
           
-          if (gelatoData.success) {
-            setAvailableProducts(gelatoData.data);
+          if (optionsData.success && optionsData.sizes) {
+            setAvailableProducts(optionsData.sizes);
             
             // Set first valid combination as default
-            if (gelatoData.data.length > 0) {
-              const firstProduct = gelatoData.data[0];
-              setSelectedFormat(firstProduct.paperFormat || '');
-              setSelectedOrientation(firstProduct.orientation || '');
-              setSelectedPaper(firstProduct.paperType || '');
+            if (optionsData.sizes.length > 0) {
+              const firstSize = optionsData.sizes[0];
+              setSelectedFormat(firstSize.sizeLabel || '');
+              setSelectedOrientation(firstSize.orientation || '');
+              setSelectedPaper(firstSize.paperType || '');
             }
           }
         }

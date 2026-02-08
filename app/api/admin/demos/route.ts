@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, artKeys, generatePublicToken, generateOwnerToken, generateId, desc, eq } from '@/lib/db';
+import { getDb, saveDatabase, artKeys, generatePublicToken, generateOwnerToken, generateId, desc, eq } from '@/lib/db';
 import { getAppBaseUrl } from '@/lib/wp';
+import { requireAdmin } from '@/lib/admin-auth';
 import QRCode from 'qrcode';
 
 /**
@@ -12,7 +13,10 @@ import QRCode from 'qrcode';
 /**
  * POST - Create a new demo ArtKey
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const authError = requireAdmin(request);
+  if (authError) return authError;
+
   try {
     const db = await getDb();
     const body = await request.json();
@@ -110,20 +114,26 @@ export async function POST(request: Request) {
     const id = generateId();
 
     // Create ArtKey in database using Drizzle
-    // Store all the customization data as a single JSON string
+    // Each JSON field goes into its own text column per the schema
     await db.insert(artKeys).values({
       id,
       publicToken,
       ownerToken,
       title: parsedArtKeyData.title || title,
-      template: parsedArtKeyData.theme?.template || 'classic',
-      customization: JSON.stringify(parsedArtKeyData),
-      guestbookEnabled: parsedArtKeyData.features?.show_guestbook ?? true,
-      mediaEnabled: parsedArtKeyData.features?.enable_gallery ?? true,
-      isDemo: true,
+      theme: JSON.stringify(parsedArtKeyData.theme || { template: 'classic', bg_color: '#F6F7FB', font: 'g:Playfair Display', text_color: '#111111', title_color: '#4f46e5', title_style: 'solid', button_color: '#4f46e5', button_gradient: '', color_scope: 'content' }),
+      features: JSON.stringify(parsedArtKeyData.features || { show_guestbook: true, enable_gallery: true }),
+      links: JSON.stringify(parsedArtKeyData.links || []),
+      spotify: JSON.stringify(parsedArtKeyData.spotify || { url: 'https://', autoplay: false }),
+      featuredVideo: parsedArtKeyData.featured_video ? JSON.stringify(parsedArtKeyData.featured_video) : null,
+      customizations: JSON.stringify({ ...(parsedArtKeyData.customizations || {}), demo: true }),
+      uploadedImages: JSON.stringify(parsedArtKeyData.uploadedImages || []),
+      uploadedVideos: JSON.stringify(parsedArtKeyData.uploadedVideos || []),
       createdAt: now,
       updatedAt: now,
     });
+
+    // Persist in-memory SQLite to disk
+    await saveDatabase();
 
     const baseUrl = getAppBaseUrl();
     const shareUrl = `${baseUrl}/artkey/${publicToken}`;
@@ -164,18 +174,30 @@ export async function POST(request: Request) {
 
 /**
  * GET - List all demos
- * Demos are ArtKeys with isDemo === true
+ * Demos are ArtKeys with demo: true in customizations JSON
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = requireAdmin(request);
+  if (authError) return authError;
+
   try {
     const db = await getDb();
-    // Fetch all demo ArtKeys directly using the isDemo flag
-    const demoArtKeys = await db
+    // Fetch all ArtKeys, then filter for demos (demo flag lives in customizations JSON)
+    const allArtKeys = await db
       .select()
       .from(artKeys)
-      .where(eq(artKeys.isDemo, true))
       .orderBy(desc(artKeys.createdAt))
       .all();
+
+    // Filter to only demo ArtKeys (customizations JSON contains demo: true)
+    const demoArtKeys = allArtKeys.filter((ak) => {
+      try {
+        const customizations = ak.customizations ? JSON.parse(ak.customizations) : {};
+        return customizations.demo === true;
+      } catch {
+        return false;
+      }
+    });
 
     const baseUrl = getAppBaseUrl();
 
@@ -184,9 +206,9 @@ export async function GET() {
       demoArtKeys.map(async (artKey) => {
         let description = '';
         try {
-          if (artKey.customization) {
-            const customization = JSON.parse(artKey.customization);
-            description = customization.customizations?.description || '';
+          if (artKey.customizations) {
+            const customizations = JSON.parse(artKey.customizations);
+            description = customizations.description || '';
           }
         } catch {}
 
@@ -237,7 +259,10 @@ export async function GET() {
 /**
  * DELETE - Delete a demo
  */
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
+  const authError = requireAdmin(request);
+  if (authError) return authError;
+
   try {
     const db = await getDb();
     const { searchParams } = new URL(request.url);
@@ -264,8 +289,14 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // Verify it's a demo
-    if (!artKey.isDemo) {
+    // Verify it's a demo (demo flag lives in customizations JSON)
+    let isDemo = false;
+    try {
+      const customizations = artKey.customizations ? JSON.parse(artKey.customizations) : {};
+      isDemo = customizations.demo === true;
+    } catch {}
+
+    if (!isDemo) {
       return NextResponse.json(
         { error: 'This is not a demo ArtKey' },
         { status: 400 }
@@ -274,6 +305,9 @@ export async function DELETE(request: Request) {
 
     // Delete the ArtKey
     await db.delete(artKeys).where(eq(artKeys.id, id));
+
+    // Persist in-memory SQLite to disk
+    await saveDatabase();
 
     return NextResponse.json({
       success: true,

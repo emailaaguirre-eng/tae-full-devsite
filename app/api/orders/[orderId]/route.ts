@@ -1,10 +1,16 @@
 /**
  * Individual Order API
  * Copyright (c) 2026 B&D Servicing LLC. All rights reserved.
+ *
+ * GET  /api/orders/[orderId] — Get order status from Printful
+ * DELETE /api/orders/[orderId] — Cancel a Printful order
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getOrderStatus, cancelOrder } from '@/lib/gelato/orderService';
+import {
+  getPrintfulOrder,
+  cancelPrintfulOrder,
+} from '@/lib/printful';
 
 interface RouteParams {
   params: Promise<{ orderId: string }>;
@@ -22,7 +28,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const result = await getOrderStatus(orderId);
+    const result = await getPrintfulOrder(orderId);
 
     if (!result.success) {
       return NextResponse.json(
@@ -56,7 +62,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const result = await cancelOrder(orderId);
+    const result = await cancelPrintfulOrder(orderId);
 
     if (!result.success) {
       return NextResponse.json(
@@ -68,6 +74,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       message: 'Order cancelled successfully',
+      data: result.data,
     });
   } catch (error) {
     console.error('Order cancellation error:', error);

@@ -30,6 +30,7 @@ import {
   type ElegantIconKey 
 } from './artkey/ElegantIcons';
 import { CustomIcon } from './CustomIcons';
+import { useTemplates, useIcons } from '@/lib/useTemplatesAndIcons';
 
 // Palette
 const COLOR_PRIMARY = '#FFFFFF';
@@ -104,6 +105,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       setIsAdmin(!!adminToken);
     }
   }, []);
+
+  // Fetch templates and icons from API (with hardcoded fallback)
+  const { templates: apiTemplates, getByCategory: getApiTemplatesByCategory, findByValue: findApiTemplate } = useTemplates();
+  const { icons: apiIcons } = useIcons();
 
   // Core state
   const [designMode, setDesignMode] = useState<'template' | 'custom' | null>(null);
@@ -1091,11 +1096,11 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                 <Carousel
                   page={templatePage}
                   setPage={setTemplatePage}
-                  total={Math.ceil(getTemplatesByCategory(templateCategory).length / templatesPerPage)}
+                  total={Math.ceil(getApiTemplatesByCategory(templateCategory).length / templatesPerPage)}
                   labelPrefix={`${templateCategory} Templates`}
                 >
                   <div className="grid grid-cols-4 gap-2">
-                    {getTemplatesByCategory(templateCategory)
+                    {getApiTemplatesByCategory(templateCategory)
                       .slice(templatePage * templatesPerPage, (templatePage + 1) * templatesPerPage)
                       .map((tpl) => (
                         <button
@@ -1446,33 +1451,42 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                 <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
                   <h4 className="text-sm font-semibold mb-3">Header Icon</h4>
                   <div className="grid grid-cols-4 gap-2">
-                    {Object.entries(ELEGANT_ICONS).map(([key, iconData]) => (
+                    {apiIcons.map((icon) => (
                       <button
-                        key={key}
+                        key={icon.id}
                         onClick={() => {
-                          setHeaderIcon(key as ElegantIconKey);
+                          setHeaderIcon(icon.id as ElegantIconKey);
                           setArtKeyData((prev) => ({
                             ...prev,
-                            theme: { ...prev.theme, header_icon: key },
+                            theme: { ...prev.theme, header_icon: icon.id },
                           }));
                         }}
                         className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center justify-center ${
-                          headerIcon === key ? 'shadow-md' : ''
+                          headerIcon === icon.id ? 'shadow-md' : ''
                         }`}
                         style={{
-                          borderColor: headerIcon === key ? COLOR_ACCENT : '#e2e2e0',
-                          background: headerIcon === key ? COLOR_ALT : COLOR_PRIMARY,
+                          borderColor: headerIcon === icon.id ? COLOR_ACCENT : '#e2e2e0',
+                          background: headerIcon === icon.id ? COLOR_ALT : COLOR_PRIMARY,
                         }}
-                        title={iconData.label}
+                        title={icon.label}
                       >
-                        <ElegantIcon 
-                          icon={key as ElegantIconKey} 
-                          size={32} 
-                          color={headerIcon === key ? COLOR_ACCENT : '#999'}
-                          strokeWidth={1.5}
-                        />
+                        {/* Built-in icons use ElegantIcon component */}
+                        {icon.type === 'builtin' && ELEGANT_ICONS[icon.id as ElegantIconKey] ? (
+                          <ElegantIcon 
+                            icon={icon.id as ElegantIconKey} 
+                            size={32} 
+                            color={headerIcon === icon.id ? COLOR_ACCENT : '#999'}
+                            strokeWidth={1.5}
+                          />
+                        ) : icon.type === 'upload' && icon.svgUrl ? (
+                          <img src={icon.svgUrl} alt={icon.label} className="w-8 h-8 object-contain" style={{ opacity: headerIcon === icon.id ? 1 : 0.5 }} />
+                        ) : (
+                          <span className="text-2xl" style={{ color: headerIcon === icon.id ? COLOR_ACCENT : '#999' }}>
+                            {icon.label.charAt(0)}
+                          </span>
+                        )}
                         <span className="text-xs mt-1" style={{ color: COLOR_ACCENT }}>
-                          {iconData.label}
+                          {icon.label}
                         </span>
                       </button>
                     ))}

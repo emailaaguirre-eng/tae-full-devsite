@@ -9,6 +9,9 @@
  * - Default artwork-to-product links
  *
  * Run: node scripts/seed-all.js
+ *
+ * NOTE: Gelato references (gelatoCatalogUid) in this script are deprecated.
+ * Print fulfillment is now via Printful.
  */
 
 const initSqlJs = require('sql.js');

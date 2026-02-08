@@ -1,16 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/admin-auth';
 
 /**
- * Test connections to WordPress and Gelato
- * GET /api/admin/test-connections?service=wordpress|gelato|all
+ * Test connections to WordPress and Printful
+ * GET /api/admin/test-connections?service=wordpress|printful|all
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const authError = requireAdmin(request);
+  if (authError) return authError;
   const { searchParams } = new URL(request.url);
   const service = searchParams.get('service') || 'all';
 
   const results: {
     wordpress?: any;
-    gelato?: any;
+    printful?: any;
     timestamp: string;
   } = {
     timestamp: new Date().toISOString(),
@@ -84,49 +87,55 @@ export async function GET(request: Request) {
     }
   }
 
-  // Test Gelato Connection
-  if (service === 'all' || service === 'gelato') {
+  // Test Printful Connection
+  if (service === 'all' || service === 'printful') {
     try {
-      const gelatoApiKey = process.env.GELATO_API_KEY;
-      const gelatoProductApiUrl = process.env.GELATO_PRODUCT_API_URL || 'https://product.gelatoapis.com/v3';
+      const printfulToken = process.env.PRINTFUL_TOKEN;
+      const printfulStoreId = process.env.PRINTFUL_STORE_ID;
 
-      if (!gelatoApiKey) {
-        results.gelato = {
+      if (!printfulToken) {
+        results.printful = {
           success: false,
-          message: 'Gelato API key not configured',
+          message: 'Printful API token not configured (PRINTFUL_TOKEN)',
           configured: false,
         };
       } else {
-        const testResponse = await fetch(`${gelatoProductApiUrl}/products`, {
+        const headers: Record<string, string> = {
+          'Authorization': `Bearer ${printfulToken}`,
+          'Content-Type': 'application/json',
+        };
+        if (printfulStoreId) {
+          headers['X-PF-Store-Id'] = printfulStoreId;
+        }
+
+        const testResponse = await fetch('https://api.printful.com/store', {
           method: 'GET',
-          headers: {
-            'X-API-KEY': gelatoApiKey,
-            'Content-Type': 'application/json',
-          },
+          headers,
           next: { revalidate: 0 },
         });
 
         if (testResponse.ok) {
-          results.gelato = {
+          const storeData = await testResponse.json();
+          results.printful = {
             success: true,
-            message: 'Gelato API connection successful',
+            message: 'Printful API connection successful',
             configured: true,
-            apiUrl: gelatoProductApiUrl,
+            storeName: storeData?.result?.name || 'Connected',
+            storeId: printfulStoreId || 'default',
           };
         } else {
-          results.gelato = {
+          results.printful = {
             success: false,
-            message: `Gelato API connection failed: ${testResponse.status}`,
+            message: `Printful API connection failed: ${testResponse.status}`,
             configured: true,
-            apiUrl: gelatoProductApiUrl,
           };
         }
       }
     } catch (error) {
-      results.gelato = {
+      results.printful = {
         success: false,
-        message: `Gelato connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        configured: !!process.env.GELATO_API_KEY,
+        message: `Printful connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        configured: !!process.env.PRINTFUL_TOKEN,
       };
     }
   }

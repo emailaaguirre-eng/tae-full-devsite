@@ -3,7 +3,7 @@
 
 export interface EditorObject {
   id: string;
-  type: 'image' | 'text' | 'skeletonKey' | 'qr' | 'border';
+  type: 'image' | 'text' | 'label-shape' | 'skeletonKey' | 'qr' | 'border';
   src?: string; // For images, skeleton keys (SVG data URL)
   text?: string; // For text labels
   x: number;
@@ -25,14 +25,21 @@ export interface EditorObject {
   borderColor?: string;
   borderPadding?: number; // Padding between text and border
   backgroundColor?: string; // Optional background fill
+  // Label shape properties
+  labelShapeId?: string;
+  labelShapeType?: string;
+  cornerRadius?: number;
   // Foil properties (for print production)
   foilEnabled?: boolean;
   foilColor?: 'gold' | 'silver' | 'rose-gold' | 'copper';
   foilTarget?: 'text' | 'border' | 'both'; // What gets the foil effect
   // Skeleton Key properties
   keyId?: string; // Skeleton key definition ID
-  opacity?: number; // For skeleton key overlay
   locked?: boolean; // For skeleton key
+  // Image/Object display properties
+  opacity?: number; // Object opacity (0-1)
+  flipX?: boolean; // Horizontal flip
+  flipY?: boolean; // Vertical flip
   // QR properties
   sideId?: 'front' | 'inside' | 'back'; // For QR
   url?: string; // QR code URL
@@ -70,11 +77,12 @@ export interface SideState {
   objects: EditorObject[];
   selectedId?: string;
   template?: TemplateState;
+  backgroundColor?: string; // Canvas background color
 }
 
-// Gelato variant data (minimal fields needed)
-export interface GelatoVariantData {
-  uid: string;
+// Product variant data (minimal fields needed for print spec generation)
+export interface ProductVariantData {
+  id: number;              // Printful variant ID
   size?: string | null;
   material?: string | null;
   paper?: string | null;

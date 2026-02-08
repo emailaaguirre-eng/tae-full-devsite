@@ -1,6 +1,9 @@
 /**
  * Seed ShopProducts
  * Run: node scripts/seed-products.js
+ *
+ * NOTE: Gelato references (gelatoProductUid, gelatoBasePrice) in this script are deprecated.
+ * Print fulfillment is now via Printful.
  */
 
 const initSqlJs = require('sql.js');

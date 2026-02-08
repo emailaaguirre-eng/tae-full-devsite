@@ -1,49 +1,57 @@
-/**
- * Store Products List Page
- * 
- * Lists all store products with search, filter, and quick actions.
- * 
- * @copyright B&D Servicing LLC 2026
- */
-
 "use client";
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { adminFetch } from '@/lib/admin-fetch';
+
+interface Category {
+  id: string;
+  slug: string;
+  name: string;
+  icon: string;
+  taeBaseFee: number;
+  productCount: number;
+}
 
 interface StoreProduct {
   id: string;
   slug: string;
   name: string;
   description: string | null;
-  shortDescription: string | null;
   productType: string;
-  icon: string | null;
   heroImage: string | null;
   basePrice: number;
+  printfulBasePrice: number;
+  taeAddOnFee: number;
   active: boolean;
-  featured: boolean;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
-  gelatoCatalog?: {
-    catalogUid: string;
-    title: string;
-    _count?: { products: number };
-  } | null;
+  printProvider: string;
+  printfulProductId: number | null;
+  printfulVariantId: number | null;
+  sizeLabel: string | null;
+  paperType: string | null;
+  finishType: string | null;
+  taeId: string;
+  categoryId: string;
+  categoryName: string;
+  categorySlug: string;
 }
 
-type FilterType = 'all' | 'active' | 'inactive' | 'featured' | 'gelato_print' | 'custom_artwork' | 'digital_product';
+type StatusFilter = 'all' | 'active' | 'inactive';
 
 export default function ProductsListPage() {
-  const router = useRouter();
   const [products, setProducts] = useState<StoreProduct[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -52,11 +60,14 @@ export default function ProductsListPage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/store-products');
+      const response = await adminFetch('/api/admin/store-products');
       const data = await response.json();
-      
+
       if (data.success) {
         setProducts(data.data);
+        if (data.categories) {
+          setCategories(data.categories);
+        }
       } else {
         setError(data.error || 'Failed to fetch products');
       }
@@ -69,25 +80,21 @@ export default function ProductsListPage() {
   };
 
   const handleDelete = async (product: StoreProduct) => {
-    if (!confirm(`Are you sure you want to delete "${product.name}"? This action cannot be undone.`)) {
-      return;
-    }
+    if (!confirm(`Delete "${product.name}"? This cannot be undone.`)) return;
 
     setDeletingId(product.id);
     try {
-      const response = await fetch(`/api/admin/store-products/${product.id}`, {
-        method: 'DELETE',
-      });
+      const response = await adminFetch(`/api/admin/store-products/${product.id}`, { method: 'DELETE' });
       const data = await response.json();
-
       if (data.success) {
         setProducts(products.filter(p => p.id !== product.id));
+        selectedIds.delete(product.id);
+        setSelectedIds(new Set(selectedIds));
       } else {
         alert(data.error || 'Failed to delete product');
       }
     } catch (err) {
       alert('Failed to delete product');
-      console.error(err);
     } finally {
       setDeletingId(null);
     }
@@ -95,99 +102,85 @@ export default function ProductsListPage() {
 
   const handleToggleActive = async (product: StoreProduct) => {
     try {
-      const response = await fetch(`/api/admin/store-products/${product.id}`, {
+      const response = await adminFetch(`/api/admin/store-products/${product.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: !product.active }),
       });
       const data = await response.json();
-
       if (data.success) {
-        setProducts(products.map(p => 
+        setProducts(products.map(p =>
           p.id === product.id ? { ...p, active: !p.active } : p
         ));
-      } else {
-        alert(data.error || 'Failed to update product');
       }
     } catch (err) {
       alert('Failed to update product');
-      console.error(err);
     }
   };
 
-  const handleToggleFeatured = async (product: StoreProduct) => {
-    try {
-      const response = await fetch(`/api/admin/store-products/${product.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ featured: !product.featured }),
-      });
-      const data = await response.json();
+  const handleBulkActivate = async (activate: boolean) => {
+    if (selectedIds.size === 0) return;
+    const action = activate ? 'activate' : 'deactivate';
+    if (!confirm(`${activate ? 'Activate' : 'Deactivate'} ${selectedIds.size} selected products?`)) return;
 
-      if (data.success) {
-        setProducts(products.map(p => 
-          p.id === product.id ? { ...p, featured: !p.featured } : p
-        ));
-      } else {
-        alert(data.error || 'Failed to update product');
+    setBulkUpdating(true);
+    let successCount = 0;
+
+    for (const id of selectedIds) {
+      try {
+        const response = await adminFetch(`/api/admin/store-products/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ active: activate }),
+        });
+        const data = await response.json();
+        if (data.success) successCount++;
+      } catch (err) {
+        console.error(`Failed to ${action} product ${id}`);
       }
-    } catch (err) {
-      alert('Failed to update product');
-      console.error(err);
+    }
+
+    await fetchProducts();
+    setSelectedIds(new Set());
+    setBulkUpdating(false);
+    alert(`${successCount} of ${selectedIds.size} products ${action}d successfully.`);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredProducts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredProducts.map(p => p.id)));
     }
   };
 
-  // Filter and search products
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedIds(next);
+  };
+
   const filteredProducts = products.filter(product => {
-    // Search filter
-    const matchesSearch = 
+    const matchesSearch = !searchQuery ||
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+      product.sizeLabel?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.taeId?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // Type filter
-    let matchesFilter = true;
-    switch (filterType) {
-      case 'active':
-        matchesFilter = product.active;
-        break;
-      case 'inactive':
-        matchesFilter = !product.active;
-        break;
-      case 'featured':
-        matchesFilter = product.featured;
-        break;
-      case 'gelato_print':
-        matchesFilter = product.productType === 'gelato_print';
-        break;
-      case 'custom_artwork':
-        matchesFilter = product.productType === 'custom_artwork';
-        break;
-      case 'digital_product':
-        matchesFilter = product.productType === 'digital_product';
-        break;
-    }
+    const matchesCategory = selectedCategory === 'all' || product.categorySlug === selectedCategory;
 
-    return matchesSearch && matchesFilter;
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'active' && product.active) ||
+      (statusFilter === 'inactive' && !product.active);
+
+    return matchesSearch && matchesCategory && matchesStatus;
   });
 
-  const getProductTypeLabel = (type: string) => {
-    switch (type) {
-      case 'gelato_print': return 'Gelato Print';
-      case 'custom_artwork': return 'Custom Artwork';
-      case 'digital_product': return 'Digital Product';
-      default: return type;
-    }
-  };
-
-  const getProductTypeBadgeColor = (type: string) => {
-    switch (type) {
-      case 'gelato_print': return 'bg-blue-100 text-blue-800';
-      case 'custom_artwork': return 'bg-purple-100 text-purple-800';
-      case 'digital_product': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const totalActive = products.filter(p => p.active).length;
+  const totalInactive = products.filter(p => !p.active).length;
 
   if (loading) {
     return (
@@ -204,10 +197,7 @@ export default function ProductsListPage() {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
         <p className="text-red-800 font-medium">{error}</p>
-        <button 
-          onClick={fetchProducts}
-          className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-        >
+        <button onClick={fetchProducts} className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
           Retry
         </button>
       </div>
@@ -221,73 +211,117 @@ export default function ProductsListPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Products</h1>
           <p className="text-gray-600 mt-1">
-            Manage your store products - print products, custom artwork, and digital items
+            {products.length} products across {categories.length} categories &middot; {totalActive} active, {totalInactive} inactive
           </p>
+          <p className="text-xs text-gray-400 mt-0.5">Fulfillment: Printful</p>
         </div>
-        <Link
-          href="/b_d_admn_tae/catalog/products/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-          </svg>
-          Add Product
-        </Link>
+        <div className="flex gap-3">
+          <Link
+            href="/b_d_admn_tae/catalog/categories"
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
+          >
+            Categories
+          </Link>
+          <Link
+            href="/b_d_admn_tae/catalog/products/new"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
+          >
+            + Add Product
+          </Link>
+        </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
+      {/* Category Tabs */}
+      <div className="bg-white rounded-lg shadow mb-4 overflow-x-auto">
+        <div className="flex border-b">
+          <button
+            onClick={() => setSelectedCategory('all')}
+            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              selectedCategory === 'all'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            All ({products.length})
+          </button>
+          {categories.map(cat => {
+            const catProducts = products.filter(p => p.categorySlug === cat.slug);
+            const activeCount = catProducts.filter(p => p.active).length;
+            return (
+              <button
+                key={cat.slug}
+                onClick={() => setSelectedCategory(cat.slug)}
+                className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  selectedCategory === cat.slug
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {cat.icon} {cat.name} ({activeCount}/{catProducts.length})
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Search + Filters + Bulk */}
+      <div className="bg-white rounded-lg shadow p-4 mb-4">
         <div className="flex flex-col md:flex-row gap-4">
-          {/* Search */}
           <div className="flex-1">
             <div className="relative">
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                fill="none" 
-                viewBox="0 0 24 24" 
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
               <input
                 type="text"
-                placeholder="Search by name, slug, or description..."
+                placeholder="Search by name, size, or TAE ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-4 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
-
-          {/* Filter */}
-          <div className="flex gap-2 flex-wrap">
-            {[
-              { value: 'all', label: 'All' },
-              { value: 'active', label: 'Active' },
-              { value: 'inactive', label: 'Inactive' },
-              { value: 'featured', label: 'Featured' },
-              { value: 'gelato_print', label: 'Gelato Print' },
-              { value: 'custom_artwork', label: 'Custom Art' },
-              { value: 'digital_product', label: 'Digital' },
-            ].map(filter => (
+          <div className="flex gap-2">
+            {(['all', 'active', 'inactive'] as StatusFilter[]).map(status => (
               <button
-                key={filter.value}
-                onClick={() => setFilterType(filter.value as FilterType)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  filterType === filter.value
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  statusFilter === status
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {filter.label}
+                {status === 'all' ? 'All' : status === 'active' ? 'Active' : 'Inactive'}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Results count */}
-        <div className="mt-4 text-sm text-gray-600">
+        {selectedIds.size > 0 && (
+          <div className="mt-3 pt-3 border-t flex items-center gap-3">
+            <span className="text-sm text-gray-600 font-medium">{selectedIds.size} selected</span>
+            <button
+              onClick={() => handleBulkActivate(true)}
+              disabled={bulkUpdating}
+              className="px-3 py-1.5 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+            >
+              {bulkUpdating ? 'Updating...' : 'Activate Selected'}
+            </button>
+            <button
+              onClick={() => handleBulkActivate(false)}
+              disabled={bulkUpdating}
+              className="px-3 py-1.5 bg-gray-600 text-white rounded text-sm font-medium hover:bg-gray-700 disabled:opacity-50"
+            >
+              {bulkUpdating ? 'Updating...' : 'Deactivate Selected'}
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-1.5 text-gray-600 text-sm hover:text-gray-900"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
+        <div className="mt-3 text-sm text-gray-500">
           Showing {filteredProducts.length} of {products.length} products
         </div>
       </div>
@@ -295,120 +329,86 @@ export default function ProductsListPage() {
       {/* Products Table */}
       {filteredProducts.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-16 w-16 mx-auto text-gray-300 mb-4"
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-          </svg>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-          <p className="text-gray-600 mb-4">
-            {searchQuery || filterType !== 'all' 
+          <p className="text-gray-600">
+            {searchQuery || statusFilter !== 'all'
               ? 'Try adjusting your search or filters'
-              : 'Get started by creating your first product'}
+              : 'No products in this category yet'}
           </p>
-          {!searchQuery && filterType === 'all' && (
-            <Link
-              href="/b_d_admn_tae/catalog/products/new"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              Add Product
-            </Link>
-          )}
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Product
+                <th className="px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === filteredProducts.length && filteredProducts.length > 0}
+                    onChange={toggleSelectAll}
+                    className="rounded border-gray-300"
+                  />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Price
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Printful ID</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">+ TAE</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        {product.heroImage ? (
-                          <img 
-                            src={product.heroImage} 
-                            alt={product.name}
-                            className="h-10 w-10 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center text-xl">
-                            {product.icon || '📦'}
-                          </div>
-                        )}
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                        <div className="text-sm text-gray-500">{product.slug}</div>
-                      </div>
+                <tr key={product.id} className={`hover:bg-gray-50 ${!product.active ? 'opacity-60' : ''}`}>
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(product.id)}
+                      onChange={() => toggleSelect(product.id)}
+                      className="rounded border-gray-300"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-sm font-medium text-gray-900 truncate max-w-[280px]" title={product.name}>
+                      {product.name}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {product.sizeLabel || product.taeId}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getProductTypeBadgeColor(product.productType)}`}>
-                      {getProductTypeLabel(product.productType)}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
+                      {product.categoryName}
                     </span>
-                    {product.gelatoCatalog && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        📎 {product.gelatoCatalog.title}
-                      </div>
-                    )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      ${product.basePrice.toFixed(2)}
-                    </div>
-                    <div className="text-xs text-gray-500">base price</div>
+                  <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">
+                    <div>P: {product.printfulProductId ?? '-'}</div>
+                    <div>V: {product.printfulVariantId ?? '-'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleToggleActive(product)}
-                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium transition-colors ${
-                          product.active
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                        }`}
-                      >
-                        {product.active ? '✓ Active' : '○ Inactive'}
-                      </button>
-                      <button
-                        onClick={() => handleToggleFeatured(product)}
-                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium transition-colors ${
-                          product.featured
-                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {product.featured ? '★' : '☆'}
-                      </button>
-                    </div>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                    ${product.printfulBasePrice.toFixed(2)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                    ${product.taeAddOnFee.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                    ${product.basePrice.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <button
+                      onClick={() => handleToggleActive(product)}
+                      className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                        product.active
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {product.active ? 'Active' : 'Inactive'}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={`/b_d_admn_tae/catalog/products/${product.id}/edit`}
@@ -421,7 +421,7 @@ export default function ProductsListPage() {
                         disabled={deletingId === product.id}
                         className="text-red-600 hover:text-red-900 disabled:opacity-50"
                       >
-                        {deletingId === product.id ? 'Deleting...' : 'Delete'}
+                        {deletingId === product.id ? '...' : 'Delete'}
                       </button>
                     </div>
                   </td>
@@ -439,16 +439,16 @@ export default function ProductsListPage() {
           <div className="text-sm text-gray-600">Total Products</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-2xl font-bold text-green-600">{products.filter(p => p.active).length}</div>
+          <div className="text-2xl font-bold text-green-600">{totalActive}</div>
           <div className="text-sm text-gray-600">Active</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-2xl font-bold text-yellow-600">{products.filter(p => p.featured).length}</div>
-          <div className="text-sm text-gray-600">Featured</div>
+          <div className="text-2xl font-bold text-gray-400">{totalInactive}</div>
+          <div className="text-sm text-gray-600">Inactive</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-2xl font-bold text-blue-600">{products.filter(p => p.productType === 'gelato_print').length}</div>
-          <div className="text-sm text-gray-600">Gelato Print</div>
+          <div className="text-2xl font-bold text-blue-600">{categories.length}</div>
+          <div className="text-sm text-gray-600">Categories</div>
         </div>
       </div>
     </div>

@@ -11,13 +11,13 @@ export * from '@/db/schema';
 export { eq, and, or, desc, asc, like, isNull, isNotNull, inArray, sql } from 'drizzle-orm';
 
 /**
- * Generate a short, URL-friendly public token
- * Format: 8 characters, alphanumeric (lowercase + numbers)
+ * Generate a secure, URL-friendly public token
+ * Format: 32 characters, alphanumeric (lowercase + numbers) for security
  */
 export function generatePublicToken(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 32; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { adminFetch } from '@/lib/admin-fetch';
 
 export default function EditDemoPage() {
   const params = useParams();
@@ -13,7 +14,7 @@ export default function EditDemoPage() {
     // Fetch demo to get ownerToken for editing
     async function fetchDemoAndRedirect() {
       try {
-        const response = await fetch('/api/admin/demos');
+        const response = await adminFetch('/api/admin/demos');
         const data = await response.json();
         
         if (!data.success) {

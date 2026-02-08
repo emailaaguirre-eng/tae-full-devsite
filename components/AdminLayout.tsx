@@ -81,7 +81,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900">ArtKey Admin</h1>
             </div>
-            <nav className="flex items-center space-x-4">
+            <nav className="flex items-center space-x-1">
               <Link
                 href="/b_d_admn_tae/dashboard"
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
@@ -95,12 +95,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 href="/b_d_admn_tae/demos"
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/b_d_admn_tae/demos'
+                  pathname?.startsWith('/b_d_admn_tae/demos')
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                Demos
+                Portals
+              </Link>
+              <Link
+                href="/b_d_admn_tae/catalog/products"
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  pathname?.startsWith('/b_d_admn_tae/catalog')
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Products
+              </Link>
+              <Link
+                href="/b_d_admn_tae/orders"
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  pathname === '/b_d_admn_tae/orders'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Orders
               </Link>
               <Link
                 href="/b_d_admn_tae/artkeys"
@@ -113,14 +133,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 ArtKeys
               </Link>
               <Link
-                href="/b_d_admn_tae/users"
+                href="/b_d_admn_tae/templates"
                 className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/b_d_admn_tae/users'
+                  pathname === '/b_d_admn_tae/templates'
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                Users
+                Templates
               </Link>
               <Link
                 href="/b_d_admn_tae/settings"

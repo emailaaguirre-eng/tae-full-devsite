@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 /**
  * POST /api/wordpress/media/upload
  * Upload an image file to WordPress media library
- * Returns the WordPress media URL for use with Gelato
+ * Returns the WordPress media URL for use with print fulfillment
  */
 export async function POST(request: Request) {
   try {
