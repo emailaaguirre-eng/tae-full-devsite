@@ -37,3 +37,5 @@ prisma/dev.db-journal
 
 # Uploads
 public/uploads/
+
+_QUARANTINE_untracked_*/
