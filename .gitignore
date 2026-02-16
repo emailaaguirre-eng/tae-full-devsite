@@ -39,3 +39,4 @@ prisma/dev.db-journal
 public/uploads/
 
 _QUARANTINE_untracked_*/
+dev-next.log
