@@ -2,12 +2,55 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-interface CartItem {
+/**
+ * Design files exported from the Customization Studio.
+ * Each entry is one placement surface (front, back, inside1, inside2).
+ */
+export interface DesignFile {
+  placement: string;
+  dataUrl: string;
+}
+
+/**
+ * A cart item for a customizable product (shop).
+ * Non-customizable items (gallery, cocreators) use a simpler subset.
+ */
+export interface CartItem {
   id: string;
   name: string;
   price: number;
   quantity: number;
   imageUrl?: string;
+
+  /** Source storefront: "shop" | "gallery" | "cocreators" */
+  source?: string;
+
+  /** Product slug for linking back to product detail */
+  productSlug?: string;
+
+  /** Printful IDs needed at checkout to submit the order */
+  printfulProductId?: number;
+  printfulVariantId?: number;
+
+  /** Exported design images from the Customization Studio */
+  designFiles?: DesignFile[];
+
+  /** Whether this product includes an ArtKey QR code */
+  requiresQrCode?: boolean;
+
+  /** ArtKey portal data (title, theme, features, links, etc.) */
+  artKeyData?: Record<string, any>;
+
+  /** ArtKey template position on the design canvas */
+  artKeyTemplatePosition?: {
+    placement: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+
+  /** Legacy customization fields */
   customization?: {
     size?: string;
     material?: string;

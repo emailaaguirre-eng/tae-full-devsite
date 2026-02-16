@@ -1,85 +1,42 @@
-// QR Code Generator (Local)
-// Generates QR codes as data URLs for use in Konva
+/**
+ * QR Code Generator
+ *
+ * Generates QR codes as data URL images using the `qrcode` npm package.
+ * Used server-side during proof generation to create real QR codes
+ * that point to ArtKey portal URLs.
+ */
 
 /**
- * Generate a QR code as a data URL image
- * Uses a simple, lightweight QR code generation approach
+ * Generate a QR code as a PNG data URL.
+ *
+ * @param url    - The URL to encode in the QR code
+ * @param size   - Width/height in pixels (default 300)
+ * @param margin - Quiet-zone modules around the QR (default 2)
+ * @returns      - PNG data URL string
  */
 export async function generateQRCode(
   url: string,
-  size: number = 200,
-  margin: number = 4
+  size: number = 300,
+  margin: number = 2
 ): Promise<string> {
-  // Use a lightweight QR code library
-  // For now, we'll use a simple approach with qrcode library
-  // If not available, we'll implement a minimal fallback
-  
-  // Use qrcode library (already installed)
-  const QRCode = await import('qrcode');
+  const QRCode = await import("qrcode");
   const dataUrl = await QRCode.toDataURL(url, {
     width: size,
-    margin: margin,
+    margin,
     color: {
-      dark: '#000000',
-      light: '#FFFFFF',
+      dark: "#000000",
+      light: "#FFFFFF",
     },
+    errorCorrectionLevel: "M",
   });
   return dataUrl;
 }
 
 /**
- * Generate a placeholder QR code (simple pattern)
- * This is a minimal fallback if qrcode library is not installed
+ * Get the full ArtKey portal URL for a given public token.
  */
-function generatePlaceholderQR(url: string, size: number): string {
-  if (typeof document === 'undefined') {
-    // Return a simple data URL with error message for SSR
-    return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-  }
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  
-  if (!ctx) {
-    // Return a simple data URL with error message
-    return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-  }
-  
-  // White background
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, size, size);
-  
-  // Black border
-  ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(0, 0, size, size);
-  
-  // Simple pattern (placeholder)
-  ctx.fillStyle = '#000000';
-  const cellSize = size / 10;
-  for (let i = 0; i < 10; i++) {
-    for (let j = 0; j < 10; j++) {
-      if ((i + j) % 3 === 0) {
-        ctx.fillRect(i * cellSize, j * cellSize, cellSize, cellSize);
-      }
-    }
-  }
-  
-  // Add text
-  ctx.fillStyle = '#000000';
-  ctx.font = `${size / 20}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('QR', size / 2, size / 2);
-  
-  return canvas.toDataURL('image/png');
+export function getArtKeyPortalUrl(publicToken: string): string {
+  const domain =
+    process.env.ARTKEY_DOMAIN || "artkey.theartfulexperience.com";
+  return `https://${domain}/${publicToken}`;
 }
-
-/**
- * Get default ArtKey URL placeholder
- */
-export function getDefaultArtKeyUrl(placeholder?: string): string {
-  return placeholder || 'https://theartfulexperience.com/artkey/PLACEHOLDER';
-}
-

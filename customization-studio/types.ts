@@ -20,6 +20,16 @@ export type ProductSpec = {
     width: number;
     height: number;
   };
+
+  /** Printful IDs for order submission */
+  printfulProductId?: number;
+  printfulVariantId?: number;
+
+  /** Product slug for linking back to product detail */
+  productSlug?: string;
+
+  /** Base price from the product catalog */
+  basePrice?: number;
 };
 
 export type ImageItem = {

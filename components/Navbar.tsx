@@ -24,7 +24,7 @@ export default function Navbar() {
   };
 
   const handleCartClick = () => {
-    router.push('/customize');
+    router.push('/cart');
   };
 
   return (

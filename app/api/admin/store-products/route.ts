@@ -48,11 +48,9 @@ export async function GET(req: Request) {
         slug: p.slug,
         name: p.name,
         description: p.description,
-        productType: p.printProvider === 'printful' ? 'printful_print'
-                   : p.gelatoProductUid ? 'gelato_print'
-                   : 'custom_artwork',
+        productType: p.printProvider === 'printful' ? 'printful_print' : 'custom_artwork',
         heroImage: p.heroImage,
-        basePrice: (p.printfulBasePrice || p.gelatoBasePrice || 0) + (p.taeAddOnFee || 0),
+        basePrice: (p.printfulBasePrice || 0) + (p.taeAddOnFee || 0),
         printfulBasePrice: p.printfulBasePrice || 0,
         taeAddOnFee: p.taeAddOnFee || 0,
         active: p.active ?? false,
@@ -127,8 +125,6 @@ export async function POST(req: Request) {
       printfulProductId: body.printfulProductId || null,
       printfulVariantId: body.printfulVariantId || null,
       printfulBasePrice: body.printfulBasePrice || 0,
-      gelatoProductUid: body.gelatoProductUid || null,
-      gelatoBasePrice: body.gelatoBasePrice || 0,
       taeAddOnFee: body.basePrice || body.taeAddOnFee || 0,
       sizeLabel: body.sizeLabel || null,
       paperType: body.paperType || null,

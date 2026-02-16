@@ -94,8 +94,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const router = useRouter();
   const { addToCart } = useCart();
   const productId = searchParams.get('product_id');
-  const fromShop = searchParams.get('from_shop') === 'true' || searchParams.get('from_customize') === 'true'; // Support both for backward compatibility
+  const fromShop = searchParams.get('from_shop') === 'true' || searchParams.get('from_customize') === 'true';
+  const fromStudio = searchParams.get('from_studio') === 'true';
+  const productNameParam = searchParams.get('product_name');
+  const productSlugParam = searchParams.get('slug');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [studioExport, setStudioExport] = useState<any>(null);
 
   // Check if user is logged in as admin
   useEffect(() => {
@@ -184,7 +188,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     customizations: {},
   });
 
-  // Load customization data if coming from design editor
+  // Load customization data if coming from design editor (legacy)
   useEffect(() => {
     if (fromShop && typeof window !== 'undefined') {
       const stored = sessionStorage.getItem('productCustomization');
@@ -192,8 +196,29 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     }
   }, [fromShop]);
 
-  // Product info loading removed - no longer using WooCommerce
-  // QR code requirements are now determined by product type and quantity in the shop flow
+  // Load studio export data if coming from the Customization Studio
+  useEffect(() => {
+    if (fromStudio && typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('tae-studio-export');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setStudioExport(parsed);
+          // Set productInfo based on studio export
+          if (parsed.productSpec) {
+            setProductInfo({
+              requiresQR: parsed.productSpec.requiresQrCode,
+              requiresSkeletonKey: parsed.productSpec.requiresQrCode,
+              productName: parsed.productSpec.name,
+              basePrice: parsed.productSpec.basePrice || 0,
+            });
+          }
+        } catch (e) {
+          console.error('[ARTKEY EDITOR] Failed to parse studio export:', e);
+        }
+      }
+    }
+  }, [fromStudio]);
 
   // Load existing ArtKey if provided
   useEffect(() => {
@@ -551,7 +576,40 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       const result = await res.json();
       alert(`✅ ArtKey saved! ${result.share_url ? `\nURL: ${result.share_url}` : ''}`);
       
-      // If coming from customize page and redirecting to shop, add item to cart
+      // If coming from studio, build cart item with design files + ArtKey data
+      if (redirectToShop && fromStudio && studioExport?.productSpec) {
+        const spec = studioExport.productSpec;
+        const frontDesign = studioExport.designFiles?.find((f: any) => f.placement === 'front');
+        const cartItem = {
+          id: `${spec.id}-${artkeyId || Date.now()}`,
+          name: spec.name || productNameParam || 'Custom Product',
+          price: spec.basePrice || 0,
+          quantity: 1,
+          imageUrl: frontDesign?.dataUrl,
+          source: 'shop' as const,
+          productSlug: spec.productSlug || productSlugParam,
+          printfulProductId: spec.printfulProductId,
+          printfulVariantId: spec.printfulVariantId,
+          designFiles: studioExport.designFiles,
+          requiresQrCode: spec.requiresQrCode,
+          artKeyData: {
+            ...artKeyData,
+            links: customLinks,
+            customizations: {
+              ...artKeyData.customizations,
+              skeleton_key: skeletonKey,
+              qr_position: qrPosition,
+            },
+          },
+        };
+        addToCart(cartItem);
+        // Clean up sessionStorage
+        sessionStorage.removeItem('tae-studio-export');
+        router.push('/cart');
+        return;
+      }
+
+      // Legacy: coming from customize page
       if (redirectToShop && customizationData && productId) {
         const cartItem = {
           id: `${productId}-${artkeyId || Date.now()}`,
@@ -573,7 +631,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       }
       
       if (redirectToShop) {
-        router.push('/customize');
+        router.push('/cart');
       }
     } catch (err) {
       console.error('Save failed', err);

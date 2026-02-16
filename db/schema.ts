@@ -50,7 +50,6 @@ export const shopCategories = sqliteTable('ShopCategory', {
   name: text('name').notNull(),
   description: text('description'),
   icon: text('icon'),
-  gelatoCatalogUid: text('gelatoCatalogUid'),
   taeBaseFee: real('taeBaseFee').default(0),
   requiresQrCode: integer('requiresQrCode', { mode: 'boolean' }).default(false),
   heroImage: text('heroImage'),
@@ -63,7 +62,7 @@ export const shopCategories = sqliteTable('ShopCategory', {
 
 // =============================================================================
 // Shop Products - Individual products within categories
-// Supports both Gelato (legacy) and Printful fulfillment
+// Fulfilled via Printful
 // =============================================================================
 export const shopProducts = sqliteTable('ShopProduct', {
   id: text('id').primaryKey(),
@@ -73,12 +72,8 @@ export const shopProducts = sqliteTable('ShopProduct', {
   name: text('name').notNull(),
   description: text('description'),
 
-  // Print provider: 'printful' or 'gelato'
+  // Print provider
   printProvider: text('printProvider'),
-
-  // Gelato fields (legacy)
-  gelatoProductUid: text('gelatoProductUid'),
-  gelatoBasePrice: real('gelatoBasePrice').default(0),
 
   // Printful fields
   printfulProductId: integer('printfulProductId'),
@@ -111,7 +106,6 @@ export const shopProducts = sqliteTable('ShopProduct', {
   sortOrder: integer('sortOrder').default(0),
 
   // Raw API data
-  gelatoDataJson: text('gelatoDataJson'),
   printfulDataJson: text('printfulDataJson'),
 
   // Timestamps
@@ -131,58 +125,14 @@ export const artworkProductLinks = sqliteTable('ArtworkProductLink', {
 });
 
 // =============================================================================
-// Gelato Product Cache - Cached Gelato product data
-// =============================================================================
-export const gelatoProductCache = sqliteTable('GelatoProductCache', {
-  id: text('id').primaryKey(),
-  categorySlug: text('categorySlug').notNull(),
-  gelatoCatalog: text('gelatoCatalog'),
-  gelatoProductUid: text('gelatoProductUid').unique().notNull(),
-  productName: text('productName'),
-  size: text('size'),
-  sizeLabel: text('sizeLabel'),
-  paperType: text('paperType'),
-  frameColor: text('frameColor'),
-  orientation: text('orientation'),
-  gelatoPrice: real('gelatoPrice').default(0),
-  shippingEstimate: real('shippingEstimate').default(0),
-  available: integer('available', { mode: 'boolean' }).default(true),
-  supportedCountries: text('supportedCountries'),
-  widthMm: real('widthMm'),
-  heightMm: real('heightMm'),
-  widthInches: real('widthInches'),
-  heightInches: real('heightInches'),
-  rawDataJson: text('rawDataJson'),
-  lastSyncedAt: text('lastSyncedAt'),
-  createdAt: text('createdAt'),
-  updatedAt: text('updatedAt'),
-});
-
-// =============================================================================
-// Gelato Sync Log - Track sync operations
-// =============================================================================
-export const gelatoSyncLog = sqliteTable('GelatoSyncLog', {
-  id: text('id').primaryKey(),
-  syncType: text('syncType'),
-  status: text('status'),
-  itemsProcessed: integer('itemsProcessed').default(0),
-  itemsUpdated: integer('itemsUpdated').default(0),
-  itemsFailed: integer('itemsFailed').default(0),
-  errorMessage: text('errorMessage'),
-  errorDetails: text('errorDetails'),
-  startedAt: text('startedAt'),
-  completedAt: text('completedAt'),
-});
-
-// =============================================================================
-// Customers - Local customer data with Gelato reference
+// Customers
 // =============================================================================
 export const customers = sqliteTable('Customer', {
   id: text('id').primaryKey(),
   email: text('email').unique().notNull(),
   name: text('name'),
   phone: text('phone'),
-  gelatoCustomerId: text('gelatoCustomerId').unique(),
+  printfulCustomerId: text('gelatoCustomerId').unique(), // legacy column name
   notes: text('notes'),
   createdAt: text('createdAt'),
   updatedAt: text('updatedAt'),
@@ -202,8 +152,8 @@ export const orders = sqliteTable('Order', {
   shippingCost: real('shippingCost').default(0),
   totalRoyalties: real('totalRoyalties').default(0),
   total: real('total').default(0),
-  gelatoOrderId: text('gelatoOrderId').unique(),
-  gelatoStatus: text('gelatoStatus'),
+  printfulOrderId: text('gelatoOrderId').unique(), // legacy column name
+  printfulStatus: text('gelatoStatus'), // legacy column name
   trackingNumber: text('trackingNumber'),
   trackingUrl: text('trackingUrl'),
   carrier: text('carrier'),

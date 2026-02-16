@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import galleryData from "@/content/gallery.json";
 
-// WooCommerceProduct interface removed - no longer using WooCommerce
+
 
 interface Artist {
   name: string;
