@@ -7,6 +7,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getDb, shopCategories, shopProducts, eq, desc, generateId } from '@/lib/db';
+import { saveDatabase } from '@/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,6 +100,7 @@ export async function POST(req: Request) {
       updatedAt: now,
     });
 
+    await saveDatabase();
     return NextResponse.json({ success: true, data: { id, slug, name: body.name } });
   } catch (err: any) {
     console.error('Failed to create category:', err);

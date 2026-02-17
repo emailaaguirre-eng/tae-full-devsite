@@ -1,62 +1,39 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-/**
- * Middleware to ensure /_next/* static assets are never blocked
- * 
- * This middleware explicitly allows all Next.js static assets and API routes
- * to pass through without any processing.
- */
+const COOKIE_NAME = 'tae_admin_session';
+
+function isValidToken(token: string): boolean {
+  try {
+    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
+    return decoded.email && decoded.exp && Date.now() < decoded.exp;
+  } catch {
+    return false;
+  }
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Log in dev/preview only (remove in production if not needed)
-  if (process.env.NODE_ENV !== 'production' || process.env.VERCEL_ENV === 'preview') {
-    console.log('[MW]', pathname);
+  // Admin page routes (except login)
+  if (pathname.startsWith('/b_d_admn_tae') && !pathname.startsWith('/b_d_admn_tae/login')) {
+    const token = request.cookies.get(COOKIE_NAME)?.value;
+    if (!token || !isValidToken(token)) {
+      return NextResponse.redirect(new URL('/b_d_admn_tae/login', request.url));
+    }
   }
 
-  // CRITICAL: Always allow Next.js static assets and internal routes
-  // These must NEVER be processed by middleware
-  if (
-    pathname.startsWith('/_next/static') ||
-    pathname.startsWith('/_next/image') ||
-    pathname.startsWith('/_next/webpack') ||
-    pathname.startsWith('/_next/data') ||
-    pathname.startsWith('/api/') ||
-    pathname === '/favicon.ico' ||
-    pathname === '/robots.txt' ||
-    pathname === '/sitemap.xml' ||
-    pathname.startsWith('/images/') ||
-    pathname.startsWith('/fonts/') ||
-    pathname.match(/\.(ico|png|jpg|jpeg|gif|svg|webp|woff|woff2|ttf|eot)$/i)
-  ) {
-    // Explicitly allow and pass through
-    return NextResponse.next();
+  // Admin API routes (except login)
+  if (pathname.startsWith('/api/admin') && !pathname.startsWith('/api/admin/login')) {
+    const token = request.cookies.get(COOKIE_NAME)?.value;
+    if (!token || !isValidToken(token)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
   }
 
-  // For all other routes, continue normally
   return NextResponse.next();
 }
 
-/**
- * Matcher configuration
- * Excludes all Next.js internal paths, static assets, and API routes
- */
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - _next/webpack (webpack chunks)
-     * - _next/data (data routes)
-     * - api (API routes)
-     * - favicon.ico, robots.txt, sitemap.xml (static files)
-     * - images, fonts (static directories)
-     * 
-     * Simplified pattern - Next.js will handle exclusions in middleware function
-     */
-    '/((?!_next|api|favicon|robots|sitemap|images|fonts).*)',
-  ],
+  matcher: ['/b_d_admn_tae/:path*', '/api/admin/:path*'],
 };
-

@@ -8,6 +8,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getDb, shopCategories, shopProducts, eq } from '@/lib/db';
+import { saveDatabase } from '@/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     updates.updatedAt = Date.now().toString();
 
     await db.update(shopCategories).set(updates).where(eq(shopCategories.id, id));
+    await saveDatabase();
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err?.message || 'Failed to update category' }, { status: 500 });
@@ -63,6 +65,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     await db.delete(shopCategories).where(eq(shopCategories.id, id));
+    await saveDatabase();
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err?.message || 'Failed to delete category' }, { status: 500 });
