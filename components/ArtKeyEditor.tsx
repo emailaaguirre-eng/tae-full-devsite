@@ -485,11 +485,30 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       formData.append('file', file);
       try {
         const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
-        if (!res.ok) continue;
-        const result = await res.json();
-        setArtKeyData((prev) => ({ ...prev, uploadedImages: [...prev.uploadedImages, result.url] }));
+        if (res.ok) {
+          const result = await res.json();
+          setArtKeyData((prev) => ({ ...prev, uploadedImages: [...prev.uploadedImages, result.url] }));
+        } else {
+          // Fallback: convert to base64 data URL
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const dataUrl = ev.target?.result as string;
+            if (dataUrl) {
+              setArtKeyData((prev) => ({ ...prev, uploadedImages: [...prev.uploadedImages, dataUrl] }));
+            }
+          };
+          reader.readAsDataURL(file);
+        }
       } catch (err) {
-        console.error('Upload failed', err);
+        // Fallback: convert to base64 data URL
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const dataUrl = ev.target?.result as string;
+          if (dataUrl) {
+            setArtKeyData((prev) => ({ ...prev, uploadedImages: [...prev.uploadedImages, dataUrl] }));
+          }
+        };
+        reader.readAsDataURL(file);
       }
     }
   };
@@ -497,13 +516,24 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
+    const file = Array.from(files)[0];
+    if (!file) return;
     const formData = new FormData();
-    Array.from(files).forEach((f) => formData.append('file', f));
+    formData.append('file', file);
     try {
       const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
-      if (!res.ok) return;
-      const result = await res.json();
-      const videoUrl = result.url || result.fileUrl;
+      let videoUrl: string;
+      if (res.ok) {
+        const result = await res.json();
+        videoUrl = result.url || result.fileUrl;
+      } else {
+        // Fallback: convert to base64 data URL
+        videoUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target?.result as string);
+          reader.readAsDataURL(file);
+        });
+      }
       setArtKeyData((prev) => ({ ...prev, uploadedVideos: [...prev.uploadedVideos, videoUrl] }));
     } catch (err) {
       console.error('Upload failed', err);
@@ -537,11 +567,30 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     formData.append('file', file);
     try {
       const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
-      if (!res.ok) return;
-      const result = await res.json();
-      setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_image_url: result.url, bg_image_id: result.id || 0 } }));
+      if (res.ok) {
+        const result = await res.json();
+        setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_image_url: result.url, bg_image_id: result.id || 0 } }));
+      } else {
+        // Fallback: convert to base64 data URL
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const dataUrl = ev.target?.result as string;
+          if (dataUrl) {
+            setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_image_url: dataUrl, bg_image_id: 0 } }));
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     } catch (err) {
-      console.error('Background upload failed', err);
+      // Fallback: convert to base64 data URL
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        if (dataUrl) {
+          setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_image_url: dataUrl, bg_image_id: 0 } }));
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 

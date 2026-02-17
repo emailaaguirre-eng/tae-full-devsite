@@ -3,6 +3,11 @@ import path from 'path';
 import fs from 'fs';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// Allow larger file uploads (up to 10MB)
+export const maxDuration = 30;
+
 
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'artkey');
 
