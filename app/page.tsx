@@ -1,6 +1,7 @@
 import Hero from "@/components/Hero";
 import ProductCategories from "@/components/ProductCategories";
 import FeaturedProducts from "@/components/FeaturedProducts";
+import WhatWeAre from "@/components/WhatWeAre";
 import HowItWorks from "@/components/HowItWorks";
 import FeaturedArtist from "@/components/FeaturedArtist";
 import CoCreators from "@/components/CoCreators";
@@ -15,6 +16,7 @@ export default function HomePage() {
       <Testimonials />
       <ProductCategories />
       <FeaturedProducts title="Shop — Customize Your Own" />
+      <WhatWeAre />
       <FeaturedArtist />
       <CoCreators simplified />
       <CollectorsSection />
