@@ -11,6 +11,8 @@ import {
   Download,
   Check,
   Link as LinkIcon,
+  Paintbrush,
+  Settings,
 } from "lucide-react";
 
 interface ArtKeyDemo {
@@ -276,10 +278,22 @@ export default function AdminArtKeyDemosPage() {
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-green-200 flex gap-2">
+          <div className="mt-4 pt-4 border-t border-green-200 flex gap-2 flex-wrap">
+            <a
+              href={`/artkey-editor?portal_token=${newResult.publicToken}&owner_token=${newResult.ownerToken}`}
+              className="px-4 py-2 text-sm bg-brand-dark text-white hover:bg-brand-dark/90 transition-colors flex items-center gap-2"
+            >
+              <Paintbrush className="w-4 h-4" /> Design Portal
+            </a>
+            <a
+              href={`/art-key/${newResult.publicToken}/edit?owner=${newResult.ownerToken}`}
+              className="px-4 py-2 text-sm border border-brand-dark text-brand-dark hover:bg-brand-lightest transition-colors flex items-center gap-2"
+            >
+              <Settings className="w-4 h-4" /> Edit Settings
+            </a>
             <button
               onClick={() => { setNewResult(null); setShowForm(true); }}
-              className="px-4 py-2 text-sm bg-brand-dark text-white hover:bg-brand-dark/90 transition-colors"
+              className="px-4 py-2 text-sm border border-brand-light text-brand-medium hover:bg-brand-lightest transition-colors"
             >
               Create Another
             </button>
@@ -327,6 +341,20 @@ export default function AdminArtKeyDemosPage() {
                   {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "—"}
                 </div>
                 <div className="col-span-2 flex items-center gap-1 justify-end">
+                  <a
+                    href={`/artkey-editor?portal_token=${d.publicToken}&owner_token=${d.ownerToken}`}
+                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
+                    title="Design Portal"
+                  >
+                    <Paintbrush className="w-3.5 h-3.5" />
+                  </a>
+                  <a
+                    href={d.editUrl}
+                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
+                    title="Edit Settings"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                  </a>
                   <button
                     onClick={() => copyToClipboard(d.portalUrl, d.id)}
                     className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
@@ -339,18 +367,9 @@ export default function AdminArtKeyDemosPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
-                    title="Open Portal"
+                    title="View Portal"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                  <a
-                    href={d.editUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
-                    title="Edit Portal"
-                  >
-                    <LinkIcon className="w-3.5 h-3.5" />
                   </a>
                 </div>
               </div>
