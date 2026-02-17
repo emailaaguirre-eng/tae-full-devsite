@@ -84,48 +84,48 @@ const COLOR_PRESETS = [
 // ============================================================================
 const DECORATIVE_ELEMENTS = {
   borders: [
-    { id: "border-01", name: "Classic", src: "/assets/labels/BORDER_01.svg" },
-    { id: "border-02", name: "Ornate", src: "/assets/labels/BORDER_02.svg" },
-    { id: "border-03", name: "Simple", src: "/assets/labels/BORDER_03.svg" },
-    { id: "border-04", name: "Art Deco", src: "/assets/labels/BORDER_04.svg" },
-    { id: "border-05", name: "Elegant", src: "/assets/labels/BORDER_05.svg" },
-    { id: "border-06", name: "Modern", src: "/assets/labels/BORDER_06.svg" },
-    { id: "border-07", name: "Vintage", src: "/assets/labels/BORDER_07.svg" },
-    { id: "border-08", name: "Minimal", src: "/assets/labels/BORDER_08.svg" },
-    { id: "border-09", name: "Decorative", src: "/assets/labels/BORDER_09.svg" },
-    { id: "border-10", name: "Flourish", src: "/assets/labels/BORDER_10.svg" },
-    { id: "border-11", name: "Corner", src: "/assets/labels/BORDER_11.svg" },
-    { id: "border-12", name: "Double", src: "/assets/labels/BORDER_12.svg" },
+    { id: "border-01", name: "Classic", src: "/assets/labels/tae_label_1.svg" },
+    { id: "border-02", name: "Ornate", src: "/assets/labels/tae_label_2.svg" },
+    { id: "border-03", name: "Simple", src: "/assets/labels/tae_label_3.svg" },
+    { id: "border-04", name: "Art Deco", src: "/assets/labels/tae_label_4.svg" },
+    { id: "border-05", name: "Elegant", src: "/assets/labels/tae_label_5.svg" },
+    { id: "border-06", name: "Modern", src: "/assets/labels/tae_label_6.svg" },
+    { id: "border-07", name: "Vintage", src: "/assets/labels/tae_label_7.svg" },
+    { id: "border-08", name: "Minimal", src: "/assets/labels/tae_label_8.svg" },
+    { id: "border-09", name: "Decorative", src: "/assets/labels/tae_label_9.svg" },
+    { id: "border-10", name: "Flourish", src: "/assets/labels/tae_label_10.svg" },
+    { id: "border-11", name: "Corner", src: "/assets/labels/tae_label_11.svg" },
+    { id: "border-12", name: "Double", src: "/assets/labels/tae_label_12.svg" },
   ],
   labels: [
-    { id: "label-01", name: "Ticket", src: "/assets/labels/LABEL_01.svg" },
-    { id: "label-02", name: "Banner", src: "/assets/labels/LABEL_02.svg" },
-    { id: "label-03", name: "Ribbon", src: "/assets/labels/LABEL_03.svg" },
-    { id: "label-04", name: "Shield", src: "/assets/labels/LABEL_04.svg" },
-    { id: "label-05", name: "Oval", src: "/assets/labels/LABEL_05.svg" },
-    { id: "label-06", name: "Rectangle", src: "/assets/labels/LABEL_06.svg" },
-    { id: "label-07", name: "Scalloped", src: "/assets/labels/LABEL_07.svg" },
-    { id: "label-08", name: "Pointed", src: "/assets/labels/LABEL_08.svg" },
-    { id: "label-09", name: "Rounded", src: "/assets/labels/LABEL_09.svg" },
-    { id: "label-10", name: "Bracket", src: "/assets/labels/LABEL_10.svg" },
-    { id: "label-11", name: "Tag", src: "/assets/labels/LABEL_11.svg" },
-    { id: "label-12", name: "Stamp", src: "/assets/labels/LABEL_12.svg" },
-    { id: "label-13", name: "Seal", src: "/assets/labels/LABEL_13.svg" },
-    { id: "label-14", name: "Emblem", src: "/assets/labels/LABEL_14.svg" },
-    { id: "label-15", name: "Badge", src: "/assets/labels/LABEL_15.svg" },
-    { id: "label-16", name: "Plaque", src: "/assets/labels/LABEL_16.svg" },
+    { id: "label-01", name: "Ticket", src: "/assets/labels/tae_label_1.svg" },
+    { id: "label-02", name: "Banner", src: "/assets/labels/tae_label_2.svg" },
+    { id: "label-03", name: "Ribbon", src: "/assets/labels/tae_label_3.svg" },
+    { id: "label-04", name: "Shield", src: "/assets/labels/tae_label_4.svg" },
+    { id: "label-05", name: "Oval", src: "/assets/labels/tae_label_5.svg" },
+    { id: "label-06", name: "Rectangle", src: "/assets/labels/tae_label_6.svg" },
+    { id: "label-07", name: "Scalloped", src: "/assets/labels/tae_label_7.svg" },
+    { id: "label-08", name: "Pointed", src: "/assets/labels/tae_label_8.svg" },
+    { id: "label-09", name: "Rounded", src: "/assets/labels/tae_label_9.svg" },
+    { id: "label-10", name: "Bracket", src: "/assets/labels/tae_label_10.svg" },
+    { id: "label-11", name: "Tag", src: "/assets/labels/tae_label_11.svg" },
+    { id: "label-12", name: "Stamp", src: "/assets/labels/tae_label_12.svg" },
+    { id: "label-13", name: "Seal", src: "/assets/labels/tae_label_13.svg" },
+    { id: "label-14", name: "Emblem", src: "/assets/labels/tae_label_14.svg" },
+    { id: "label-15", name: "Badge", src: "/assets/labels/tae_label_15.svg" },
+    { id: "label-16", name: "Plaque", src: "/assets/labels/tae_label_16.svg" },
   ],
   accents: [
-    { id: "accent-01", name: "Floral", src: "/assets/labels/ACCENT_01.svg" },
-    { id: "accent-02", name: "Corner", src: "/assets/labels/ACCENT_02.svg" },
-    { id: "accent-03", name: "Vine", src: "/assets/labels/ACCENT_03.svg" },
-    { id: "accent-04", name: "Leaf", src: "/assets/labels/ACCENT_04.svg" },
-    { id: "accent-05", name: "Star", src: "/assets/labels/ACCENT_05.svg" },
-    { id: "accent-06", name: "Heart", src: "/assets/labels/ACCENT_06.svg" },
-    { id: "accent-07", name: "Divider", src: "/assets/labels/ACCENT_07.svg" },
-    { id: "accent-08", name: "Arrow", src: "/assets/labels/ACCENT_08.svg" },
-    { id: "accent-09", name: "Scroll", src: "/assets/labels/ACCENT_09.svg" },
-    { id: "accent-10", name: "Ornament", src: "/assets/labels/ACCENT_10.svg" },
+    { id: "accent-01", name: "Floral", src: "/assets/labels/tae_label_1.svg" },
+    { id: "accent-02", name: "Corner", src: "/assets/labels/tae_label_3.svg" },
+    { id: "accent-03", name: "Vine", src: "/assets/labels/tae_label_5.svg" },
+    { id: "accent-04", name: "Leaf", src: "/assets/labels/tae_label_7.svg" },
+    { id: "accent-05", name: "Star", src: "/assets/labels/tae_label_9.svg" },
+    { id: "accent-06", name: "Heart", src: "/assets/labels/tae_label_11.svg" },
+    { id: "accent-07", name: "Divider", src: "/assets/labels/tae_label_13.svg" },
+    { id: "accent-08", name: "Arrow", src: "/assets/labels/tae_label_14.svg" },
+    { id: "accent-09", name: "Scroll", src: "/assets/labels/tae_label_15.svg" },
+    { id: "accent-10", name: "Ornament", src: "/assets/labels/tae_label_16.svg" },
   ],
 };
 
@@ -134,10 +134,10 @@ const DECORATIVE_ELEMENTS = {
 // - QR is rendered inside the ArtKey template at ~24% of template size
 // - The internal offsets are tuned to the canonical template SVG
 // ============================================================================
-const QR_IN_TEMPLATE_FRACTION = 0.24;
-const QR_IN_TEMPLATE_X_FRACTION = 0.7033;
-const QR_IN_TEMPLATE_Y_FRACTION = 0.2933;
-const TARGET_QR_INCHES = 1; // enforce ~1in QR unless caller uses a larger template
+const QR_IN_TEMPLATE_FRACTION = 0.332;
+const QR_IN_TEMPLATE_X_FRACTION = 0.6675;
+const QR_IN_TEMPLATE_Y_FRACTION = 0.2578;
+const TARGET_QR_INCHES = 0.5; // enforce ~0.5in QR minimum for scannability
 
 // ============================================================================
 // ZOOM LEVELS (multiplier on top of "fit" scale)

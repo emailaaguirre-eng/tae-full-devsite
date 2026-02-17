@@ -48,7 +48,7 @@ const PRODUCTS: ProductDefinition[] = [
     requiresQrCode: true,
     supportsOrientation: true,
     defaultOrientation: "portrait",
-    qrSizeInches: 1,
+    qrSizeInches: 0.5,
   },
   {
     id: "TAE-POST",
@@ -63,7 +63,7 @@ const PRODUCTS: ProductDefinition[] = [
     requiresQrCode: true,
     supportsOrientation: true,
     defaultOrientation: "landscape",
-    qrSizeInches: 0.75,
+    qrSizeInches: 0.4,
   },
   {
     id: "TAE-WALL",
@@ -79,7 +79,7 @@ const PRODUCTS: ProductDefinition[] = [
     requiresQrCode: true,
     supportsOrientation: true,
     defaultOrientation: "portrait",
-    qrSizeInches: 1.5,
+    qrSizeInches: 0.75,
   },
 ];
 
@@ -94,7 +94,7 @@ function buildProductSpec(
   const printHeight = isPortrait ? variant.landscapeWidth : variant.landscapeHeight;
 
   const qrSize = Math.round(product.qrSizeInches * product.printDpi);
-  const qrInTemplateFraction = 0.24;
+  const qrInTemplateFraction = 0.332;
   const templateSize = Math.round(qrSize / qrInTemplateFraction);
   const margin = Math.round(0.5 * product.printDpi);
   const qrPlacement = (product.placements as string[]).includes("back") ? "back" : "front";
@@ -144,9 +144,9 @@ function buildSpecFromApiProduct(apiProduct: any): ProductSpec {
       } catch { /* compute below */ }
     }
     if (!qrDefaultPosition) {
-      const qrSizeInches = 1;
+      const qrSizeInches = 0.5;
       const qrSize = Math.round(qrSizeInches * printDpi);
-      const templateSize = Math.round(qrSize / 0.24);
+      const templateSize = Math.round(qrSize / 0.332);
       const margin = Math.round(0.5 * printDpi);
       const qrPlacement = placements.includes("back") ? "back" : "front";
       qrDefaultPosition = {
