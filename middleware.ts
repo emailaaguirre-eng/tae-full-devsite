@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const COOKIE_NAME = 'tae_admin_session';
+const ARTKEY_SUBDOMAIN = 'artkey';
 
 function isValidToken(token: string): boolean {
   try {
@@ -14,6 +15,25 @@ function isValidToken(token: string): boolean {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const hostname = request.headers.get('host') || '';
+
+  // Handle artkey subdomain: artkey.theartfulexperience.com/{token} -> /art-key/{token}
+  const isArtKeySubdomain = hostname.startsWith(`${ARTKEY_SUBDOMAIN}.`);
+  if (isArtKeySubdomain) {
+    // Root of artkey subdomain -> ArtKey Host Login
+    if (pathname === '/' || pathname === '') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/art-key';
+      return NextResponse.rewrite(url);
+    }
+    // artkey.domain.com/{token} -> /art-key/{token}
+    // artkey.domain.com/{token}/edit -> /art-key/{token}/edit
+    if (!pathname.startsWith('/art-key') && !pathname.startsWith('/api/') && !pathname.startsWith('/_next/') && !pathname.startsWith('/favicon') && !pathname.startsWith('/manifest')) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/art-key${pathname}`;
+      return NextResponse.rewrite(url);
+    }
+  }
 
   // Admin page routes (except login)
   if (pathname.startsWith('/b_d_admn_tae') && !pathname.startsWith('/b_d_admn_tae/login')) {
@@ -35,5 +55,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/b_d_admn_tae/:path*', '/api/admin/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
