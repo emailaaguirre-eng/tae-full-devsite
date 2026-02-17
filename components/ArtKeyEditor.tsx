@@ -419,7 +419,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   ];
 
   const featureDefsDefault = [
-    { key: 'custom_links', label: '🔗 Share A Link', field: 'enable_custom_links', type: 'feature' },
     { key: 'spotify', label: '🎵 Share Your Playlist', field: 'enable_spotify', type: 'feature' },
     { key: 'gallery', label: '📸 Image Gallery', field: 'enable_gallery', type: 'feature' },
     { key: 'guestbook', label: '📖 Guestbook', field: 'show_guestbook', type: 'feature' },
@@ -618,9 +617,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         } : {}),
       };
 
-      // Rebuild customLinks from featureDefs custom_link entries
-      const customLinkEntries = featureDefs.filter(f => f.type === 'custom_link' && f.linkData);
+      // Rebuild customLinks from enabled featureDefs custom_link entries
+      const customLinkEntries = featureDefs.filter(f => f.type === 'custom_link' && (f as any).enabled && f.linkData);
       const rebuiltCustomLinks = customLinkEntries.map(f => f.linkData!);
+      // Also keep enable_custom_links in sync
+      if (rebuiltCustomLinks.length > 0) {
+        artKeyData.features.enable_custom_links = true;
+      }
       
       const dataToSave = {
         ...artKeyData,
@@ -773,16 +776,17 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     const newLink: Link = { label: newLinkLabel, url: newLinkUrl };
     const updated = [...customLinks, newLink];
     setCustomLinks(updated);
-    setArtKeyData((prev) => ({ ...prev, links: updated }));
+    setArtKeyData((prev) => ({ ...prev, links: updated, features: { ...prev.features, enable_custom_links: true } }));
     
-    // Add as a featureDef entry so it can be edited and rearranged
+    // Add as a featureDef entry so it can be edited, rearranged, and toggled
     const linkId = `custom_link_${Date.now()}`;
     const newFeatureDef = {
       key: linkId,
-      label: newLinkLabel,
+      label: `🔗 ${newLinkLabel}`,
       field: linkId,
       type: 'custom_link' as const,
       linkData: newLink,
+      enabled: true,
     };
     setFeatureDefs((prev) => [...prev, newFeatureDef]);
     
@@ -992,7 +996,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               )}
               <h1 className="text-2xl font-bold font-playfair flex items-center gap-2">
                 <CustomIcon name="sparkle" size={28} color={COLOR_ACCENT} />
-                Edit Your ArtKey Page
+                theAE ArtKey Portal Page Editor
               </h1>
             </div>
             <div className="flex gap-3">
@@ -1082,8 +1086,9 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
                         {/* Buttons Preview - Two columns when many buttons */}
                         {(() => {
+                          const enabledLinks = featureDefs.filter(f => f.type === 'custom_link' && (f as any).enabled && f.linkData).map(f => f.linkData!);
                           const allButtons = [
-                            ...customLinks,
+                            ...enabledLinks,
                             ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}` }] : []),
                             ...(artKeyData.spotify.url?.length > 10 ? [{ label: featureDefs.find(f => f.key === 'spotify')?.label || '🎵 Share Your Playlist' }] : []),
                             ...(artKeyData.features.show_guestbook ? [{ label: featureDefs.find(f => f.key === 'guestbook')?.label || '📖 Guestbook' }] : []),
@@ -1170,8 +1175,9 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
                         {/* Buttons Preview - Two columns when many buttons */}
                         {(() => {
+                          const enabledLinks = featureDefs.filter(f => f.type === 'custom_link' && (f as any).enabled && f.linkData).map(f => f.linkData!);
                           const allButtons = [
-                            ...customLinks,
+                            ...enabledLinks,
                             ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}` }] : []),
                             ...(artKeyData.spotify.url?.length > 10 ? [{ label: featureDefs.find(f => f.key === 'spotify')?.label || '🎵 Share Your Playlist' }] : []),
                             ...(artKeyData.features.show_guestbook ? [{ label: featureDefs.find(f => f.key === 'guestbook')?.label || '📖 Guestbook' }] : []),
@@ -1768,8 +1774,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                             onDragEnd={handleFeatureDragEnd}
                             className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-grab transition-all"
                             style={{
-                              borderColor: (isCustomLink || artKeyData.features[f.field]) ? COLOR_ACCENT : '#e2e2e0',
-                              background: (isCustomLink || artKeyData.features[f.field]) ? COLOR_ALT : COLOR_PRIMARY,
+                              borderColor: (isCustomLink ? (f as any).enabled : artKeyData.features[f.field]) ? COLOR_ACCENT : '#e2e2e0',
+                              background: (isCustomLink ? (f as any).enabled : artKeyData.features[f.field]) ? COLOR_ALT : COLOR_PRIMARY,
                               opacity: draggedFeature === idx ? 0.5 : 1,
                             }}
                           >
@@ -1787,14 +1793,27 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                               </div>
                             )}
                             {isCustomLink && (
-                              <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: COLOR_ACCENT, background: COLOR_ACCENT }}>
-                                <span className="text-white text-xs">🔗</span>
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const updated = [...featureDefs];
+                                  updated[idx] = { ...updated[idx], enabled: !(f as any).enabled };
+                                  setFeatureDefs(updated);
+                                }}
+                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer"
+                                style={{ borderColor: (f as any).enabled ? COLOR_ACCENT : '#d0d0ce', background: (f as any).enabled ? COLOR_ACCENT : 'transparent' }}
+                              >
+                                {(f as any).enabled && <span className="text-white text-xs">✓</span>}
                               </div>
                             )}
                             <span 
                               onClick={(e) => {
-                                if (!isCustomLink) {
-                                  e.stopPropagation();
+                                e.stopPropagation();
+                                if (isCustomLink) {
+                                  const updated = [...featureDefs];
+                                  updated[idx] = { ...updated[idx], enabled: !(f as any).enabled };
+                                  setFeatureDefs(updated);
+                                } else {
                                   toggleFeature(f.field);
                                 }
                               }}
