@@ -978,56 +978,58 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const handleLinkDragEnd = () => setDraggedLink(null);
 
   return (
-    <div style={{ background: COLOR_ALT }} className="min-h-screen">
+    <div style={{ background: '#f5f5f7' }} className="min-h-screen">
       {/* Top Bar */}
-      <div style={{ background: COLOR_ACCENT }} className="text-white sticky top-0 z-50 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center flex-wrap gap-4">
+      <div className="sticky top-0 z-50 shadow-lg border-b border-white/10" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex justify-between items-center flex-wrap gap-3">
             <div className="flex items-center gap-3">
               {isAdmin && (
                 <button
                   onClick={() => router.push('/manage/dashboard')}
-                  className="px-4 py-2 rounded-lg font-medium transition-all text-sm"
-                  style={{ background: 'rgba(255,255,255,0.2)', color: COLOR_PRIMARY, border: '1px solid rgba(255,255,255,0.3)' }}
+                  className="px-3 py-1.5 rounded-lg font-medium transition-all text-xs hover:bg-white/20"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.15)' }}
                   title="Back to Admin Dashboard"
                 >
                   ← Dashboard
                 </button>
               )}
-              <h1 className="text-2xl font-bold font-playfair flex items-center gap-2">
-                <CustomIcon name="sparkle" size={28} color={COLOR_ACCENT} />
-                theAE ArtKey Portal Page Editor
-              </h1>
+              <div>
+                <h1 className="text-lg sm:text-xl font-bold font-playfair text-white flex items-center gap-2">
+                  <span className="text-amber-400">✦</span>
+                  theAE ArtKey Portal Page Editor
+                </h1>
+                {customizationData && (
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Customizing: {customizationData.productName} - ${customizationData.totalPrice}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 onClick={() => handleSave(false)}
-                className="px-6 py-2 rounded-lg font-semibold transition-all"
-                style={{ background: COLOR_PRIMARY, color: COLOR_ACCENT, border: '1px solid rgba(255,255,255,0.2)' }}
+                className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:bg-white/20"
+                style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.2)' }}
               >
-                💾 Save
+                💾 Save Draft
               </button>
               <button
                 onClick={handleSaveAndContinue}
-                className="px-6 py-2 rounded-lg font-semibold transition-all"
-                style={{ background: COLOR_PRIMARY, color: COLOR_ACCENT, border: '1px solid rgba(255,255,255,0.2)' }}
+                className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:opacity-90"
+                style={{ background: 'rgba(255,255,255,0.95)', color: '#1a1a2e' }}
               >
-                💾 Save & Continue
+                Save & Continue →
               </button>
               <button
                 onClick={handleSaveAndCheckout}
-                className="px-6 py-2 rounded-lg font-semibold transition-all"
-                style={{ background: COLOR_PRIMARY, color: COLOR_ACCENT, border: '1px solid rgba(255,255,255,0.2)' }}
+                className="px-4 py-2 rounded-lg font-semibold text-sm transition-all hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #C9A962, #D4AF37)', color: '#1a1a2e' }}
               >
-                ✅ Save & Checkout
+                ✓ Save & Checkout
               </button>
             </div>
           </div>
-          {customizationData && (
-            <p className="text-sm text-white/80 mt-2">
-              Customizing: {customizationData.productName} - ${customizationData.totalPrice}
-            </p>
-          )}
         </div>
       </div>
 
@@ -1249,7 +1251,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             {designMode === 'template' && (
               <Card title="Choose Template" step="1" onBack={() => setDesignMode(null)}>
                 {/* Category Tabs */}
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-1.5 mb-5 p-1 rounded-xl bg-gray-100">
                   {TEMPLATE_CATEGORIES.map((cat) => (
                     <button
                       key={cat.id}
@@ -1257,15 +1259,17 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                         setTemplateCategory(cat.id);
                         setTemplatePage(0);
                       }}
-                      className={`flex-1 px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
-                        templateCategory === cat.id ? 'shadow-md' : ''
+                      className={`flex-1 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                        templateCategory === cat.id ? 'shadow-sm' : 'hover:bg-gray-200/50'
                       }`}
-                      style={{
-                        background: templateCategory === cat.id ? COLOR_ACCENT : COLOR_ALT,
-                        color: templateCategory === cat.id ? COLOR_PRIMARY : COLOR_ACCENT,
+                      style={templateCategory === cat.id ? {
+                        background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+                        color: '#fff',
+                      } : {
+                        color: '#666',
                       }}
                     >
-                      <CustomIcon name={cat.icon as any} size={18} color="currentColor" className="mr-2" />
+                      <CustomIcon name={cat.icon as any} size={14} color="currentColor" />
                       {cat.label}
                     </button>
                   ))}
@@ -1277,37 +1281,46 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   total={Math.ceil(getTemplatesByCategory(templateCategory).length / templatesPerPage)}
                   labelPrefix={`${templateCategory} Templates`}
                 >
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-3">
                     {getTemplatesByCategory(templateCategory)
                       .slice(templatePage * templatesPerPage, (templatePage + 1) * templatesPerPage)
-                      .map((tpl) => (
-                        <button
-                          key={tpl.value}
-                          onClick={() => handleTemplateSelect(tpl)}
-                          className={`p-2 rounded-xl border-2 transition-all ${artKeyData.theme.template === tpl.value ? 'shadow-lg' : ''}`}
-                          style={{
-                            borderColor: artKeyData.theme.template === tpl.value ? COLOR_ACCENT : '#e2e2e0',
-                            background: tpl.bg?.startsWith('linear-gradient') ? tpl.bg : tpl.bg,
-                          }}
-                        >
-                          <div className="w-full h-16 rounded-lg mb-2 relative overflow-hidden">
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="text-xs font-bold" style={{ color: tpl.title }}>Aa</div>
-                            </div>
-                            <div className="absolute bottom-1 right-1">
-                              <div 
-                                className="w-4 h-4" 
-                                style={{ 
-                                  background: tpl.buttonStyle === 'outline' ? 'transparent' : tpl.button,
-                                  border: tpl.buttonStyle === 'outline' ? `2px solid ${tpl.button}` : 'none',
-                                  borderRadius: tpl.buttonShape === 'square' ? '0' : tpl.buttonShape === 'rounded' ? '2px' : '4px'
+                      .map((tpl) => {
+                        const isSelected = artKeyData.theme.template === tpl.value;
+                        const isDark = tpl.bg.includes('#0') || tpl.bg.includes('#1') || tpl.bg.includes('#2') || tpl.text === '#ffffff' || tpl.text === '#E8E8E8' || tpl.text === '#CCCCCC';
+                        return (
+                          <button
+                            key={tpl.value}
+                            onClick={() => handleTemplateSelect(tpl)}
+                            className={`group rounded-xl border-2 transition-all overflow-hidden ${isSelected ? 'shadow-lg ring-2 ring-offset-2' : 'hover:shadow-md hover:-translate-y-0.5'}`}
+                            style={{
+                              borderColor: isSelected ? tpl.button : 'transparent',
+                              ringColor: isSelected ? tpl.button : undefined,
+                            }}
+                          >
+                            <div
+                              className="p-3 flex flex-col items-center justify-center"
+                              style={{ background: tpl.bg, minHeight: '100px' }}
+                            >
+                              <div className="text-2xl font-bold mb-1" style={{ color: tpl.title, fontFamily: tpl.titleFont?.replace('g:', '') || 'inherit' }}>Aa</div>
+                              <div
+                                className="w-full max-w-[80%] py-1 px-2 text-[9px] font-semibold text-center mt-1 truncate"
+                                style={{
+                                  background: tpl.buttonStyle === 'outline' ? 'transparent' : (tpl.buttonStyle === 'glass' ? `${tpl.button}20` : tpl.button),
+                                  color: tpl.buttonStyle === 'solid' ? (isDark ? '#000' : '#fff') : tpl.button,
+                                  border: tpl.buttonStyle !== 'solid' ? `1.5px solid ${tpl.button}` : 'none',
+                                  borderRadius: tpl.buttonShape === 'square' ? '0' : tpl.buttonShape === 'rounded' ? '4px' : '9999px',
                                 }}
-                              />
+                              >
+                                Button
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-xs font-semibold text-center" style={{ color: COLOR_ACCENT }}>{tpl.name}</div>
-                        </button>
-                      ))}
+                            <div className="px-2 py-2 text-center" style={{ background: '#ffffff' }}>
+                              <div className="text-[11px] font-semibold leading-tight" style={{ color: '#353535' }}>{tpl.name}</div>
+                              {isSelected && <div className="text-[8px] mt-0.5 font-medium" style={{ color: tpl.button }}>Selected</div>}
+                            </div>
+                          </button>
+                        );
+                      })}
                   </div>
                 </Carousel>
               </Card>
@@ -1662,9 +1675,9 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-start gap-2">
-                  <span className="text-lg">💡</span>
-                  <span className="text-xs text-blue-800">Click to toggle; drag to reorder.</span>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4 flex items-center gap-2">
+                  <span className="text-xs">⋮⋮</span>
+                  <span className="text-[11px] text-slate-500">Toggle features on/off and drag to reorder their display order.</span>
                 </div>
 
                 <div className="space-y-2">
@@ -1674,14 +1687,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       <div key={f.key}>
                         {editingFeatureIndex === idx ? (
                           // Edit mode
-                          <div className="p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                          <div className="p-3 rounded-xl border border-blue-200 bg-blue-50/50">
                             <div className="space-y-2">
                               <input
                                 type="text"
                                 value={editFeatureLabel}
                                 onChange={(e) => setEditFeatureLabel(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg text-sm"
-                                style={{ border: '1px solid #d8d8d6' }}
+                                className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
                                 autoFocus
                                 placeholder="Enter button name"
                               />
@@ -1690,8 +1702,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                   type="url"
                                   value={editLinkUrl}
                                   onChange={(e) => setEditLinkUrl(e.target.value)}
-                                  className="w-full px-3 py-2 rounded-lg text-sm"
-                                  style={{ border: '1px solid #d8d8d6' }}
+                                  className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
                                   placeholder="https://..."
                                 />
                               )}
@@ -1724,10 +1735,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                     setEditFeatureLabel('');
                                     setEditLinkUrl('');
                                   }}
-                                  className="px-3 py-2 rounded-lg text-sm font-medium"
-                                  style={{ background: COLOR_ACCENT, color: COLOR_PRIMARY }}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90"
+                                  style={{ background: '#1a1a2e', color: '#fff' }}
                                 >
-                                  ✓
+                                  Save
                                 </button>
                                 <button
                                   onClick={() => {
@@ -1735,15 +1746,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                     setEditFeatureLabel('');
                                     setEditLinkUrl('');
                                   }}
-                                  className="px-3 py-2 rounded-lg text-sm font-medium"
-                                  style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 hover:bg-gray-50 transition-all"
                                 >
-                                  ✕
+                                  Cancel
                                 </button>
                                 {isCustomLink && (
                                   <button
                                     onClick={() => {
-                                      // Remove custom link
                                       const updated = featureDefs.filter((_, i) => i !== idx);
                                       setFeatureDefs(updated);
                                       const linkData = f.linkData;
@@ -1756,10 +1765,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                       setEditFeatureLabel('');
                                       setEditLinkUrl('');
                                     }}
-                                    className="px-3 py-2 rounded-lg text-sm font-medium"
-                                    style={{ background: '#ef4444', color: COLOR_PRIMARY }}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-red-600 ml-auto"
+                                    style={{ background: '#ef4444', color: '#fff' }}
                                   >
-                                    🗑️ Delete
+                                    Delete
                                   </button>
                                 )}
                               </div>
@@ -1772,24 +1781,24 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                             onDragStart={() => handleFeatureDragStart(idx)}
                             onDragOver={(e) => handleFeatureDragOver(e, idx)}
                             onDragEnd={handleFeatureDragEnd}
-                            className="flex items-center gap-3 p-3 rounded-lg border-2 cursor-grab transition-all"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-grab transition-all group/row"
                             style={{
-                              borderColor: (isCustomLink ? (f as any).enabled : artKeyData.features[f.field]) ? COLOR_ACCENT : '#e2e2e0',
-                              background: (isCustomLink ? (f as any).enabled : artKeyData.features[f.field]) ? COLOR_ALT : COLOR_PRIMARY,
+                              borderColor: (isCustomLink ? (f as any).enabled : artKeyData.features[f.field]) ? '#c7d2fe' : '#f0f0f0',
+                              background: (isCustomLink ? (f as any).enabled : artKeyData.features[f.field]) ? '#f8f9ff' : '#fafafa',
                               opacity: draggedFeature === idx ? 0.5 : 1,
                             }}
                           >
-                            <div className="text-gray-400">⋮⋮</div>
+                            <div className="text-gray-300 group-hover/row:text-gray-400 transition-colors text-xs">⋮⋮</div>
                             {!isCustomLink && (
                               <div
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggleFeature(f.field);
                                 }}
-                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer"
-                                style={{ borderColor: artKeyData.features[f.field] ? COLOR_ACCENT : '#d0d0ce', background: artKeyData.features[f.field] ? COLOR_ACCENT : 'transparent' }}
+                                className="w-9 h-5 rounded-full relative cursor-pointer transition-all"
+                                style={{ background: artKeyData.features[f.field] ? '#1a1a2e' : '#d1d5db' }}
                               >
-                                {artKeyData.features[f.field] && <span className="text-white text-xs">✓</span>}
+                                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all" style={{ left: artKeyData.features[f.field] ? '18px' : '2px' }} />
                               </div>
                             )}
                             {isCustomLink && (
@@ -1800,10 +1809,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                   updated[idx] = { ...updated[idx], enabled: !(f as any).enabled };
                                   setFeatureDefs(updated);
                                 }}
-                                className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer"
-                                style={{ borderColor: (f as any).enabled ? COLOR_ACCENT : '#d0d0ce', background: (f as any).enabled ? COLOR_ACCENT : 'transparent' }}
+                                className="w-9 h-5 rounded-full relative cursor-pointer transition-all"
+                                style={{ background: (f as any).enabled ? '#1a1a2e' : '#d1d5db' }}
                               >
-                                {(f as any).enabled && <span className="text-white text-xs">✓</span>}
+                                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all" style={{ left: (f as any).enabled ? '18px' : '2px' }} />
                               </div>
                             )}
                             <span 
@@ -1817,22 +1826,18 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                   toggleFeature(f.field);
                                 }
                               }}
-                              className="flex-1 text-sm font-medium cursor-pointer" 
-                              style={{ color: COLOR_ACCENT }}
+                              className="flex-1 text-xs font-medium cursor-pointer" 
+                              style={{ color: '#333' }}
                             >
                               {f.label}
                             </span>
                             {isCustomLink && f.linkData && (
-                              <a
-                                href={f.linkData.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-xs text-blue-500 hover:text-blue-700"
+                              <span
+                                className="text-[10px] text-gray-400 max-w-[80px] truncate hidden sm:block"
                                 title={f.linkData.url}
                               >
-                                🔗
-                              </a>
+                                {f.linkData.url.replace('https://', '').replace('http://', '').substring(0, 20)}
+                              </span>
                             )}
                             <button
                               onClick={(e) => {
@@ -1843,8 +1848,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                   setEditLinkUrl(f.linkData.url);
                                 }
                               }}
-                              className="text-blue-500 hover:text-blue-700 p-2 text-base"
-                              title="Edit button"
+                              className="text-gray-400 hover:text-gray-600 p-1.5 text-xs rounded-md hover:bg-gray-100 transition-all"
+                              title="Edit"
                             >
                               ✏️
                             </button>
@@ -1862,39 +1867,37 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               <Card title="Add New Link Button">
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Button Name</label>
+                    <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wide" style={{ color: '#888' }}>Button Name</label>
                     <input
                       type="text"
                       value={newLinkLabel}
                       onChange={(e) => setNewLinkLabel(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg text-sm"
-                      style={{ border: '1px solid #d8d8d6' }}
+                      className="w-full px-3 py-2.5 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
                       placeholder="e.g., Instagram, Website, Portfolio"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>URL</label>
+                    <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wide" style={{ color: '#888' }}>URL</label>
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">🔗</span>
+                      <span className="text-sm text-gray-400">🔗</span>
                       <input
                         type="url"
                         value={newLinkUrl}
                         onChange={(e) => setNewLinkUrl(e.target.value)}
-                        className="flex-1 px-3 py-2 rounded-lg text-sm"
-                        style={{ border: '1px solid #d8d8d6' }}
+                        className="flex-1 px-3 py-2.5 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
                         placeholder="https://..."
                       />
                     </div>
                   </div>
                   <button
                     onClick={handleAddLink}
-                    className="w-full px-4 py-3 rounded-lg text-sm font-semibold transition-all"
-                    style={{ background: COLOR_ACCENT, color: COLOR_PRIMARY }}
+                    className="w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                    style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)', color: '#fff' }}
                   >
-                    ✨ Add Link Button
+                    + Add Link Button
                   </button>
-                  <p className="text-xs text-gray-500 text-center">
-                    Your link will appear as a toggleable button above in the features list
+                  <p className="text-[11px] text-gray-400 text-center">
+                    Your link will appear as a toggleable button in the features list above
                   </p>
                 </div>
               </Card>
@@ -2417,19 +2420,19 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 // Helper Components
 function Card({ title, step, children, onBack }: { title: string; step?: string; children: React.ReactNode; onBack?: () => void }) {
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 border border-[#e2e2e0]">
-      <div className="flex items-center gap-3 mb-4">
+    <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-100">
+      <div className="flex items-center gap-3 mb-5">
         {step && (
-          <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white" style={{ background: COLOR_ACCENT }}>{step}</div>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs text-white" style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)' }}>{step}</div>
         )}
         <div className="flex-1">
-          <h3 className="text-xl font-bold font-playfair" style={{ color: COLOR_ACCENT }}>{title}</h3>
+          <h3 className="text-lg font-bold font-playfair" style={{ color: COLOR_ACCENT }}>{title}</h3>
         </div>
         {onBack && (
           <button
             onClick={onBack}
-            className="px-4 py-2 text-sm rounded-lg transition-all"
-            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+            className="px-3 py-1.5 text-xs rounded-lg transition-all hover:bg-gray-100 font-medium"
+            style={{ border: '1px solid #e5e5e5', color: '#555' }}
           >
             ← Back
           </button>
@@ -2442,13 +2445,13 @@ function Card({ title, step, children, onBack }: { title: string; step?: string;
 
 function Tabs({ value, onChange, tabs }: { value: string; onChange: (id: string) => void; tabs: { id: string; label: string }[] }) {
   return (
-    <div className="flex gap-2 mb-4 p-1 rounded-lg" style={{ background: COLOR_ALT }}>
+    <div className="flex gap-1 mb-4 p-1 rounded-xl bg-gray-100">
       {tabs.map((t) => (
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
-          className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-          style={value === t.id ? { background: COLOR_PRIMARY, boxShadow: '0 2px 6px rgba(0,0,0,0.08)', color: COLOR_ACCENT } : { color: '#666' }}
+          className={`flex-1 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all ${value === t.id ? 'shadow-sm' : 'hover:bg-gray-200/50'}`}
+          style={value === t.id ? { background: '#fff', color: COLOR_ACCENT } : { color: '#888' }}
         >
           {t.label}
         </button>
@@ -2460,12 +2463,12 @@ function Tabs({ value, onChange, tabs }: { value: string; onChange: (id: string)
 function Carousel({ page, setPage, total, children, labelPrefix }: { page: number; setPage: (p: number) => void; total: number; children: React.ReactNode; labelPrefix?: string }) {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-3 mb-3">
         <button
           onClick={() => setPage(Math.max(0, page - 1))}
           disabled={page === 0}
-          className="w-10 h-10 rounded-lg border transition-all disabled:opacity-50"
-          style={{ borderColor: '#d8d8d6' }}
+          className="w-9 h-9 rounded-lg border transition-all disabled:opacity-30 hover:bg-gray-100 flex items-center justify-center text-sm font-medium"
+          style={{ borderColor: '#e5e7eb', color: '#555' }}
         >
           ‹
         </button>
@@ -2473,15 +2476,24 @@ function Carousel({ page, setPage, total, children, labelPrefix }: { page: numbe
         <button
           onClick={() => setPage(Math.min(total - 1, page + 1))}
           disabled={page >= total - 1}
-          className="w-10 h-10 rounded-lg border transition-all disabled:opacity-50"
-          style={{ borderColor: '#d8d8d6' }}
+          className="w-9 h-9 rounded-lg border transition-all disabled:opacity-30 hover:bg-gray-100 flex items-center justify-center text-sm font-medium"
+          style={{ borderColor: '#e5e7eb', color: '#555' }}
         >
           ›
         </button>
       </div>
-      <div className="text-center text-sm text-gray-500">
-        Page {page + 1} of {total} {labelPrefix || ''}
-      </div>
+      {total > 1 && (
+        <div className="flex items-center justify-center gap-1.5 mt-3">
+          {Array.from({ length: total }, (_, i) => (
+            <button
+              key={i}
+              onClick={() => setPage(i)}
+              className="w-2 h-2 rounded-full transition-all"
+              style={{ background: page === i ? '#1a1a2e' : '#d1d5db' }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -2637,8 +2649,8 @@ function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, button
 
 function SettingsBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
-      <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR_ACCENT }}>{title}</h4>
+    <div className="mb-4 p-4 rounded-xl bg-gray-50/80 border border-gray-100">
+      <h4 className="text-xs font-semibold mb-3 uppercase tracking-wide" style={{ color: '#888' }}>{title}</h4>
       <div className="space-y-3">{children}</div>
     </div>
   );
@@ -2648,21 +2660,21 @@ function PrimaryButton({ onClick, children, icon, accent }: { onClick: () => voi
   return (
     <button
       onClick={onClick}
-      className="group relative p-6 rounded-xl text-left transition-all border-2"
+      className="group relative p-6 rounded-2xl text-left transition-all border hover:shadow-lg hover:-translate-y-1"
       style={{
-        background: accent ? 'linear-gradient(135deg,#e2e2e0,#cfcfcf)' : 'linear-gradient(135deg,#f7f7f7,#ececec)',
-        borderColor: '#e2e2e0',
+        background: accent ? 'linear-gradient(135deg, #1a1a2e, #16213e)' : '#ffffff',
+        borderColor: accent ? 'transparent' : '#e5e7eb',
       }}
     >
-      <div className="mb-3" style={{ fontSize: '2.5rem', lineHeight: 1 }}>
+      <div className="mb-3" style={{ fontSize: '2rem', lineHeight: 1 }}>
         {typeof icon === 'string' ? (
-          <span className="text-4xl">{icon}</span>
+          <span className="text-3xl">{icon}</span>
         ) : (
-          <div style={{ display: 'inline-block', transform: 'scale(1.5)' }}>{icon}</div>
+          <div style={{ display: 'inline-block', transform: 'scale(1.25)' }}>{icon}</div>
         )}
       </div>
-      <div className="text-xl font-bold font-playfair" style={{ color: COLOR_ACCENT }}>{children}</div>
-      <div className="absolute top-2 right-2 text-2xl opacity-20 group-hover:opacity-40 transition-opacity">→</div>
+      <div className="text-lg font-bold font-playfair" style={{ color: accent ? '#ffffff' : COLOR_ACCENT }}>{children}</div>
+      <div className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all group-hover:translate-x-1" style={{ background: accent ? 'rgba(255,255,255,0.15)' : '#f3f4f6', color: accent ? '#fff' : '#666' }}>→</div>
     </button>
   );
 }
@@ -2671,10 +2683,10 @@ function PrimaryButton({ onClick, children, icon, accent }: { onClick: () => voi
 export default function ArtKeyEditor({ artkeyId = null }: ArtKeyEditorProps) {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: COLOR_ALT }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f5f7' }}>
         <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-4 border-brand-dark border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-brand-dark text-lg">Loading editor...</p>
+          <div className="animate-spin w-10 h-10 border-3 border-gray-300 border-t-gray-800 rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-500 text-sm">Loading editor...</p>
         </div>
       </div>
     }>
