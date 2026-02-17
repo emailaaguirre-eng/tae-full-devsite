@@ -12,13 +12,13 @@ export default function HomePage() {
   return (
     <>
       <Hero />
+      <Testimonials />
       <ProductCategories />
       <FeaturedProducts title="Shop — Customize Your Own" />
       <Gallery />
       <CoCreators simplified />
       <HowItWorks />
       <AboutUs />
-      <Testimonials />
       <Contact />
     </>
   );
