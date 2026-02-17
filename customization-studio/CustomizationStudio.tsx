@@ -1247,7 +1247,7 @@ export function CustomizationStudio({
             if (slotIndex !== null) {
               const slot = slotRects[slotIndex];
 
-              const fitted = coverImageToSlot(img.width, img.height, slot.width, slot.height);
+              const fitted = fitImageToSlot(img.width, img.height, slot.width, slot.height);
               const centered = centerInSlot(fitted.width, fitted.height, slot.x, slot.y, slot.width, slot.height);
 
               newImage = {
@@ -1865,7 +1865,12 @@ export function CustomizationStudio({
 
           {/* Quick add text */}
           <button
-            onClick={() => addText("Text")}
+            onClick={() => {
+              setSelectedId(null);
+              setSelectedType(null);
+              setTextInput("Your text here");
+              setIsAddingText(true);
+            }}
             className="px-3 py-2 rounded text-sm"
             style={{ background: BRAND.light, color: BRAND.dark }}
             title="Add a text label"
@@ -1931,6 +1936,34 @@ export function CustomizationStudio({
         {/* Left Sidebar */}
         <div className="w-80 border-r flex flex-col" style={{ background: BRAND.white, borderColor: BRAND.light }}>
           <div className="flex-1 overflow-auto">
+          {/* Surface Tabs - at the top so users can find them */}
+          {productSpec.placements.length > 1 && (
+            <div className="p-4 border-b" style={{ borderColor: BRAND.light }}>
+              <h3 className="font-semibold mb-3">Surfaces</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {productSpec.placements.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => switchPlacement(p)}
+                    className="text-center px-3 py-2 rounded border text-sm font-medium"
+                    style={{
+                      borderColor: activePlacement === p ? BRAND.accent : BRAND.light,
+                      background: activePlacement === p ? BRAND.accent : BRAND.white,
+                      color: activePlacement === p ? BRAND.white : BRAND.dark,
+                    }}
+                  >
+                    {PLACEMENT_LABELS[p]}
+                    {qrPlacement === p && productSpec.requiresQrCode && (
+                      <span className="block text-xs mt-0.5" style={{ color: activePlacement === p ? "#ddd" : "#6d28d9" }}>
+                        ArtKey
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Image Tools */}
           <div className="p-4 border-b" style={{ borderColor: BRAND.light }}>
             <h3 className="font-semibold mb-3">Images</h3>
@@ -2199,19 +2232,19 @@ export function CustomizationStudio({
               <h3 className="font-semibold">Text</h3>
               <button
                 onClick={() => {
-                  // Enter add-text mode. Clear selection so the panel doesn't stay stuck
-                  // in "Editing selected text" mode.
                   if (!isAddingText) {
                     setSelectedId(null);
                     setSelectedType(null);
-                    setTextInput("");
+                    setTextInput("Your text here");
+                    setIsAddingText(true);
+                  } else {
+                    setIsAddingText(false);
                   }
-                  setIsAddingText((v) => !v);
                 }}
                 className="px-3 py-1 rounded text-sm"
-                style={{ background: BRAND.light, color: BRAND.dark }}
+                style={{ background: isAddingText ? BRAND.accent : BRAND.light, color: isAddingText ? BRAND.white : BRAND.dark }}
               >
-                {isAddingText ? "Close" : "Add"}
+                {isAddingText ? "Cancel" : "Add"}
               </button>
             </div>
 
@@ -2784,9 +2817,22 @@ export function CustomizationStudio({
                   anchorStroke={BRAND.accent}
                   anchorFill={BRAND.white}
                   rotateEnabled={true}
-                  keepRatio={selectedType === "text"} // text behaves nicer with uniform scaling
+                  rotateAnchorOffset={30}
+                  rotateAnchorCursor="grab"
+                  keepRatio={selectedType === "text"}
+                  anchorStyleFunc={(anchor) => {
+                    if (anchor.hasName("rotater")) {
+                      anchor.cornerRadius(20);
+                      anchor.fill(BRAND.accent);
+                      anchor.stroke(BRAND.white);
+                      anchor.strokeWidth(2);
+                      anchor.width(20);
+                      anchor.height(20);
+                      anchor.offsetX(10);
+                      anchor.offsetY(10);
+                    }
+                  }}
                   boundBoxFunc={(oldBox, newBox) => {
-                    // Prevent extremely tiny objects
                     if (newBox.width < 20 || newBox.height < 20) return oldBox;
                     return newBox;
                   }}
