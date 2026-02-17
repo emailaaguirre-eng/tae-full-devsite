@@ -23,10 +23,24 @@ export function validateAdminToken(token: string): { valid: boolean; email?: str
   }
 }
 
-export function validateAdminCredentials(email: string, password: string): boolean {
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@theartfulexperience.com';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'tae-admin-2026';
-  return email === adminEmail && password === adminPassword;
+export function validateAdminCredentials(username: string, password: string): boolean {
+  const admins = [
+    { user: process.env.ADMIN1_USERNAME, pass: process.env.ADMIN1_PASSWORD },
+    { user: process.env.ADMIN2_USERNAME, pass: process.env.ADMIN2_PASSWORD },
+    { user: process.env.ADMIN3_USERNAME, pass: process.env.ADMIN3_PASSWORD },
+    { user: process.env.ADMIN4_USERNAME, pass: process.env.ADMIN4_PASSWORD },
+  ];
+
+  for (const admin of admins) {
+    if (admin.user && admin.pass && username === admin.user && password === admin.pass) {
+      return true;
+    }
+  }
+
+  // Fallback defaults if no env vars are set
+  const fallbackUser = process.env.ADMIN_EMAIL || 'admin@theartfulexperience.com';
+  const fallbackPass = process.env.ADMIN_PASSWORD || 'tae-admin-2026';
+  return username === fallbackUser && password === fallbackPass;
 }
 
 export async function getAdminSession(): Promise<{ authenticated: boolean; email?: string }> {
