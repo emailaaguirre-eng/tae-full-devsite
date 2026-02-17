@@ -149,7 +149,7 @@ export default function Hero() {
                       An experience that&apos;s meant to be returned to, not tucked away.
                     </p>
                     <p className="font-bold">
-                      We invite you to explore, and look forward to our official launch in January 2026.
+                      We invite you to explore, and look forward to our official launch in early 2026.
                     </p>
                   </div>
                   <div className="text-center">

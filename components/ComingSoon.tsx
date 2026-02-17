@@ -10,7 +10,7 @@ export default function ComingSoon() {
               We&apos;re Building Something Special!
             </h2>
             <p className="text-lg md:text-xl text-brand-darkest leading-relaxed mb-6">
-              Welcome to our site. We are currently working hard to finalize our full experience, launching officially in January 2026.
+              Welcome to our site. We are currently working hard to finalize our full experience, launching officially in early 2026.
             </p>
             <p className="text-base text-brand-dark leading-relaxed mb-8">
               In the meantime, feel free to look around! To stay in the loop, join our email list for updates on our launch. (Don&apos;t worry, we promise to keep your inbox spam-free).
