@@ -58,7 +58,7 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
             <div className="grid md:grid-cols-2 gap-0">
               {/* Kimber Image */}
-              <div className="relative min-h-[400px] md:min-h-[500px] w-full">
+              <Link href="/cocreators" className="relative min-h-[400px] md:min-h-[500px] w-full block cursor-pointer hover:opacity-90 transition-opacity">
                 <Image
                   src={kimber.image}
                   alt={kimber.name}
@@ -67,7 +67,7 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
                   style={{ objectPosition: 'top center' }}
                   unoptimized={kimber.image.startsWith('http')}
                 />
-              </div>
+              </Link>
               
               {/* Kimber Bio */}
               <div className="p-8 md:p-12 flex flex-col justify-center">
@@ -83,10 +83,10 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
                   We welcome Kimber as The Artful Experience&apos;s first co-creator, with an art collaboration launching in the New Year.
                 </p>
                 <Link
-                  href="/cocreators/kimber-cross"
+                  href="/cocreators"
                   className="bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg w-fit text-center"
                 >
-                  Learn More About Kimber →
+                  Meet Our CoCreators →
                 </Link>
               </div>
             </div>

@@ -20,7 +20,7 @@ export default function FeaturedArtist() {
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className="grid md:grid-cols-2 gap-0">
             {/* Artist Profile Picture */}
-            <div className="relative min-h-[400px] md:min-h-[500px] w-full">
+            <Link href={`/gallery/${featuredArtist.slug}`} className="relative min-h-[400px] md:min-h-[500px] w-full block cursor-pointer hover:opacity-90 transition-opacity">
               <Image
                 src={featuredArtist.image}
                 alt={featuredArtist.name}
@@ -29,7 +29,7 @@ export default function FeaturedArtist() {
                 style={{ objectPosition: 'top center' }}
                 unoptimized={featuredArtist.image.includes('theartfulexperience.com')}
               />
-            </div>
+            </Link>
             
             {/* Artist Bio */}
             <div className="p-8 md:p-12 flex flex-col justify-center">

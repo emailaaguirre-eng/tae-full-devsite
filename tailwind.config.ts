@@ -38,8 +38,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        playfair: ["var(--font-playfair)", "serif"],
-        nunito: ["var(--font-nunito)", "sans-serif"],
+        playfair: ['"Playfair Display"', "serif"],
+        nunito: ["Inter", "sans-serif"],
       },
     },
   },
