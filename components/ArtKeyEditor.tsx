@@ -98,14 +98,19 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const fromStudio = searchParams.get('from_studio') === 'true';
   const productNameParam = searchParams.get('product_name');
   const productSlugParam = searchParams.get('slug');
+  const portalToken = searchParams.get('portal_token');
+  const ownerTokenParam = searchParams.get('owner_token');
+  const fromAdmin = !!portalToken;
   const [isAdmin, setIsAdmin] = useState(false);
   const [studioExport, setStudioExport] = useState<any>(null);
+  const [portalLoaded, setPortalLoaded] = useState(false);
 
   // Check if user is logged in as admin
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const adminToken = localStorage.getItem('admin_token');
-      setIsAdmin(!!adminToken);
+      const adminCookie = document.cookie.includes('tae_admin_session');
+      setIsAdmin(!!adminToken || adminCookie);
     }
   }, []);
 
@@ -224,6 +229,41 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   useEffect(() => {
     if (artkeyId) loadArtKey(artkeyId);
   }, [artkeyId]);
+
+  // Load portal data when coming from admin demo builder
+  useEffect(() => {
+    if (!portalToken || portalLoaded) return;
+    
+    fetch(`/api/portal/${portalToken}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.data) {
+          const d = data.data;
+          const theme = typeof d.theme === 'string' ? JSON.parse(d.theme) : (d.theme || {});
+          const features = typeof d.features === 'string' ? JSON.parse(d.features) : (d.features || {});
+          const links = typeof d.links === 'string' ? JSON.parse(d.links) : (d.links || []);
+          const spotify = typeof d.spotify === 'string' ? JSON.parse(d.spotify) : (d.spotify || { url: '', autoplay: false });
+          const featuredVideo = typeof d.featuredVideo === 'string' ? JSON.parse(d.featuredVideo) : d.featuredVideo;
+          const uploadedImages = typeof d.uploadedImages === 'string' ? JSON.parse(d.uploadedImages) : (d.uploadedImages || []);
+          const uploadedVideos = typeof d.uploadedVideos === 'string' ? JSON.parse(d.uploadedVideos) : (d.uploadedVideos || []);
+
+          setArtKeyData(prev => ({
+            ...prev,
+            title: d.title || prev.title,
+            theme: { ...prev.theme, ...theme },
+            features: { ...prev.features, ...features },
+            links: links,
+            spotify: spotify,
+            featured_video: featuredVideo,
+            uploadedImages: uploadedImages,
+            uploadedVideos: uploadedVideos,
+          }));
+          if (links.length > 0) setCustomLinks(links);
+          setPortalLoaded(true);
+        }
+      })
+      .catch(err => console.error('[ARTKEY EDITOR] Failed to load portal:', err));
+  }, [portalToken, portalLoaded]);
 
   const loadArtKey = async (id: string) => {
     try {
@@ -548,6 +588,36 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           savedAt: new Date().toISOString(),
         }));
         console.log('[ARTKEY EDITOR] Saved to localStorage:', artkeyId);
+      }
+
+      // If coming from admin demo builder, save directly to portal API
+      if (fromAdmin && portalToken && ownerTokenParam) {
+        const portalPayload = {
+          title: artKeyData.title,
+          theme: artKeyData.theme,
+          features: artKeyData.features,
+          links: dataToSave.links || customLinks,
+          spotify: artKeyData.spotify,
+          featuredVideo: artKeyData.featured_video,
+        };
+        const portalRes = await fetch(`/api/portal/${portalToken}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Owner-Token': ownerTokenParam,
+          },
+          body: JSON.stringify(portalPayload),
+        });
+        const portalData = await portalRes.json();
+        if (portalData.success) {
+          alert('✅ ArtKey Portal saved successfully!');
+          if (redirectToShop) {
+            router.push('/b_d_admn_tae/artkey-demos');
+          }
+        } else {
+          alert(portalData.error || 'Failed to save portal');
+        }
+        return;
       }
 
       const res = await fetch('/api/artkey/save', {
