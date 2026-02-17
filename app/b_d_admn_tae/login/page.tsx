@@ -48,9 +48,9 @@ export default function AdminLoginPage() {
             </div>
           )}
           <div className="mb-4">
-            <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Email</label>
+            <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Username / Email</label>
             <input
-              type="email"
+              type="text"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
