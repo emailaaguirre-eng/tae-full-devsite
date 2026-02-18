@@ -4,7 +4,7 @@ import Image from "next/image";
 
 export default function CollectorsSection() {
   return (
-    <section className="py-20" style={{ backgroundColor: '#ecece9' }}>
+    <section className="py-20" style={{ backgroundColor: '#ffffff' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">
