@@ -651,6 +651,9 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           links: dataToSave.links || customLinks,
           spotify: artKeyData.spotify,
           featuredVideo: artKeyData.featured_video,
+          customizations,
+          uploadedImages: artKeyData.uploadedImages,
+          uploadedVideos: artKeyData.uploadedVideos,
         };
         const portalRes = await fetch(`/api/portal/${portalToken}`, {
           method: 'PUT',
@@ -702,7 +705,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       if (redirectToShop && fromStudio && studioExport?.productSpec) {
         const spec = studioExport.productSpec;
         const frontDesign = studioExport.designFiles?.find((f: any) => f.placement === 'front');
-        const cartItem = {
+        const cartItem: Record<string, any> = {
           id: `${spec.id}-${artkeyId || Date.now()}`,
           name: spec.name || productNameParam || 'Custom Product',
           price: spec.basePrice || 0,
@@ -724,6 +727,9 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             },
           },
         };
+        if (studioExport.artKeyTemplatePosition) {
+          cartItem.artKeyTemplatePosition = studioExport.artKeyTemplatePosition;
+        }
         addToCart(cartItem);
         // Clean up sessionStorage
         sessionStorage.removeItem('tae-studio-export');

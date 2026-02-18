@@ -125,8 +125,14 @@ export async function POST(req: Request) {
       });
 
       // Step 2: Generate the real QR code
-      const qrSize = artKeyTemplatePosition?.width || 300;
-      const actualQrSize = Math.round(qrSize * 0.24);
+      // QR fraction constants must match the studio (CustomizationStudio.tsx)
+      // These represent where the QR sits inside the compact ArtKey template SVG
+      const QR_SIZE_FRAC = 0.55;    // QR is 55% of template size
+      const QR_X_FRAC = 0.225;      // QR top-left x offset within template
+      const QR_Y_FRAC = 0.30;       // QR top-left y offset within template
+
+      const templateW = artKeyTemplatePosition?.width || 300;
+      const actualQrSize = Math.round(templateW * QR_SIZE_FRAC);
       const qrDataUrl = await generateQRCode(portalUrl, actualQrSize, 2);
 
       // Step 3: Composite QR onto each design file that has the template
@@ -136,20 +142,13 @@ export async function POST(req: Request) {
           artKeyTemplatePosition &&
           df.placement === artKeyTemplatePosition.placement
         ) {
-          // The QR sits at specific fractional offsets inside the ArtKey template
-          const QR_X_FRAC = 0.7033;
-          const QR_Y_FRAC = 0.2933;
-          const QR_SIZE_FRAC = 0.24;
-
           const qrX = Math.round(
             artKeyTemplatePosition.x +
-              artKeyTemplatePosition.width * QR_X_FRAC -
-              (artKeyTemplatePosition.width * QR_SIZE_FRAC) / 2
+              artKeyTemplatePosition.width * QR_X_FRAC
           );
           const qrY = Math.round(
             artKeyTemplatePosition.y +
-              artKeyTemplatePosition.height * QR_Y_FRAC -
-              (artKeyTemplatePosition.height * QR_SIZE_FRAC) / 2
+              artKeyTemplatePosition.height * QR_Y_FRAC
           );
           const qrW = Math.round(
             artKeyTemplatePosition.width * QR_SIZE_FRAC

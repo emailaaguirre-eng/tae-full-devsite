@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect x="2" y="2" width="196" height="196" rx="6" fill="white" stroke="#353535" stroke-width="2.5"/>
+  <rect x="6" y="6" width="188" height="188" rx="4" fill="none" stroke="#ded8d3" stroke-width="0.75"/>
+  <text x="100" y="30" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="20" font-weight="bold" fill="#353535" letter-spacing="2">ArtKey</text>
+  <line x1="35" y1="40" x2="165" y2="40" stroke="#ded8d3" stroke-width="0.75"/>
+  <text x="100" y="52" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="7" fill="#918c86" letter-spacing="1">THE ARTFUL EXPERIENCE</text>
+  <text x="100" y="192" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="7" fill="#918c86">Scan to explore</text>
+</svg>

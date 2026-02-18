@@ -48,7 +48,7 @@ const PRODUCTS: ProductDefinition[] = [
     requiresQrCode: true,
     supportsOrientation: true,
     defaultOrientation: "portrait",
-    qrSizeInches: 0.5,
+    qrSizeInches: 0.4,
   },
   {
     id: "TAE-POST",
@@ -79,7 +79,7 @@ const PRODUCTS: ProductDefinition[] = [
     requiresQrCode: true,
     supportsOrientation: true,
     defaultOrientation: "portrait",
-    qrSizeInches: 0.75,
+    qrSizeInches: 0.5,
   },
 ];
 
@@ -94,7 +94,7 @@ function buildProductSpec(
   const printHeight = isPortrait ? variant.landscapeWidth : variant.landscapeHeight;
 
   const qrSize = Math.round(product.qrSizeInches * product.printDpi);
-  const qrInTemplateFraction = 0.332;
+  const qrInTemplateFraction = 0.55;
   const templateSize = Math.round(qrSize / qrInTemplateFraction);
   const margin = Math.round(0.5 * product.printDpi);
   const qrPlacement = (product.placements as string[]).includes("back") ? "back" : "front";
@@ -144,9 +144,9 @@ function buildSpecFromApiProduct(apiProduct: any): ProductSpec {
       } catch { /* compute below */ }
     }
     if (!qrDefaultPosition) {
-      const qrSizeInches = 0.5;
+      const qrSizeInches = 0.4;
       const qrSize = Math.round(qrSizeInches * printDpi);
-      const templateSize = Math.round(qrSize / 0.332);
+      const templateSize = Math.round(qrSize / 0.55);
       const margin = Math.round(0.5 * printDpi);
       const qrPlacement = placements.includes("back") ? "back" : "front";
       qrDefaultPosition = {
@@ -225,7 +225,10 @@ function StudioContent() {
 
   // Handle export: save design files to sessionStorage, then navigate to ArtKey editor
   const handleExport = useCallback(
-    (files: { placement: string; dataUrl: string }[]) => {
+    (
+      files: { placement: string; dataUrl: string }[],
+      artKeyTemplatePosition?: { placement: string; x: number; y: number; width: number; height: number }
+    ) => {
       const studioData = {
         productSpec: {
           id: productSpec.id,
@@ -237,6 +240,7 @@ function StudioContent() {
           requiresQrCode: productSpec.requiresQrCode,
         },
         designFiles: files,
+        artKeyTemplatePosition: artKeyTemplatePosition || null,
         exportedAt: new Date().toISOString(),
       };
 
@@ -378,7 +382,7 @@ function StudioContent() {
           key={`${productSpec.id}-${productSpec.printWidth}-${productSpec.printHeight}`}
           productSpec={productSpec}
           placeholderQrCodeUrl="/images/placeholder-qr.svg"
-          artKeyTemplateUrl="/images/artkey-template.svg"
+          artKeyTemplateUrl="/images/artkey-template-compact.svg"
           onExport={handleExport}
         />
       </div>

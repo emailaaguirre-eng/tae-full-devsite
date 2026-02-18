@@ -130,14 +130,67 @@ const DECORATIVE_ELEMENTS = {
 };
 
 // ============================================================================
-// QR TEMPLATE MATH
-// - QR is rendered inside the ArtKey template at ~24% of template size
-// - The internal offsets are tuned to the canonical template SVG
+// QR TEMPLATE MATH (compact template — artkey-template-compact.svg)
+// - QR is rendered inside the ArtKey template at 55% of template size
+// - Positioned centered below the "ArtKey" branding text
+// - These fractions are the QR top-left offset within the template
 // ============================================================================
-const QR_IN_TEMPLATE_FRACTION = 0.332;
-const QR_IN_TEMPLATE_X_FRACTION = 0.6675;
-const QR_IN_TEMPLATE_Y_FRACTION = 0.2578;
-const TARGET_QR_INCHES = 0.5; // enforce ~0.5in QR minimum for scannability
+const QR_IN_TEMPLATE_FRACTION = 0.55;
+const QR_IN_TEMPLATE_X_FRACTION = 0.225;
+const QR_IN_TEMPLATE_Y_FRACTION = 0.30;
+const TARGET_QR_INCHES = 0.4; // minimum ~0.4in QR for reliable scannability
+
+// ============================================================================
+// INLINE SVG ICON COMPONENTS (cross-platform safe, no Unicode/emoji issues)
+// ============================================================================
+const IconUndo = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 0 1 15.36-6.36L21 9"/></svg>
+);
+const IconRedo = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M21 13a9 9 0 0 0-15.36-6.36L3 9"/></svg>
+);
+const IconPlus = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+);
+const IconMinus = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+);
+const IconRotateCCW = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+);
+const IconRotateCW = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+);
+const IconBringForward = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="4" y="4" width="10" height="10" rx="1" opacity="0.4"/><rect x="10" y="10" width="10" height="10" rx="1"/></svg>
+);
+const IconSendBack = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="10" y="10" width="10" height="10" rx="1" opacity="0.4"/><rect x="4" y="4" width="10" height="10" rx="1"/></svg>
+);
+const IconCrop = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2v4h12v12h4"/><path d="M18 22v-4H6V6H2"/></svg>
+);
+const IconAlignLeft = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+);
+const IconAlignCenter = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+);
+const IconAlignRight = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
+);
+const IconExport = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+);
+const IconTrash = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+);
+const IconText = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="20" y2="4"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
+);
+const IconFit = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m10 0h3a2 2 0 0 0 2-2v-3"/></svg>
+);
 
 // ============================================================================
 // ZOOM LEVELS (multiplier on top of "fit" scale)
@@ -151,11 +204,22 @@ const FIT_ZOOM_INDEX = 3; // 1.0
 // ============================================================================
 // COMPONENT PROPS
 // ============================================================================
+type ArtKeyTemplatePosition = {
+  placement: Placement;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 type Props = {
   productSpec: ProductSpec;
   placeholderQrCodeUrl?: string;
   artKeyTemplateUrl?: string;
-  onExport?: (files: { placement: Placement; dataUrl: string }[]) => void;
+  onExport?: (
+    files: { placement: Placement; dataUrl: string }[],
+    artKeyTemplatePosition?: ArtKeyTemplatePosition
+  ) => void;
   onSave?: (designs: DesignState) => void;
 };
 
@@ -403,7 +467,7 @@ export function CustomizationStudio({
     productSpec.qrDefaultPosition?.placement || productSpec.placements[0] || "front"
   );
 
-  // Enforce a minimum ArtKey template size so the embedded QR prints ~1 inch.
+  // Enforce a minimum ArtKey template size so the embedded QR prints at least ~0.4 inch.
   const normalizedQrDefault = useMemo(() => {
     if (!productSpec.qrDefaultPosition) return undefined;
 
@@ -419,7 +483,7 @@ export function CustomizationStudio({
       height = Math.round(height / QR_IN_TEMPLATE_FRACTION);
     }
 
-    // Ensure template is never smaller than what would make the embedded QR ~1 inch.
+    // Ensure template is never smaller than what would make the embedded QR ~0.4 inch.
     const minTemplate = Math.round(expectedQrPx / QR_IN_TEMPLATE_FRACTION);
     width = Math.max(width, minTemplate);
     height = Math.max(height, minTemplate);
@@ -1739,17 +1803,30 @@ export function CustomizationStudio({
     });
   }, [snapshotCurrentStage]);
 
+  const getArtKeyTemplatePosition = useCallback((): ArtKeyTemplatePosition | undefined => {
+    if (!productSpec.requiresQrCode) return undefined;
+    const qrData = designs[qrPlacement]?.qrCode;
+    if (!qrData) return undefined;
+    return {
+      placement: qrPlacement,
+      x: qrData.x,
+      y: qrData.y,
+      width: qrData.width,
+      height: qrData.height,
+    };
+  }, [designs, productSpec.requiresQrCode, qrPlacement]);
+
   const handleExport = useCallback(async () => {
     const dataUrl = await exportCurrentPlacement();
     if (!dataUrl) return;
 
     if (onExport) {
-      onExport([{ placement: activePlacement, dataUrl }]);
+      onExport([{ placement: activePlacement, dataUrl }], getArtKeyTemplatePosition());
       return;
     }
 
     downloadDataURL(dataUrl, `${productSpec.name}-${activePlacement}.png`);
-  }, [activePlacement, exportCurrentPlacement, onExport, productSpec.name]);
+  }, [activePlacement, exportCurrentPlacement, getArtKeyTemplatePosition, onExport, productSpec.name]);
 
   const handleExportAll = useCallback(async () => {
     const originalPlacement = activePlacement;
@@ -1771,12 +1848,12 @@ export function CustomizationStudio({
     setActivePlacement(originalPlacement);
 
     if (onExport) {
-      onExport(outputs);
+      onExport(outputs, getArtKeyTemplatePosition());
       return;
     }
 
     outputs.forEach((o) => downloadDataURL(o.dataUrl, `${productSpec.name}-${o.placement}.png`));
-  }, [activePlacement, exportCurrentPlacement, onExport, productSpec.name, productSpec.placements]);
+  }, [activePlacement, exportCurrentPlacement, getArtKeyTemplatePosition, onExport, productSpec.name, productSpec.placements]);
 
   // -------------------------------------------------------------------------
   // UI HELPERS
@@ -1847,20 +1924,20 @@ export function CustomizationStudio({
           <button
             onClick={handleUndo}
             disabled={!canUndo}
-            className="px-3 py-2 rounded text-sm disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm disabled:opacity-40"
             style={{ background: BRAND.light, color: BRAND.dark }}
-            title="Undo (Ctrl/Cmd+Z)"
+            title="Undo (Ctrl+Z)"
           >
-            Undo
+            <IconUndo /> Undo
           </button>
           <button
             onClick={handleRedo}
             disabled={!canRedo}
-            className="px-3 py-2 rounded text-sm disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm disabled:opacity-40"
             style={{ background: BRAND.light, color: BRAND.dark }}
-            title="Redo (Ctrl/Cmd+Y)"
+            title="Redo (Ctrl+Y)"
           >
-            Redo
+            <IconRedo /> Redo
           </button>
 
           {/* Quick add text */}
@@ -1871,26 +1948,26 @@ export function CustomizationStudio({
               setTextInput("Your text here");
               setIsAddingText(true);
             }}
-            className="px-3 py-2 rounded text-sm"
+            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm"
             style={{ background: BRAND.light, color: BRAND.dark }}
             title="Add a text label"
           >
-            + Text
+            <IconText /> Add Text
           </button>
 
           {/* Zoom */}
           <div className="mx-2 h-6 w-px" style={{ background: BRAND.light }} />
           <button
             onClick={handleZoomOut}
-            className="px-3 py-2 rounded text-sm"
+            className="flex items-center justify-center w-8 h-8 rounded"
             style={{ background: BRAND.light, color: BRAND.dark }}
             title="Zoom out"
           >
-            –
+            <IconMinus />
           </button>
           <button
             onClick={handleZoomReset}
-            className="px-3 py-2 rounded text-sm"
+            className="px-2 py-2 rounded text-sm font-mono min-w-[3.5rem] text-center"
             style={{ background: BRAND.light, color: BRAND.dark }}
             title="Reset zoom"
           >
@@ -1898,36 +1975,38 @@ export function CustomizationStudio({
           </button>
           <button
             onClick={handleZoomIn}
-            className="px-3 py-2 rounded text-sm"
+            className="flex items-center justify-center w-8 h-8 rounded"
             style={{ background: BRAND.light, color: BRAND.dark }}
             title="Zoom in"
           >
-            +
+            <IconPlus />
           </button>
           <button
             onClick={handleZoomFit}
-            className="px-3 py-2 rounded text-sm"
+            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm"
             style={{ background: BRAND.light, color: BRAND.dark }}
-            title="Fit"
+            title="Fit canvas to view"
           >
-            Fit
+            <IconFit /> Fit
           </button>
 
           {/* Export */}
           <div className="mx-2 h-6 w-px" style={{ background: BRAND.light }} />
           <button
             onClick={handleExport}
-            className="px-3 py-2 rounded text-sm font-medium"
+            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
             style={{ background: BRAND.accent, color: BRAND.white }}
+            title="Export current surface as PNG"
           >
-            Export PNG
+            <IconExport /> Export
           </button>
           <button
             onClick={handleExportAll}
-            className="px-3 py-2 rounded text-sm font-medium"
+            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
             style={{ background: BRAND.accent, color: BRAND.white }}
+            title="Export all surfaces as PNG"
           >
-            Export All
+            <IconExport /> Export All
           </button>
         </div>
       </div>
@@ -2316,11 +2395,11 @@ export function CustomizationStudio({
                   <div className="flex items-center justify-end gap-1">
                     <button
                       onClick={() => setTextBold((v) => !v)}
-                      className="px-2 py-1 rounded text-sm border"
+                      className="flex items-center justify-center w-8 h-7 rounded text-sm border font-bold"
                       style={{
-                        borderColor: BRAND.light,
-                        background: textBold ? BRAND.lightest : BRAND.white,
-                        color: BRAND.dark,
+                        borderColor: textBold ? BRAND.accent : BRAND.light,
+                        background: textBold ? BRAND.accent : BRAND.white,
+                        color: textBold ? BRAND.white : BRAND.dark,
                       }}
                       title="Bold"
                     >
@@ -2328,11 +2407,11 @@ export function CustomizationStudio({
                     </button>
                     <button
                       onClick={() => setTextItalic((v) => !v)}
-                      className="px-2 py-1 rounded text-sm border italic"
+                      className="flex items-center justify-center w-8 h-7 rounded text-sm border italic"
                       style={{
-                        borderColor: BRAND.light,
-                        background: textItalic ? BRAND.lightest : BRAND.white,
-                        color: BRAND.dark,
+                        borderColor: textItalic ? BRAND.accent : BRAND.light,
+                        background: textItalic ? BRAND.accent : BRAND.white,
+                        color: textItalic ? BRAND.white : BRAND.dark,
                       }}
                       title="Italic"
                     >
@@ -2340,11 +2419,11 @@ export function CustomizationStudio({
                     </button>
                     <button
                       onClick={() => setTextUnderline((v) => !v)}
-                      className="px-2 py-1 rounded text-sm border underline"
+                      className="flex items-center justify-center w-8 h-7 rounded text-sm border underline"
                       style={{
-                        borderColor: BRAND.light,
-                        background: textUnderline ? BRAND.lightest : BRAND.white,
-                        color: BRAND.dark,
+                        borderColor: textUnderline ? BRAND.accent : BRAND.light,
+                        background: textUnderline ? BRAND.accent : BRAND.white,
+                        color: textUnderline ? BRAND.white : BRAND.dark,
                       }}
                       title="Underline"
                     >
@@ -2358,20 +2437,42 @@ export function CustomizationStudio({
                     Align
                   </label>
                   <div className="flex gap-1">
-                    {(["left", "center", "right"] as TextAlign[]).map((a) => (
-                      <button
-                        key={a}
-                        onClick={() => setTextAlign(a)}
-                        className="px-2 py-1 rounded text-xs border"
-                        style={{
-                          borderColor: BRAND.light,
-                          background: textAlign === a ? BRAND.lightest : BRAND.white,
-                          color: BRAND.dark,
-                        }}
-                      >
-                        {a === "left" ? "L" : a === "center" ? "C" : "R"}
-                      </button>
-                    ))}
+                    <button
+                      onClick={() => setTextAlign("left")}
+                      className="flex items-center justify-center w-8 h-7 rounded border"
+                      style={{
+                        borderColor: BRAND.light,
+                        background: textAlign === "left" ? BRAND.lightest : BRAND.white,
+                        color: BRAND.dark,
+                      }}
+                      title="Align left"
+                    >
+                      <IconAlignLeft />
+                    </button>
+                    <button
+                      onClick={() => setTextAlign("center")}
+                      className="flex items-center justify-center w-8 h-7 rounded border"
+                      style={{
+                        borderColor: BRAND.light,
+                        background: textAlign === "center" ? BRAND.lightest : BRAND.white,
+                        color: BRAND.dark,
+                      }}
+                      title="Align center"
+                    >
+                      <IconAlignCenter />
+                    </button>
+                    <button
+                      onClick={() => setTextAlign("right")}
+                      className="flex items-center justify-center w-8 h-7 rounded border"
+                      style={{
+                        borderColor: BRAND.light,
+                        background: textAlign === "right" ? BRAND.lightest : BRAND.white,
+                        color: BRAND.dark,
+                      }}
+                      title="Align right"
+                    >
+                      <IconAlignRight />
+                    </button>
                   </div>
                 </div>
 
@@ -2461,49 +2562,55 @@ export function CustomizationStudio({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => rotateSelected(-15)}
-                  className="px-3 py-2 rounded text-sm"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded text-sm"
                   style={{ background: BRAND.light, color: BRAND.dark }}
+                  title="Rotate left 15 degrees"
                 >
-                  ↺ Rotate
+                  <IconRotateCCW /> Rotate L
                 </button>
                 <button
                   onClick={() => rotateSelected(15)}
-                  className="px-3 py-2 rounded text-sm"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded text-sm"
                   style={{ background: BRAND.light, color: BRAND.dark }}
+                  title="Rotate right 15 degrees"
                 >
-                  ↻ Rotate
+                  <IconRotateCW /> Rotate R
                 </button>
                 <button
                   onClick={bringToFront}
-                  className="px-3 py-2 rounded text-sm"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded text-sm"
                   style={{ background: BRAND.light, color: BRAND.dark }}
+                  title="Bring to front"
                 >
-                  ↑ Front
+                  <IconBringForward /> To Front
                 </button>
                 <button
                   onClick={sendToBack}
-                  className="px-3 py-2 rounded text-sm"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded text-sm"
                   style={{ background: BRAND.light, color: BRAND.dark }}
+                  title="Send to back"
                 >
-                  ↓ Back
+                  <IconSendBack /> To Back
                 </button>
 
                 {selectedType === "image" && (
                   <button
                     onClick={handleStartCrop}
-                    className="col-span-2 px-3 py-2 rounded text-sm font-medium"
+                    className="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
                     style={{ background: BRAND.lightest, color: BRAND.accent, border: `1px solid ${BRAND.light}` }}
+                    title="Crop this image"
                   >
-                    ✂️ Crop Image
+                    <IconCrop /> Crop Image
                   </button>
                 )}
 
                 <button
                   onClick={deleteSelected}
-                  className="col-span-2 px-3 py-2 rounded text-sm font-medium"
+                  className="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
                   style={{ background: "#fee2e2", color: "#991b1b" }}
+                  title="Delete selected item"
                 >
-                  Delete
+                  <IconTrash /> Delete
                 </button>
               </div>
 
@@ -2867,7 +2974,10 @@ export function CustomizationStudio({
                     }}
                   >
                     {qrPlacement === p && productSpec.requiresQrCode ? (
-                      <span style={{ color: "#6d28d9" }}>🔑 ArtKey</span>
+                      <span className="flex items-center gap-1" style={{ color: "#6d28d9" }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        ArtKey
+                      </span>
                     ) : (designs[p]?.images?.length || 0) + (designs[p]?.texts?.length || 0) > 0 ? (
                       <span style={{ color: "#16a34a" }}>
                         {(designs[p]?.images?.length || 0) + (designs[p]?.texts?.length || 0)} items

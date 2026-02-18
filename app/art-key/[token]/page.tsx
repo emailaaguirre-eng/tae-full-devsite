@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { ElegantIcon, type ElegantIconKey } from "@/components/artkey/ElegantIcons";
 
 interface PortalData {
   id: string;
@@ -19,6 +20,8 @@ interface PortalData {
     button_gradient?: string;
     header_icon?: string;
     button_shape?: string;
+    button_style?: string;
+    button_border?: string;
   };
   features: {
     enable_gallery?: boolean;
@@ -64,6 +67,22 @@ export default function ArtKeyPortalPage() {
       .finally(() => setLoading(false));
   }, [token]);
 
+  // Load Google Font if the theme uses one (stored as "g:Font Name")
+  useEffect(() => {
+    const font = portal?.theme?.font;
+    if (font && font.startsWith("g:")) {
+      const fontName = font.replace("g:", "").replace(/\s+/g, "+");
+      const linkId = `gf-${fontName}`;
+      if (typeof window !== "undefined" && !document.getElementById(linkId)) {
+        const link = document.createElement("link");
+        link.id = linkId;
+        link.rel = "stylesheet";
+        link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;600;700&display=swap`;
+        document.head.appendChild(link);
+      }
+    }
+  }, [portal?.theme?.font]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -92,6 +111,8 @@ export default function ArtKeyPortalPage() {
   const textColor = theme.text_color || "#ffffff";
   const titleColor = theme.title_color || "#ffffff";
   const buttonColor = theme.button_color || "#3b82f6";
+  const buttonShape = theme.button_shape || "pill";
+  const buttonStyle = theme.button_style || "solid";
   const sectionOrder = features.order || [
     "links",
     "gallery",
@@ -99,6 +120,55 @@ export default function ArtKeyPortalPage() {
     "spotify",
     "guestbook",
   ];
+
+  const buttonBorderRadius =
+    buttonShape === "square" ? "0px" : buttonShape === "rounded" ? "8px" : "9999px";
+
+  const getButtonStyle = (): React.CSSProperties => {
+    const base: React.CSSProperties = { borderRadius: buttonBorderRadius };
+    if (buttonStyle === "outline") {
+      return {
+        ...base,
+        backgroundColor: "transparent",
+        border: `2px solid ${buttonColor}`,
+        color: buttonColor,
+      };
+    }
+    if (buttonStyle === "glass") {
+      return {
+        ...base,
+        backgroundColor: `${buttonColor}33`,
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        border: `1px solid ${buttonColor}66`,
+        color: "#ffffff",
+      };
+    }
+    if (theme.button_gradient) {
+      return {
+        ...base,
+        background: theme.button_gradient,
+        color: "#ffffff",
+      };
+    }
+    return {
+      ...base,
+      backgroundColor: buttonColor,
+      color: "#ffffff",
+    };
+  };
+
+  const btnStyle = getButtonStyle();
+
+  const parseFontFamily = (fontValue?: string): string => {
+    if (!fontValue) return "Inter, sans-serif";
+    if (fontValue.startsWith("g:")) {
+      return `"${fontValue.replace("g:", "")}", sans-serif`;
+    }
+    if (fontValue === "system") return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    if (fontValue === "serif") return 'Georgia, "Times New Roman", serif';
+    return fontValue;
+  };
 
   const [gbSuccess, setGbSuccess] = useState<string | null>(null);
 
@@ -143,11 +213,8 @@ export default function ArtKeyPortalPage() {
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full text-center py-3.5 px-4 rounded-xl font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
-                style={{
-                  backgroundColor: buttonColor,
-                  color: "#ffffff",
-                }}
+                className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+                style={btnStyle}
               >
                 {link.label}
               </a>
@@ -296,8 +363,8 @@ export default function ArtKeyPortalPage() {
               <button
                 type="submit"
                 disabled={gbSubmitting}
-                className="w-full py-3 rounded-lg font-semibold text-sm transition-all disabled:opacity-50"
-                style={{ backgroundColor: buttonColor, color: "#ffffff" }}
+                className="w-full py-3 font-semibold text-sm transition-all disabled:opacity-50"
+                style={btnStyle}
               >
                 {gbSubmitting ? "Submitting..." : "Sign Guestbook"}
               </button>
@@ -320,17 +387,32 @@ export default function ArtKeyPortalPage() {
           : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",
-        fontFamily: theme.font || "Inter, sans-serif",
+        fontFamily: parseFontFamily(theme.font),
       }}
     >
       {/* Header */}
       <div className="w-full max-w-md px-6 pt-12 pb-6 text-center">
-        {theme.header_icon && (
-          <div className="text-4xl mb-4">{theme.header_icon}</div>
+        {theme.header_icon && theme.header_icon !== "none" && (
+          <div className="mb-4 flex justify-center">
+            <ElegantIcon
+              icon={theme.header_icon as ElegantIconKey}
+              size={48}
+              color={titleColor}
+            />
+          </div>
         )}
         <h1
           className="text-2xl font-bold mb-2"
-          style={{ color: titleColor }}
+          style={
+            theme.title_style === "gradient"
+              ? {
+                  background: `linear-gradient(135deg, ${titleColor}, ${buttonColor})`,
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }
+              : { color: titleColor }
+          }
         >
           {portal.title}
         </h1>
