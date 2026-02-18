@@ -60,7 +60,7 @@ export async function POST(req: Request) {
             maxDeliveryDays: 10,
           },
         ],
-        note: "Printful not configured — showing estimated rates",
+        note: "Showing estimated rates",
       });
     }
 

@@ -244,7 +244,7 @@ export async function GET(req: Request) {
         },
       },
       helpText: {
-        description: "Printful API Test Route for The Artful Experience",
+        description: "Print Provider API Test Route for The Artful Experience",
         yourProducts: [
           "1. Greeting Cards (productId: 568)",
           "2. Postcards (productId: 433) - also Invitations & Announcements",

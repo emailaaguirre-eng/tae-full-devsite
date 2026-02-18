@@ -45,7 +45,7 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
   // Simplified view for home page
   if (simplified) {
     return (
-      <section id="cocreators" className="py-20" style={{ backgroundColor: '#ecece9' }}>
+      <section id="cocreators" className="py-20" style={{ backgroundColor: '#ffffff' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">

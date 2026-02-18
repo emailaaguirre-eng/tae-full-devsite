@@ -57,7 +57,7 @@ export default function CheckoutPage() {
   const [paymentLoading, setPaymentLoading] = useState(false);
 
   const subtotal = getTotalPrice();
-  const shippingCost = 0; // Calculated in later phase via Printful
+  const shippingCost = 0; // Calculated at fulfillment
   const total = subtotal + shippingCost;
 
   const hasQrItems = cart.some((item) => item.requiresQrCode);

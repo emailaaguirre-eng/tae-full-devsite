@@ -241,7 +241,7 @@ export default function AdminOrdersPage() {
                   <div className="text-xs text-brand-medium">{viewOrder.customerEmail}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-brand-medium uppercase tracking-wider mb-1">Printful</div>
+                  <div className="text-[10px] text-brand-medium uppercase tracking-wider mb-1">Fulfillment</div>
                   <div className="text-sm text-brand-dark">
                     {viewOrder.printfulOrderId ? `#${viewOrder.printfulOrderId}` : "Not submitted"}
                   </div>

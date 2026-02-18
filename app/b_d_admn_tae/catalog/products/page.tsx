@@ -294,7 +294,7 @@ export default function AdminProductsPage() {
                   </span>
                 </div>
                 <div className="col-span-4 md:col-span-2 text-xs text-brand-medium capitalize">
-                  {p.printProvider || "printful"}
+                  {p.printProvider === "printful" ? "Print Partner" : (p.printProvider || "Print Partner")}
                 </div>
                 <div className="col-span-4 md:col-span-1 flex items-center gap-1 justify-end">
                   <button onClick={() => handleEdit(p)} className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors" title="Edit">
@@ -379,7 +379,7 @@ export default function AdminProductsPage() {
                     onChange={(e) => setForm({ ...form, printProvider: e.target.value })}
                     className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                   >
-                    <option value="printful">Printful</option>
+                    <option value="printful">Print Partner</option>
                     <option value="custom">Custom / In-house</option>
                   </select>
                 </div>
@@ -387,7 +387,7 @@ export default function AdminProductsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Printful Product ID</label>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Provider Product ID</label>
                   <input
                     type="text"
                     value={form.printfulProductId}
@@ -397,7 +397,7 @@ export default function AdminProductsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Printful Variant ID</label>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Provider Variant ID</label>
                   <input
                     type="text"
                     value={form.printfulVariantId}
@@ -410,7 +410,7 @@ export default function AdminProductsPage() {
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Printful Base Price ($)</label>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Provider Base Price ($)</label>
                   <input
                     type="number"
                     step="0.01"

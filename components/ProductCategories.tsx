@@ -13,9 +13,8 @@ export default function ProductCategories() {
         "Upload your photo or artwork",
         "Place the ArtKey template with QR target",
         "Design your ArtKey portal (links, video, guestbook)",
-        "Printed & shipped by Printful",
+        "Professionally printed & shipped",
       ],
-      color: "from-brand-light to-brand-medium",
       href: "/shop",
       cta: "Browse Products",
     },
@@ -27,10 +26,8 @@ export default function ProductCategories() {
       items: [
         "Artist narratives and inspiration included",
         "Gallery-quality prints and paintings",
-        "Optional ArtKey portal linked by admin",
         "Ready-to-gift, no design needed",
       ],
-      color: "from-brand-light to-brand-medium",
       href: "/gallery",
       cta: "Explore Gallery",
     },
@@ -42,10 +39,7 @@ export default function ProductCategories() {
       items: [
         "Exclusive collaboration products",
         "Limited-edition runs",
-        "Artist + brand storytelling built in",
-        "Non-customizable, ready to purchase",
       ],
-      color: "from-brand-medium to-brand-dark",
       href: "/cocreators",
       cta: "Meet CoCreators",
     },
@@ -55,7 +49,7 @@ export default function ProductCategories() {
     <section
       id="products"
       className="py-20"
-      style={{ backgroundColor: "#ffffff" }}
+      style={{ backgroundColor: "#ecece9" }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
@@ -69,38 +63,36 @@ export default function ProductCategories() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
           {categories.map((category, index) => (
             <div
               key={index}
-              className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-2 overflow-hidden group"
+              className="bg-white shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-2 overflow-hidden group flex flex-col"
             >
-              <div
-                className={`bg-gradient-to-br ${category.color} p-8 text-center`}
-              >
-                <div className="text-6xl mb-4">{category.image}</div>
-                <h3 className="text-2xl font-bold text-white mb-2">
+              <div className="bg-gradient-to-br from-brand-light to-brand-medium p-8 text-center">
+                <div className="text-5xl mb-3">{category.image}</div>
+                <h3 className="text-xl font-bold text-white">
                   {category.title}
                 </h3>
               </div>
-              <div className="p-6">
-                <p className="text-brand-darkest mb-4">
+              <div className="p-6 flex flex-col flex-1">
+                <p className="text-brand-darkest mb-4 text-sm leading-relaxed">
                   {category.description}
                 </p>
-                <ul className="space-y-2 mb-6">
+                <ul className="space-y-2 mb-6 flex-1">
                   {category.items.map((item, idx) => (
                     <li
                       key={idx}
-                      className="text-sm text-brand-darkest flex items-center gap-2"
+                      className="text-sm text-brand-darkest flex items-start gap-2"
                     >
-                      <span className="text-brand-medium">✓</span>
+                      <span className="text-brand-medium mt-0.5">✓</span>
                       {item}
                     </li>
                   ))}
                 </ul>
                 <Link
                   href={category.href}
-                  className="block w-full text-center bg-brand-medium text-white py-3 rounded-full font-semibold hover:bg-brand-dark transition-colors"
+                  className="block w-full text-center bg-brand-dark text-white py-3 font-semibold hover:bg-brand-darkest transition-colors"
                 >
                   {category.cta}
                 </Link>
@@ -110,14 +102,14 @@ export default function ProductCategories() {
         </div>
 
         <div className="text-center mt-12">
-          <div className="inline-block bg-white p-8 rounded-2xl shadow-lg">
+          <div className="inline-block bg-white p-8 shadow-lg">
             <p className="text-brand-darkest text-lg mb-4">
               Ready to begin? Upload your image or browse the gallery to start
               crafting your living artwork.
             </p>
             <Link
               href="/shop"
-              className="inline-block bg-brand-dark text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-darkest transition-colors"
+              className="inline-block bg-brand-dark text-white px-8 py-3 font-semibold hover:bg-brand-darkest transition-colors"
             >
               Start Creating
             </Link>
