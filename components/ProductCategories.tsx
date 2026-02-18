@@ -101,20 +101,6 @@ export default function ProductCategories() {
           ))}
         </div>
 
-        <div className="text-center mt-12">
-          <div className="inline-block bg-white p-8 shadow-lg">
-            <p className="text-brand-darkest text-lg mb-4">
-              Ready to begin? Upload your image or browse the gallery to start
-              crafting your living artwork.
-            </p>
-            <Link
-              href="/shop"
-              className="inline-block bg-brand-dark text-white px-8 py-3 font-semibold hover:bg-brand-darkest transition-colors"
-            >
-              Start Creating
-            </Link>
-          </div>
-        </div>
       </div>
     </section>
   );
