@@ -1,6 +1,16 @@
 "use client";
 
+import { KeyIcon, CameraIcon, VideoIcon, MusicIcon, PenIcon, ThoughtIcon } from "@/components/CustomIcons";
+
 export default function WhatWeAre() {
+  const features = [
+    { icon: CameraIcon, label: "Share Pictures" },
+    { icon: VideoIcon, label: "Upload Videos" },
+    { icon: MusicIcon, label: "Music Playlists" },
+    { icon: PenIcon, label: "Guestbook" },
+    { icon: ThoughtIcon, label: "Share Interests" },
+  ];
+
   return (
     <section className="py-20" style={{ backgroundColor: '#ffffff' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -45,7 +55,7 @@ export default function WhatWeAre() {
         <div className="p-8 md:p-12" style={{ backgroundColor: '#ded8d3' }}>
           <div className="text-center mb-8">
             <div className="w-24 h-24 bg-brand-dark rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-5xl">🔑</span>
+              <KeyIcon size={48} color="white" strokeWidth={1.5} />
             </div>
             <h3 className="text-3xl font-bold text-brand-darkest mb-4 font-playfair">
               Every Product Includes ArtKey™ Technology
@@ -57,36 +67,17 @@ export default function WhatWeAre() {
 
           {/* ArtKey Features */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mt-10">
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm bg-white">
-                <span className="text-3xl">📸</span>
-              </div>
-              <p className="text-brand-darkest font-semibold">Share Pictures</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm bg-white">
-                <span className="text-3xl">🎬</span>
-              </div>
-              <p className="text-brand-darkest font-semibold">Upload Videos</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm bg-white">
-                <span className="text-3xl">🎵</span>
-              </div>
-              <p className="text-brand-darkest font-semibold">Music Playlists</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm bg-white">
-                <span className="text-3xl">✍️</span>
-              </div>
-              <p className="text-brand-darkest font-semibold">Guestbook</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm bg-white">
-                <span className="text-3xl">💭</span>
-              </div>
-              <p className="text-brand-darkest font-semibold">Share Interests</p>
-            </div>
+            {features.map((feature) => {
+              const IconComponent = feature.icon;
+              return (
+                <div key={feature.label} className="text-center">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm bg-white">
+                    <IconComponent size={28} color="#918c86" strokeWidth={1.5} />
+                  </div>
+                  <p className="text-brand-darkest font-semibold">{feature.label}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
 

@@ -163,6 +163,59 @@ export function AlertIcon({ size = 24, color = 'currentColor', className = '', s
   );
 }
 
+// Key Icon - replaces 🔑
+export function KeyIcon({ size = 24, color = 'currentColor', className = '', strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} style={{ stroke: color }}>
+      <circle cx="8" cy="15" r="5" strokeWidth={strokeWidth} {...strokeStyle} />
+      <path d="M12 11l8-8" strokeWidth={strokeWidth} {...strokeStyle} />
+      <path d="M17 3l3 3" strokeWidth={strokeWidth} {...strokeStyle} />
+      <path d="M15 7l-2 2" strokeWidth={strokeWidth} {...strokeStyle} />
+    </svg>
+  );
+}
+
+// Camera/Photo Icon - replaces 📸
+export function CameraIcon({ size = 24, color = 'currentColor', className = '', strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} style={{ stroke: color }}>
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" strokeWidth={strokeWidth} {...strokeStyle} />
+      <circle cx="12" cy="13" r="4" strokeWidth={strokeWidth} {...strokeStyle} />
+    </svg>
+  );
+}
+
+// Handshake Icon - replaces 🤝
+export function HandshakeIcon({ size = 24, color = 'currentColor', className = '', strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} style={{ stroke: color }}>
+      <path d="M20 11L14.5 5.5C14 5 13 5 12.5 5.5L4 14" strokeWidth={strokeWidth} {...strokeStyle} />
+      <path d="M4 14l6.5 6.5c.5.5 1.5.5 2 0L20 13" strokeWidth={strokeWidth} {...strokeStyle} />
+      <path d="M2 10l4 4" strokeWidth={strokeWidth} {...strokeStyle} />
+      <path d="M18 8l4 4" strokeWidth={strokeWidth} {...strokeStyle} />
+    </svg>
+  );
+}
+
+// Pen/Guestbook Icon - replaces ✍️
+export function PenIcon({ size = 24, color = 'currentColor', className = '', strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} style={{ stroke: color }}>
+      <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" strokeWidth={strokeWidth} {...strokeStyle} />
+      <path d="M15 5l4 4" strokeWidth={strokeWidth} {...strokeStyle} />
+    </svg>
+  );
+}
+
+// Thought/Share Interests Icon - replaces 💭
+export function ThoughtIcon({ size = 24, color = 'currentColor', className = '', strokeWidth = 2 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} style={{ stroke: color }}>
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" strokeWidth={strokeWidth} {...strokeStyle} />
+    </svg>
+  );
+}
+
 // Icon Registry for easy access
 export const CustomIcons = {
   art: ArtIcon,
@@ -177,6 +230,11 @@ export const CustomIcons = {
   cart: CartIcon,
   check: CheckIcon,
   alert: AlertIcon,
+  key: KeyIcon,
+  camera: CameraIcon,
+  handshake: HandshakeIcon,
+  pen: PenIcon,
+  thought: ThoughtIcon,
 } as const;
 
 export type CustomIconKey = keyof typeof CustomIcons;
