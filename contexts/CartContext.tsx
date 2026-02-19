@@ -83,10 +83,50 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Save cart to localStorage whenever it changes
+  // Save cart to localStorage whenever it changes.
+  // Design files (large base64 PNGs) are stored separately in sessionStorage
+  // to avoid exceeding localStorage's ~5MB quota.
   useEffect(() => {
-    localStorage.setItem('artful-cart', JSON.stringify(cart));
+    const lightCart = cart.map((item) => {
+      const { designFiles, imageUrl, ...rest } = item;
+      if (designFiles && designFiles.length > 0) {
+        try {
+          sessionStorage.setItem(`tae-design-${item.id}`, JSON.stringify(designFiles));
+        } catch { /* sessionStorage also full — data survives in memory */ }
+        if (imageUrl && imageUrl.startsWith('data:')) {
+          try { sessionStorage.setItem(`tae-thumb-${item.id}`, imageUrl); } catch {}
+          return { ...rest, designFiles: designFiles.map(df => ({ placement: df.placement, dataUrl: '' })), imageUrl: '' };
+        }
+        return { ...rest, designFiles: designFiles.map(df => ({ placement: df.placement, dataUrl: '' })) };
+      }
+      return item;
+    });
+    try {
+      localStorage.setItem('artful-cart', JSON.stringify(lightCart));
+    } catch {
+      console.warn('Cart save failed — clearing old cart data');
+      localStorage.removeItem('artful-cart');
+    }
   }, [cart]);
+
+  // Rehydrate design files from sessionStorage on mount
+  useEffect(() => {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.designFiles?.some(df => !df.dataUrl)) {
+          try {
+            const stored = sessionStorage.getItem(`tae-design-${item.id}`);
+            if (stored) {
+              const files = JSON.parse(stored);
+              const thumb = sessionStorage.getItem(`tae-thumb-${item.id}`);
+              return { ...item, designFiles: files, imageUrl: thumb || item.imageUrl };
+            }
+          } catch {}
+        }
+        return item;
+      })
+    );
+  }, []);
 
   const addToCart = (item: CartItem) => {
     setCart((prevCart) => {

@@ -67,6 +67,7 @@ const BRAND = {
   dark: "#000000",
   accent: "#475569",
   white: "#ffffff",
+  gold: "#C9A962",
 } as const;
 
 // ============================================================================
@@ -1992,22 +1993,35 @@ export function CustomizationStudio({
 
           {/* Export */}
           <div className="mx-2 h-6 w-px" style={{ background: BRAND.light }} />
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
-            style={{ background: BRAND.accent, color: BRAND.white }}
-            title="Export current surface as PNG"
-          >
-            <IconExport /> Export
-          </button>
-          <button
-            onClick={handleExportAll}
-            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
-            style={{ background: BRAND.accent, color: BRAND.white }}
-            title="Export all surfaces as PNG"
-          >
-            <IconExport /> Export All
-          </button>
+          {productSpec.placements.length > 1 ? (
+            <>
+              <button
+                onClick={handleExportAll}
+                className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
+                style={{ background: BRAND.accent, color: BRAND.white }}
+                title={onExport ? 'Save all surfaces and continue' : 'Download all surfaces as PNG'}
+              >
+                <IconExport /> {onExport ? 'Save & Continue' : 'Download All'}
+              </button>
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
+                style={{ background: BRAND.gold, color: BRAND.dark }}
+                title={onExport ? 'Save current surface and continue' : 'Download current surface as PNG'}
+              >
+                <IconExport /> {onExport ? 'Save Current' : 'Download'}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
+              style={{ background: BRAND.accent, color: BRAND.white }}
+              title={onExport ? 'Save design and continue' : 'Download design as PNG'}
+            >
+              <IconExport /> {onExport ? 'Save & Continue' : 'Download PNG'}
+            </button>
+          )}
         </div>
       </div>
 

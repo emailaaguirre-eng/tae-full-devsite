@@ -145,8 +145,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   
   // QR Code & Skeleton Key state (only for cards/invitations/postcards)
   const [productInfo, setProductInfo] = useState<any>(null);
-  const [skeletonKey, setSkeletonKey] = useState<string>('template-1'); // Default template
-  const [qrPosition, setQrPosition] = useState<string>('bottom-right'); // Default position
+  const [skeletonKey, setSkeletonKey] = useState<string>('template-1');
+  const [qrPosition, setQrPosition] = useState<string>('bottom-right');
+
+  // Save state: prevent duplicate saves and show result modal
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedPortalToken, setSavedPortalToken] = useState<string | null>(null);
+  const [saveModal, setSaveModal] = useState<{ show: boolean; url: string; message: string } | null>(null);
 
   // ArtKey data
   const [artKeyData, setArtKeyData] = useState<ArtKeyData>({
@@ -594,19 +599,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   };
 
   const handleSave = async (redirectToShop = false) => {
+    if (isSaving) return;
+    setIsSaving(true);
     try {
-      // Validate skeleton key and QR position if product requires it
-      if (productInfo?.requiresQR || productInfo?.requiresSkeletonKey) {
-        if (!skeletonKey || !qrPosition) {
-          alert('⚠️ Please select a skeleton key template and QR code position before saving.\n\nThis is required for cards, invitations, postcards, and announcements.');
-          // Scroll to QR Code Placement section
-          const qrSection = document.querySelector('[data-section="qr-placement"]');
-          if (qrSection) {
-            qrSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-          return;
-        }
-      }
+      // QR placement is handled in the Customization Studio canvas, not here
 
       // Include skeleton key and QR position in customizations if product requires QR
       const customizations = {
@@ -665,41 +661,45 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         });
         const portalData = await portalRes.json();
         if (portalData.success) {
-          alert('✅ ArtKey Portal saved successfully!');
+          const portalUrl = `${window.location.origin}/art-key/${portalToken}`;
           if (redirectToShop) {
             router.push('/b_d_admn_tae/artkey-demos');
+          } else {
+            setSaveModal({ show: true, url: portalUrl, message: 'ArtKey Portal saved successfully!' });
           }
         } else {
-          alert(portalData.error || 'Failed to save portal');
+          setSaveModal({ show: true, url: '', message: portalData.error || 'Failed to save portal' });
         }
         return;
       }
 
+      const savePayload = {
+        data: { ...dataToSave, token: savedPortalToken || dataToSave.token },
+        product_id: productId,
+      };
       const res = await fetch('/api/artkey/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data: dataToSave,
-          product_id: productId,
-        }),
+        body: JSON.stringify(savePayload),
       });
       
       if (!res.ok) {
         const err = await res.json();
-        // If it's just missing WordPress config, that's OK for demos
         if (err.message?.includes('demo mode')) {
-          alert('✅ Demo saved successfully!');
           if (redirectToShop) {
             router.push('/customize');
+          } else {
+            setSaveModal({ show: true, url: '', message: 'Demo saved successfully!' });
           }
           return;
         }
-        alert(err.error || err.message || 'Save failed');
+        setSaveModal({ show: true, url: '', message: err.error || err.message || 'Save failed' });
         return;
       }
       
       const result = await res.json();
-      alert(`✅ ArtKey saved! ${result.share_url ? `\nURL: ${result.share_url}` : ''}`);
+      if (result.token) setSavedPortalToken(result.token);
+      const portalUrl = result.share_url || '';
       
       // If coming from studio, build cart item with design files + ArtKey data
       if (redirectToShop && fromStudio && studioExport?.productSpec) {
@@ -760,10 +760,14 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       
       if (redirectToShop) {
         router.push('/cart');
+      } else {
+        setSaveModal({ show: true, url: portalUrl, message: 'ArtKey saved!' });
       }
     } catch (err) {
       console.error('Save failed', err);
-      alert('Failed to save ArtKey');
+      setSaveModal({ show: true, url: '', message: 'Failed to save ArtKey. Please try again.' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1015,24 +1019,27 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             <div className="flex gap-2">
               <button
                 onClick={() => handleSave(false)}
-                className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:bg-white/20"
+                disabled={isSaving}
+                className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:bg-white/20 disabled:opacity-50"
                 style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.2)' }}
               >
-                💾 Save Draft
+                {isSaving ? 'Saving...' : 'Save Draft'}
               </button>
               <button
                 onClick={handleSaveAndContinue}
-                className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:opacity-90"
+                disabled={isSaving}
+                className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50"
                 style={{ background: 'rgba(255,255,255,0.95)', color: '#1a1a2e' }}
               >
-                Save & Continue →
+                {isSaving ? 'Saving...' : 'Save & Continue →'}
               </button>
               <button
                 onClick={handleSaveAndCheckout}
-                className="px-4 py-2 rounded-lg font-semibold text-sm transition-all hover:opacity-90"
+                disabled={isSaving}
+                className="px-4 py-2 rounded-lg font-semibold text-sm transition-all hover:opacity-90 disabled:opacity-50"
                 style={{ background: 'linear-gradient(135deg, #C9A962, #D4AF37)', color: '#1a1a2e' }}
               >
-                ✓ Save & Checkout
+                {isSaving ? 'Saving...' : 'Save & Checkout'}
               </button>
             </div>
           </div>
@@ -1092,19 +1099,28 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       {artKeyData.title || 'Your Title Here'}
                     </h1>
 
-                        {/* Buttons Preview - Two columns when many buttons */}
+                        {/* Buttons Preview - respects featureDefs drag order */}
                         {(() => {
-                          const enabledLinks = featureDefs.filter(f => f.type === 'custom_link' && (f as any).enabled && f.linkData).map(f => f.linkData!);
-                          const allButtons = [
-                            ...enabledLinks,
-                            ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}` }] : []),
-                            ...(artKeyData.spotify.url?.length > 10 ? [{ label: featureDefs.find(f => f.key === 'spotify')?.label || '🎵 Share Your Playlist' }] : []),
-                            ...(artKeyData.features.show_guestbook ? [{ label: featureDefs.find(f => f.key === 'guestbook')?.label || '📖 Guestbook' }] : []),
-                            ...(artKeyData.features.enable_gallery ? [{ label: featureDefs.find(f => f.key === 'gallery')?.label || '📸 Image Gallery' }] : []),
-                            ...(artKeyData.features.enable_video ? [{ label: featureDefs.find(f => f.key === 'video')?.label || '🎥 Video Gallery' }] : []),
-                          ];
+                          const allButtons: { label: string }[] = [];
+                          for (const f of featureDefs) {
+                            if (!(f as any).enabled) continue;
+                            if (f.type === 'custom_link' && f.linkData) {
+                              allButtons.push({ label: f.linkData.label || 'Link' });
+                            } else if (f.key === 'gallery' && artKeyData.features.enable_gallery) {
+                              allButtons.push({ label: f.label || 'Image Gallery' });
+                            } else if (f.key === 'video' && artKeyData.features.enable_video) {
+                              allButtons.push({ label: f.label || 'Video Gallery' });
+                            } else if (f.key === 'guestbook' && artKeyData.features.show_guestbook) {
+                              allButtons.push({ label: f.label || 'Guestbook' });
+                            } else if (f.key === 'spotify' && artKeyData.features.enable_spotify && artKeyData.spotify.url?.length > 10) {
+                              allButtons.push({ label: f.label || 'Spotify' });
+                            }
+                          }
+                          if (artKeyData.featured_video) {
+                            allButtons.push({ label: artKeyData.featured_video.button_label || 'Watch Video' });
+                          }
                           const useTwoColumns = allButtons.length > 6;
-                          const maxChars = 40; // Max characters per button text
+                          const maxChars = 40;
                           const fontSize = useTwoColumns ? 'text-xs' : 'text-sm';
                           
                           return (
@@ -1116,7 +1132,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                 return (
                                   <button
                                     key={idx}
-                                    className={`${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md`}
+                                    className={`w-full py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md`}
                                     style={getButtonPreviewStyles(
                                       artKeyData.theme.button_color, 
                                       (artKeyData.theme.button_style as ButtonStyle) || buttonStyle, 
@@ -1181,19 +1197,28 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       {artKeyData.title || 'Your Title Here'}
                     </h1>
 
-                        {/* Buttons Preview - Two columns when many buttons */}
+                        {/* Buttons Preview - respects featureDefs drag order */}
                         {(() => {
-                          const enabledLinks = featureDefs.filter(f => f.type === 'custom_link' && (f as any).enabled && f.linkData).map(f => f.linkData!);
-                          const allButtons = [
-                            ...enabledLinks,
-                            ...(artKeyData.featured_video ? [{ label: `🎬 ${artKeyData.featured_video.button_label || 'Watch Video'}` }] : []),
-                            ...(artKeyData.spotify.url?.length > 10 ? [{ label: featureDefs.find(f => f.key === 'spotify')?.label || '🎵 Share Your Playlist' }] : []),
-                            ...(artKeyData.features.show_guestbook ? [{ label: featureDefs.find(f => f.key === 'guestbook')?.label || '📖 Guestbook' }] : []),
-                            ...(artKeyData.features.enable_gallery ? [{ label: featureDefs.find(f => f.key === 'gallery')?.label || '📸 Image Gallery' }] : []),
-                            ...(artKeyData.features.enable_video ? [{ label: featureDefs.find(f => f.key === 'video')?.label || '🎥 Video Gallery' }] : []),
-                          ];
+                          const allButtons: { label: string }[] = [];
+                          for (const f of featureDefs) {
+                            if (!(f as any).enabled) continue;
+                            if (f.type === 'custom_link' && f.linkData) {
+                              allButtons.push({ label: f.linkData.label || 'Link' });
+                            } else if (f.key === 'gallery' && artKeyData.features.enable_gallery) {
+                              allButtons.push({ label: f.label || 'Image Gallery' });
+                            } else if (f.key === 'video' && artKeyData.features.enable_video) {
+                              allButtons.push({ label: f.label || 'Video Gallery' });
+                            } else if (f.key === 'guestbook' && artKeyData.features.show_guestbook) {
+                              allButtons.push({ label: f.label || 'Guestbook' });
+                            } else if (f.key === 'spotify' && artKeyData.features.enable_spotify && artKeyData.spotify.url?.length > 10) {
+                              allButtons.push({ label: f.label || 'Spotify' });
+                            }
+                          }
+                          if (artKeyData.featured_video) {
+                            allButtons.push({ label: artKeyData.featured_video.button_label || 'Watch Video' });
+                          }
                           const useTwoColumns = allButtons.length > 6;
-                          const maxChars = 40; // Max characters per button text
+                          const maxChars = 40;
                           const fontSize = useTwoColumns ? 'text-xs' : 'text-sm';
                           
                           return (
@@ -1964,15 +1989,17 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       {!artKeyData.features.enable_gallery && <span className="text-xs text-gray-400">Disabled</span>}
                     </div>
                     {openedGallery === 'images' && artKeyData.features.enable_gallery && (
-                      <MediaColumn
-                        title="Images"
-                        items={artKeyData.uploadedImages}
-                        onRemove={(idx) => setArtKeyData((prev) => ({ ...prev, uploadedImages: prev.uploadedImages.filter((_, i) => i !== idx) }))}
-                        onUpload={handleImageUpload}
-                        accept="image/*"
-                        inputId="image-upload"
-                        buttonLabel="+ Upload"
-                      />
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <MediaColumn
+                          title="Images"
+                          items={artKeyData.uploadedImages}
+                          onRemove={(idx) => setArtKeyData((prev) => ({ ...prev, uploadedImages: prev.uploadedImages.filter((_, i) => i !== idx) }))}
+                          onUpload={handleImageUpload}
+                          accept="image/*"
+                          inputId="image-upload"
+                          buttonLabel="+ Upload"
+                        />
+                      </div>
                     )}
                   </div>
                   <div 
@@ -2000,35 +2027,36 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       {!artKeyData.features.enable_video && <span className="text-xs text-gray-400">Disabled</span>}
                     </div>
                     {openedGallery === 'videos' && artKeyData.features.enable_video && (
-                      <MediaColumn
-                        title="Videos"
-                        items={artKeyData.uploadedVideos}
-                        onRemove={(idx) => {
-                          const removedUrl = artKeyData.uploadedVideos[idx];
-                          setArtKeyData((prev) => {
-                            const newVideos = prev.uploadedVideos.filter((_, i) => i !== idx);
-                            // If removed video was featured, clear featured video
-                            const newFeatured = prev.featured_video?.video_url === removedUrl ? null : prev.featured_video;
-                            return { ...prev, uploadedVideos: newVideos, featured_video: newFeatured };
-                          });
-                        }}
-                        onUpload={handleVideoUpload}
-                        accept="video/*"
-                        inputId="video-upload"
-                        buttonLabel="+ Upload"
-                        isVideo
-                        featuredVideoUrl={artKeyData.featured_video?.video_url || null}
-                        onSetFeatured={handleSetFeaturedVideo}
-                        featuredVideoLabel={artKeyData.featured_video?.button_label}
-                        onUpdateFeaturedLabel={(label) => {
-                          if (artKeyData.featured_video) {
-                            setArtKeyData((prev) => ({
-                              ...prev,
-                              featured_video: prev.featured_video ? { ...prev.featured_video, button_label: label } : null,
-                            }));
-                          }
-                        }}
-                      />
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <MediaColumn
+                          title="Videos"
+                          items={artKeyData.uploadedVideos}
+                          onRemove={(idx) => {
+                            const removedUrl = artKeyData.uploadedVideos[idx];
+                            setArtKeyData((prev) => {
+                              const newVideos = prev.uploadedVideos.filter((_, i) => i !== idx);
+                              const newFeatured = prev.featured_video?.video_url === removedUrl ? null : prev.featured_video;
+                              return { ...prev, uploadedVideos: newVideos, featured_video: newFeatured };
+                            });
+                          }}
+                          onUpload={handleVideoUpload}
+                          accept="video/*"
+                          inputId="video-upload"
+                          buttonLabel="+ Upload"
+                          isVideo
+                          featuredVideoUrl={artKeyData.featured_video?.video_url || null}
+                          onSetFeatured={handleSetFeaturedVideo}
+                          featuredVideoLabel={artKeyData.featured_video?.button_label}
+                          onUpdateFeaturedLabel={(label) => {
+                            if (artKeyData.featured_video) {
+                              setArtKeyData((prev) => ({
+                                ...prev,
+                                featured_video: prev.featured_video ? { ...prev.featured_video, button_label: label } : null,
+                              }));
+                            }
+                          }}
+                        />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -2139,8 +2167,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               </Card>
             )}
 
-            {/* Step 8: QR Code & Skeleton Key (only for cards/invitations/postcards) */}
-            {designMode !== null && (productInfo?.requiresQR || productInfo?.requiresSkeletonKey) && (
+            {/* Step 8: QR Code & Skeleton Key — REMOVED: QR placement is handled in the Customization Studio canvas */}
+            {false && (
               <Card title="QR Code Placement" data-section="qr-placement">
                 {(productInfo?.requiresQR || productInfo?.requiresSkeletonKey) && !skeletonKey && (
                   <div className="mb-4 p-3 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
@@ -2419,6 +2447,62 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           </div>
         </div>
       </div>
+
+      {/* Save Result Modal */}
+      {saveModal?.show && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 animate-in fade-in">
+            <h3 className="text-lg font-bold mb-3" style={{ color: COLOR_ACCENT }}>
+              {saveModal.url ? 'ArtKey Saved' : 'Notice'}
+            </h3>
+            <p className="text-sm text-gray-700 mb-4">{saveModal.message}</p>
+            {saveModal.url && (
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Portal URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={saveModal.url}
+                    className="flex-1 px-3 py-2 rounded-lg border text-sm bg-gray-50 select-all"
+                    style={{ borderColor: '#d8d8d6' }}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(saveModal.url);
+                    }}
+                    className="px-3 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+                    style={{ background: COLOR_ACCENT, color: '#fff' }}
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              {saveModal.url && (
+                <a
+                  href={saveModal.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+                  style={{ background: COLOR_ALT, color: COLOR_ACCENT, border: '1px solid #d8d8d6' }}
+                >
+                  View Portal
+                </a>
+              )}
+              <button
+                onClick={() => setSaveModal(null)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #C9A962, #D4AF37)', color: '#1a1a2e' }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

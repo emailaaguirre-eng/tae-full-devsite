@@ -39,10 +39,11 @@ export async function POST(req: Request) {
 
         await saveDatabase();
 
+        const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/[^/]*$/, '') || '';
         return NextResponse.json({
           success: true,
           token: existing.publicToken,
-          share_url: `https://${process.env.ARTKEY_DOMAIN || 'artkey.theartfulexperience.com'}/${existing.publicToken}`,
+          share_url: `${origin}/art-key/${existing.publicToken}`,
         });
       }
     }
@@ -77,13 +78,13 @@ export async function POST(req: Request) {
 
     await saveDatabase();
 
-    const domain = process.env.ARTKEY_DOMAIN || 'artkey.theartfulexperience.com';
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/[^/]*$/, '') || '';
 
     return NextResponse.json({
       success: true,
       token: publicToken,
       owner_token: ownerToken,
-      share_url: `https://${domain}/${publicToken}`,
+      share_url: `${origin}/art-key/${publicToken}`,
       edit_url: `/art-key/${publicToken}/edit?owner=${ownerToken}`,
     });
   } catch (err: any) {
