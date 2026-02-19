@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import type { CartItem } from "@/contexts/CartContext";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2, AlertCircle } from "lucide-react";
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -124,13 +125,15 @@ export default function CheckoutPage() {
     setStep("payment");
   };
 
-  // ─── Payment (PayPal placeholder) ───────────────────────────────────────
+  // ─── Payment ────────────────────────────────────────────────────────────
 
-  const handlePayment = useCallback(async () => {
+  const handlePayment = useCallback(async (
+    paypalOrderId: string,
+    paypalTransactionId: string,
+  ) => {
     setPaymentLoading(true);
 
     try {
-      // Build items with portal tokens from proofs
       const orderItems = cart.map((item) => {
         const proof = proofs.find((p) => p.cartItemId === item.id);
         return {
@@ -153,8 +156,8 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paypalOrderId: `DEMO-${Date.now()}`,
-          paypalTransactionId: `DEMO-TXN-${Date.now()}`,
+          paypalOrderId,
+          paypalTransactionId,
           customer: {
             name: shipping.name,
             email: shipping.email,
@@ -178,7 +181,6 @@ export default function CheckoutPage() {
       const data = await res.json();
       if (data.success) {
         clearCart();
-        // Redirect to the dedicated order confirmation page
         router.push(
           `/order/${data.order.orderNumber}?email=${encodeURIComponent(
             shipping.email
@@ -515,22 +517,9 @@ export default function CheckoutPage() {
                 Payment
               </h2>
 
-              <div className="bg-brand-light/20 border border-brand-medium/20 rounded-xl p-6 mb-6">
-                <p className="text-sm text-brand-darkest/70">
-                  <span className="font-semibold">PayPal integration ready.</span>{" "}
-                  When you set the{" "}
-                  <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">
-                    NEXT_PUBLIC_PAYPAL_CLIENT_ID
-                  </code>{" "}
-                  environment variable, the PayPal buttons will appear here
-                  automatically. For now, use the demo button below.
-                </p>
-              </div>
-
-              {/* PayPal buttons will be rendered here when configured */}
               <PayPalSection
                 total={total}
-                onSuccess={handlePayment}
+                onPaymentComplete={handlePayment}
                 loading={paymentLoading}
               />
             </div>
@@ -602,46 +591,91 @@ function OrderSummary({
 
 function PayPalSection({
   total,
-  onSuccess,
+  onPaymentComplete,
   loading,
 }: {
   total: number;
-  onSuccess: () => void;
+  onPaymentComplete: (paypalOrderId: string, transactionId: string) => void;
   loading: boolean;
 }) {
   const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+  const [paypalError, setPaypalError] = useState<string | null>(null);
 
   if (paypalClientId) {
-    // When PayPal is configured, we'd render the PayPalScriptProvider here.
-    // For now, we show a placeholder that will be swapped in Phase 7+.
     return (
-      <div className="text-center py-8">
-        <p className="text-sm text-brand-darkest/60 mb-4">
-          PayPal checkout will appear here.
-        </p>
-        <button
-          onClick={onSuccess}
-          disabled={loading}
-          className="bg-[#0070ba] text-white px-10 py-3 rounded-full font-semibold hover:bg-[#005ea6] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mx-auto"
-        >
-          {loading ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            "Pay with PayPal"
-          )}
-        </button>
+      <div className="py-4">
+        {paypalError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {paypalError}
+          </div>
+        )}
+        {loading ? (
+          <div className="text-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-dark" />
+            <p className="text-sm text-brand-darkest/60">Processing your order...</p>
+          </div>
+        ) : (
+          <PayPalScriptProvider
+            options={{
+              clientId: paypalClientId,
+              currency: "USD",
+              intent: "capture",
+            }}
+          >
+            <PayPalButtons
+              style={{ layout: "vertical", shape: "pill", label: "pay" }}
+              createOrder={async () => {
+                setPaypalError(null);
+                const res = await fetch("/api/paypal/create-order", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ total }),
+                });
+                const data = await res.json();
+                if (!res.ok || !data.orderId) {
+                  setPaypalError(data.error || "Failed to create PayPal order");
+                  throw new Error(data.error || "PayPal create failed");
+                }
+                return data.orderId;
+              }}
+              onApprove={async (data) => {
+                setPaypalError(null);
+                const captureRes = await fetch("/api/paypal/capture-order", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ orderId: data.orderID }),
+                });
+                const captureData = await captureRes.json();
+                if (!captureRes.ok || !captureData.success) {
+                  setPaypalError(captureData.error || "Payment capture failed");
+                  return;
+                }
+                onPaymentComplete(
+                  captureData.paypalOrderId,
+                  captureData.transactionId,
+                );
+              }}
+              onError={(err) => {
+                console.error("[PayPal] Button error:", err);
+                setPaypalError("PayPal encountered an error. Please try again.");
+              }}
+            />
+          </PayPalScriptProvider>
+        )}
       </div>
     );
   }
 
-  // Demo mode: no PayPal configured
+  // Demo mode: no PayPal credentials configured
   return (
     <div className="text-center py-8">
-      <p className="text-xs text-brand-darkest/40 mb-6">
-        Demo mode — PayPal not configured
-      </p>
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+        <p className="text-xs text-amber-800">
+          Demo mode — Set <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">NEXT_PUBLIC_PAYPAL_CLIENT_ID</code>, <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">PAYPAL_CLIENT_ID</code>, and <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">PAYPAL_CLIENT_SECRET</code> to enable real PayPal payments.
+        </p>
+      </div>
       <button
-        onClick={onSuccess}
+        onClick={() => onPaymentComplete(`DEMO-${Date.now()}`, `DEMO-TXN-${Date.now()}`)}
         disabled={loading}
         className="bg-brand-dark text-white px-10 py-4 rounded-full text-lg font-semibold hover:bg-brand-darkest transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mx-auto shadow-lg"
       >
@@ -651,7 +685,7 @@ function PayPalSection({
             Processing...
           </>
         ) : (
-          `Complete Order — $${total.toFixed(2)}`
+          `Complete Demo Order — $${total.toFixed(2)}`
         )}
       </button>
     </div>

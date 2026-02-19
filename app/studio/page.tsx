@@ -4,9 +4,21 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { CustomizationStudio } from "@/customization-studio";
+import dynamic from "next/dynamic";
 import { ProductSpec, Placement } from "@/customization-studio/types";
 import Link from "next/link";
+
+const CustomizationStudio = dynamic(
+  () => import("@/customization-studio").then((m) => m.CustomizationStudio),
+  { ssr: false, loading: () => (
+    <div className="flex-1 flex items-center justify-center min-h-[400px]">
+      <div className="text-center">
+        <div className="animate-spin w-10 h-10 border-3 border-gray-300 border-t-gray-800 rounded-full mx-auto mb-4"></div>
+        <p className="text-gray-500 text-sm">Loading design studio...</p>
+      </div>
+    </div>
+  )}
+);
 
 // =============================================================================
 // BUILT-IN PRODUCT CATALOG (fallback when no URL params)

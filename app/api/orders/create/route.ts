@@ -164,38 +164,52 @@ export async function POST(req: Request) {
     // Submit order to Printful (best-effort — don't block the response)
     let printfulOrderId: number | null = null;
     let printfulStatus: string | null = null;
+    const isDemoPayment = paypalOrderId?.startsWith("DEMO");
     try {
-      const { createOrder: pfCreateOrder } = await import("@/lib/printful");
+      const {
+        createOrder: pfCreateOrder,
+        confirmOrder: pfConfirmOrder,
+        uploadFileBase64,
+      } = await import("@/lib/printful");
 
       // Build Printful order items from cart items that have variant IDs
-      const pfItems = items
-        .filter((i: any) => i.printfulVariantId)
-        .map((i: any) => {
-          const files: { type?: string; url?: string }[] = [];
-          // Use the proof design files (with real QR composited in)
-          if (i.designFiles?.length) {
-            // The front placement is the primary print file
-            const front = i.designFiles.find((df: any) => df.placement === "front");
-            if (front?.dataUrl?.startsWith("http")) {
-              files.push({ type: "default", url: front.dataUrl });
-            }
-            // Back placement for two-sided products
-            const back = i.designFiles.find((df: any) => df.placement === "back");
-            if (back?.dataUrl?.startsWith("http")) {
-              files.push({ type: "back", url: back.dataUrl });
+      const pfItems = [];
+      for (const i of items.filter((x: any) => x.printfulVariantId)) {
+        const files: { type?: string; url?: string; id?: number }[] = [];
+
+        if (i.designFiles?.length) {
+          for (const df of i.designFiles) {
+            const placementType = df.placement === "back" ? "back" : "default";
+
+            if (df.dataUrl?.startsWith("http")) {
+              files.push({ type: placementType, url: df.dataUrl });
+            } else if (df.dataUrl?.startsWith("data:")) {
+              // Upload base64 design to Printful and use the returned URL
+              try {
+                const uploaded = await uploadFileBase64(
+                  df.dataUrl,
+                  `${orderNumber}-${df.placement}.png`
+                );
+                files.push({ type: placementType, url: uploaded.url });
+                console.log(`[Order] Uploaded ${df.placement} design to Printful: ${uploaded.url}`);
+              } catch (uploadErr: any) {
+                console.error(`[Order] Design upload failed for ${df.placement}:`, uploadErr?.message);
+              }
             }
           }
+        }
 
-          return {
-            variant_id: i.printfulVariantId,
-            quantity: i.quantity || 1,
-            name: i.name,
-            retail_price: String(i.price || "0.00"),
-            files,
-          };
+        pfItems.push({
+          variant_id: i.printfulVariantId,
+          quantity: i.quantity || 1,
+          name: i.name,
+          retail_price: String(i.price || "0.00"),
+          files,
         });
+      }
 
       if (pfItems.length > 0) {
+        // Create order as draft first
         const pfOrder = await pfCreateOrder(
           {
             external_id: orderNumber,
@@ -212,25 +226,35 @@ export async function POST(req: Request) {
             },
             items: pfItems,
           },
-          false // Create as draft; confirm separately or via dashboard
+          false
         );
 
         printfulOrderId = pfOrder.id;
         printfulStatus = pfOrder.status;
+
+        // Auto-confirm the order for fulfillment when payment is real (not demo)
+        if (!isDemoPayment && pfOrder.id) {
+          try {
+            const confirmed = await pfConfirmOrder(pfOrder.id);
+            printfulStatus = confirmed.status;
+            console.log(`[Order] Printful order ${pfOrder.id} confirmed for fulfillment`);
+          } catch (confirmErr: any) {
+            console.error("[Order] Printful confirm failed:", confirmErr?.message);
+          }
+        }
 
         // Update our order with the Printful order ID
         await db
           .update(orders)
           .set({
             printfulOrderId: String(pfOrder.id),
-            printfulStatus: pfOrder.status,
+            printfulStatus: printfulStatus,
             updatedAt: now,
           })
           .where(eq(orders.id, orderId));
         await saveDatabase();
       }
     } catch (pfErr: any) {
-      // Log but don't fail the order — Printful submission can be retried
       console.error("[Order] Printful submission failed:", pfErr?.message);
     }
 
