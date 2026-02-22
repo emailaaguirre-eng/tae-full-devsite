@@ -52,6 +52,7 @@ export async function GET(
         name: product.name,
         description: product.description,
         heroImage: product.heroImage,
+        galleryImages: product.galleryImages ? JSON.parse(product.galleryImages) : [],
         basePrice,
         printfulBasePrice: product.printfulBasePrice || 0,
         taeAddOnFee: product.taeAddOnFee || 0,

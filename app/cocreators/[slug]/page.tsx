@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -10,17 +11,44 @@ interface CoCreator {
   title: string;
   image: string;
   mountainImage?: string;
+  heroImage?: string;
   bio: string;
   description?: string;
   slug: string;
+  thumbnailImage?: string;
 }
 
 export default function CoCreatorDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
 
-  const cocreators = cocreatorsData.cocreators as CoCreator[];
-  const creator = cocreators.find((c) => c.slug === slug);
+  const staticCreators = cocreatorsData.cocreators as CoCreator[];
+  const staticMatch = staticCreators.find((c) => c.slug === slug);
+
+  const [creator, setCreator] = useState<CoCreator | null>(staticMatch || null);
+
+  useEffect(() => {
+    fetch("/api/cocreators")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.source === "db" && res.data.length > 0) {
+          const dbMatch = res.data.find((c: any) => c.slug === slug);
+          if (dbMatch) {
+            setCreator({
+              name: dbMatch.name,
+              title: dbMatch.title || "",
+              image: dbMatch.thumbnailImage || dbMatch.heroImage || "",
+              mountainImage: dbMatch.heroImage || "",
+              heroImage: dbMatch.heroImage || "",
+              bio: dbMatch.bio || "",
+              description: dbMatch.description || "",
+              slug: dbMatch.slug,
+            });
+          }
+        }
+      })
+      .catch(() => {});
+  }, [slug]);
 
   if (!creator) {
     return (
@@ -43,13 +71,13 @@ export default function CoCreatorDetailPage() {
     );
   }
 
-  // Parse bio: remove leading name line if present
-  const bioLines = creator.bio.split("\n\n").filter((part) => {
-    const trimmed = part.trim();
-    return trimmed && trimmed !== creator.name.trim();
-  });
+  const bioLines = creator.bio
+    .split("\n\n")
+    .filter((part) => {
+      const trimmed = part.trim();
+      return trimmed && trimmed !== creator.name.trim();
+    });
 
-  // Parse description: remove leading "Learn More About..." line if present
   const descLines = (creator.description || "")
     .split("\n\n")
     .filter((part) => {
@@ -57,9 +85,10 @@ export default function CoCreatorDetailPage() {
       return trimmed && !trimmed.startsWith("Learn More");
     });
 
+  const heroImg = creator.mountainImage || creator.heroImage;
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Breadcrumb */}
       <div className="bg-white border-b border-brand-light/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <nav className="flex items-center gap-2 text-sm text-brand-darkest/60">
@@ -81,23 +110,21 @@ export default function CoCreatorDetailPage() {
         </div>
       </div>
 
-      {/* Creator Hero */}
       <div className="bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Creator Image */}
             <div className="relative aspect-square rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-brand-light to-brand-medium">
-              <Image
-                src={creator.image}
-                alt={creator.name}
-                fill
-                className="object-contain"
-                style={{ objectPosition: "top center" }}
-                unoptimized
-              />
+              {creator.image && (
+                <Image
+                  src={creator.image}
+                  alt={creator.name}
+                  fill
+                  className="object-contain"
+                  style={{ objectPosition: "top center" }}
+                  unoptimized
+                />
+              )}
             </div>
-
-            {/* Creator Info */}
             <div>
               <p className="text-xs font-semibold text-brand-medium uppercase tracking-wider mb-3">
                 {creator.title}
@@ -126,12 +153,11 @@ export default function CoCreatorDetailPage() {
         </div>
       </div>
 
-      {/* Secondary Image (mountain, action shot, etc.) */}
-      {creator.mountainImage && (
+      {heroImg && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden shadow-lg">
             <Image
-              src={creator.mountainImage}
+              src={heroImg}
               alt={`${creator.name} in action`}
               fill
               className="object-cover"
@@ -141,7 +167,6 @@ export default function CoCreatorDetailPage() {
         </div>
       )}
 
-      {/* Collaboration Products Placeholder */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h2 className="text-3xl font-bold text-brand-darkest font-playfair mb-2">
           Collaborations
@@ -156,7 +181,6 @@ export default function CoCreatorDetailPage() {
         </div>
       </div>
 
-      {/* Back to CoCreators */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 text-center">
         <Link
           href="/cocreators"

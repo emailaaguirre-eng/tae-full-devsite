@@ -1,8 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import { useSiteMedia } from "@/hooks/useSiteMedia";
 
 export default function CollectorsSection() {
+  const img1 = useSiteMedia("collectors.image1", "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/collectors_commissioned.jpeg");
+  const img2 = useSiteMedia("collectors.image2", "https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/6021123e-401a-11f0-8abf-0242ac110002-unnamed-1-1.jpg");
   return (
     <section className="py-20" style={{ backgroundColor: '#ffffff' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -23,7 +26,7 @@ export default function CollectorsSection() {
             <div className="p-8 space-y-6">
               <div className="relative aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden shadow-md">
                 <Image
-                  src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/collectors_commissioned.jpeg"
+                  src={img1}
                   alt="Original paintings showcase"
                   fill
                   className="object-cover"
@@ -50,7 +53,7 @@ export default function CollectorsSection() {
             <div className="p-8 space-y-6">
               <div className="relative aspect-[4/3] bg-gray-100 rounded-xl overflow-hidden shadow-md">
                 <Image
-                  src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/6021123e-401a-11f0-8abf-0242ac110002-unnamed-1-1.jpg"
+                  src={img2}
                   alt="Commissioned artwork example"
                   fill
                   className="object-cover"

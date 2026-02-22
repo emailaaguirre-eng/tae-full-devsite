@@ -334,3 +334,93 @@ export async function getVariant(variantId: number) {
   if (!res.ok) throw new Error(`Printful variant fetch failed: ${res.error}`);
   return res.data;
 }
+
+// ─── Mockup Generation ───────────────────────────────────────────────────
+
+/**
+ * Get available mockup templates for a product.
+ */
+export async function getMockupTemplates(productId: number) {
+  const res = await pfFetch<any>(`/mockup-generator/templates/${productId}`);
+  if (!res.ok) throw new Error(`Printful templates fetch failed: ${res.error}`);
+  return res.data;
+}
+
+export interface MockupGenerationFile {
+  placement: string;
+  image_url?: string;
+  image?: string;
+}
+
+export interface MockupGenerationRequest {
+  variant_ids: number[];
+  format?: "jpg" | "png";
+  files: MockupGenerationFile[];
+  option_groups?: string[];
+  options?: string[];
+}
+
+/**
+ * Create a mockup generation task.
+ * Returns a task_key used to poll for completion.
+ */
+export async function createMockupTask(
+  productId: number,
+  body: MockupGenerationRequest
+): Promise<{ task_key: string; status: string }> {
+  const res = await pfFetch<any>(`/mockup-generator/create-task/${productId}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Printful mockup task creation failed: ${res.error}`);
+  }
+
+  return {
+    task_key: res.data.task_key,
+    status: res.data.status,
+  };
+}
+
+export interface MockupResult {
+  status: string;
+  mockups?: Array<{
+    placement: string;
+    variant_ids: number[];
+    mockup_url: string;
+    extra: Array<{ title: string; url: string; option: string; option_group: string }>;
+  }>;
+  error?: string;
+}
+
+/**
+ * Poll a mockup generation task for its result.
+ */
+export async function getMockupTaskResult(taskKey: string): Promise<MockupResult> {
+  const res = await pfFetch<any>(`/mockup-generator/task?task_key=${encodeURIComponent(taskKey)}`);
+
+  if (!res.ok) {
+    throw new Error(`Printful mockup task poll failed: ${res.error}`);
+  }
+
+  return {
+    status: res.data.status,
+    mockups: res.data.mockups || undefined,
+    error: res.data.error || undefined,
+  };
+}
+
+/**
+ * Get printfile specifications for a product.
+ */
+export async function getPrintfiles(productId: number, orientation?: string, technique?: string) {
+  const qs = new URLSearchParams();
+  if (orientation) qs.set("orientation", orientation);
+  if (technique) qs.set("technique", technique);
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+
+  const res = await pfFetch<any>(`/mockup-generator/printfiles/${productId}${suffix}`);
+  if (!res.ok) throw new Error(`Printful printfiles fetch failed: ${res.error}`);
+  return res.data;
+}

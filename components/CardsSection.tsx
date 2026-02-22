@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useSiteMedia } from "@/hooks/useSiteMedia";
+
+const CARDS_HERO_DEFAULT = "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/tAE_Holiday_Hero.png";
 
 export default function CardsSection() {
   const [uploadMethod, setUploadMethod] = useState<"upload" | "gallery" | null>(null);
-  const cardsHero =
-    "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/tAE_Holiday_Hero.png";
+  const cardsHero = useSiteMedia("cards.hero", CARDS_HERO_DEFAULT);
 
   return (
     <section id="cards" className="py-20" style={{ backgroundColor: '#ffffff' }}>

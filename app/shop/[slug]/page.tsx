@@ -11,6 +11,7 @@ interface ProductDetail {
   name: string;
   description: string | null;
   heroImage: string | null;
+  galleryImages: string[];
   basePrice: number;
   printfulBasePrice: number;
   taeAddOnFee: number;
@@ -25,6 +26,7 @@ interface ProductDetail {
   printHeight: number | null;
   printDpi: number;
   requiresQrCode: boolean;
+  requiredPlacements: string | null;
   category: {
     id: string;
     slug: string;
@@ -34,14 +36,35 @@ interface ProductDetail {
   } | null;
 }
 
+interface VariantOption {
+  id: string;
+  slug: string;
+  name: string;
+  sizeLabel: string | null;
+  paperType: string | null;
+  finishType: string | null;
+  orientation: string | null;
+  heroImage: string | null;
+  basePrice: number;
+  printfulVariantId: number | null;
+  isCurrent: boolean;
+  pfColor: string | null;
+  pfColorCode: string | null;
+  pfSize: string | null;
+  pfName: string | null;
+  inStock: boolean;
+}
+
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const slug = params.slug as string;
 
   const [product, setProduct] = useState<ProductDetail | null>(null);
+  const [variants, setVariants] = useState<VariantOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -60,6 +83,18 @@ export default function ProductDetailPage() {
       }
     };
     if (slug) fetchProduct();
+  }, [slug]);
+
+  useEffect(() => {
+    if (!slug) return;
+    fetch(`/api/products/${slug}/variants`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          setVariants(data.data);
+        }
+      })
+      .catch(() => {});
   }, [slug]);
 
   if (loading) {
@@ -92,6 +127,18 @@ export default function ProductDetailPage() {
     );
   }
 
+  const allImages = [
+    ...(product.heroImage ? [product.heroImage] : []),
+    ...(product.galleryImages || []).filter(
+      (url) => url !== product.heroImage
+    ),
+  ];
+
+  const handleVariantSelect = (variant: VariantOption) => {
+    if (variant.isCurrent) return;
+    router.push(`/shop/${variant.slug}`);
+  };
+
   const handleStartCustomizing = () => {
     const searchParams = new URLSearchParams({
       product_id: product.id,
@@ -105,6 +152,20 @@ export default function ProductDetailPage() {
 
     router.push(`/studio?${searchParams}`);
   };
+
+  const sizeVariants = variants.filter(
+    (v) => v.sizeLabel || v.pfSize
+  );
+
+  const colorVariants = variants.filter(
+    (v) => v.pfColor && v.pfColorCode
+  );
+
+  const uniqueColors = [
+    ...new Map(
+      colorVariants.map((v) => [v.pfColorCode, v])
+    ).values(),
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -144,26 +205,53 @@ export default function ProductDetailPage() {
       {/* Product Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid lg:grid-cols-2 gap-12">
-          {/* Product Image */}
-          <div className="relative aspect-square bg-white rounded-2xl shadow-lg overflow-hidden">
-            {product.heroImage ? (
-              <Image
-                src={product.heroImage}
-                alt={product.name}
-                fill
-                className="object-contain p-8"
-                unoptimized
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-light to-brand-medium">
-                <span className="text-8xl text-brand-darkest/20">
-                  {product.category?.icon || "🖼️"}
-                </span>
-              </div>
-            )}
-            {product.requiresQrCode && (
-              <div className="absolute top-4 right-4 bg-brand-dark text-white text-xs px-3 py-1.5 rounded-full font-semibold">
-                Includes ArtKey Portal
+          {/* Product Images */}
+          <div>
+            <div className="relative aspect-square bg-white rounded-2xl shadow-lg overflow-hidden mb-4">
+              {allImages.length > 0 ? (
+                <Image
+                  src={allImages[activeImageIndex] || allImages[0]}
+                  alt={product.name}
+                  fill
+                  className="object-contain p-8"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-light to-brand-medium">
+                  <span className="text-8xl text-brand-darkest/20">
+                    {product.category?.icon || "\uD83D\uDDBC\uFE0F"}
+                  </span>
+                </div>
+              )}
+              {product.requiresQrCode && (
+                <div className="absolute top-4 right-4 bg-brand-dark text-white text-xs px-3 py-1.5 rounded-full font-semibold">
+                  Includes ArtKey Portal
+                </div>
+              )}
+            </div>
+
+            {/* Thumbnail strip */}
+            {allImages.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {allImages.map((url, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveImageIndex(i)}
+                    className={`relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors ${
+                      i === activeImageIndex
+                        ? "border-brand-dark"
+                        : "border-transparent hover:border-brand-light"
+                    }`}
+                  >
+                    <Image
+                      src={url}
+                      alt={`${product.name} view ${i + 1}`}
+                      fill
+                      className="object-contain p-1"
+                      unoptimized
+                    />
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -188,6 +276,65 @@ export default function ProductDetailPage() {
               <p className="text-brand-darkest/80 leading-relaxed mb-8">
                 {product.description}
               </p>
+            )}
+
+            {/* Variant Selectors */}
+            {sizeVariants.length > 1 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
+                  Size
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {sizeVariants.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => handleVariantSelect(v)}
+                      disabled={!v.inStock}
+                      className={`px-4 py-2.5 rounded-lg border text-sm font-medium transition-all ${
+                        v.isCurrent
+                          ? "bg-brand-dark text-white border-brand-dark"
+                          : v.inStock
+                          ? "bg-white text-brand-darkest border-brand-light hover:border-brand-dark"
+                          : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      }`}
+                    >
+                      {v.sizeLabel || v.pfSize || v.name}
+                      {v.basePrice !== product.basePrice && v.inStock && (
+                        <span className="block text-xs mt-0.5 opacity-70">
+                          ${v.basePrice.toFixed(2)}
+                        </span>
+                      )}
+                      {!v.inStock && (
+                        <span className="block text-xs mt-0.5">Out of stock</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Color variants (if product has frame colors, etc.) */}
+            {uniqueColors.length > 1 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
+                  Color
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {uniqueColors.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => handleVariantSelect(v)}
+                      className={`w-10 h-10 rounded-full border-2 transition-all ${
+                        v.isCurrent
+                          ? "border-brand-dark ring-2 ring-brand-dark ring-offset-2"
+                          : "border-brand-light hover:border-brand-dark"
+                      }`}
+                      style={{ backgroundColor: v.pfColorCode || "#ccc" }}
+                      title={v.pfColor || ""}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Specs */}

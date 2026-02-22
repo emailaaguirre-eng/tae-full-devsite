@@ -11,6 +11,9 @@ import {
   Package,
   Check,
   ChevronDown,
+  Upload,
+  ImageIcon,
+  GripVertical,
 } from "lucide-react";
 
 interface Product {
@@ -19,6 +22,7 @@ interface Product {
   name: string;
   description: string | null;
   heroImage: string | null;
+  galleryImages: string | null;
   basePrice: number;
   printfulBasePrice: number;
   taeAddOnFee: number;
@@ -78,6 +82,185 @@ export default function AdminProductsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<string | null>(null);
+  const [syncingSpecs, setSyncingSpecs] = useState(false);
+  const [syncingSurfaceMaps, setSyncingSurfaceMaps] = useState(false);
+
+  // Image editor modal
+  const [imageEditProduct, setImageEditProduct] = useState<Product | null>(null);
+  const [heroUploading, setHeroUploading] = useState(false);
+  const [galleryUploading, setGalleryUploading] = useState(false);
+  const [imgError, setImgError] = useState<string | null>(null);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  const handleBackfillImages = async () => {
+    setBackfilling(true);
+    setBackfillResult(null);
+    try {
+      const res = await fetch("/api/admin/products/backfill-images", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBackfillResult(
+          `Updated ${data.summary.updated} of ${data.summary.total} products`
+        );
+        loadProducts();
+      } else {
+        setBackfillResult(`Error: ${data.error}`);
+      }
+    } catch {
+      setBackfillResult("Failed to backfill images");
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
+  const handleSyncPrintSpecs = async () => {
+    setSyncingSpecs(true);
+    setBackfillResult(null);
+    try {
+      const res = await fetch("/api/admin/products/sync-printspecs", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        const synced = data.results.filter((r: any) => r.status === "synced").length;
+        const errors = data.results.filter((r: any) => r.status.startsWith("error")).length;
+        setBackfillResult(
+          `Print specs synced for ${synced} product types` +
+          (errors > 0 ? ` (${errors} errors)` : "")
+        );
+        loadProducts();
+      } else {
+        setBackfillResult(`Error: ${data.error}`);
+      }
+    } catch {
+      setBackfillResult("Failed to sync print specs");
+    } finally {
+      setSyncingSpecs(false);
+    }
+  };
+
+  const handleSyncSurfaceMaps = async () => {
+    setSyncingSurfaceMaps(true);
+    setBackfillResult(null);
+    try {
+      const res = await fetch("/api/admin/products/sync-surface-maps", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        const { created, updated, skipped } = data.summary;
+        setBackfillResult(
+          `Surface maps: ${created} created, ${updated} updated` +
+          (skipped > 0 ? `, ${skipped} skipped` : "")
+        );
+      } else {
+        setBackfillResult(`Error: ${data.error}`);
+      }
+    } catch {
+      setBackfillResult("Failed to sync surface maps");
+    } finally {
+      setSyncingSurfaceMaps(false);
+    }
+  };
+
+  // Image upload helpers
+  const uploadProductImage = async (file: File, productId: string, kind: "hero" | "gallery") => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("productId", productId);
+    fd.append("kind", kind);
+    const res = await fetch("/api/admin/products/upload-image", { method: "POST", body: fd });
+    return res.json();
+  };
+
+  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !imageEditProduct) return;
+    setHeroUploading(true);
+    setImgError(null);
+    try {
+      const data = await uploadProductImage(file, imageEditProduct.id, "hero");
+      if (data.success) {
+        setImageEditProduct({ ...imageEditProduct, heroImage: data.url });
+        loadProducts();
+      } else {
+        setImgError(data.error || "Upload failed");
+      }
+    } catch { setImgError("Upload failed"); }
+    finally { setHeroUploading(false); }
+    e.target.value = "";
+  };
+
+  const handleRemoveHero = async () => {
+    if (!imageEditProduct) return;
+    await fetch(`/api/admin/store-products/${imageEditProduct.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ heroImage: null }),
+    });
+    setImageEditProduct({ ...imageEditProduct, heroImage: null });
+    loadProducts();
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !imageEditProduct) return;
+    setGalleryUploading(true);
+    setImgError(null);
+    let current: string[] = [];
+    try { current = imageEditProduct.galleryImages ? JSON.parse(imageEditProduct.galleryImages) : []; } catch { /* ok */ }
+
+    for (const file of Array.from(files)) {
+      try {
+        const data = await uploadProductImage(file, imageEditProduct.id, "gallery");
+        if (data.success) {
+          current.push(data.url);
+        } else {
+          setImgError(data.error || "Upload failed");
+          break;
+        }
+      } catch { setImgError("Upload failed"); break; }
+    }
+    setImageEditProduct({ ...imageEditProduct, galleryImages: JSON.stringify(current) });
+    loadProducts();
+    setGalleryUploading(false);
+    e.target.value = "";
+  };
+
+  const handleRemoveGalleryImage = async (idx: number) => {
+    if (!imageEditProduct) return;
+    let gallery: string[] = [];
+    try { gallery = imageEditProduct.galleryImages ? JSON.parse(imageEditProduct.galleryImages) : []; } catch { /* ok */ }
+    gallery.splice(idx, 1);
+    const json = JSON.stringify(gallery);
+    await fetch(`/api/admin/store-products/${imageEditProduct.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ galleryImages: json }),
+    });
+    setImageEditProduct({ ...imageEditProduct, galleryImages: json });
+    loadProducts();
+  };
+
+  const handleGalleryReorder = async (fromIdx: number, toIdx: number) => {
+    if (!imageEditProduct) return;
+    let gallery: string[] = [];
+    try { gallery = imageEditProduct.galleryImages ? JSON.parse(imageEditProduct.galleryImages) : []; } catch { /* ok */ }
+    const [moved] = gallery.splice(fromIdx, 1);
+    gallery.splice(toIdx, 0, moved);
+    const json = JSON.stringify(gallery);
+    await fetch(`/api/admin/store-products/${imageEditProduct.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ galleryImages: json }),
+    });
+    setImageEditProduct({ ...imageEditProduct, galleryImages: json });
+    loadProducts();
+  };
 
   const loadProducts = useCallback(async () => {
     try {
@@ -213,13 +396,58 @@ export default function AdminProductsPage() {
           <h1 className="text-2xl font-bold text-brand-dark font-playfair">Products</h1>
           <p className="text-sm text-brand-medium mt-1">{products.length} products total</p>
         </div>
-        <button
-          onClick={() => { setShowForm(true); setEditId(null); setForm({ ...EMPTY_FORM, categoryId: categories[0]?.id || "" }); }}
-          className="bg-brand-dark text-white px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/90 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Product
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleBackfillImages}
+            disabled={backfilling}
+            className="border border-brand-dark text-brand-dark px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/10 transition-colors disabled:opacity-50"
+          >
+            {backfilling ? (
+              <div className="animate-spin w-4 h-4 border-2 border-brand-dark border-t-transparent rounded-full" />
+            ) : (
+              <Package className="w-4 h-4" />
+            )}
+            {backfilling ? "Syncing..." : "Sync Images from Printful"}
+          </button>
+          <button
+            onClick={handleSyncPrintSpecs}
+            disabled={syncingSpecs}
+            className="border border-brand-dark text-brand-dark px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/10 transition-colors disabled:opacity-50"
+          >
+            {syncingSpecs ? (
+              <div className="animate-spin w-4 h-4 border-2 border-brand-dark border-t-transparent rounded-full" />
+            ) : (
+              <Package className="w-4 h-4" />
+            )}
+            {syncingSpecs ? "Syncing..." : "Sync Print Specs"}
+          </button>
+          <button
+            onClick={handleSyncSurfaceMaps}
+            disabled={syncingSurfaceMaps}
+            className="border border-brand-dark text-brand-dark px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/10 transition-colors disabled:opacity-50"
+          >
+            {syncingSurfaceMaps ? (
+              <div className="animate-spin w-4 h-4 border-2 border-brand-dark border-t-transparent rounded-full" />
+            ) : (
+              <Package className="w-4 h-4" />
+            )}
+            {syncingSurfaceMaps ? "Syncing..." : "Sync Surface Maps"}
+          </button>
+          <button
+            onClick={() => { setShowForm(true); setEditId(null); setForm({ ...EMPTY_FORM, categoryId: categories[0]?.id || "" }); }}
+            className="bg-brand-dark text-white px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/90 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add Product
+          </button>
+        </div>
       </div>
+
+      {backfillResult && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 text-sm px-4 py-3 mb-4 flex items-center justify-between">
+          {backfillResult}
+          <button onClick={() => setBackfillResult(null)}><X className="w-4 h-4" /></button>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 mb-4 flex items-center justify-between">
@@ -297,6 +525,9 @@ export default function AdminProductsPage() {
                   {p.printProvider === "printful" ? "Print Partner" : (p.printProvider || "Print Partner")}
                 </div>
                 <div className="col-span-4 md:col-span-1 flex items-center gap-1 justify-end">
+                  <button onClick={() => { setImageEditProduct(p); setImgError(null); }} className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors" title="Images">
+                    <ImageIcon className="w-3.5 h-3.5" />
+                  </button>
                   <button onClick={() => handleEdit(p)} className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors" title="Edit">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -515,6 +746,141 @@ export default function AdminProductsPage() {
           </div>
         </div>
       )}
+
+      {/* Image editor modal */}
+      {imageEditProduct && (() => {
+        let gallery: string[] = [];
+        try { gallery = imageEditProduct.galleryImages ? JSON.parse(imageEditProduct.galleryImages) : []; } catch { /* ok */ }
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto">
+            <div className="bg-white w-full max-w-3xl my-8">
+              <div className="px-6 py-4 border-b border-brand-light flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-brand-dark">Product Images</h3>
+                  <p className="text-xs text-brand-medium mt-0.5">{imageEditProduct.name}</p>
+                </div>
+                <button onClick={() => setImageEditProduct(null)} className="text-brand-medium hover:text-brand-dark">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {imgError && (
+                <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 flex items-center justify-between">
+                  {imgError}
+                  <button onClick={() => setImgError(null)}><X className="w-4 h-4" /></button>
+                </div>
+              )}
+
+              <div className="p-6 space-y-6">
+                {/* Hero image */}
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-2 uppercase tracking-wider">Hero Image</label>
+                  <div className="flex items-start gap-4">
+                    {imageEditProduct.heroImage ? (
+                      <div className="relative group">
+                        <img
+                          src={imageEditProduct.heroImage}
+                          alt="Hero"
+                          className="w-40 h-28 object-cover border border-brand-light"
+                          onError={(e) => { (e.target as HTMLImageElement).src = ""; }}
+                        />
+                        <button
+                          onClick={handleRemoveHero}
+                          className="absolute top-1 right-1 bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-40 h-28 border-2 border-dashed border-brand-light flex items-center justify-center text-brand-medium">
+                        <ImageIcon className="w-8 h-8 opacity-30" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <label className="inline-flex items-center gap-2 px-4 py-2 text-sm border border-brand-dark text-brand-dark cursor-pointer hover:bg-brand-dark/10 transition-colors">
+                        <Upload className="w-4 h-4" />
+                        {heroUploading ? "Uploading..." : imageEditProduct.heroImage ? "Replace" : "Upload Hero"}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={handleHeroUpload}
+                          disabled={heroUploading}
+                          className="hidden"
+                        />
+                      </label>
+                      <p className="text-[10px] text-brand-medium mt-2">JPEG, PNG, or WebP. Max 15 MB.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gallery images */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
+                      Gallery Images ({gallery.length}/30)
+                    </label>
+                    <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs border border-brand-dark text-brand-dark cursor-pointer hover:bg-brand-dark/10 transition-colors">
+                      <Upload className="w-3 h-3" />
+                      {galleryUploading ? "Uploading..." : "Add Images"}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        onChange={handleGalleryUpload}
+                        disabled={galleryUploading || gallery.length >= 30}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {gallery.length === 0 ? (
+                    <div className="border-2 border-dashed border-brand-light p-8 text-center text-sm text-brand-medium">
+                      No gallery images yet. Click "Add Images" to upload.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                      {gallery.map((url, idx) => (
+                        <div
+                          key={`${url}-${idx}`}
+                          draggable
+                          onDragStart={() => setDragIdx(idx)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => { if (dragIdx !== null && dragIdx !== idx) handleGalleryReorder(dragIdx, idx); setDragIdx(null); }}
+                          className={`relative group aspect-square border ${dragIdx === idx ? "border-blue-500 opacity-50" : "border-brand-light"}`}
+                        >
+                          <img src={url} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                          <button
+                            onClick={() => handleRemoveGalleryImage(idx)}
+                            className="absolute top-0.5 right-0.5 bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Remove"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                          <div className="absolute bottom-0.5 left-0.5 opacity-0 group-hover:opacity-80 transition-opacity cursor-grab">
+                            <GripVertical className="w-3 h-3 text-white drop-shadow" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-brand-medium mt-2">Drag to reorder. Hover and click X to remove.</p>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t border-brand-light flex justify-end">
+                <button
+                  onClick={() => setImageEditProduct(null)}
+                  className="px-6 py-2 text-sm bg-brand-dark text-white hover:bg-brand-dark/90 transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

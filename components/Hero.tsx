@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import heroData from "@/content/hero.json";
 import { mediaUrl } from "@/lib/media";
+import { useSiteMedia } from "@/hooks/useSiteMedia";
 
 interface HeroContent {
   headline1: string;
@@ -11,12 +12,12 @@ interface HeroContent {
   description: string;
 }
 
-// Hero background image
-const heroBackground = mediaUrl(
+const HERO_BG_DEFAULT = mediaUrl(
   "https://theartfulexperience.com/wp-content/uploads/2026/01/herowedding.png"
 );
 
 export default function Hero() {
+  const heroBackground = useSiteMedia("hero.background", HERO_BG_DEFAULT);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [signUpForm, setSignUpForm] = useState({ name: '', email: '' });

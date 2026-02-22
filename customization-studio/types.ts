@@ -1,17 +1,39 @@
 // customization-studio/types.ts
 // Type definitions for the Customization Studio editor.
 
-export type Placement = "front" | "back" | "inside1" | "inside2";
+/**
+ * Placement is a string identifier for a design surface.
+ * Classic values: "front", "back", "inside1", "inside2"
+ * SurfaceMap values: "front", "back", "inside_left", "inside_right", or any custom id.
+ */
+export type Placement = string;
 
 export type TextAlign = "left" | "center" | "right";
+
+export type PlacementDimensions = {
+  width: number;
+  height: number;
+  dpi: number;
+  printfulPlacement: string;
+};
+
+export type CompositeType = "horizontalSpread" | "verticalSpread";
+
+export interface ExportRule {
+  printfulPlacement: string;
+  uxSurfaceIds: string[];
+  composite?: { type: CompositeType };
+}
 
 export type ProductSpec = {
   id: string;
   name: string;
-  printWidth: number; // pixels (print-space)
-  printHeight: number; // pixels (print-space)
+  printWidth: number; // pixels (print-space) — default/front surface
+  printHeight: number; // pixels (print-space) — default/front surface
   printDpi: number;
   placements: Placement[];
+  /** Labels for each placement tab, keyed by placement id */
+  placementLabels?: Record<string, string>;
   requiresQrCode?: boolean;
   qrDefaultPosition?: {
     placement: Placement;
@@ -30,6 +52,26 @@ export type ProductSpec = {
 
   /** Base price from the product catalog */
   basePrice?: number;
+
+  /**
+   * Per-placement print area dimensions from Printful.
+   * Keyed by Printful placement name (e.g. "default", "inside", "back").
+   * If absent, all placements use printWidth/printHeight.
+   */
+  placementDimensions?: Record<string, PlacementDimensions>;
+
+  /**
+   * Export rules from SurfaceMap. Describes how UX surfaces map to
+   * Printful placements, including composite rules.
+   * If absent, each placement exports 1:1 using legacy mapping.
+   */
+  exportRules?: ExportRule[];
+
+  /**
+   * Mapping from UX surface ID → Printful placement name.
+   * Populated from the SurfaceMap uxSurfaces.
+   */
+  surfacePlacementMap?: Record<string, string>;
 };
 
 export type ImageItem = {
@@ -80,6 +122,4 @@ export type PlacementDesign = {
   layoutId?: string;
 };
 
-export type DesignState = {
-  [key in Placement]?: PlacementDesign;
-};
+export type DesignState = Record<string, PlacementDesign | undefined>;

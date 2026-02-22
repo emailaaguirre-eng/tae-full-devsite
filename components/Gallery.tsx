@@ -1,10 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import galleryData from "@/content/gallery.json";
-
-
 
 interface Artist {
   name: string;
@@ -14,6 +13,7 @@ interface Artist {
   bio: string;
   description?: string;
   slug: string;
+  thumbnailImage?: string;
   portfolio?: Array<{
     title: string;
     image: string;
@@ -22,15 +22,37 @@ interface Artist {
   }>;
 }
 
+function mapStaticArtists(): Artist[] {
+  return (galleryData.artists as Artist[]);
+}
+
 export default function Gallery() {
-  const { title, subtitle, artists, comingSoon } = galleryData;
+  const { title, subtitle, comingSoon } = galleryData;
+  const [artists, setArtists] = useState<Artist[]>(mapStaticArtists());
 
-
-
-  const typedArtists = artists as Artist[];
+  useEffect(() => {
+    fetch("/api/gallery")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.source === "db" && res.data.length > 0) {
+          const mapped: Artist[] = res.data.map((a: any) => ({
+            name: a.name,
+            title: a.title || "",
+            image: a.thumbnailImage || a.bioImage || "",
+            bioImage: a.bioImage || a.thumbnailImage || "",
+            bio: a.bio || "",
+            description: a.description || "",
+            slug: a.slug,
+            portfolio: a.portfolio || [],
+          }));
+          setArtists(mapped);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
-    <section className="py-20" style={{ backgroundColor: '#ecece9' }}>
+    <section className="py-20" style={{ backgroundColor: "#ecece9" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
@@ -42,41 +64,36 @@ export default function Gallery() {
           </p>
         </div>
 
-        {/* Artists Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-          {typedArtists.map((artist) => (
+          {artists.map((artist) => (
             <div
               key={artist.slug}
               className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all group"
             >
               <div className="relative h-64 w-full bg-gradient-to-br from-brand-light to-brand-medium overflow-hidden">
-                <Image
-                  src={artist.image}
-                  alt={artist.name}
-                  fill
-                  className="object-contain group-hover:scale-105 transition-transform duration-300"
-                  style={{ objectPosition: 'top center' }}
-                />
+                {artist.image && (
+                  <Image
+                    src={artist.image}
+                    alt={artist.name}
+                    fill
+                    className="object-contain group-hover:scale-105 transition-transform duration-300"
+                    style={{ objectPosition: "top center" }}
+                    unoptimized={artist.image.startsWith("http")}
+                  />
+                )}
               </div>
               <div className="p-6">
                 <h3 className="text-2xl font-bold text-brand-darkest mb-2 font-playfair">
                   {artist.name}
                 </h3>
-                <div className={artist.slug === 'bryant-colman' ? "mb-4" : "mb-3"}>
+                <div className="mb-3">
                   <span className="text-xs uppercase tracking-wide text-brand-dark font-semibold">
-                    {artist.title.trim()}
+                    {(artist.title || "").trim()}
                   </span>
                 </div>
-                {artist.slug !== 'bryant-colman' && (
+                {artist.bio && (
                   <p className="text-brand-darkest mb-4 line-clamp-3">
-                    {artist.slug === 'deanna-lankin' && artist.bio.includes('of the Pacific Northwest')
-                      ? artist.bio.substring(0, artist.bio.indexOf('of the Pacific Northwest') + 'of the Pacific Northwest'.length) + '.'
-                      : artist.bio}
-                  </p>
-                )}
-                {artist.slug === 'bryant-colman' && (
-                  <p className="text-brand-darkest mb-4">
-                    Bryant's work is shaped by the elegance of storied places and the thrill of discovery—from timeless cities to remote, awe‑inspiring landscapes.
+                    {artist.bio.length > 200 ? artist.bio.substring(0, 200) + "..." : artist.bio}
                   </p>
                 )}
                 <Link
@@ -90,8 +107,6 @@ export default function Gallery() {
           ))}
         </div>
 
-
-        {/* Coming Soon Message */}
         <div className="mt-12 text-center">
           <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
             <h3 className="text-2xl font-bold text-brand-dark mb-4 font-playfair">

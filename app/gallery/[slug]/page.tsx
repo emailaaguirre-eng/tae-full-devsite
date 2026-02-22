@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -20,6 +21,7 @@ interface Artist {
   bio: string;
   description?: string;
   slug: string;
+  thumbnailImage?: string;
   portfolio?: ArtistWork[];
 }
 
@@ -27,8 +29,33 @@ export default function ArtistDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
 
-  const artists = galleryData.artists as Artist[];
-  const artist = artists.find((a) => a.slug === slug);
+  const staticArtists = galleryData.artists as Artist[];
+  const staticMatch = staticArtists.find((a) => a.slug === slug);
+
+  const [artist, setArtist] = useState<Artist | null>(staticMatch || null);
+
+  useEffect(() => {
+    fetch("/api/gallery")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.source === "db" && res.data.length > 0) {
+          const dbMatch = res.data.find((a: any) => a.slug === slug);
+          if (dbMatch) {
+            setArtist({
+              name: dbMatch.name,
+              title: dbMatch.title || "",
+              image: dbMatch.thumbnailImage || dbMatch.bioImage || "",
+              bioImage: dbMatch.bioImage || dbMatch.thumbnailImage || "",
+              bio: dbMatch.bio || "",
+              description: dbMatch.description || "",
+              slug: dbMatch.slug,
+              portfolio: dbMatch.portfolio || [],
+            });
+          }
+        }
+      })
+      .catch(() => {});
+  }, [slug]);
 
   if (!artist) {
     return (
@@ -55,7 +82,6 @@ export default function ArtistDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Breadcrumb */}
       <div className="bg-white border-b border-brand-light/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <nav className="flex items-center gap-2 text-sm text-brand-darkest/60">
@@ -77,23 +103,21 @@ export default function ArtistDetailPage() {
         </div>
       </div>
 
-      {/* Artist Hero */}
       <div className="bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Artist Image */}
             <div className="relative aspect-square rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-brand-light to-brand-medium">
-              <Image
-                src={artist.bioImage || artist.image}
-                alt={artist.name}
-                fill
-                className="object-contain"
-                style={{ objectPosition: "top center" }}
-                unoptimized
-              />
+              {(artist.bioImage || artist.image) && (
+                <Image
+                  src={artist.bioImage || artist.image}
+                  alt={artist.name}
+                  fill
+                  className="object-contain"
+                  style={{ objectPosition: "top center" }}
+                  unoptimized
+                />
+              )}
             </div>
-
-            {/* Artist Info */}
             <div>
               <p className="text-xs font-semibold text-brand-medium uppercase tracking-wider mb-3">
                 {artist.title}
@@ -116,7 +140,6 @@ export default function ArtistDetailPage() {
         </div>
       </div>
 
-      {/* Portfolio */}
       {portfolio.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <h2 className="text-3xl font-bold text-brand-darkest font-playfair mb-2">
@@ -125,7 +148,6 @@ export default function ArtistDetailPage() {
           <p className="text-brand-darkest/60 mb-10">
             {portfolio.filter((w) => w.forSale).length} works available
           </p>
-
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {portfolio.map((work, index) => (
               <div
@@ -168,7 +190,6 @@ export default function ArtistDetailPage() {
         </div>
       )}
 
-      {/* Back to Gallery */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 text-center">
         <Link
           href="/gallery"

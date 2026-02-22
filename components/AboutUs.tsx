@@ -1,9 +1,12 @@
-export default function AboutUs() {
-  // Stream hero video from WordPress media library
-  const aboutVideoUrl =
-    "https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/Hero-PROMO-VIDEO.mp4";
-  const aboutFeatureImage =
-    "https://dredev.theartfulexperience.com/wp-content/uploads/2025/10/collage.png";
+import { getSiteMediaMap } from "@/lib/site-media";
+
+const VIDEO_DEFAULT = "https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/Hero-PROMO-VIDEO.mp4";
+const COLLAGE_DEFAULT = "https://dredev.theartfulexperience.com/wp-content/uploads/2025/10/collage.png";
+
+export default async function AboutUs() {
+  const media = await getSiteMediaMap();
+  const aboutVideoUrl = media["about.video"]?.url || VIDEO_DEFAULT;
+  const aboutFeatureImage = media["about.collage"]?.url || COLLAGE_DEFAULT;
 
   return (
     <section id="about" className="bg-white">

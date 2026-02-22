@@ -134,18 +134,67 @@ function buildProductSpec(
 }
 
 // =============================================================================
-// Build ProductSpec from API product data
+// Build ProductSpec from API product data + print specs (including surface map)
 // =============================================================================
-function buildSpecFromApiProduct(apiProduct: any): ProductSpec {
+
+interface PrintSpecsData {
+  printAreas?: Record<string, any>;
+  surfaceMap?: {
+    uxSurfaces: Array<{ id: string; label: string; printfulPlacement: string; role?: string; order: number }>;
+    exportRules: Array<{ printfulPlacement: string; uxSurfaceIds: string[]; composite?: { type: string } }>;
+  } | null;
+}
+
+function buildSpecFromApiProduct(
+  apiProduct: any,
+  printSpecsData?: PrintSpecsData | null
+): ProductSpec {
   const printWidth = apiProduct.printWidth || 2146;
   const printHeight = apiProduct.printHeight || 1546;
   const printDpi = apiProduct.printDpi || 300;
 
   let placements: Placement[] = ["front"];
-  if (apiProduct.requiredPlacements) {
-    try {
-      placements = JSON.parse(apiProduct.requiredPlacements);
-    } catch { /* keep default */ }
+  let placementLabels: Record<string, string> | undefined = undefined;
+  let exportRules: ProductSpec["exportRules"] = undefined;
+  let surfacePlacementMap: Record<string, string> | undefined = undefined;
+
+  // Priority 1: SurfaceMap from DB (authoritative source of truth)
+  const surfaceMap = printSpecsData?.surfaceMap;
+  if (surfaceMap && surfaceMap.uxSurfaces.length > 0) {
+    const sorted = [...surfaceMap.uxSurfaces].sort((a, b) => a.order - b.order);
+    placements = sorted.map((s) => s.id);
+    placementLabels = {};
+    surfacePlacementMap = {};
+    for (const s of sorted) {
+      placementLabels[s.id] = s.label;
+      surfacePlacementMap[s.id] = s.printfulPlacement;
+    }
+    if (surfaceMap.exportRules?.length > 0) {
+      exportRules = surfaceMap.exportRules as ProductSpec["exportRules"];
+    }
+  } else {
+    // Fallback: DB requiredPlacements field
+    if (apiProduct.requiredPlacements) {
+      try {
+        placements = JSON.parse(apiProduct.requiredPlacements);
+      } catch { /* fall through */ }
+    }
+  }
+
+  // Build per-placement dimensions from Printful print specs
+  let placementDimensions: ProductSpec["placementDimensions"] = undefined;
+  const printAreas = printSpecsData?.printAreas;
+  if (printAreas && Object.keys(printAreas).length > 0) {
+    placementDimensions = {};
+    for (const [pfPlacement, area] of Object.entries(printAreas)) {
+      const a = area as any;
+      placementDimensions[pfPlacement] = {
+        width: a.width,
+        height: a.height,
+        dpi: a.dpi,
+        printfulPlacement: pfPlacement,
+      };
+    }
   }
 
   let qrDefaultPosition: ProductSpec["qrDefaultPosition"] = undefined;
@@ -182,6 +231,10 @@ function buildSpecFromApiProduct(apiProduct: any): ProductSpec {
     printHeight,
     printDpi,
     placements,
+    placementLabels,
+    placementDimensions,
+    exportRules,
+    surfacePlacementMap,
     requiresQrCode: apiProduct.requiresQrCode || false,
     qrDefaultPosition,
   };
@@ -190,6 +243,21 @@ function buildSpecFromApiProduct(apiProduct: any): ProductSpec {
 // =============================================================================
 // STUDIO CONTENT (uses searchParams)
 // =============================================================================
+
+interface ApiVariant {
+  id: string;
+  slug: string;
+  name: string;
+  sizeLabel: string | null;
+  basePrice: number;
+  printfulVariantId: number | null;
+  printWidth: number | null;
+  printHeight: number | null;
+  isCurrent: boolean;
+  pfSize: string | null;
+  pfName: string | null;
+  inStock: boolean;
+}
 
 function StudioContent() {
   const searchParams = useSearchParams();
@@ -202,6 +270,8 @@ function StudioContent() {
   const [apiProduct, setApiProduct] = useState<any>(null);
   const [apiLoading, setApiLoading] = useState(!!slugParam);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [apiVariants, setApiVariants] = useState<ApiVariant[]>([]);
+  const [printSpecsData, setPrintSpecsData] = useState<PrintSpecsData | null>(null);
 
   // Fallback catalog state
   const [selectedProductIndex, setSelectedProductIndex] = useState(0);
@@ -225,12 +295,41 @@ function StudioContent() {
       .finally(() => setApiLoading(false));
   }, [slugParam]);
 
+  // Fetch sibling variants for API mode
+  useEffect(() => {
+    if (!slugParam) return;
+    fetch(`/api/products/${slugParam}/variants`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          setApiVariants(data.data);
+        }
+      })
+      .catch(() => {});
+  }, [slugParam]);
+
+  // Fetch print area specs + surface map for API mode
+  useEffect(() => {
+    if (!slugParam) return;
+    fetch(`/api/products/${slugParam}/print-specs`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          setPrintSpecsData({
+            printAreas: data.data.printAreas || {},
+            surfaceMap: data.data.surfaceMap || null,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [slugParam]);
+
   // Determine product spec
   const isApiMode = !!slugParam && !!apiProduct;
   const selectedProduct = PRODUCTS[selectedProductIndex];
 
   const productSpec: ProductSpec = isApiMode
-    ? buildSpecFromApiProduct(apiProduct)
+    ? buildSpecFromApiProduct(apiProduct, printSpecsData)
     : buildProductSpec(selectedProduct, selectedVariantIndex, orientation);
 
   const productName = isApiMode ? apiProduct.name : selectedProduct.name;
@@ -314,7 +413,6 @@ function StudioContent() {
       <div className="bg-gray-100 border-b px-4 py-3 flex items-center gap-6 flex-wrap">
         {isApiMode ? (
           <>
-            {/* API product mode: show product name and back link */}
             <Link
               href={`/shop/${apiProduct.slug}`}
               className="text-sm text-blue-600 hover:text-blue-800 font-medium"
@@ -324,7 +422,39 @@ function StudioContent() {
             <span className="text-sm font-semibold text-gray-800">
               {productName}
             </span>
-            {apiProduct.sizeLabel && (
+            {/* Variant selector in API mode */}
+            {apiVariants.length > 1 && (
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Size:</label>
+                <select
+                  value={slugParam || ""}
+                  onChange={(e) => {
+                    const variant = apiVariants.find((v) => v.slug === e.target.value);
+                    if (variant && !variant.isCurrent) {
+                      const params = new URLSearchParams({
+                        product_id: variant.id,
+                        slug: variant.slug,
+                        product_name: variant.name,
+                      });
+                      if (variant.printfulVariantId) {
+                        params.set("variant_id", String(variant.printfulVariantId));
+                      }
+                      router.push(`/studio?${params}`);
+                    }
+                  }}
+                  className="border rounded px-3 py-1.5 text-sm bg-white"
+                >
+                  {apiVariants.map((v) => (
+                    <option key={v.id} value={v.slug} disabled={!v.inStock}>
+                      {v.sizeLabel || v.pfSize || v.name}
+                      {v.basePrice ? ` — $${v.basePrice.toFixed(2)}` : ""}
+                      {!v.inStock ? " (Out of stock)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {apiVariants.length <= 1 && apiProduct.sizeLabel && (
               <span className="text-sm text-gray-500">{apiProduct.sizeLabel}</span>
             )}
           </>

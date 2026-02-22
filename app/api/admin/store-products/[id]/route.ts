@@ -31,10 +31,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const updates: Record<string, any> = {};
     const allowedFields = [
-      'name', 'slug', 'description', 'heroImage', 'sizeLabel',
+      'name', 'slug', 'description', 'heroImage', 'galleryImages', 'sizeLabel',
       'paperType', 'finishType', 'orientation', 'active', 'sortOrder',
       'printProvider', 'printfulProductId', 'printfulVariantId',
       'printfulBasePrice', 'taeAddOnFee', 'printDpi', 'categoryId',
+      'printWidth', 'printHeight', 'requiredPlacements', 'qrDefaultPosition',
     ];
 
     for (const field of allowedFields) {

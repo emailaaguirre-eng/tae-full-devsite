@@ -179,12 +179,16 @@ export async function POST(req: Request) {
 
         if (i.designFiles?.length) {
           for (const df of i.designFiles) {
-            const placementType = df.placement === "back" ? "back" : "default";
+            // The export pipeline produces Printful-native placement names
+            // (default, inside, back, etc.) so use them directly.
+            // Fallback for legacy "front" → "default" mapping.
+            const placementType =
+              df.placement === "front" ? "default" :
+              df.placement || "default";
 
             if (df.dataUrl?.startsWith("http")) {
               files.push({ type: placementType, url: df.dataUrl });
             } else if (df.dataUrl?.startsWith("data:")) {
-              // Upload base64 design to Printful and use the returned URL
               try {
                 const uploaded = await uploadFileBase64(
                   df.dataUrl,

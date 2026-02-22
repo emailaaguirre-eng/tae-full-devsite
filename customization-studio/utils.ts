@@ -3,11 +3,21 @@
 
 import type { Placement } from "./types";
 
-export const PLACEMENT_LABELS: Record<Placement, string> = {
+/**
+ * Default placement labels. Used as fallback when ProductSpec.placementLabels
+ * is not provided (e.g. in catalog/fallback mode).
+ */
+export const PLACEMENT_LABELS: Record<string, string> = {
   front: "Front",
   back: "Back",
   inside1: "Inside (Left)",
   inside2: "Inside (Right)",
+  inside_left: "Inside (Left)",
+  inside_right: "Inside (Right)",
+  default: "Front",
+  inside: "Inside",
+  label_outside: "Outside Label",
+  label_inside: "Inside Label",
 };
 
 // Compute a base display scale to fit a print-canvas into an available viewport.

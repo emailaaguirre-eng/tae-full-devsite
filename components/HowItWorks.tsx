@@ -1,6 +1,18 @@
 import Image from "next/image";
+import { getSiteMediaMap } from "@/lib/site-media";
 
-export default function HowItWorks() {
+const DEFAULTS = {
+  "howitworks.step1": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/uploadyourimage.png",
+  "howitworks.step2": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/buyanexistingprint.jpg",
+  "howitworks.step3": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/uploadmedia.png",
+  "howitworks.step4": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/legacy-3.jpeg",
+  "howitworks.step5": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/couch.jpg",
+};
+
+export default async function HowItWorks() {
+  const media = await getSiteMediaMap();
+  const img = (key: keyof typeof DEFAULTS) => media[key]?.url || DEFAULTS[key];
+
   return (
     <section id="how-it-works" className="py-20" style={{ backgroundColor: '#ecece9' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -21,7 +33,7 @@ export default function HowItWorks() {
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
               <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
                 <Image
-                  src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/uploadyourimage.png"
+                  src={img("howitworks.step1")}
                   alt="Design Editor - Upload Your Image"
                   fill
                   className="object-cover"
@@ -51,7 +63,7 @@ export default function HowItWorks() {
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
               <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
                 <Image
-                  src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/buyanexistingprint.jpg"
+                  src={img("howitworks.step2")}
                   alt="Choose art from gallery"
                   fill
                   className="object-cover"
@@ -79,7 +91,7 @@ export default function HowItWorks() {
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
             <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
               <Image
-                src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/uploadmedia.png"
+                src={img("howitworks.step3")}
                 alt="Upload your media"
                 fill
                 className="object-cover"
@@ -103,7 +115,7 @@ export default function HowItWorks() {
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
             <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
               <Image
-                src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/legacy-3.jpeg"
+                src={img("howitworks.step4")}
                 alt="Send the gift"
                 fill
                 className="object-cover"
@@ -127,7 +139,7 @@ export default function HowItWorks() {
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
             <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
               <Image
-                src="https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/couch.jpg"
+                src={img("howitworks.step5")}
                 alt="Find the perfect place"
                 fill
                 className="object-cover"

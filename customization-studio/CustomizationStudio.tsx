@@ -142,6 +142,75 @@ const QR_IN_TEMPLATE_Y_FRACTION = 0.30;
 const TARGET_QR_INCHES = 0.4; // minimum ~0.4in QR for reliable scannability
 
 // ============================================================================
+// PER-PLACEMENT CANVAS DIMENSIONS
+// Uses surfacePlacementMap (from SurfaceMap) to resolve the Printful placement,
+// then looks up the dimensions. For split surfaces sharing a placement
+// (e.g. inside_left/inside_right → "inside"), each gets half the width.
+// ============================================================================
+
+function resolvePrintfulPlacement(spec: ProductSpec, uxSurfaceId: string): string {
+  if (spec.surfacePlacementMap?.[uxSurfaceId]) {
+    return spec.surfacePlacementMap[uxSurfaceId];
+  }
+  // Legacy fallback
+  if (uxSurfaceId === "front") return "default";
+  if (uxSurfaceId === "inside1" || uxSurfaceId === "inside2") return "inside";
+  if (uxSurfaceId === "inside_left" || uxSurfaceId === "inside_right") return "inside";
+  return uxSurfaceId;
+}
+
+function isSplitSurface(spec: ProductSpec, uxSurfaceId: string): boolean {
+  if (!spec.exportRules) {
+    return uxSurfaceId === "inside1" || uxSurfaceId === "inside2" ||
+           uxSurfaceId === "inside_left" || uxSurfaceId === "inside_right";
+  }
+  const pfPlacement = resolvePrintfulPlacement(spec, uxSurfaceId);
+  const rule = spec.exportRules.find((r) => r.printfulPlacement === pfPlacement);
+  return !!rule?.composite && rule.uxSurfaceIds.length > 1;
+}
+
+function getSplitCount(spec: ProductSpec, uxSurfaceId: string): number {
+  if (!spec.exportRules) return 2;
+  const pfPlacement = resolvePrintfulPlacement(spec, uxSurfaceId);
+  const rule = spec.exportRules.find((r) => r.printfulPlacement === pfPlacement);
+  return rule?.uxSurfaceIds.length || 2;
+}
+
+function getPlacementCanvasSize(
+  spec: ProductSpec,
+  placement: Placement
+): { width: number; height: number } {
+  if (!spec.placementDimensions) {
+    return { width: spec.printWidth, height: spec.printHeight };
+  }
+
+  const pfPlacement = resolvePrintfulPlacement(spec, placement);
+  const dims = spec.placementDimensions[pfPlacement];
+  if (!dims) {
+    return { width: spec.printWidth, height: spec.printHeight };
+  }
+
+  if (isSplitSurface(spec, placement)) {
+    const count = getSplitCount(spec, placement);
+    return { width: Math.round(dims.width / count), height: dims.height };
+  }
+
+  return { width: dims.width, height: dims.height };
+}
+
+/**
+ * Returns the full Printful print area dimensions for a given placement.
+ */
+function getFullPlacementSize(
+  spec: ProductSpec,
+  printfulPlacement: string
+): { width: number; height: number } | null {
+  if (!spec.placementDimensions?.[printfulPlacement]) return null;
+  const dims = spec.placementDimensions[printfulPlacement];
+  return { width: dims.width, height: dims.height };
+}
+
+// ============================================================================
 // INLINE SVG ICON COMPONENTS (cross-platform safe, no Unicode/emoji issues)
 // ============================================================================
 const IconUndo = () => (
@@ -218,7 +287,7 @@ type Props = {
   placeholderQrCodeUrl?: string;
   artKeyTemplateUrl?: string;
   onExport?: (
-    files: { placement: Placement; dataUrl: string }[],
+    files: { placement: string; dataUrl: string }[],
     artKeyTemplatePosition?: ArtKeyTemplatePosition
   ) => void;
   onSave?: (designs: DesignState) => void;
@@ -600,6 +669,14 @@ export function CustomizationStudio({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
+  // Resolve label for a placement, using productSpec.placementLabels (from
+  // SurfaceMap) first, then the static PLACEMENT_LABELS fallback.
+  const getLabel = useCallback(
+    (p: Placement): string =>
+      productSpec.placementLabels?.[p] || PLACEMENT_LABELS[p] || p,
+    [productSpec.placementLabels]
+  );
+
   // -------------------------------------------------------------------------
   // MEASURE CANVAS AREA (for "fit" scale)
   // -------------------------------------------------------------------------
@@ -627,11 +704,29 @@ export function CustomizationStudio({
     return () => ro.disconnect();
   }, []);
 
+  // Dev-only: log per-placement dimensions when print specs are available
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    if (!productSpec.placementDimensions) return;
+    const entries = Object.entries(productSpec.placementDimensions);
+    if (entries.length === 0) return;
+    console.log(
+      "[Studio] Per-placement dimensions from Printful:",
+      Object.fromEntries(entries.map(([k, v]) => [k, `${v.width}×${v.height} @ ${v.dpi}dpi`]))
+    );
+    for (const p of productSpec.placements) {
+      const dims = getPlacementCanvasSize(productSpec, p);
+      console.log(`[Studio]   ${p} → canvas ${dims.width}×${dims.height}`);
+    }
+  }, [productSpec]);
+
   // -------------------------------------------------------------------------
   // COMPUTED VALUES
   // -------------------------------------------------------------------------
-  const canvasWidth = productSpec.printWidth;
-  const canvasHeight = productSpec.printHeight;
+  const { width: canvasWidth, height: canvasHeight } = useMemo(
+    () => getPlacementCanvasSize(productSpec, activePlacement),
+    [productSpec, activePlacement]
+  );
 
   // "Fit" scale uses the available container size (minus padding)
   const fitMaxW = Math.max(1, containerSize.width - 64);
@@ -1756,12 +1851,14 @@ export function CustomizationStudio({
   // -------------------------------------------------------------------------
   // EXPORT
   // -------------------------------------------------------------------------
-  const snapshotCurrentStage = useCallback((): string | null => {
+  const snapshotStage = useCallback((
+    exportWidth: number,
+    exportHeight: number
+  ): string | null => {
     const stage = stageRef.current;
     const group = designGroupRef.current;
     if (!stage || !group) return null;
 
-    // Hide guides + clear transformer
     transformerRef.current?.nodes([]);
     const guidesLayer = guidesLayerRef.current;
     const prevGuidesVisible = guidesLayer?.visible() ?? true;
@@ -1772,8 +1869,8 @@ export function CustomizationStudio({
     try {
       guidesLayer?.visible(false);
 
-      stage.width(canvasWidth);
-      stage.height(canvasHeight);
+      stage.width(exportWidth);
+      stage.height(exportHeight);
       group.position({ x: 0, y: 0 });
       group.scale({ x: 1, y: 1 });
 
@@ -1781,7 +1878,6 @@ export function CustomizationStudio({
 
       return stage.toDataURL({ mimeType: "image/png", pixelRatio: 1 });
     } finally {
-      // Restore
       group.position({ x: prevGroup.x, y: prevGroup.y });
       group.scale({ x: prevGroup.sx, y: prevGroup.sy });
       stage.width(prevStage.w);
@@ -1790,19 +1886,17 @@ export function CustomizationStudio({
 
       stage.batchDraw();
     }
-  }, [canvasHeight, canvasWidth]);
+  }, []);
 
   const exportCurrentPlacement = useCallback(() => {
-    // Clear selection and context menu
     setSelectedId(null);
     setSelectedType(null);
     setContextMenu((cm) => ({ ...cm, visible: false }));
 
-    // A short timeout gives React-Konva a beat to remove transformer visuals
     return new Promise<string | null>((resolve) => {
-      setTimeout(() => resolve(snapshotCurrentStage()), 50);
+      setTimeout(() => resolve(snapshotStage(canvasWidth, canvasHeight)), 50);
     });
-  }, [snapshotCurrentStage]);
+  }, [snapshotStage, canvasWidth, canvasHeight]);
 
   const getArtKeyTemplatePosition = useCallback((): ArtKeyTemplatePosition | undefined => {
     if (!productSpec.requiresQrCode) return undefined;
@@ -1822,39 +1916,201 @@ export function CustomizationStudio({
     if (!dataUrl) return;
 
     if (onExport) {
-      onExport([{ placement: activePlacement, dataUrl }], getArtKeyTemplatePosition());
+      const pfPlacement = resolvePrintfulPlacement(productSpec, activePlacement);
+      onExport([{ placement: pfPlacement, dataUrl }], getArtKeyTemplatePosition());
       return;
     }
 
     downloadDataURL(dataUrl, `${productSpec.name}-${activePlacement}.png`);
-  }, [activePlacement, exportCurrentPlacement, getArtKeyTemplatePosition, onExport, productSpec.name]);
+  }, [activePlacement, exportCurrentPlacement, getArtKeyTemplatePosition, onExport, productSpec]);
+
+  /**
+   * Generic compositor: loads N images and composites them into a single
+   * canvas using the specified strategy. Driven by ExportRule.composite.
+   */
+  const compositeImages = useCallback(
+    (
+      dataUrls: string[],
+      compositeType: string,
+      targetSize: { width: number; height: number } | null
+    ): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const images: HTMLImageElement[] = [];
+        let loadedCount = 0;
+
+        const onAllLoaded = () => {
+          const canvas = document.createElement("canvas");
+
+          if (compositeType === "horizontalSpread") {
+            if (targetSize) {
+              canvas.width = targetSize.width;
+              canvas.height = targetSize.height;
+            } else {
+              canvas.width = images.reduce((sum, img) => sum + img.width, 0);
+              canvas.height = Math.max(...images.map((img) => img.height));
+            }
+
+            const ctx = canvas.getContext("2d");
+            if (!ctx) { reject(new Error("Canvas context unavailable")); return; }
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const sliceW = canvas.width / images.length;
+            images.forEach((img, idx) => {
+              ctx.drawImage(img, 0, 0, img.width, img.height, sliceW * idx, 0, sliceW, canvas.height);
+            });
+          } else if (compositeType === "verticalSpread") {
+            if (targetSize) {
+              canvas.width = targetSize.width;
+              canvas.height = targetSize.height;
+            } else {
+              canvas.width = Math.max(...images.map((img) => img.width));
+              canvas.height = images.reduce((sum, img) => sum + img.height, 0);
+            }
+
+            const ctx = canvas.getContext("2d");
+            if (!ctx) { reject(new Error("Canvas context unavailable")); return; }
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const sliceH = canvas.height / images.length;
+            images.forEach((img, idx) => {
+              ctx.drawImage(img, 0, 0, img.width, img.height, 0, sliceH * idx, canvas.width, sliceH);
+            });
+          } else {
+            reject(new Error(`Unknown composite type: ${compositeType}`));
+            return;
+          }
+
+          resolve(canvas.toDataURL("image/png"));
+        };
+
+        for (let i = 0; i < dataUrls.length; i++) {
+          const img = new window.Image();
+          images[i] = img;
+          img.onload = () => { loadedCount++; if (loadedCount === dataUrls.length) onAllLoaded(); };
+          img.onerror = () => reject(new Error(`Failed to load composite image ${i}`));
+          img.src = dataUrls[i];
+        }
+      });
+    },
+    []
+  );
 
   const handleExportAll = useCallback(async () => {
     const originalPlacement = activePlacement;
 
-    const outputs: { placement: Placement; dataUrl: string }[] = [];
+    setSelectedId(null);
+    setSelectedType(null);
+    setContextMenu((cm) => ({ ...cm, visible: false }));
+
+    // Step 1: Snapshot each UX surface at its own canvas dimensions
+    const surfaceExports = new Map<string, string>();
 
     for (const placement of productSpec.placements) {
       setActivePlacement(placement);
 
-      // Wait a tick for placement render
       // eslint-disable-next-line no-await-in-loop
-      await new Promise((r) => setTimeout(r, 80));
+      await new Promise((r) => setTimeout(r, 120));
 
-      // eslint-disable-next-line no-await-in-loop
-      const dataUrl = await exportCurrentPlacement();
-      if (dataUrl) outputs.push({ placement, dataUrl });
+      const dims = getPlacementCanvasSize(productSpec, placement);
+      const dataUrl = snapshotStage(dims.width, dims.height);
+      if (dataUrl) surfaceExports.set(placement, dataUrl);
     }
 
     setActivePlacement(originalPlacement);
 
+    // Step 2: Apply export rules (or legacy fallback)
+    let finalOutputs: { placement: string; dataUrl: string }[] = [];
+
+    if (productSpec.exportRules && productSpec.exportRules.length > 0) {
+      // Driven by SurfaceMap export rules
+      for (const rule of productSpec.exportRules) {
+        if (rule.composite && rule.uxSurfaceIds.length > 1) {
+          const panelDataUrls = rule.uxSurfaceIds
+            .map((id) => surfaceExports.get(id))
+            .filter(Boolean) as string[];
+
+          if (panelDataUrls.length === rule.uxSurfaceIds.length) {
+            try {
+              const targetSize = getFullPlacementSize(productSpec, rule.printfulPlacement);
+              // eslint-disable-next-line no-await-in-loop
+              const composited = await compositeImages(panelDataUrls, rule.composite.type, targetSize);
+              finalOutputs.push({ placement: rule.printfulPlacement, dataUrl: composited });
+            } catch (err) {
+              if (process.env.NODE_ENV === "development") {
+                console.error(`[Studio Export] Composite failed for ${rule.printfulPlacement}:`, err);
+              }
+              panelDataUrls.forEach((url, idx) => {
+                finalOutputs.push({ placement: `${rule.printfulPlacement}_${idx}`, dataUrl: url });
+              });
+            }
+          }
+        } else {
+          const surfaceId = rule.uxSurfaceIds[0];
+          const dataUrl = surfaceExports.get(surfaceId);
+          if (dataUrl) {
+            finalOutputs.push({ placement: rule.printfulPlacement, dataUrl });
+          }
+        }
+      }
+    } else {
+      // Legacy fallback: hardcoded inside1+inside2 composite
+      const hasInside1 = surfaceExports.get("inside1");
+      const hasInside2 = surfaceExports.get("inside2");
+
+      if (hasInside1 && hasInside2) {
+        try {
+          const targetSize = getFullPlacementSize(productSpec, "inside");
+          const insideDataUrl = await compositeImages([hasInside1, hasInside2], "horizontalSpread", targetSize);
+          for (const [id, dataUrl] of surfaceExports) {
+            if (id !== "inside1" && id !== "inside2") {
+              const pfPlacement = resolvePrintfulPlacement(productSpec, id);
+              finalOutputs.push({ placement: pfPlacement, dataUrl });
+            }
+          }
+          finalOutputs.push({ placement: "inside", dataUrl: insideDataUrl });
+        } catch {
+          for (const [id, dataUrl] of surfaceExports) {
+            const pfPlacement = resolvePrintfulPlacement(productSpec, id);
+            finalOutputs.push({ placement: pfPlacement, dataUrl });
+          }
+        }
+      } else {
+        for (const [id, dataUrl] of surfaceExports) {
+          const pfPlacement = resolvePrintfulPlacement(productSpec, id);
+          finalOutputs.push({ placement: pfPlacement, dataUrl });
+        }
+      }
+    }
+
+    // Dev-only: validate export dimensions match Printful specs
+    if (process.env.NODE_ENV === "development" && productSpec.placementDimensions) {
+      for (const output of finalOutputs) {
+        const expected = productSpec.placementDimensions[output.placement];
+        if (expected) {
+          const img = new window.Image();
+          img.src = output.dataUrl;
+          img.onload = () => {
+            if (img.width !== expected.width || img.height !== expected.height) {
+              console.warn(
+                `[Studio Export] Dimension mismatch for "${output.placement}": ` +
+                `exported ${img.width}×${img.height}, ` +
+                `Printful expects ${expected.width}×${expected.height}`
+              );
+            }
+          };
+        }
+      }
+    }
+
     if (onExport) {
-      onExport(outputs, getArtKeyTemplatePosition());
+      onExport(finalOutputs, getArtKeyTemplatePosition());
       return;
     }
 
-    outputs.forEach((o) => downloadDataURL(o.dataUrl, `${productSpec.name}-${o.placement}.png`));
-  }, [activePlacement, exportCurrentPlacement, getArtKeyTemplatePosition, onExport, productSpec.name, productSpec.placements]);
+    finalOutputs.forEach((o) => downloadDataURL(o.dataUrl, `${productSpec.name}-${o.placement}.png`));
+  }, [activePlacement, compositeImages, snapshotStage, getArtKeyTemplatePosition, onExport, productSpec]);
 
   // -------------------------------------------------------------------------
   // UI HELPERS
@@ -1901,10 +2157,10 @@ export function CustomizationStudio({
     <div className="w-full min-h-screen flex flex-col" style={{ background: BRAND.lightest, color: BRAND.dark }}>
       {/* Top Bar */}
       <div
-        className="p-4 border-b flex items-center justify-between"
+        className="px-3 py-2 lg:px-4 lg:py-3 border-b flex items-center justify-between gap-2 flex-wrap"
         style={{ background: BRAND.white, borderColor: BRAND.light }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
           <h1 
             className="text-xl font-bold" 
             style={{ 
@@ -2027,27 +2283,29 @@ export function CustomizationStudio({
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left Sidebar */}
-        <div className="w-80 border-r flex flex-col" style={{ background: BRAND.white, borderColor: BRAND.light }}>
+        <div className="w-64 lg:w-80 flex-shrink-0 border-r flex flex-col" style={{ background: BRAND.white, borderColor: BRAND.light }}>
           <div className="flex-1 overflow-auto">
-          {/* Surface Tabs - at the top so users can find them */}
+          {/* Surface Tabs - prominent at top */}
           {productSpec.placements.length > 1 && (
-            <div className="p-4 border-b" style={{ borderColor: BRAND.light }}>
-              <h3 className="font-semibold mb-3">Surfaces</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {productSpec.placements.map((p) => (
+            <div className="p-3 lg:p-4 border-b" style={{ borderColor: BRAND.light, background: BRAND.lightest }}>
+              <h3 className="font-semibold mb-2 text-sm lg:text-base">Surfaces</h3>
+              <div className={`grid gap-1.5 ${productSpec.placements.length <= 2 ? "grid-cols-2" : "grid-cols-2"}`}>
+                {productSpec.placements.map((p, idx) => (
                   <button
                     key={p}
                     onClick={() => switchPlacement(p)}
-                    className="text-center px-3 py-2 rounded border text-sm font-medium"
+                    className="text-center px-2 py-2 lg:px-3 lg:py-2.5 rounded-lg border-2 text-xs lg:text-sm font-medium transition-all"
                     style={{
                       borderColor: activePlacement === p ? BRAND.accent : BRAND.light,
                       background: activePlacement === p ? BRAND.accent : BRAND.white,
                       color: activePlacement === p ? BRAND.white : BRAND.dark,
+                      boxShadow: activePlacement === p ? `0 2px 8px ${BRAND.accent}40` : "none",
                     }}
                   >
-                    {PLACEMENT_LABELS[p]}
+                    <span className="block text-[10px] lg:text-[11px] opacity-60 mb-0.5">{idx + 1}/{productSpec.placements.length}</span>
+                    {getLabel(p)}
                     {qrPlacement === p && productSpec.requiresQrCode && (
-                      <span className="block text-xs mt-0.5" style={{ color: activePlacement === p ? "#ddd" : "#6d28d9" }}>
+                      <span className="block text-[10px] mt-0.5" style={{ color: activePlacement === p ? "#ddd" : "#6d28d9" }}>
                         ArtKey
                       </span>
                     )}
@@ -2315,6 +2573,48 @@ export function CustomizationStudio({
                 <p className="text-xs" style={{ color: BRAND.medium }}>
                   Click to add. Drag to position, resize with handles.
                 </p>
+
+                {/* Active decoratives layer list */}
+                {currentDecoratives.length > 0 && (
+                  <div className="mt-3 pt-3 border-t" style={{ borderColor: BRAND.light }}>
+                    <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>Active Layers</p>
+                    <div className="space-y-1">
+                      {currentDecoratives.map((dec) => (
+                        <button
+                          key={dec.id}
+                          onClick={() => {
+                            setSelectedId(dec.id);
+                            setSelectedType("decorative");
+                          }}
+                          className="w-full text-left px-2 py-1.5 rounded text-xs flex items-center justify-between"
+                          style={{
+                            background: selectedId === dec.id ? BRAND.accent : BRAND.lightest,
+                            color: selectedId === dec.id ? BRAND.white : BRAND.dark,
+                          }}
+                        >
+                          <span>{dec.name}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDecoratives((prev) => ({
+                                ...prev,
+                                [activePlacement]: (prev[activePlacement] || []).filter((d) => d.id !== dec.id),
+                              }));
+                              if (selectedId === dec.id) {
+                                setSelectedId(null);
+                                setSelectedType(null);
+                              }
+                            }}
+                            className="opacity-60 hover:opacity-100"
+                            title="Remove"
+                          >
+                            &times;
+                          </button>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2651,14 +2951,14 @@ export function CustomizationStudio({
                 >
                   {productSpec.placements.map((p) => (
                     <option key={p} value={p}>
-                      {PLACEMENT_LABELS[p]}
+                      {getLabel(p)}
                     </option>
                   ))}
                 </select>
               </div>
 
               <p className="text-xs" style={{ color: BRAND.medium }}>
-                {hasQrOnCurrentSurface ? "Drag the ArtKey to position it." : `Switch to ${PLACEMENT_LABELS[qrPlacement]} to see the ArtKey.`}
+                {hasQrOnCurrentSurface ? "Drag the ArtKey to position it." : `Switch to ${getLabel(qrPlacement)} to see the ArtKey.`}
               </p>
 
               <div className="mt-2 text-xs" style={{ color: BRAND.medium }}>
@@ -2684,7 +2984,7 @@ export function CustomizationStudio({
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">
-                      {PLACEMENT_LABELS[p]}
+                      {getLabel(p)}
                       {qrPlacement === p && productSpec.requiresQrCode && (
                         <span className="ml-2 text-xs px-2 py-0.5 rounded" style={{ background: "#ede9fe", color: "#6d28d9" }}>
                           ArtKey
@@ -2769,12 +3069,47 @@ export function CustomizationStudio({
                     />
                   )}
 
-                  {/* Images */}
+                  {/* Decorative Elements (borders/frames behind artwork).
+                      Rendered before images so they sit at z-bottom.
+                      Konva gives click priority to elements rendered later (on top),
+                      so images/text above will always receive clicks first. */}
+                  {currentDecoratives.map((dec) => {
+                    const loaded = loadedDecoratives.get(dec.id);
+                    if (!loaded) return null;
+
+                    const isActive = selectedId === dec.id && selectedType === "decorative";
+
+                    return (
+                      <KonvaImage
+                        key={dec.id}
+                        id={dec.id}
+                        image={loaded}
+                        x={dec.x}
+                        y={dec.y}
+                        width={dec.width}
+                        height={dec.height}
+                        rotation={dec.rotation}
+                        opacity={dec.opacity}
+                        draggable={isActive}
+                        onClick={() => {
+                          setSelectedId(dec.id);
+                          setSelectedType("decorative");
+                        }}
+                        onTap={() => {
+                          setSelectedId(dec.id);
+                          setSelectedType("decorative");
+                        }}
+                        onDragEnd={(e) => handleDecorativeDragEnd(dec.id, e.target)}
+                        onTransformEnd={(e) => handleDecorativeTransformEnd(dec.id, e.target)}
+                      />
+                    );
+                  })}
+
+                  {/* Images (above borders/frames) */}
                   {(currentDesign.images || []).map((img) => {
                     const loaded = loadedImages.get(img.id);
                     if (!loaded) return null;
 
-                    // Slot clipping (if assigned)
                     if (typeof img.slotIndex === "number" && slotRects[img.slotIndex]) {
                       const slot = slotRects[img.slotIndex];
                       return (
@@ -2810,7 +3145,6 @@ export function CustomizationStudio({
                       );
                     }
 
-                    // Free image
                     return (
                       <KonvaImage
                         key={img.id}
@@ -2836,7 +3170,7 @@ export function CustomizationStudio({
                     );
                   })}
 
-                  {/* Text */}
+                  {/* Text (above images) */}
                   {(currentDesign.texts || []).map((t) => (
                     <KonvaText
                       key={t.id}
@@ -2865,37 +3199,6 @@ export function CustomizationStudio({
                       onTransformEnd={(e) => handleTextTransformEnd(t.id, e.target)}
                     />
                   ))}
-
-                  {/* Decorative Elements */}
-                  {currentDecoratives.map((dec) => {
-                    const loaded = loadedDecoratives.get(dec.id);
-                    if (!loaded) return null;
-
-                    return (
-                      <KonvaImage
-                        key={dec.id}
-                        id={dec.id}
-                        image={loaded}
-                        x={dec.x}
-                        y={dec.y}
-                        width={dec.width}
-                        height={dec.height}
-                        rotation={dec.rotation}
-                        opacity={dec.opacity}
-                        draggable
-                        onClick={() => {
-                          setSelectedId(dec.id);
-                          setSelectedType("decorative");
-                        }}
-                        onTap={() => {
-                          setSelectedId(dec.id);
-                          setSelectedType("decorative");
-                        }}
-                        onDragEnd={(e) => handleDecorativeDragEnd(dec.id, e.target)}
-                        onTransformEnd={(e) => handleDecorativeTransformEnd(dec.id, e.target)}
-                      />
-                    );
-                  })}
 
                   {/* ArtKey template with QR */}
                   {hasQrOnCurrentSurface && currentDesign.qrCode && (
@@ -2963,9 +3266,9 @@ export function CustomizationStudio({
           </div>
         </div>
 
-        {/* Right Sidebar - simple preview */}
-        <div className="w-56 border-l p-4" style={{ background: BRAND.white, borderColor: BRAND.light }}>
-          <h3 className="font-semibold mb-3">Preview</h3>
+        {/* Right Sidebar - simple preview (hidden on small screens) */}
+        <div className="hidden xl:block w-48 2xl:w-56 flex-shrink-0 border-l p-3 2xl:p-4 overflow-auto" style={{ background: BRAND.white, borderColor: BRAND.light }}>
+          <h3 className="font-semibold mb-3 text-sm">Preview</h3>
 
           <div className="space-y-3">
             {productSpec.placements.map((p) => (
@@ -3002,7 +3305,7 @@ export function CustomizationStudio({
                   </div>
                 </div>
                 <div className="py-1 text-xs text-center" style={{ background: BRAND.lightest, color: BRAND.dark }}>
-                  {PLACEMENT_LABELS[p]}
+                  {getLabel(p)}
                 </div>
               </button>
             ))}

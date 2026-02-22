@@ -100,6 +100,7 @@ export const shopProducts = sqliteTable('ShopProduct', {
   finishType: text('finishType'),
   orientation: text('orientation'),
   heroImage: text('heroImage'),
+  galleryImages: text('galleryImages'),
 
   // Status
   active: integer('active', { mode: 'boolean' }).default(true),
@@ -295,6 +296,58 @@ export const designDrafts = sqliteTable('DesignDraft', {
   userId: text('userId'),
   createdAt: text('createdAt'),
   updatedAt: text('updatedAt'),
+});
+
+// =============================================================================
+// Surface Maps - Unified UX surface → Printful placement mapping
+// =============================================================================
+export const surfaceMaps = sqliteTable('SurfaceMap', {
+  id: text('id').primaryKey(),
+  printfulProductId: integer('printfulProductId').unique().notNull(),
+  uxSurfacesJson: text('uxSurfacesJson').notNull(),
+  exportRulesJson: text('exportRulesJson').notNull(),
+  version: integer('version').default(1),
+  updatedAt: text('updatedAt'),
+});
+
+// =============================================================================
+// Site Media - Admin-managed overrides for hardcoded site images
+// =============================================================================
+export const siteMedia = sqliteTable('SiteMedia', {
+  id: text('id').primaryKey(),
+  key: text('key').unique().notNull(),
+  url: text('url').notNull(),
+  alt: text('alt'),
+  updatedAt: text('updatedAt'),
+});
+
+// =============================================================================
+// Print Area Specs - Printful printfile dimensions per product type
+// =============================================================================
+export const printAreaSpecs = sqliteTable('PrintAreaSpec', {
+  id: text('id').primaryKey(),
+  printfulProductId: integer('printfulProductId').unique().notNull(),
+  availablePlacements: text('availablePlacements').notNull(),
+  printfilesJson: text('printfilesJson').notNull(),
+  variantPrintfilesJson: text('variantPrintfilesJson').notNull(),
+  optionGroups: text('optionGroups'),
+  options: text('options'),
+  fetchedAt: text('fetchedAt'),
+});
+
+// =============================================================================
+// Product Mockups - Generated mockup images from Printful
+// =============================================================================
+export const productMockups = sqliteTable('ProductMockup', {
+  id: text('id').primaryKey(),
+  shopProductId: text('shopProductId').references(() => shopProducts.id),
+  designDraftId: text('designDraftId'),
+  placement: text('placement'),
+  mockupUrl: text('mockupUrl').notNull(),
+  printfulTaskKey: text('printfulTaskKey'),
+  status: text('status').default('pending'),
+  extraMockups: text('extraMockups'),
+  createdAt: text('createdAt'),
 });
 
 // =============================================================================

@@ -1,38 +1,21 @@
 import Image from "next/image";
+import { getSiteMediaMap } from "@/lib/site-media";
 
-export default function GiftIdeas() {
-  const giftIdeas = [
-    {
-      id: 1,
-      title: "For Your Friend or Partner",
-      image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/uploadyourprint.png",
-      description: "Upload a memorable image that will be transformed into a beautiful piece of art. You will also be able to upload personal content using our upload center, where you can load your favorite song, video clips, or e-gift card. When the giftee scans the discreetly placed ArtKey, they will access the media you personalized for them. A gift like no other that is personalized to the recipient!",
-    },
-    {
-      id: 2,
-      title: "As a Wedding or Anniversary Gift",
-      image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/forweddings.jpeg",
-      description: "Upload one of your wedding photos or commission a painting from one of our artists to turn into a breathtaking canvas or paper print. Similar to our other options, you can upload videos, songs, or messages of well wishes, fun stories and words of encouragement from your guests that will be memorialized forever. This is more than a gift, it is a timeless treasure in the making.",
-    },
-    {
-      id: 3,
-      title: "For a Special Client or Customer",
-      image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/specialcustomer.png",
-      description: "A perfect gift to create connection with your best clients and customers. Upload exclusive messages and videos conveying your appreciation for the partnership. Perfect for: Real estate professionals, Airbnb hosts for their guests, Finance executives building meaningful rapport, Hotel and restaurant operators, Or anyone who wants to leave a lasting impression on a valued client.",
-    },
-    {
-      id: 4,
-      title: "For a Legacy",
-      image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/tae_legacy.png",
-      description: "In times of celebration of life, offer a gift filled with love and encouragement. A landscape print or commissioned portrait layered with tribute—photos, letters, and voice notes that carry forward the essence of someone beloved. You can also include time-released messages to give the recipient something to look forward to such as words of encouragement, a favorite memory or simply a beautiful song that reminds you of them. The artwork becomes a sacred portal of connection and grace—something to revisit, again and again.",
-    },
-    {
-      id: 5,
-      title: "Off to School Print",
-      image: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/offtocollege.png",
-      description: "Upload a cherished photo, and we'll transform it into heartfelt wall-art your campus bound kiddo can take with them as they begin their journey. Your print will have a scannable QR code that unlocks your messages of love and encouragement, video notes, photo memories, even gift cards for meals and groceries. A beautiful keepsake and a lasting tie to home.",
-    },
-  ];
+const GIFT_IDEAS = [
+  { id: 1, title: "For Your Friend or Partner", mediaKey: "giftideas.1", defaultImage: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/uploadyourprint.png", description: "Upload a memorable image that will be transformed into a beautiful piece of art. You will also be able to upload personal content using our upload center, where you can load your favorite song, video clips, or e-gift card. When the giftee scans the discreetly placed ArtKey, they will access the media you personalized for them. A gift like no other that is personalized to the recipient!" },
+  { id: 2, title: "As a Wedding or Anniversary Gift", mediaKey: "giftideas.2", defaultImage: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/forweddings.jpeg", description: "Upload one of your wedding photos or commission a painting from one of our artists to turn into a breathtaking canvas or paper print. Similar to our other options, you can upload videos, songs, or messages of well wishes, fun stories and words of encouragement from your guests that will be memorialized forever. This is more than a gift, it is a timeless treasure in the making." },
+  { id: 3, title: "For a Special Client or Customer", mediaKey: "giftideas.3", defaultImage: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/specialcustomer.png", description: "A perfect gift to create connection with your best clients and customers. Upload exclusive messages and videos conveying your appreciation for the partnership. Perfect for: Real estate professionals, Airbnb hosts for their guests, Finance executives building meaningful rapport, Hotel and restaurant operators, Or anyone who wants to leave a lasting impression on a valued client." },
+  { id: 4, title: "For a Legacy", mediaKey: "giftideas.4", defaultImage: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/tae_legacy.png", description: "In times of celebration of life, offer a gift filled with love and encouragement. A landscape print or commissioned portrait layered with tribute\u2014photos, letters, and voice notes that carry forward the essence of someone beloved. You can also include time-released messages to give the recipient something to look forward to such as words of encouragement, a favorite memory or simply a beautiful song that reminds you of them. The artwork becomes a sacred portal of connection and grace\u2014something to revisit, again and again." },
+  { id: 5, title: "Off to School Print", mediaKey: "giftideas.5", defaultImage: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/offtocollege.png", description: "Upload a cherished photo, and we\u2019ll transform it into heartfelt wall-art your campus bound kiddo can take with them as they begin their journey. Your print will have a scannable QR code that unlocks your messages of love and encouragement, video notes, photo memories, even gift cards for meals and groceries. A beautiful keepsake and a lasting tie to home." },
+];
+
+export default async function GiftIdeas() {
+  const media = await getSiteMediaMap();
+
+  const giftIdeas = GIFT_IDEAS.map((g) => ({
+    ...g,
+    image: media[g.mediaKey]?.url || g.defaultImage,
+  }));
 
   return (
     <section id="gift-ideas" className="py-20" style={{ backgroundColor: '#ecece9' }}>
@@ -76,4 +59,3 @@ export default function GiftIdeas() {
     </section>
   );
 }
-
