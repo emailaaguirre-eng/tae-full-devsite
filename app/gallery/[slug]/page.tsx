@@ -164,9 +164,11 @@ export default function ArtistDetailPage() {
                   />
                 </div>
                 <div className="p-4">
-                  <h3 className="font-semibold text-brand-darkest mb-1">
-                    {work.title}
-                  </h3>
+                  {work.title && !/^untitled\s*\d*$/i.test(work.title.trim()) && (
+                    <h3 className="font-semibold text-brand-darkest mb-1">
+                      {work.title}
+                    </h3>
+                  )}
                   <div className="flex items-center justify-between">
                     {work.price ? (
                       <span className="text-lg font-bold text-brand-dark">

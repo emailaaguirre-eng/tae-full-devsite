@@ -389,14 +389,6 @@ export default function ProductDetailPage() {
                   </p>
                 </div>
               )}
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <p className="text-xs text-brand-darkest/50 uppercase tracking-wide mb-1">
-                  Fulfilled By
-                </p>
-                <p className="font-semibold text-brand-darkest capitalize">
-                  {product.printProvider}
-                </p>
-              </div>
             </div>
 
             {/* ArtKey Feature Callout */}

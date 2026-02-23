@@ -14,6 +14,14 @@ import { getDb, shopProducts, shopCategories, eq, desc, like, and } from "@/lib/
 
 export const dynamic = "force-dynamic";
 
+function cleanDescription(desc: string | null): string | null {
+  if (!desc) return null;
+  return desc
+    .replace(/\s*[-—–]\s*(printed|fulfilled)\s+by\s+\w+\.?/gi, "")
+    .replace(/\s*[-—–]\s*$/, "")
+    .trim() || null;
+}
+
 export async function GET(req: Request) {
   try {
     const db = await getDb();
@@ -42,47 +50,69 @@ export async function GET(req: Request) {
     }
 
     if (search) {
-      const term = search.toLowerCase();
       products = products.filter(
         (p) =>
-          p.name.toLowerCase().includes(term) ||
-          (p.description && p.description.toLowerCase().includes(term))
+          p.name.toLowerCase().includes(search.toLowerCase()) ||
+          (p.description && p.description.toLowerCase().includes(search.toLowerCase()))
       );
     }
 
-    products = products.slice(0, limit);
+    // Group variants: collapse products with the same printfulProductId + categoryId
+    // into a single storefront card showing the product type, lowest price, and variant count
+    const groupKey = (p: typeof products[0]) =>
+      `${p.printfulProductId || "none"}_${p.categoryId || "none"}`;
 
-    const mapped = products.map((p) => {
-      const cat = catMap.get(p.categoryId || "");
-      const basePrice =
-        (p.printfulBasePrice || 0) + (p.taeAddOnFee || 0);
+    const groups = new Map<string, typeof products>();
+    for (const p of products) {
+      const key = groupKey(p);
+      const arr = groups.get(key) || [];
+      arr.push(p);
+      groups.set(key, arr);
+    }
+
+    const grouped = Array.from(groups.values()).map((variants) => {
+      // Sort by price ascending, pick cheapest as the representative
+      variants.sort(
+        (a, b) =>
+          ((a.printfulBasePrice || 0) + (a.taeAddOnFee || 0)) -
+          ((b.printfulBasePrice || 0) + (b.taeAddOnFee || 0))
+      );
+      const rep = variants[0];
+      const cat = catMap.get(rep.categoryId || "");
+      const lowestPrice = (rep.printfulBasePrice || 0) + (rep.taeAddOnFee || 0);
+
+      // Use category name as display name (e.g. "Greeting Cards") instead of variant-specific name
+      const productTypeName = cat?.name || rep.name.split(" — ")[0] || rep.name;
+
+      // Use the first variant that has a heroImage, or fallback to rep
+      const withImage = variants.find((v) => v.heroImage) || rep;
 
       return {
-        id: p.id,
-        taeId: p.taeId,
-        slug: p.slug,
-        name: p.name,
-        description: p.description,
-        heroImage: p.heroImage,
-        basePrice,
-        sizeLabel: p.sizeLabel,
-        paperType: p.paperType,
-        finishType: p.finishType,
-        orientation: p.orientation,
-        printProvider: p.printProvider || "printful",
-        printfulProductId: p.printfulProductId,
-        printfulVariantId: p.printfulVariantId,
+        id: rep.id,
+        taeId: rep.taeId,
+        slug: rep.slug,
+        name: productTypeName,
+        description: cleanDescription(cat?.description || rep.description),
+        heroImage: withImage.heroImage,
+        basePrice: lowestPrice,
+        hasMultipleVariants: variants.length > 1,
+        variantCount: variants.length,
+        sizeLabel: null,
+        paperType: null,
+        orientation: null,
         requiresQrCode: cat?.requiresQrCode ?? false,
-        categoryId: p.categoryId,
+        categoryId: rep.categoryId,
         categoryName: cat?.name || "Uncategorized",
         categorySlug: cat?.slug || "",
         categoryIcon: cat?.icon || "",
       };
     });
 
+    const limited = grouped.slice(0, limit);
+
     return NextResponse.json({
       success: true,
-      data: mapped,
+      data: limited,
       categories: categories
         .filter((c) => c.active)
         .map((c) => ({

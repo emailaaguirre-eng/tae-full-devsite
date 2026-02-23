@@ -11,6 +11,8 @@ interface ShopProduct {
   description: string | null;
   heroImage: string | null;
   basePrice: number;
+  hasMultipleVariants?: boolean;
+  variantCount?: number;
   sizeLabel: string | null;
   paperType: string | null;
   orientation: string | null;
@@ -191,18 +193,18 @@ export default function ShopPage() {
                   <h3 className="text-lg font-bold text-brand-darkest mb-1 line-clamp-1 group-hover:text-brand-dark transition-colors">
                     {product.name}
                   </h3>
-                  {product.sizeLabel && (
+                  {product.hasMultipleVariants && product.variantCount && (
                     <p className="text-xs text-brand-darkest/50 mb-2">
-                      {product.sizeLabel}
+                      {product.variantCount} options available
                     </p>
                   )}
                   <p className="text-sm text-brand-darkest/70 line-clamp-2 mb-4">
                     {product.description ||
-                      "Premium quality product with a digital ArtKey portal."}
+                      "Premium quality customizable product."}
                   </p>
                   <div className="flex items-center justify-between">
                     <span className="text-xl font-bold text-brand-dark">
-                      ${product.basePrice.toFixed(2)}
+                      {product.hasMultipleVariants ? "From " : ""}${product.basePrice.toFixed(2)}
                     </span>
                     <span className="text-sm font-semibold text-brand-medium group-hover:text-brand-dark transition-colors">
                       Customize &rarr;

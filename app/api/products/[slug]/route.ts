@@ -7,6 +7,14 @@ import { getDb, shopProducts, shopCategories, eq } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+function cleanDescription(desc: string | null): string | null {
+  if (!desc) return null;
+  return desc
+    .replace(/\s*[-—–]\s*(printed|fulfilled)\s+by\s+\w+\.?/gi, "")
+    .replace(/\s*[-—–]\s*$/, "")
+    .trim() || null;
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: { slug: string } }
@@ -50,7 +58,7 @@ export async function GET(
         taeId: product.taeId,
         slug: product.slug,
         name: product.name,
-        description: product.description,
+        description: cleanDescription(product.description),
         heroImage: product.heroImage,
         galleryImages: product.galleryImages ? JSON.parse(product.galleryImages) : [],
         basePrice,
