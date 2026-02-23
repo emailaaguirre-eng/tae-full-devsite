@@ -103,8 +103,11 @@ export default function AdminProductsPage() {
       });
       const data = await res.json();
       if (data.success) {
+        const errMsg = data.errors?.length
+          ? ` (${data.errors.length} errors)`
+          : "";
         setBackfillResult(
-          `Updated ${data.summary.updated} of ${data.summary.total} products`
+          `Updated ${data.updatedCount} products, skipped ${data.skippedCount}${errMsg}`
         );
         loadProducts();
       } else {
@@ -407,7 +410,7 @@ export default function AdminProductsPage() {
             ) : (
               <Package className="w-4 h-4" />
             )}
-            {backfilling ? "Syncing..." : "Sync Images from Printful"}
+            {backfilling ? "Backfilling..." : "Backfill Images"}
           </button>
           <button
             onClick={handleSyncPrintSpecs}
