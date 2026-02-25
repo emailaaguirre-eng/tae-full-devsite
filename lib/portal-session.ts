@@ -1,5 +1,3 @@
-"use server";
-
 import crypto from "crypto";
 
 export const PORTAL_SESSION_COOKIE = "tae_portal_session";

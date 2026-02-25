@@ -52,6 +52,7 @@ export default function ArtKeyPortalPage() {
   const [gbName, setGbName] = useState("");
   const [gbMessage, setGbMessage] = useState("");
   const [gbSubmitting, setGbSubmitting] = useState(false);
+  const [gbSuccess, setGbSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/portal/${token}`)
@@ -169,8 +170,6 @@ export default function ArtKeyPortalPage() {
     if (fontValue === "serif") return 'Georgia, "Times New Roman", serif';
     return fontValue;
   };
-
-  const [gbSuccess, setGbSuccess] = useState<string | null>(null);
 
   const handleGuestbookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

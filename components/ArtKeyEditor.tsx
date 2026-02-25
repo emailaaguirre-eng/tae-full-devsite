@@ -633,6 +633,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     if (isSaving) return;
     setIsSaving(true);
     try {
+      const artKeyDomain = (process.env.NEXT_PUBLIC_ARTKEY_DOMAIN || 'artkey.theartfulexperience.com').replace(/^https?:\/\//, '');
+      const buildArtKeyPortalUrl = (publicToken: string) => `https://${artKeyDomain}/${publicToken}`;
       // QR placement is handled in the Customization Studio canvas, not here
 
       // Include skeleton key and QR position in customizations if product requires QR
@@ -692,7 +694,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         });
         const portalData = await portalRes.json();
         if (portalData.success) {
-          const portalUrl = `${window.location.origin}/art-key/${portalToken}`;
+          const portalUrl = buildArtKeyPortalUrl(portalToken);
           if (redirectToShop) {
             router.push('/b_d_admn_tae/artkey-demos');
           } else {
@@ -730,7 +732,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       
       const result = await res.json();
       if (result.token) setSavedPortalToken(result.token);
-      const portalUrl = result.share_url || '';
+      const portalUrl = result.share_url || (result.token ? buildArtKeyPortalUrl(result.token) : '');
       
       // If coming from studio, build cart item with design files + ArtKey data
       if (redirectToShop && fromStudio && studioExport?.productSpec) {
