@@ -100,7 +100,7 @@ export default function AdminProductsPage() {
     setBackfilling(true);
     setBackfillResult(null);
     try {
-      const res = await fetch("/api/admin/products/backfill-images", {
+      const res = await fetch("/api/admin/backfill-product-images", {
         method: "POST",
       });
       const raw = await res.text();
