@@ -4,6 +4,7 @@ import { saveDatabase } from '@/db';
 import { generateQRCode, getArtKeyPortalUrl } from '@/lib/qr';
 
 export const dynamic = 'force-dynamic';
+const DEMO_PREFIX = "tae_demokey_";
 
 function generateToken(length: number = 32): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -12,6 +13,18 @@ function generateToken(length: number = 32): string {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
+}
+
+function nextDemoToken(existing: string[]): string {
+  let max = 0;
+  for (const t of existing) {
+    const lower = t.toLowerCase();
+    if (!lower.startsWith(DEMO_PREFIX)) continue;
+    const suffix = lower.slice(DEMO_PREFIX.length);
+    const n = parseInt(suffix, 10);
+    if (!Number.isNaN(n)) max = Math.max(max, n);
+  }
+  return `${DEMO_PREFIX}${String(max + 1).padStart(2, "0")}`;
 }
 
 export async function GET() {
@@ -61,7 +74,18 @@ export async function POST(req: Request) {
 
     const id = generateId();
     const now = new Date().toISOString();
-    const publicToken = generateToken(32);
+    const existingTokens = (await db
+      .select({ publicToken: artKeys.publicToken })
+      .from(artKeys)
+      .all()).map((r) => r.publicToken);
+    const requestedPublicToken =
+      typeof body.publicToken === "string" ? body.publicToken.trim() : "";
+    const requestedIsDemo =
+      requestedPublicToken && requestedPublicToken.toLowerCase().startsWith(DEMO_PREFIX);
+    const publicToken =
+      requestedIsDemo && !existingTokens.includes(requestedPublicToken)
+        ? requestedPublicToken
+        : nextDemoToken(existingTokens);
     const ownerToken = generateToken(32);
 
     await db.insert(artKeys).values({

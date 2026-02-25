@@ -38,6 +38,7 @@ interface Product {
   categoryId: string;
   categoryName: string;
   categorySlug: string;
+  proofTerms?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +55,7 @@ interface Category {
 const EMPTY_FORM = {
   name: "",
   description: "",
+  proofTerms: "",
   categoryId: "",
   printProvider: "printful",
   printfulProductId: "",
@@ -101,7 +103,23 @@ export default function AdminProductsPage() {
       const res = await fetch("/api/admin/products/backfill-images", {
         method: "POST",
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data: any = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!res.ok) {
+        const reason =
+          data?.error ||
+          data?.message ||
+          (raw ? raw.slice(0, 240) : `HTTP ${res.status}`);
+        setBackfillResult(`Error (${res.status}): ${reason}`);
+        return;
+      }
+
       if (data.success) {
         const errMsg = data.errors?.length
           ? ` (${data.errors.length} errors)`
@@ -111,7 +129,7 @@ export default function AdminProductsPage() {
         );
         loadProducts();
       } else {
-        setBackfillResult(`Error: ${data.error}`);
+        setBackfillResult(`Error: ${data?.error || "Backfill failed"}`);
       }
     } catch {
       setBackfillResult("Failed to backfill images");
@@ -299,6 +317,7 @@ export default function AdminProductsPage() {
     setForm({
       name: p.name,
       description: p.description || "",
+      proofTerms: p.proofTerms || "",
       categoryId: p.categoryId || "",
       printProvider: p.printProvider || "printful",
       printfulProductId: p.printfulProductId?.toString() || "",
@@ -322,6 +341,7 @@ export default function AdminProductsPage() {
       const payload: Record<string, any> = {
         name: form.name,
         description: form.description || null,
+        proofTerms: form.proofTerms || "",
         categoryId: form.categoryId || undefined,
         printProvider: form.printProvider,
         printfulProductId: form.printfulProductId ? parseInt(form.printfulProductId) : null,
@@ -590,6 +610,18 @@ export default function AdminProductsPage() {
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   rows={3}
                   className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                  Proof Terms &amp; Conditions
+                </label>
+                <textarea
+                  value={form.proofTerms}
+                  onChange={(e) => setForm({ ...form, proofTerms: e.target.value })}
+                  rows={4}
+                  className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                  placeholder="Shown during proof approval before payment for this product."
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">

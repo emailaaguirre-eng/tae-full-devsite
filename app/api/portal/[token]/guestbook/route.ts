@@ -11,6 +11,8 @@
 import { NextResponse } from "next/server";
 import { getDb, artKeys, guestbookEntries, eq, generateId } from "@/lib/db";
 import { saveDatabase } from "@/db";
+import { canAdminAccessDemoPortal } from "@/lib/portal-auth";
+import { validatePortalSession } from "@/lib/portal-session";
 
 export const dynamic = "force-dynamic";
 
@@ -103,13 +105,6 @@ export async function GET(
     const { searchParams } = new URL(req.url);
     const ownerToken = searchParams.get("owner");
 
-    if (!ownerToken) {
-      return NextResponse.json(
-        { success: false, error: "Owner token required for moderation view" },
-        { status: 401 }
-      );
-    }
-
     const portals = await db
       .select()
       .from(artKeys)
@@ -124,8 +119,14 @@ export async function GET(
     }
 
     const portal = portals[0];
+    const ownerMatch = portal.ownerToken === ownerToken;
+    const adminDemoAccess =
+      ownerToken === "__admin_demo__" && canAdminAccessDemoPortal(req, token);
+    const session = validatePortalSession(req, token);
+    const cookieOwnerAccess = session.valid && session.mode === "owner";
+    const cookieAdminDemoAccess = session.valid && session.mode === "admin_demo";
 
-    if (portal.ownerToken !== ownerToken) {
+    if (!ownerMatch && !adminDemoAccess && !cookieOwnerAccess && !cookieAdminDemoAccess) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 403 }

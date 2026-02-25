@@ -18,7 +18,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Group, Image as KonvaImage, Layer, Rect, Stage, Text as KonvaText, Transformer } from "react-konva";
+import { Circle, Group, Image as KonvaImage, Layer, Rect, Stage, Text as KonvaText, Transformer } from "react-konva";
 import Konva from "konva";
 
 import type {
@@ -27,6 +27,7 @@ import type {
   Placement,
   ProductSpec,
   TextAlign,
+  TextLabelShape,
   TextItem,
 } from "./types";
 import { COLLAGE_LAYOUTS, getLayoutById } from "./layouts";
@@ -37,9 +38,14 @@ import {
   fitImageToSlot,
   centerInSlot,
   generateId,
-  getDisplayScale,
   downloadDataURL,
 } from "./utils";
+import {
+  ARTKEY_TEMPLATES,
+  DEFAULT_ARTKEY_TEMPLATE,
+  getArtKeyTemplateById,
+  type ArtKeyTemplateDefinition,
+} from "@/lib/artkeyTemplates";
 
 // ============================================================================
 // FONT OPTIONS
@@ -83,63 +89,102 @@ const COLOR_PRESETS = [
 // ============================================================================
 // DECORATIVE ELEMENTS (SVG assets from /assets/labels/)
 // ============================================================================
-const DECORATIVE_ELEMENTS = {
-  borders: [
-    { id: "border-01", name: "Classic", src: "/assets/labels/tae_label_1.svg" },
-    { id: "border-02", name: "Ornate", src: "/assets/labels/tae_label_2.svg" },
-    { id: "border-03", name: "Simple", src: "/assets/labels/tae_label_3.svg" },
-    { id: "border-04", name: "Art Deco", src: "/assets/labels/tae_label_4.svg" },
-    { id: "border-05", name: "Elegant", src: "/assets/labels/tae_label_5.svg" },
-    { id: "border-06", name: "Modern", src: "/assets/labels/tae_label_6.svg" },
-    { id: "border-07", name: "Vintage", src: "/assets/labels/tae_label_7.svg" },
-    { id: "border-08", name: "Minimal", src: "/assets/labels/tae_label_8.svg" },
-    { id: "border-09", name: "Decorative", src: "/assets/labels/tae_label_9.svg" },
-    { id: "border-10", name: "Flourish", src: "/assets/labels/tae_label_10.svg" },
-    { id: "border-11", name: "Corner", src: "/assets/labels/tae_label_11.svg" },
-    { id: "border-12", name: "Double", src: "/assets/labels/tae_label_12.svg" },
-  ],
-  labels: [
-    { id: "label-01", name: "Ticket", src: "/assets/labels/tae_label_1.svg" },
-    { id: "label-02", name: "Banner", src: "/assets/labels/tae_label_2.svg" },
-    { id: "label-03", name: "Ribbon", src: "/assets/labels/tae_label_3.svg" },
-    { id: "label-04", name: "Shield", src: "/assets/labels/tae_label_4.svg" },
-    { id: "label-05", name: "Oval", src: "/assets/labels/tae_label_5.svg" },
-    { id: "label-06", name: "Rectangle", src: "/assets/labels/tae_label_6.svg" },
-    { id: "label-07", name: "Scalloped", src: "/assets/labels/tae_label_7.svg" },
-    { id: "label-08", name: "Pointed", src: "/assets/labels/tae_label_8.svg" },
-    { id: "label-09", name: "Rounded", src: "/assets/labels/tae_label_9.svg" },
-    { id: "label-10", name: "Bracket", src: "/assets/labels/tae_label_10.svg" },
-    { id: "label-11", name: "Tag", src: "/assets/labels/tae_label_11.svg" },
-    { id: "label-12", name: "Stamp", src: "/assets/labels/tae_label_12.svg" },
-    { id: "label-13", name: "Seal", src: "/assets/labels/tae_label_13.svg" },
-    { id: "label-14", name: "Emblem", src: "/assets/labels/tae_label_14.svg" },
-    { id: "label-15", name: "Badge", src: "/assets/labels/tae_label_15.svg" },
-    { id: "label-16", name: "Plaque", src: "/assets/labels/tae_label_16.svg" },
-  ],
-  accents: [
-    { id: "accent-01", name: "Floral", src: "/assets/labels/tae_label_1.svg" },
-    { id: "accent-02", name: "Corner", src: "/assets/labels/tae_label_3.svg" },
-    { id: "accent-03", name: "Vine", src: "/assets/labels/tae_label_5.svg" },
-    { id: "accent-04", name: "Leaf", src: "/assets/labels/tae_label_7.svg" },
-    { id: "accent-05", name: "Star", src: "/assets/labels/tae_label_9.svg" },
-    { id: "accent-06", name: "Heart", src: "/assets/labels/tae_label_11.svg" },
-    { id: "accent-07", name: "Divider", src: "/assets/labels/tae_label_13.svg" },
-    { id: "accent-08", name: "Arrow", src: "/assets/labels/tae_label_14.svg" },
-    { id: "accent-09", name: "Scroll", src: "/assets/labels/tae_label_15.svg" },
-    { id: "accent-10", name: "Ornament", src: "/assets/labels/tae_label_16.svg" },
-  ],
+type DecorativeKind = "border" | "label" | "accent";
+
+type DecorativeElementOption = {
+  id: string;
+  name: string;
+  src: string;
+  kind: DecorativeKind;
 };
 
+type DecorativeItem = {
+  id: string;
+  src: string;
+  name: string;
+  kind: DecorativeKind;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  opacity: number;
+};
+
+type UploadedImageAsset = {
+  id: string;
+  name: string;
+  src: string;
+  width: number;
+  height: number;
+};
+
+const DECORATIVE_ELEMENTS: {
+  borders: DecorativeElementOption[];
+  labels: DecorativeElementOption[];
+  accents: DecorativeElementOption[];
+} = {
+  borders: [
+    { id: "border-01", name: "Classic", src: "/assets/borders/tae_border_1.svg", kind: "border" },
+    { id: "border-02", name: "Ornate", src: "/assets/borders/tae_border_2.svg", kind: "border" },
+    { id: "border-03", name: "Simple", src: "/assets/borders/tae_border_3.svg", kind: "border" },
+    { id: "border-04", name: "Art Deco", src: "/assets/borders/tae_border_4.svg", kind: "border" },
+    { id: "border-05", name: "Elegant", src: "/assets/borders/tae_border_5.svg", kind: "border" },
+    { id: "border-06", name: "Modern", src: "/assets/borders/tae_border_6.svg", kind: "border" },
+    { id: "border-07", name: "Vintage", src: "/assets/borders/tae_border_7.svg", kind: "border" },
+    { id: "border-08", name: "Minimal", src: "/assets/borders/tae_border_8.svg", kind: "border" },
+    { id: "border-09", name: "Decorative", src: "/assets/borders/tae_border_9.svg", kind: "border" },
+    { id: "border-10", name: "Flourish", src: "/assets/borders/tae_border_10.svg", kind: "border" },
+    { id: "border-11", name: "Corner", src: "/assets/borders/tae_border_11.svg", kind: "border" },
+    { id: "border-12", name: "Double", src: "/assets/borders/tae_border_12.svg", kind: "border" },
+  ],
+  labels: [
+    { id: "label-01", name: "Ticket", src: "/assets/labels/tae_label_1.svg", kind: "label" },
+    { id: "label-02", name: "Banner", src: "/assets/labels/tae_label_2.svg", kind: "label" },
+    { id: "label-03", name: "Ribbon", src: "/assets/labels/tae_label_3.svg", kind: "label" },
+    { id: "label-04", name: "Shield", src: "/assets/labels/tae_label_4.svg", kind: "label" },
+    { id: "label-05", name: "Oval", src: "/assets/labels/tae_label_5.svg", kind: "label" },
+    { id: "label-06", name: "Rectangle", src: "/assets/labels/tae_label_6.svg", kind: "label" },
+    { id: "label-07", name: "Scalloped", src: "/assets/labels/tae_label_7.svg", kind: "label" },
+    { id: "label-08", name: "Pointed", src: "/assets/labels/tae_label_8.svg", kind: "label" },
+    { id: "label-09", name: "Rounded", src: "/assets/labels/tae_label_9.svg", kind: "label" },
+    { id: "label-10", name: "Bracket", src: "/assets/labels/tae_label_10.svg", kind: "label" },
+    { id: "label-11", name: "Tag", src: "/assets/labels/tae_label_11.svg", kind: "label" },
+    { id: "label-12", name: "Stamp", src: "/assets/labels/tae_label_12.svg", kind: "label" },
+    { id: "label-13", name: "Seal", src: "/assets/labels/tae_label_13.svg", kind: "label" },
+    { id: "label-14", name: "Emblem", src: "/assets/labels/tae_label_14.svg", kind: "label" },
+    { id: "label-15", name: "Badge", src: "/assets/labels/tae_label_15.svg", kind: "label" },
+    { id: "label-16", name: "Plaque", src: "/assets/labels/tae_label_16.svg", kind: "label" },
+  ],
+  accents: [],
+};
+
+function getDecorativeKind(item: { id?: string; src?: string; kind?: DecorativeKind }): DecorativeKind {
+  if (item.kind) return item.kind;
+  if (item.id?.startsWith("border-") || item.src?.includes("/borders/")) return "border";
+  if (item.id?.startsWith("accent-") || item.src?.includes("/accents/")) return "accent";
+  return "label";
+}
+
 // ============================================================================
-// QR TEMPLATE MATH (compact template — artkey-template-compact.svg)
-// - QR is rendered inside the ArtKey template at 55% of template size
-// - Positioned centered below the "ArtKey" branding text
-// - These fractions are the QR top-left offset within the template
+// ArtKey template behavior
+// - Template-specific QR placement fractions are sourced from lib/artkeyTemplates.ts
+// - Template box keeps its visual size while template aspect ratio is normalized
 // ============================================================================
-const QR_IN_TEMPLATE_FRACTION = 0.55;
-const QR_IN_TEMPLATE_X_FRACTION = 0.225;
-const QR_IN_TEMPLATE_Y_FRACTION = 0.30;
-const TARGET_QR_INCHES = 0.4; // minimum ~0.4in QR for reliable scannability
+const TARGET_QR_INCHES = 0.5; // enforce minimum 0.5in printed QR for scannability
+const MIN_TEMPLATE_CANVAS_FRACTION = 0.22;
+const MAX_TEMPLATE_CANVAS_FRACTION = 0.75;
+const DEFAULT_LAYOUT_ID = "freeform";
+
+function normalizeDegrees(value: number): number {
+  const normalized = value % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function getLabelBoxHeight(item: TextItem): number {
+  if (typeof item.labelBoxHeight === "number") return Math.max(40, item.labelBoxHeight);
+  return Math.max(56, Math.round(item.fontSize * 2.1));
+}
 
 // ============================================================================
 // PER-PLACEMENT CANVAS DIMENSIONS
@@ -267,31 +312,73 @@ const IconFit = () => (
 // ============================================================================
 const ZOOM_LEVELS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3];
 // Default slightly zoomed-out so the canvas doesn't crowd the UI.
-const DEFAULT_ZOOM_INDEX = 2; // 0.75
+const DEFAULT_ZOOM_INDEX = 3; // 1.0 (fit-first)
 // "Fit" should mean "100% of fit scale".
 const FIT_ZOOM_INDEX = 3; // 1.0
 
 // ============================================================================
 // COMPONENT PROPS
 // ============================================================================
+const LAYOUT_OUTER_PADDING_RATIO = 0.02;
+const LAYOUT_SLOT_INSET_RATIO = 0.008;
+const LAYOUT_OUTER_PADDING_MIN = 8;
+const LAYOUT_OUTER_PADDING_MAX = 48;
+const LAYOUT_SLOT_INSET_MIN = 2;
+const LAYOUT_SLOT_INSET_MAX = 24;
+
 type ArtKeyTemplatePosition = {
   placement: Placement;
   x: number;
   y: number;
   width: number;
   height: number;
+  templateId: string;
 };
 
 type Props = {
   productSpec: ProductSpec;
   placeholderQrCodeUrl?: string;
-  artKeyTemplateUrl?: string;
+  artKeyTemplates?: ArtKeyTemplateDefinition[];
   onExport?: (
     files: { placement: string; dataUrl: string }[],
     artKeyTemplatePosition?: ArtKeyTemplatePosition
   ) => void;
   onSave?: (designs: DesignState) => void;
 };
+
+function buildSlotRects(
+  layout: { slots: { x: number; y: number; width: number; height: number }[] },
+  canvasWidth: number,
+  canvasHeight: number
+) {
+  const base = Math.min(canvasWidth, canvasHeight);
+  const outerPad = clamp(
+    Math.round(base * LAYOUT_OUTER_PADDING_RATIO),
+    LAYOUT_OUTER_PADDING_MIN,
+    LAYOUT_OUTER_PADDING_MAX
+  );
+  const inset = clamp(
+    Math.round(base * LAYOUT_SLOT_INSET_RATIO),
+    LAYOUT_SLOT_INSET_MIN,
+    LAYOUT_SLOT_INSET_MAX
+  );
+
+  const availableWidth = Math.max(1, canvasWidth - outerPad * 2);
+  const availableHeight = Math.max(1, canvasHeight - outerPad * 2);
+
+  return (layout.slots || [{ x: 0, y: 0, width: 1, height: 1 }]).map((s) => {
+    const x = outerPad + s.x * availableWidth;
+    const y = outerPad + s.y * availableHeight;
+    const width = s.width * availableWidth;
+    const height = s.height * availableHeight;
+    return {
+      x: x + inset,
+      y: y + inset,
+      width: Math.max(1, width - inset * 2),
+      height: Math.max(1, height - inset * 2),
+    };
+  });
+}
 
 // ============================================================================
 // CROP MODAL (simple, dependency-free)
@@ -522,7 +609,7 @@ function CropModal({ loadedImage, onCrop, onCancel }: CropModalProps) {
 export function CustomizationStudio({
   productSpec,
   placeholderQrCodeUrl = "/images/placeholder-qr.svg",
-  artKeyTemplateUrl = "/images/artkey-template.svg",
+  artKeyTemplates = ARTKEY_TEMPLATES,
   onExport,
   onSave,
 }: Props) {
@@ -536,8 +623,24 @@ export function CustomizationStudio({
   const [qrPlacement, setQrPlacement] = useState<Placement>(
     productSpec.qrDefaultPosition?.placement || productSpec.placements[0] || "front"
   );
+  const elegantOnlyTemplates = useMemo(
+    () => artKeyTemplates.filter((template) => template.id === "artkey-elegant"),
+    [artKeyTemplates]
+  );
+  const [selectedArtKeyTemplateId] = useState<string>(
+    elegantOnlyTemplates[0]?.id || DEFAULT_ARTKEY_TEMPLATE.id
+  );
+  const selectedArtKeyTemplate = useMemo(
+    () => getArtKeyTemplateById(selectedArtKeyTemplateId),
+    [selectedArtKeyTemplateId]
+  );
+  const qrSizeFraction = selectedArtKeyTemplate.qr.sizeFraction;
+  const qrXFraction = selectedArtKeyTemplate.qr.xFraction;
+  const qrYFraction = selectedArtKeyTemplate.qr.yFraction;
+  const templateAspectRatio = selectedArtKeyTemplate.displayAspectRatio || 1;
 
-  // Enforce a minimum ArtKey template size so the embedded QR prints at least ~0.4 inch.
+  // Normalize default template geometry so each template renders with the
+  // correct aspect ratio and keeps a usable visual size.
   const normalizedQrDefault = useMemo(() => {
     if (!productSpec.qrDefaultPosition) return undefined;
 
@@ -546,17 +649,30 @@ export function CustomizationStudio({
 
     let width = productSpec.qrDefaultPosition.width;
     let height = productSpec.qrDefaultPosition.height;
+    const minTemplateFromQr = Math.round(expectedQrPx / Math.max(0.01, qrSizeFraction));
+    const minTemplateFromCanvas = Math.round(
+      Math.min(productSpec.printWidth, productSpec.printHeight * templateAspectRatio) *
+        MIN_TEMPLATE_CANVAS_FRACTION
+    );
+    const minTemplate = Math.max(minTemplateFromQr, minTemplateFromCanvas);
+    const maxTemplate = Math.round(
+      Math.min(productSpec.printWidth, productSpec.printHeight * templateAspectRatio) *
+        MAX_TEMPLATE_CANVAS_FRACTION
+    );
 
     // Heuristic: if caller accidentally passed QR size instead of template size, upscale it.
     if (Math.max(width, height) <= expectedQrPx * 1.5) {
-      width = Math.round(width / QR_IN_TEMPLATE_FRACTION);
-      height = Math.round(height / QR_IN_TEMPLATE_FRACTION);
+      width = Math.round(width / qrSizeFraction);
+      height = Math.round(width / templateAspectRatio);
     }
 
-    // Ensure template is never smaller than what would make the embedded QR ~0.4 inch.
-    const minTemplate = Math.round(expectedQrPx / QR_IN_TEMPLATE_FRACTION);
-    width = Math.max(width, minTemplate);
-    height = Math.max(height, minTemplate);
+    // Keep template visible (not tiny), but bounded.
+    width = clamp(width, Math.max(1, minTemplate), Math.max(1, maxTemplate));
+    height = Math.max(1, Math.round(width / templateAspectRatio));
+    if (height > productSpec.printHeight) {
+      height = productSpec.printHeight;
+      width = Math.max(1, Math.round(height * templateAspectRatio));
+    }
 
     // Clamp top/left to keep within the canvas
     const left = clamp(productSpec.qrDefaultPosition.left, 0, Math.max(0, productSpec.printWidth - width));
@@ -569,17 +685,17 @@ export function CustomizationStudio({
       width,
       height,
     };
-  }, [productSpec]);
+  }, [productSpec, qrSizeFraction, templateAspectRatio]);
 
   const [designs, setDesigns] = useState<DesignState>(() => {
     const initial: any = {};
     for (const p of productSpec.placements) {
-      initial[p] = { images: [], texts: [], layoutId: "single" };
+      initial[p] = { images: [], texts: [], layoutId: DEFAULT_LAYOUT_ID };
     }
     if (productSpec.requiresQrCode && normalizedQrDefault) {
       initial[normalizedQrDefault.placement] = {
         ...(initial[normalizedQrDefault.placement] || { images: [], texts: [] }),
-        layoutId: "single",
+        layoutId: DEFAULT_LAYOUT_ID,
         qrCode: {
           x: normalizedQrDefault.left,
           y: normalizedQrDefault.top,
@@ -597,8 +713,29 @@ export function CustomizationStudio({
 
   // Loaded resources
   const [loadedImages, setLoadedImages] = useState<Map<string, HTMLImageElement>>(new Map());
+  const [uploadedAssets, setUploadedAssets] = useState<UploadedImageAsset[]>([]);
+  const [surfacePreviews, setSurfacePreviews] = useState<Record<Placement, string>>(() => {
+    const initial: Record<Placement, string> = {} as Record<Placement, string>;
+    for (const p of productSpec.placements) initial[p] = "";
+    return initial;
+  });
   const [qrImageObj, setQrImageObj] = useState<HTMLImageElement | null>(null);
   const [templateImageObj, setTemplateImageObj] = useState<HTMLImageElement | null>(null);
+  const templateCrop = useMemo(() => {
+    const crop = selectedArtKeyTemplate.contentCrop;
+    if (!crop || !templateImageObj) return undefined;
+
+    const sourceW = templateImageObj.naturalWidth || templateImageObj.width || 0;
+    const sourceH = templateImageObj.naturalHeight || templateImageObj.height || 0;
+    if (sourceW <= 0 || sourceH <= 0) return undefined;
+
+    const x = Math.round(clamp(crop.xFraction, 0, 1) * sourceW);
+    const y = Math.round(clamp(crop.yFraction, 0, 1) * sourceH);
+    const width = Math.round(clamp(crop.widthFraction, 0.01, 1) * sourceW);
+    const height = Math.round(clamp(crop.heightFraction, 0.01, 1) * sourceH);
+
+    return { x, y, width, height };
+  }, [selectedArtKeyTemplate.contentCrop, templateImageObj]);
 
   // Text tool state
   const [isAddingText, setIsAddingText] = useState(false);
@@ -610,6 +747,7 @@ export function CustomizationStudio({
   const [textItalic, setTextItalic] = useState(false);
   const [textUnderline, setTextUnderline] = useState(false);
   const [textAlign, setTextAlign] = useState<TextAlign>("left");
+  const [textLabelShape, setTextLabelShape] = useState<TextLabelShape>("none");
 
   // Undo/redo
   const [history, setHistory] = useState<DesignState[]>([]);
@@ -622,6 +760,7 @@ export function CustomizationStudio({
 
   // Crop
   const [cropImageId, setCropImageId] = useState<string | null>(null);
+  const [hoverSlotIndex, setHoverSlotIndex] = useState<number | null>(null);
 
   // Context menu
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number }>({
@@ -640,7 +779,7 @@ export function CustomizationStudio({
   });
 
   // Decorative elements
-  const [decoratives, setDecoratives] = useState<Record<Placement, Array<{ id: string; src: string; name: string; x: number; y: number; width: number; height: number; rotation: number; opacity: number }>>>(() => {
+  const [decoratives, setDecoratives] = useState<Record<Placement, DecorativeItem[]>>(() => {
     const initial: any = {};
     for (const p of productSpec.placements) {
       initial[p] = [];
@@ -653,9 +792,9 @@ export function CustomizationStudio({
   const [panelStates, setPanelStates] = useState({
     images: true,
     layouts: true,
-    background: true,
+    background: false,
     decoratives: false,
-    text: true,
+    text: false,
   });
 
   // -------------------------------------------------------------------------
@@ -731,17 +870,33 @@ export function CustomizationStudio({
   // "Fit" scale uses the available container size (minus padding)
   const fitMaxW = Math.max(1, containerSize.width - 64);
   const fitMaxH = Math.max(1, containerSize.height - 64);
-  const baseDisplayScale = getDisplayScale(canvasWidth, canvasHeight, fitMaxW, fitMaxH);
+  // Keep perceived canvas footprint consistent across portrait/landscape by
+  // fitting against the long edge, not whichever side happens to be limiting.
+  const longEdgeTarget = Math.max(1, Math.min(fitMaxW, fitMaxH));
+  const baseDisplayScale = Math.min(longEdgeTarget / Math.max(canvasWidth, canvasHeight), 1);
   const displayScale = baseDisplayScale * zoomLevel;
 
   const stageWidth = Math.max(1, Math.round(canvasWidth * displayScale));
   const stageHeight = Math.max(1, Math.round(canvasHeight * displayScale));
 
-  const currentDesign = designs[activePlacement] || { images: [], texts: [], layoutId: "single" };
-  const currentLayoutId = currentDesign.layoutId || "single";
-  const currentLayout = useMemo(() => getLayoutById(currentLayoutId) || getLayoutById("single")!, [currentLayoutId]);
+  const currentDesign = designs[activePlacement] || { images: [], texts: [], layoutId: DEFAULT_LAYOUT_ID };
+  const currentLayoutId = currentDesign.layoutId || DEFAULT_LAYOUT_ID;
+  const currentLayout = useMemo(
+    () => getLayoutById(currentLayoutId) || getLayoutById(DEFAULT_LAYOUT_ID) || getLayoutById("single")!,
+    [currentLayoutId]
+  );
+  const basicLayouts = useMemo(
+    () => COLLAGE_LAYOUTS.filter((l) => (l.category || "basic") === "basic" && l.id !== DEFAULT_LAYOUT_ID),
+    []
+  );
+  const collageLayouts = useMemo(
+    () => COLLAGE_LAYOUTS.filter((l) => l.category === "collage"),
+    []
+  );
   const currentBackground = backgrounds[activePlacement] || { enabled: false, color: "#f3f3f3", x: 0, y: 0, width: 100, height: 100 };
   const currentDecoratives = decoratives[activePlacement] || [];
+  const borderDecoratives = currentDecoratives.filter((d) => getDecorativeKind(d) === "border");
+  const frontDecoratives = currentDecoratives.filter((d) => getDecorativeKind(d) === "label");
   
   const selectedDecorativeItem = 
     selectedType === "decorative" && selectedId
@@ -749,13 +904,100 @@ export function CustomizationStudio({
       : null;
 
   const slotRects = useMemo(() => {
-    return (currentLayout.slots || [{ x: 0, y: 0, width: 1, height: 1 }]).map((s) => ({
-      x: s.x * canvasWidth,
-      y: s.y * canvasHeight,
-      width: s.width * canvasWidth,
-      height: s.height * canvasHeight,
-    }));
+    return buildSlotRects(currentLayout, canvasWidth, canvasHeight);
   }, [currentLayout, canvasWidth, canvasHeight]);
+
+  const getSlotIndexForPoint = useCallback(
+    (x: number, y: number): number | undefined => {
+      for (let i = 0; i < slotRects.length; i++) {
+        const s = slotRects[i];
+        if (x >= s.x && x <= s.x + s.width && y >= s.y && y <= s.y + s.height) {
+          return i;
+        }
+      }
+      return undefined;
+    },
+    [slotRects]
+  );
+
+  // When template type changes, normalize size/aspect so the template stays
+  // visible and QR remains physically scannable.
+  useEffect(() => {
+    if (!productSpec.requiresQrCode) return;
+    const expectedQrPx = (productSpec.printDpi || 300) * TARGET_QR_INCHES;
+    const minTemplateFromQr = Math.round(expectedQrPx / Math.max(0.01, qrSizeFraction));
+    const minTemplateFromCanvas = Math.round(
+      Math.min(canvasWidth, canvasHeight * templateAspectRatio) *
+        MIN_TEMPLATE_CANVAS_FRACTION
+    );
+    const minTemplate = Math.max(minTemplateFromQr, minTemplateFromCanvas);
+    const maxTemplate = Math.max(
+      1,
+      Math.round(
+        Math.min(canvasWidth, canvasHeight * templateAspectRatio) *
+          MAX_TEMPLATE_CANVAS_FRACTION
+      )
+    );
+
+    setDesigns((prev) => {
+      const current = prev[qrPlacement];
+      if (!current?.qrCode) return prev;
+      const { qrCode } = current;
+
+      let nextWidth = clamp(qrCode.width, Math.max(1, minTemplate), maxTemplate);
+      let nextHeight = Math.max(1, Math.round(nextWidth / templateAspectRatio));
+
+      // Fit to canvas if the aspect-adjusted box overflows.
+      if (nextHeight > canvasHeight) {
+        nextHeight = canvasHeight;
+        nextWidth = Math.max(1, Math.round(nextHeight * templateAspectRatio));
+      }
+      if (nextWidth > canvasWidth) {
+        nextWidth = canvasWidth;
+        nextHeight = Math.max(1, Math.round(nextWidth / templateAspectRatio));
+      }
+
+      const currentAspect =
+        qrCode.height > 0 ? qrCode.width / qrCode.height : templateAspectRatio;
+      const needsResize =
+        Math.abs(currentAspect - templateAspectRatio) > 0.01 ||
+        qrCode.width !== nextWidth ||
+        qrCode.height !== nextHeight;
+      if (!needsResize) return prev;
+
+      const nextX = clamp(
+        qrCode.x - (nextWidth - qrCode.width) / 2,
+        0,
+        Math.max(0, canvasWidth - nextWidth)
+      );
+      const nextY = clamp(
+        qrCode.y - (nextHeight - qrCode.height) / 2,
+        0,
+        Math.max(0, canvasHeight - nextHeight)
+      );
+      return {
+        ...prev,
+        [qrPlacement]: {
+          ...current,
+          qrCode: {
+            ...qrCode,
+            x: nextX,
+            y: nextY,
+            width: nextWidth,
+            height: nextHeight,
+          },
+        },
+      };
+    });
+  }, [
+    productSpec.requiresQrCode,
+    productSpec.printDpi,
+    qrPlacement,
+    qrSizeFraction,
+    templateAspectRatio,
+    canvasWidth,
+    canvasHeight,
+  ]);
 
   const hasQrOnCurrentSurface = productSpec.requiresQrCode && qrPlacement === activePlacement;
 
@@ -768,6 +1010,14 @@ export function CustomizationStudio({
     selectedType === "image" && selectedId
       ? (currentDesign.images || []).find((img) => img.id === selectedId) || null
       : null;
+
+  const selectedRotationDegrees = useMemo(() => {
+    if (!selectedId || !selectedType) return 0;
+    if (selectedType === "image") return normalizeDegrees(selectedImageItem?.rotation ?? 0);
+    if (selectedType === "text") return normalizeDegrees(selectedTextItem?.rotation ?? 0);
+    if (selectedType === "decorative") return normalizeDegrees(selectedDecorativeItem?.rotation ?? 0);
+    return 0;
+  }, [selectedDecorativeItem, selectedId, selectedImageItem, selectedTextItem, selectedType]);
 
   const cropImageItem = cropImageId ? (currentDesign.images || []).find((img) => img.id === cropImageId) : null;
   const cropLoadedImage = cropImageId ? loadedImages.get(cropImageId) : null;
@@ -789,14 +1039,15 @@ export function CustomizationStudio({
   }, [placeholderQrCodeUrl, productSpec.requiresQrCode]);
 
   useEffect(() => {
-    if (!productSpec.requiresQrCode || !artKeyTemplateUrl) return;
+    if (!productSpec.requiresQrCode || !selectedArtKeyTemplate.assetUrl) return;
 
     const img = new window.Image();
     img.crossOrigin = "anonymous";
-    img.src = artKeyTemplateUrl;
+    img.src = selectedArtKeyTemplate.assetUrl;
     img.onload = () => setTemplateImageObj(img);
-    img.onerror = () => console.error("Failed to load ArtKey template:", artKeyTemplateUrl);
-  }, [artKeyTemplateUrl, productSpec.requiresQrCode]);
+    img.onerror = () =>
+      console.error("Failed to load ArtKey template:", selectedArtKeyTemplate.assetUrl);
+  }, [productSpec.requiresQrCode, selectedArtKeyTemplate.assetUrl]);
 
   // -------------------------------------------------------------------------
   // TRANSFORMER SYNC (selection -> transformer)
@@ -872,6 +1123,7 @@ export function CustomizationStudio({
     setTextItalic(selectedTextItem.fontStyle?.includes("italic") || false);
     setTextUnderline(selectedTextItem.textDecoration === "underline");
     setTextAlign(selectedTextItem.align || "left");
+    setTextLabelShape(selectedTextItem.labelShape || "none");
   }, [selectedTextItem]);
 
   // -------------------------------------------------------------------------
@@ -977,6 +1229,88 @@ export function CustomizationStudio({
     setContextMenu((cm) => ({ ...cm, visible: false }));
   }, [activePlacement, selectedId, selectedType]);
 
+  const centerSelected = useCallback(
+    (axis: "x" | "y" | "both") => {
+      if (!selectedId || !selectedType) return;
+
+      const resolveCentered = (
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        target: { x: number; y: number; width: number; height: number }
+      ) => {
+        let nextX = x;
+        let nextY = y;
+        if (axis === "x" || axis === "both") {
+          nextX = target.x + (target.width - width) / 2;
+        }
+        if (axis === "y" || axis === "both") {
+          nextY = target.y + (target.height - height) / 2;
+        }
+        return { x: nextX, y: nextY };
+      };
+
+      if (selectedType === "decorative") {
+        setDecoratives((prev) => ({
+          ...prev,
+          [activePlacement]: (prev[activePlacement] || []).map((d) => {
+            if (d.id !== selectedId) return d;
+            const next = resolveCentered(
+              d.x,
+              d.y,
+              d.width,
+              d.height,
+              { x: 0, y: 0, width: canvasWidth, height: canvasHeight }
+            );
+            return { ...d, ...next };
+          }),
+        }));
+        return;
+      }
+
+      if (selectedType === "image") {
+        setDesigns((prev) => ({
+          ...prev,
+          [activePlacement]: {
+            ...prev[activePlacement],
+            images: (prev[activePlacement]?.images || []).map((img) => {
+              if (img.id !== selectedId) return img;
+              const slot =
+                typeof img.slotIndex === "number" ? slotRects[img.slotIndex] : undefined;
+              const target = slot || { x: 0, y: 0, width: canvasWidth, height: canvasHeight };
+              const next = resolveCentered(img.x, img.y, img.width, img.height, target);
+              return { ...img, ...next };
+            }),
+          },
+        }));
+        return;
+      }
+
+      if (selectedType === "text") {
+        setDesigns((prev) => ({
+          ...prev,
+          [activePlacement]: {
+            ...prev[activePlacement],
+            texts: (prev[activePlacement]?.texts || []).map((t) => {
+              if (t.id !== selectedId) return t;
+              const approxTextHeight = Math.max(1, Math.round(t.fontSize * 1.2));
+              const next = resolveCentered(
+                t.x,
+                t.y,
+                Math.max(1, t.width),
+                approxTextHeight,
+                { x: 0, y: 0, width: canvasWidth, height: canvasHeight }
+              );
+              return { ...t, ...next };
+            }),
+          },
+        }));
+      }
+    },
+    [activePlacement, canvasHeight, canvasWidth, selectedId, selectedType, slotRects]
+  );
+
   // -------------------------------------------------------------------------
   // BACKGROUND HANDLERS
   // -------------------------------------------------------------------------
@@ -990,7 +1324,7 @@ export function CustomizationStudio({
   // -------------------------------------------------------------------------
   // DECORATIVE ELEMENT HANDLERS
   // -------------------------------------------------------------------------
-  const addDecorativeElement = useCallback((element: { id: string; name: string; src: string }) => {
+  const addDecorativeElement = useCallback((element: DecorativeElementOption) => {
     const newId = generateId();
     
     // Load the SVG image
@@ -1010,6 +1344,7 @@ export function CustomizationStudio({
         id: newId,
         src: element.src,
         name: element.name,
+        kind: getDecorativeKind(element),
         x: (canvasWidth - width) / 2,
         y: (canvasHeight - height) / 2,
         width,
@@ -1072,9 +1407,10 @@ export function CustomizationStudio({
     }));
   }, [activePlacement]);
 
-  const rotateSelected = useCallback(
+  const setSelectedRotation = useCallback(
     (degrees: number) => {
       if (!selectedId || !selectedType) return;
+      const normalized = normalizeDegrees(degrees);
 
       if (selectedType === "image") {
         setDesigns((prev) => ({
@@ -1082,7 +1418,7 @@ export function CustomizationStudio({
           [activePlacement]: {
             ...prev[activePlacement],
             images: (prev[activePlacement]?.images || []).map((img) =>
-              img.id === selectedId ? { ...img, rotation: (img.rotation + degrees) % 360 } : img
+              img.id === selectedId ? { ...img, rotation: normalized } : img
             ),
           },
         }));
@@ -1094,7 +1430,7 @@ export function CustomizationStudio({
           [activePlacement]: {
             ...prev[activePlacement],
             texts: (prev[activePlacement]?.texts || []).map((t) =>
-              t.id === selectedId ? { ...t, rotation: (t.rotation + degrees) % 360 } : t
+              t.id === selectedId ? { ...t, rotation: normalized } : t
             ),
           },
         }));
@@ -1104,7 +1440,47 @@ export function CustomizationStudio({
         setDecoratives((prev) => ({
           ...prev,
           [activePlacement]: (prev[activePlacement] || []).map((d) =>
-            d.id === selectedId ? { ...d, rotation: (d.rotation + degrees) % 360 } : d
+            d.id === selectedId ? { ...d, rotation: normalized } : d
+          ),
+        }));
+      }
+    },
+    [activePlacement, selectedId, selectedType]
+  );
+
+  const rotateSelected = useCallback(
+    (degrees: number) => {
+      if (!selectedId || !selectedType) return;
+
+      if (selectedType === "image") {
+        setDesigns((prev) => ({
+          ...prev,
+          [activePlacement]: {
+            ...prev[activePlacement],
+            images: (prev[activePlacement]?.images || []).map((img) =>
+              img.id === selectedId ? { ...img, rotation: normalizeDegrees(img.rotation + degrees) } : img
+            ),
+          },
+        }));
+      }
+
+      if (selectedType === "text") {
+        setDesigns((prev) => ({
+          ...prev,
+          [activePlacement]: {
+            ...prev[activePlacement],
+            texts: (prev[activePlacement]?.texts || []).map((t) =>
+              t.id === selectedId ? { ...t, rotation: normalizeDegrees(t.rotation + degrees) } : t
+            ),
+          },
+        }));
+      }
+
+      if (selectedType === "decorative") {
+        setDecoratives((prev) => ({
+          ...prev,
+          [activePlacement]: (prev[activePlacement] || []).map((d) =>
+            d.id === selectedId ? { ...d, rotation: normalizeDegrees(d.rotation + degrees) } : d
           ),
         }));
       }
@@ -1191,6 +1567,9 @@ export function CustomizationStudio({
   // -------------------------------------------------------------------------
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (document.activeElement?.tagName || "").toUpperCase();
+      const isTyping = tag === "INPUT" || tag === "TEXTAREA";
+
       // Undo: Ctrl/Cmd+Z
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
@@ -1207,17 +1586,39 @@ export function CustomizationStudio({
 
       // Delete
       if (e.key === "Delete" || e.key === "Backspace") {
-        const tag = (document.activeElement?.tagName || "").toUpperCase();
-        if (tag !== "INPUT" && tag !== "TEXTAREA" && selectedId) {
+        if (!isTyping && selectedId) {
           e.preventDefault();
           deleteSelected();
+        }
+      }
+
+      // Center shortcuts (only when not typing in a field)
+      // Shift+H => center horizontally
+      // Shift+V => center vertically
+      // Shift+C => center both axes
+      if (!isTyping && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && selectedId) {
+        const k = e.key.toLowerCase();
+        if (k === "h") {
+          e.preventDefault();
+          centerSelected("x");
+          return;
+        }
+        if (k === "v") {
+          e.preventDefault();
+          centerSelected("y");
+          return;
+        }
+        if (k === "c") {
+          e.preventDefault();
+          centerSelected("both");
+          return;
         }
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [deleteSelected, handleRedo, handleUndo, selectedId]);
+  }, [centerSelected, deleteSelected, handleRedo, handleUndo, selectedId]);
 
   // -------------------------------------------------------------------------
   // LAYOUT HELPERS
@@ -1227,55 +1628,36 @@ export function CustomizationStudio({
       const layout = getLayoutById(layoutId);
       if (!layout) return;
 
-      const nextSlotRects = (layout.slots || [{ x: 0, y: 0, width: 1, height: 1 }]).map((s) => ({
-        x: s.x * canvasWidth,
-        y: s.y * canvasHeight,
-        width: s.width * canvasWidth,
-        height: s.height * canvasHeight,
-      }));
+      const nextSlotRects = buildSlotRects(layout, canvasWidth, canvasHeight);
 
       setDesigns((prev) => {
-        const current = prev[activePlacement] || { images: [], texts: [], layoutId: "single" };
+        const current = prev[activePlacement] || { images: [], texts: [], layoutId: DEFAULT_LAYOUT_ID };
         const images = [...(current.images || [])];
-
         const slotCount = nextSlotRects.length;
-        const used = new Set<number>();
 
-        // Keep valid unique assignments, clear the rest
-        let normalized = images.map((img) => {
-          const idx = typeof img.slotIndex === "number" ? img.slotIndex : undefined;
-          if (idx !== undefined && idx >= 0 && idx < slotCount && !used.has(idx)) {
-            used.add(idx);
-            return img;
+        // Deterministic placement: first N images always occupy first N slots.
+        // This avoids partial slot assignment where some images remain free-floating.
+        const normalized = images.map((img, idx) => {
+          if (idx >= slotCount || slotCount === 0) {
+            return { ...img, slotIndex: undefined };
           }
-          return { ...img, slotIndex: undefined };
-        });
 
-        // Assign unassigned images into free slots (first-come)
-        const nextFreeSlot = () => {
-          for (let i = 0; i < slotCount; i++) {
-            if (!used.has(i)) return i;
-          }
-          return null;
-        };
-
-        normalized = normalized.map((img) => {
-          if (typeof img.slotIndex === "number") return img;
-          const slotIndex = nextFreeSlot();
-          if (slotIndex === null) return img; // stays "free"
-          used.add(slotIndex);
-
-          const slot = nextSlotRects[slotIndex];
-
+          const slot = nextSlotRects[idx];
           const srcW = img.originalWidth || img.width;
           const srcH = img.originalHeight || img.height;
-
           const fitted = coverImageToSlot(srcW, srcH, slot.width, slot.height);
-          const centered = centerInSlot(fitted.width, fitted.height, slot.x, slot.y, slot.width, slot.height);
+          const centered = centerInSlot(
+            fitted.width,
+            fitted.height,
+            slot.x,
+            slot.y,
+            slot.width,
+            slot.height
+          );
 
           return {
             ...img,
-            slotIndex,
+            slotIndex: idx,
             x: centered.x,
             y: centered.y,
             width: fitted.width,
@@ -1295,6 +1677,7 @@ export function CustomizationStudio({
 
       setSelectedId(null);
       setSelectedType(null);
+      setHoverSlotIndex(null);
     },
     [activePlacement, canvasWidth, canvasHeight]
   );
@@ -1366,6 +1749,66 @@ export function CustomizationStudio({
     fileInputRef.current?.click();
   }, []);
 
+  const addImageToCanvas = useCallback(
+    (src: string, img: HTMLImageElement, forcedSlotIndex?: number) => {
+      const slotIndex = typeof forcedSlotIndex === "number" ? forcedSlotIndex : undefined;
+      const id = generateId();
+      let newImage: ImageItem;
+
+      if (typeof slotIndex === "number" && slotRects[slotIndex]) {
+        const slot = slotRects[slotIndex];
+        const fitted = coverImageToSlot(img.width, img.height, slot.width, slot.height);
+        const centered = centerInSlot(fitted.width, fitted.height, slot.x, slot.y, slot.width, slot.height);
+
+        newImage = {
+          id,
+          src,
+          slotIndex,
+          x: centered.x,
+          y: centered.y,
+          width: fitted.width,
+          height: fitted.height,
+          rotation: 0,
+          originalWidth: img.width,
+          originalHeight: img.height,
+        };
+      } else {
+        // Keep free images safely inside the visible canvas workspace.
+        const maxW = canvasWidth * 0.65;
+        const maxH = canvasHeight * 0.65;
+        const fitted = fitImageToSlot(img.width, img.height, maxW, maxH);
+        const width = Math.min(fitted.width, canvasWidth * 0.9);
+        const height = Math.min(fitted.height, canvasHeight * 0.9);
+        const centered = centerInSlot(width, height, 0, 0, canvasWidth, canvasHeight);
+
+        newImage = {
+          id,
+          src,
+          x: clamp(centered.x, 0, Math.max(0, canvasWidth - width)),
+          y: clamp(centered.y, 0, Math.max(0, canvasHeight - height)),
+          width,
+          height,
+          rotation: 0,
+          originalWidth: img.width,
+          originalHeight: img.height,
+        };
+      }
+
+      setLoadedImages((prev) => new Map(prev).set(id, img));
+      setDesigns((prev) => ({
+        ...prev,
+        [activePlacement]: {
+          ...(prev[activePlacement] || { images: [], texts: [], layoutId: DEFAULT_LAYOUT_ID }),
+          images: [...((prev[activePlacement]?.images || []) as ImageItem[]), newImage],
+        },
+      }));
+
+      setSelectedId(id);
+      setSelectedType("image");
+    },
+    [activePlacement, canvasHeight, canvasWidth, slotRects]
+  );
+
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
@@ -1396,64 +1839,23 @@ export function CustomizationStudio({
           img.crossOrigin = "anonymous";
 
           img.onload = () => {
-            const id = generateId();
-
             // Prefer filling empty layout slots first
             const slotIndex = nextFreeSlot();
             if (slotIndex !== null) used.add(slotIndex);
-
-            let newImage: ImageItem;
-
-            if (slotIndex !== null) {
-              const slot = slotRects[slotIndex];
-
-              const fitted = fitImageToSlot(img.width, img.height, slot.width, slot.height);
-              const centered = centerInSlot(fitted.width, fitted.height, slot.x, slot.y, slot.width, slot.height);
-
-              newImage = {
-                id,
-                src,
-                slotIndex,
-                x: centered.x,
-                y: centered.y,
-                width: fitted.width,
-                height: fitted.height,
-                rotation: 0,
-                originalWidth: img.width,
-                originalHeight: img.height,
-              };
-            } else {
-              // No slots left: add as a free-floating image centered
-              const maxW = canvasWidth * 0.8;
-              const maxH = canvasHeight * 0.8;
-              const fitted = fitImageToSlot(img.width, img.height, maxW, maxH);
-              const centered = centerInSlot(fitted.width, fitted.height, 0, 0, canvasWidth, canvasHeight);
-
-              newImage = {
-                id,
-                src,
-                x: centered.x,
-                y: centered.y,
-                width: fitted.width,
-                height: fitted.height,
-                rotation: 0,
-                originalWidth: img.width,
-                originalHeight: img.height,
-              };
-            }
-
-            setLoadedImages((prev) => new Map(prev).set(id, img));
-
-            setDesigns((prev) => ({
-              ...prev,
-              [activePlacement]: {
-                ...(prev[activePlacement] || { images: [], texts: [], layoutId: "single" }),
-                images: [...((prev[activePlacement]?.images || []) as ImageItem[]), newImage],
-              },
-            }));
-
-            setSelectedId(id);
-            setSelectedType("image");
+            setUploadedAssets((prev) => {
+              if (prev.some((a) => a.src === src)) return prev;
+              return [
+                ...prev,
+                {
+                  id: generateId("asset"),
+                  name: file.name,
+                  src,
+                  width: img.width,
+                  height: img.height,
+                },
+              ];
+            });
+            addImageToCanvas(src, img, slotIndex ?? undefined);
           };
 
           img.src = src;
@@ -1464,7 +1866,17 @@ export function CustomizationStudio({
 
       e.target.value = "";
     },
-    [activePlacement, canvasHeight, canvasWidth, currentDesign.images, slotRects]
+    [addImageToCanvas, currentDesign.images, slotRects]
+  );
+
+  const addUploadedAssetToCanvas = useCallback(
+    (asset: UploadedImageAsset) => {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => addImageToCanvas(asset.src, img);
+      img.src = asset.src;
+    },
+    [addImageToCanvas]
   );
 
   const constrainImageToSlot = useCallback((img: ImageItem): ImageItem => {
@@ -1487,20 +1899,61 @@ export function CustomizationStudio({
     return { ...img, x: nextX, y: nextY };
   }, [slotRects]);
 
+  const handleImageDragMove = useCallback(
+    (id: string, node: Konva.Node) => {
+      const current = (designs[activePlacement]?.images || []).find((img) => img.id === id);
+      if (!current || slotRects.length === 0) {
+        setHoverSlotIndex(null);
+        return;
+      }
+      const centerX = node.x() + current.width / 2;
+      const centerY = node.y() + current.height / 2;
+      const nextSlot = getSlotIndexForPoint(centerX, centerY);
+      setHoverSlotIndex(typeof nextSlot === "number" ? nextSlot : null);
+    },
+    [activePlacement, designs, getSlotIndexForPoint, slotRects.length]
+  );
+
   const handleImageDragEnd = useCallback(
     (id: string, node: Konva.Node) => {
+      setHoverSlotIndex(null);
       setDesigns((prev) => ({
         ...prev,
         [activePlacement]: {
           ...prev[activePlacement],
           images: (prev[activePlacement]?.images || []).map((img) => {
             if (img.id !== id) return img;
-            return constrainImageToSlot({ ...img, x: node.x(), y: node.y() });
+            const dropped = { ...img, x: node.x(), y: node.y() };
+            const centerX = dropped.x + dropped.width / 2;
+            const centerY = dropped.y + dropped.height / 2;
+            const slotIndex = getSlotIndexForPoint(centerX, centerY);
+
+            if (typeof slotIndex === "number") {
+              const slot = slotRects[slotIndex];
+              const srcW = dropped.originalWidth || dropped.width;
+              const srcH = dropped.originalHeight || dropped.height;
+              const fitted = coverImageToSlot(srcW, srcH, slot.width, slot.height);
+              const centered = centerInSlot(fitted.width, fitted.height, slot.x, slot.y, slot.width, slot.height);
+              return {
+                ...dropped,
+                slotIndex,
+                x: centered.x,
+                y: centered.y,
+                width: fitted.width,
+                height: fitted.height,
+              };
+            }
+
+            if (currentLayoutId === DEFAULT_LAYOUT_ID) {
+              return { ...dropped, slotIndex: undefined };
+            }
+
+            return constrainImageToSlot(dropped);
           }),
         },
       }));
     },
-    [activePlacement, constrainImageToSlot]
+    [activePlacement, constrainImageToSlot, currentLayoutId, getSlotIndexForPoint, slotRects]
   );
 
   const handleImageTransformEnd = useCallback(
@@ -1536,13 +1989,24 @@ export function CustomizationStudio({
   // TEXT HANDLERS
   // -------------------------------------------------------------------------
   const addText = useCallback(
-    (rawText: string) => {
+    (rawText: string, shapeOverride?: TextLabelShape) => {
       const trimmed = rawText.trim();
       if (!trimmed) return;
 
       const id = generateId();
       const fontStyle = `${textBold ? "bold " : ""}${textItalic ? "italic" : ""}`.trim() || "normal";
-      const width = Math.max(200, Math.round(canvasWidth * 0.6));
+      const baseWidth = Math.max(200, Math.round(canvasWidth * 0.6));
+      const effectiveShape = shapeOverride || textLabelShape;
+      const isSquareLike = effectiveShape === "square" || effectiveShape === "circle";
+      const labelPadding = effectiveShape === "none" ? 0 : Math.max(8, Math.round(textSize * 0.45));
+      const labelBoxHeight =
+        effectiveShape === "none"
+          ? undefined
+          : Math.max(56, Math.round(textSize * 2.4));
+      const width =
+        isSquareLike && labelBoxHeight
+          ? Math.max(Math.min(baseWidth, Math.round(canvasWidth * 0.35)), labelBoxHeight)
+          : baseWidth;
 
       const newText: TextItem = {
         id,
@@ -1557,12 +2021,19 @@ export function CustomizationStudio({
         width,
         align: textAlign,
         textDecoration: textUnderline ? "underline" : "",
+        labelShape: effectiveShape,
+        labelBoxHeight,
+        labelPadding,
+        labelOuterStrokeWidth: effectiveShape === "none" ? 0 : 4,
+        labelInnerStrokeWidth: effectiveShape === "none" ? 0 : 1.5,
+        labelOuterStrokeColor: effectiveShape === "none" ? undefined : BRAND.dark,
+        labelInnerStrokeColor: effectiveShape === "none" ? undefined : BRAND.medium,
       };
 
       setDesigns((prev) => ({
         ...prev,
         [activePlacement]: {
-          ...(prev[activePlacement] || { images: [], texts: [], layoutId: "single" }),
+          ...(prev[activePlacement] || { images: [], texts: [], layoutId: DEFAULT_LAYOUT_ID }),
           texts: [...((prev[activePlacement]?.texts || []) as TextItem[]), newText],
         },
       }));
@@ -1581,12 +2052,22 @@ export function CustomizationStudio({
       textColor,
       textFont,
       textItalic,
+      textLabelShape,
       textSize,
       textUnderline,
     ]
   );
 
   const handleAddText = useCallback(() => addText(textInput), [addText, textInput]);
+
+  const addTextLabelWithShape = useCallback(
+    (shape: TextLabelShape) => {
+      setTextLabelShape(shape);
+      if (shape === "none") return;
+      addText("Your text here", shape);
+    },
+    [addText]
+  );
 
   const updateSelectedText = useCallback(
     (updates: Partial<TextItem>) => {
@@ -1616,8 +2097,9 @@ export function CustomizationStudio({
       fontStyle,
       align: textAlign,
       textDecoration: textUnderline ? "underline" : "",
+      labelShape: textLabelShape,
     });
-  }, [selectedTextItem, textAlign, textBold, textColor, textFont, textInput, textItalic, textSize, textUnderline, updateSelectedText]);
+  }, [selectedTextItem, textAlign, textBold, textColor, textFont, textInput, textItalic, textLabelShape, textSize, textUnderline, updateSelectedText]);
 
   const handleTextDragEnd = useCallback(
     (id: string, node: Konva.Node) => {
@@ -1647,6 +2129,10 @@ export function CustomizationStudio({
             const nextFontSize = Math.max(8, t.fontSize * scaleY);
             const currentWidth = typeof t.width === "number" ? t.width : node.width();
             const nextWidth = Math.max(40, currentWidth * scaleX);
+            const nextLabelHeight =
+              t.labelShape && t.labelShape !== "none"
+                ? Math.max(40, getLabelBoxHeight(t) * scaleY)
+                : t.labelBoxHeight;
 
             return {
               ...t,
@@ -1655,6 +2141,7 @@ export function CustomizationStudio({
               rotation: node.rotation(),
               fontSize: nextFontSize,
               width: nextWidth,
+              labelBoxHeight: nextLabelHeight,
             };
           }),
         },
@@ -1898,6 +2385,29 @@ export function CustomizationStudio({
     });
   }, [snapshotStage, canvasWidth, canvasHeight]);
 
+  // Keep a lightweight thumbnail cache for the right preview rail.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const preview = snapshotStage(canvasWidth, canvasHeight);
+      if (!preview) return;
+      setSurfacePreviews((prev) => ({ ...prev, [activePlacement]: preview }));
+    }, 90);
+    return () => window.clearTimeout(timer);
+  }, [
+    activePlacement,
+    canvasWidth,
+    canvasHeight,
+    snapshotStage,
+    currentDesign.images,
+    currentDesign.texts,
+    currentDecoratives,
+    currentBackground,
+    hasQrOnCurrentSurface,
+    currentDesign.qrCode,
+    qrImageObj,
+    templateImageObj,
+  ]);
+
   const getArtKeyTemplatePosition = useCallback((): ArtKeyTemplatePosition | undefined => {
     if (!productSpec.requiresQrCode) return undefined;
     const qrData = designs[qrPlacement]?.qrCode;
@@ -1908,8 +2418,9 @@ export function CustomizationStudio({
       y: qrData.y,
       width: qrData.width,
       height: qrData.height,
+      templateId: selectedArtKeyTemplate.id,
     };
-  }, [designs, productSpec.requiresQrCode, qrPlacement]);
+  }, [designs, productSpec.requiresQrCode, qrPlacement, selectedArtKeyTemplate.id]);
 
   const handleExport = useCallback(async () => {
     const dataUrl = await exportCurrentPlacement();
@@ -2119,6 +2630,7 @@ export function CustomizationStudio({
     setActivePlacement(p);
     setSelectedId(null);
     setSelectedType(null);
+    setHoverSlotIndex(null);
     setContextMenu((cm) => ({ ...cm, visible: false }));
   }, []);
 
@@ -2154,13 +2666,13 @@ export function CustomizationStudio({
   // JSX
   // -------------------------------------------------------------------------
   return (
-    <div className="w-full min-h-screen flex flex-col" style={{ background: BRAND.lightest, color: BRAND.dark }}>
+    <div className="w-full h-screen max-h-screen overflow-hidden flex flex-col" style={{ background: BRAND.lightest, color: BRAND.dark }}>
       {/* Top Bar */}
       <div
-        className="px-3 py-2 lg:px-4 lg:py-3 border-b flex items-center justify-between gap-2 flex-wrap"
+        className="px-3 py-2 lg:px-4 lg:py-2.5 border-b flex items-center justify-between gap-2 overflow-x-auto"
         style={{ background: BRAND.white, borderColor: BRAND.light }}
       >
-        <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
+        <div className="flex items-center gap-2 lg:gap-3 shrink-0">
           <h1 
             className="text-xl font-bold" 
             style={{ 
@@ -2176,7 +2688,7 @@ export function CustomizationStudio({
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Undo / Redo */}
           <button
             onClick={handleUndo}
@@ -2283,7 +2795,7 @@ export function CustomizationStudio({
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left Sidebar */}
-        <div className="w-64 lg:w-80 flex-shrink-0 border-r flex flex-col" style={{ background: BRAND.white, borderColor: BRAND.light }}>
+        <div className="w-64 xl:w-72 2xl:w-80 flex-shrink-0 border-r flex flex-col" style={{ background: BRAND.white, borderColor: BRAND.light }}>
           <div className="flex-1 overflow-auto">
           {/* Surface Tabs - prominent at top */}
           {productSpec.placements.length > 1 && (
@@ -2294,7 +2806,7 @@ export function CustomizationStudio({
                   <button
                     key={p}
                     onClick={() => switchPlacement(p)}
-                    className="text-center px-2 py-2 lg:px-3 lg:py-2.5 rounded-lg border-2 text-xs lg:text-sm font-medium transition-all"
+                    className="h-16 text-center px-2 py-2 lg:px-3 lg:py-2.5 rounded-lg border-2 text-xs lg:text-sm font-medium transition-all"
                     style={{
                       borderColor: activePlacement === p ? BRAND.accent : BRAND.light,
                       background: activePlacement === p ? BRAND.accent : BRAND.white,
@@ -2304,11 +2816,12 @@ export function CustomizationStudio({
                   >
                     <span className="block text-[10px] lg:text-[11px] opacity-60 mb-0.5">{idx + 1}/{productSpec.placements.length}</span>
                     {getLabel(p)}
-                    {qrPlacement === p && productSpec.requiresQrCode && (
-                      <span className="block text-[10px] mt-0.5" style={{ color: activePlacement === p ? "#ddd" : "#6d28d9" }}>
-                        ArtKey
-                      </span>
-                    )}
+                    <span
+                      className="block text-[10px] mt-0.5"
+                      style={{ color: qrPlacement === p && productSpec.requiresQrCode ? (activePlacement === p ? "#ddd" : "#6d28d9") : "transparent" }}
+                    >
+                      ArtKey
+                    </span>
                   </button>
                 ))}
               </div>
@@ -2337,17 +2850,84 @@ export function CustomizationStudio({
             <p className="text-xs mt-2" style={{ color: BRAND.medium }}>
               Tip: In layouts, images are clipped to slots. Drag inside a slot to adjust the crop.
             </p>
+
+            {uploadedAssets.length > 0 && (
+              <div className="mt-3 pt-3 border-t" style={{ borderColor: BRAND.light }}>
+                <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>
+                  Uploaded Images ({uploadedAssets.length})
+                </p>
+                <div className="max-h-40 overflow-auto space-y-2 pr-1">
+                  {uploadedAssets.map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="flex items-center gap-2 rounded border p-2"
+                      style={{ borderColor: BRAND.light, background: BRAND.lightest }}
+                    >
+                      <img
+                        src={asset.src}
+                        alt={asset.name}
+                        className="w-10 h-10 rounded object-cover bg-white"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs truncate" style={{ color: BRAND.dark }}>
+                          {asset.name}
+                        </p>
+                        <p className="text-[10px]" style={{ color: BRAND.medium }}>
+                          {asset.width}x{asset.height}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => addUploadedAssetToCanvas(asset)}
+                        className="px-2 py-1 rounded text-xs"
+                        style={{ background: BRAND.accent, color: BRAND.white }}
+                        title="Add this uploaded image to canvas"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Layouts */}
           <div className="p-4 border-b" style={{ borderColor: BRAND.light }}>
             <h3 className="font-semibold mb-3">Layouts</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {COLLAGE_LAYOUTS.map((layout) => (
+            <p className="text-xs mb-2" style={{ color: BRAND.medium }}>
+              Choose a layout style, then drag images to adjust.
+            </p>
+            <p className="text-xs mb-2" style={{ color: BRAND.medium }}>
+              Default mode is Freeform (no layout) and is always available automatically.
+            </p>
+            <p className="text-[11px] font-medium mb-1.5" style={{ color: BRAND.medium }}>
+              Basic
+            </p>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {basicLayouts.map((layout) => (
                 <button
                   key={layout.id}
                   onClick={() => applyLayout(layout.id)}
                   className="px-3 py-2 rounded text-sm border"
+                  style={{
+                    borderColor: currentLayoutId === layout.id ? BRAND.accent : BRAND.light,
+                    background: currentLayoutId === layout.id ? BRAND.lightest : BRAND.white,
+                    color: BRAND.dark,
+                  }}
+                >
+                  {layout.name}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] font-medium mb-1.5" style={{ color: BRAND.medium }}>
+              Collage Styles
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              {collageLayouts.map((layout) => (
+                <button
+                  key={layout.id}
+                  onClick={() => applyLayout(layout.id)}
+                  className="px-3 py-2 rounded text-sm border text-left"
                   style={{
                     borderColor: currentLayoutId === layout.id ? BRAND.accent : BRAND.light,
                     background: currentLayoutId === layout.id ? BRAND.lightest : BRAND.white,
@@ -2524,34 +3104,11 @@ export function CustomizationStudio({
                   </div>
                 </div>
 
-                {/* Labels */}
+                {/* Label Art (decorative, non-editable text) */}
                 <div>
-                  <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>Labels</p>
+                  <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>Label Art (non-text)</p>
                   <div className="grid grid-cols-4 gap-1">
                     {DECORATIVE_ELEMENTS.labels.map((el) => (
-                      <button
-                        key={el.id}
-                        onClick={() => addDecorativeElement(el)}
-                        className="aspect-square rounded border p-1 hover:border-gray-400 transition-colors"
-                        style={{ borderColor: BRAND.light, background: BRAND.lightest }}
-                        title={el.name}
-                      >
-                        <img 
-                          src={el.src} 
-                          alt={el.name} 
-                          className="w-full h-full object-contain opacity-60"
-                          style={{ filter: 'brightness(0)' }}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Accents */}
-                <div>
-                  <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>Accents</p>
-                  <div className="grid grid-cols-5 gap-1">
-                    {DECORATIVE_ELEMENTS.accents.map((el) => (
                       <button
                         key={el.id}
                         onClick={() => addDecorativeElement(el)}
@@ -2641,6 +3198,35 @@ export function CustomizationStudio({
               </button>
             </div>
 
+            <div className="mb-3">
+              <p className="text-xs mb-1.5" style={{ color: BRAND.medium }}>
+                Quick Label Boxes
+              </p>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  onClick={() => addTextLabelWithShape("rectangle")}
+                  className="px-2 py-1.5 rounded border text-xs"
+                  style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+                >
+                  Rectangle
+                </button>
+                <button
+                  onClick={() => addTextLabelWithShape("square")}
+                  className="px-2 py-1.5 rounded border text-xs"
+                  style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+                >
+                  Square
+                </button>
+                <button
+                  onClick={() => addTextLabelWithShape("circle")}
+                  className="px-2 py-1.5 rounded border text-xs"
+                  style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+                >
+                  Circle
+                </button>
+              </div>
+            </div>
+
             {/* Add/Edit Panel */}
             {(isAddingText || selectedType === "text") && (
               <div className="space-y-3">
@@ -2656,6 +3242,37 @@ export function CustomizationStudio({
                     style={{ borderColor: BRAND.light }}
                     placeholder="Type your message…"
                   />
+                </div>
+
+                <div>
+                  <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                    Text Label Shape
+                  </label>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {([
+                      { id: "none", label: "None" },
+                      { id: "rectangle", label: "Rect" },
+                      { id: "square", label: "Square" },
+                      { id: "circle", label: "Circle" },
+                    ] as const).map((shape) => (
+                      <button
+                        key={shape.id}
+                        onClick={() => setTextLabelShape(shape.id)}
+                        className="px-2 py-1.5 rounded border text-xs"
+                        style={{
+                          borderColor: textLabelShape === shape.id ? BRAND.accent : BRAND.light,
+                          background: textLabelShape === shape.id ? BRAND.lightest : BRAND.white,
+                          color: BRAND.dark,
+                        }}
+                        title={`Use ${shape.label} text label`}
+                      >
+                        {shape.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] mt-1" style={{ color: BRAND.medium }}>
+                    Label shapes are editable text boxes with inner + outer borders.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -2873,7 +3490,51 @@ export function CustomizationStudio({
                 </div>
               )}
 
+              <div className="mb-3">
+                <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                  Rotation (deg)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={359.9}
+                  step={1}
+                  value={Number(selectedRotationDegrees.toFixed(1))}
+                  onChange={(e) => {
+                    const next = Number.parseFloat(e.target.value);
+                    if (Number.isNaN(next)) return;
+                    setSelectedRotation(next);
+                  }}
+                  className="w-full border rounded px-2 py-2 text-sm"
+                  style={{ borderColor: BRAND.light }}
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => centerSelected("x")}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded text-sm"
+                  style={{ background: BRAND.light, color: BRAND.dark }}
+                  title="Center horizontally"
+                >
+                  Center H
+                </button>
+                <button
+                  onClick={() => centerSelected("y")}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded text-sm"
+                  style={{ background: BRAND.light, color: BRAND.dark }}
+                  title="Center vertically"
+                >
+                  Center V
+                </button>
+                <button
+                  onClick={() => centerSelected("both")}
+                  className="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2 rounded text-sm"
+                  style={{ background: BRAND.light, color: BRAND.dark }}
+                  title="Center horizontally and vertically"
+                >
+                  Center Both
+                </button>
                 <button
                   onClick={() => rotateSelected(-15)}
                   className="flex items-center justify-center gap-1.5 px-3 py-2 rounded text-sm"
@@ -2957,6 +3618,16 @@ export function CustomizationStudio({
                 </select>
               </div>
 
+              {/* Template selector intentionally hidden for Elegant-only mode */}
+              <div className="mb-3">
+                <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                  ArtKey
+                </label>
+                <div className="w-full border rounded px-2 py-2 text-sm" style={{ borderColor: BRAND.light, background: BRAND.lightest }}>
+                  {selectedArtKeyTemplate.name}
+                </div>
+              </div>
+
               <p className="text-xs" style={{ color: BRAND.medium }}>
                 {hasQrOnCurrentSurface ? "Drag the ArtKey to position it." : `Switch to ${getLabel(qrPlacement)} to see the ArtKey.`}
               </p>
@@ -3020,7 +3691,7 @@ export function CustomizationStudio({
         </div>
 
         {/* Canvas Area */}
-        <div ref={canvasContainerRef} className="flex-1 min-h-0 w-full overflow-auto p-8 flex items-center justify-center">
+        <div ref={canvasContainerRef} className="flex-1 min-h-0 w-full overflow-hidden p-2 lg:p-2.5 flex items-center justify-center">
           <div className="inline-block rounded-lg shadow-xl overflow-hidden" style={{ background: BRAND.white, border: `1px solid ${BRAND.light}` }}>
             <Stage
               ref={stageRef}
@@ -3035,18 +3706,30 @@ export function CustomizationStudio({
                 <Group scaleX={displayScale} scaleY={displayScale}>
                   {/* Slot guides */}
                   {slotRects.map((s, i) => (
-                    <Rect
-                      key={`slot-guide-${i}`}
-                      x={s.x}
-                      y={s.y}
-                      width={s.width}
-                      height={s.height}
-                      stroke={BRAND.accent}
-                      strokeWidth={2}
-                      dash={[10, 6]}
-                      opacity={0.35}
-                      listening={false}
-                    />
+                    <Group key={`slot-guide-${i}`} listening={false}>
+                      <Rect
+                        x={s.x}
+                        y={s.y}
+                        width={s.width}
+                        height={s.height}
+                        fill={hoverSlotIndex === i ? "#47556922" : "#47556912"}
+                        stroke={BRAND.accent}
+                        strokeWidth={hoverSlotIndex === i ? 3 : 2}
+                        dash={[10, 6]}
+                        opacity={0.85}
+                        listening={false}
+                      />
+                      {currentLayoutId !== DEFAULT_LAYOUT_ID && (
+                        <KonvaText
+                          x={s.x + 8}
+                          y={s.y + 8}
+                          text={`Slot ${i + 1}`}
+                          fontSize={18}
+                          fill={BRAND.accent}
+                          listening={false}
+                        />
+                      )}
+                    </Group>
                   ))}
                 </Group>
               </Layer>
@@ -3069,11 +3752,8 @@ export function CustomizationStudio({
                     />
                   )}
 
-                  {/* Decorative Elements (borders/frames behind artwork).
-                      Rendered before images so they sit at z-bottom.
-                      Konva gives click priority to elements rendered later (on top),
-                      so images/text above will always receive clicks first. */}
-                  {currentDecoratives.map((dec) => {
+                  {/* Borders always sit behind artwork and are click-through unless selected. */}
+                  {borderDecoratives.map((dec) => {
                     const loaded = loadedDecoratives.get(dec.id);
                     if (!loaded) return null;
 
@@ -3091,6 +3771,7 @@ export function CustomizationStudio({
                         rotation={dec.rotation}
                         opacity={dec.opacity}
                         draggable={isActive}
+                        listening={isActive}
                         onClick={() => {
                           setSelectedId(dec.id);
                           setSelectedType("decorative");
@@ -3138,6 +3819,7 @@ export function CustomizationStudio({
                               setSelectedId(img.id);
                               setSelectedType("image");
                             }}
+                            onDragMove={(e) => handleImageDragMove(img.id, e.target)}
                             onDragEnd={(e) => handleImageDragEnd(img.id, e.target)}
                             onTransformEnd={(e) => handleImageTransformEnd(img.id, e.target)}
                           />
@@ -3164,6 +3846,7 @@ export function CustomizationStudio({
                           setSelectedId(img.id);
                           setSelectedType("image");
                         }}
+                        onDragMove={(e) => handleImageDragMove(img.id, e.target)}
                         onDragEnd={(e) => handleImageDragEnd(img.id, e.target)}
                         onTransformEnd={(e) => handleImageTransformEnd(img.id, e.target)}
                       />
@@ -3171,34 +3854,130 @@ export function CustomizationStudio({
                   })}
 
                   {/* Text (above images) */}
-                  {(currentDesign.texts || []).map((t) => (
-                    <KonvaText
-                      key={t.id}
-                      id={t.id}
-                      text={t.text}
-                      x={t.x}
-                      y={t.y}
-                      width={t.width}
-                      fontSize={t.fontSize}
-                      fontFamily={t.fontFamily}
-                      fill={t.fill}
-                      fontStyle={t.fontStyle}
-                      align={t.align}
-                      textDecoration={t.textDecoration}
-                      rotation={t.rotation}
-                      draggable
-                      onClick={() => {
-                        setSelectedId(t.id);
-                        setSelectedType("text");
-                      }}
-                      onTap={() => {
-                        setSelectedId(t.id);
-                        setSelectedType("text");
-                      }}
-                      onDragEnd={(e) => handleTextDragEnd(t.id, e.target)}
-                      onTransformEnd={(e) => handleTextTransformEnd(t.id, e.target)}
-                    />
-                  ))}
+                  {(currentDesign.texts || []).map((t) => {
+                    const textWidth = Math.max(1, t.width || Math.round(canvasWidth * 0.6));
+                    const labelShape = t.labelShape || "none";
+                    const labelHeight = getLabelBoxHeight(t);
+                    const labelPadding = Math.max(0, t.labelPadding ?? 0);
+                    const outerStroke = t.labelOuterStrokeColor || BRAND.dark;
+                    const innerStroke = t.labelInnerStrokeColor || BRAND.medium;
+                    const outerStrokeWidth = Math.max(0, t.labelOuterStrokeWidth ?? 0);
+                    const innerStrokeWidth = Math.max(0, t.labelInnerStrokeWidth ?? 0);
+                    const textHeight = labelShape === "none" ? undefined : labelHeight;
+
+                    return (
+                      <Group key={t.id}>
+                        {labelShape !== "none" && (labelShape === "rectangle" || labelShape === "square") && (
+                          <>
+                            <Rect
+                              x={t.x}
+                              y={t.y}
+                              width={textWidth}
+                              height={labelShape === "square" ? textWidth : labelHeight}
+                              rotation={t.rotation}
+                              stroke={outerStroke}
+                              strokeWidth={outerStrokeWidth}
+                              listening={false}
+                            />
+                            <Rect
+                              x={t.x + 8}
+                              y={t.y + 8}
+                              width={Math.max(1, textWidth - 16)}
+                              height={Math.max(1, (labelShape === "square" ? textWidth : labelHeight) - 16)}
+                              rotation={t.rotation}
+                              stroke={innerStroke}
+                              strokeWidth={innerStrokeWidth}
+                              listening={false}
+                            />
+                          </>
+                        )}
+
+                        {labelShape !== "none" && labelShape === "circle" && (
+                          <>
+                            <Circle
+                              x={t.x + textWidth / 2}
+                              y={t.y + textWidth / 2}
+                              radius={textWidth / 2}
+                              stroke={outerStroke}
+                              strokeWidth={outerStrokeWidth}
+                              listening={false}
+                            />
+                            <Circle
+                              x={t.x + textWidth / 2}
+                              y={t.y + textWidth / 2}
+                              radius={Math.max(1, textWidth / 2 - 8)}
+                              stroke={innerStroke}
+                              strokeWidth={innerStrokeWidth}
+                              listening={false}
+                            />
+                          </>
+                        )}
+
+                        <KonvaText
+                          key={t.id}
+                          id={t.id}
+                          text={t.text}
+                          x={t.x}
+                          y={t.y}
+                          width={textWidth}
+                          height={labelShape === "circle" || labelShape === "square" ? textWidth : textHeight}
+                          padding={labelPadding}
+                          verticalAlign={labelShape === "none" ? undefined : "middle"}
+                          fontSize={t.fontSize}
+                          fontFamily={t.fontFamily}
+                          fill={t.fill}
+                          fontStyle={t.fontStyle}
+                          align={t.align}
+                          textDecoration={t.textDecoration}
+                          rotation={t.rotation}
+                          draggable
+                          onClick={() => {
+                            setSelectedId(t.id);
+                            setSelectedType("text");
+                          }}
+                          onTap={() => {
+                            setSelectedId(t.id);
+                            setSelectedType("text");
+                          }}
+                          onDragEnd={(e) => handleTextDragEnd(t.id, e.target)}
+                          onTransformEnd={(e) => handleTextTransformEnd(t.id, e.target)}
+                        />
+                      </Group>
+                    );
+                  })}
+
+                  {/* Label art and modern mirrored elements render above images/text. */}
+                  {frontDecoratives.map((dec) => {
+                    const loaded = loadedDecoratives.get(dec.id);
+                    if (!loaded) return null;
+
+                    const isActive = selectedId === dec.id && selectedType === "decorative";
+
+                    return (
+                      <KonvaImage
+                        key={dec.id}
+                        id={dec.id}
+                        image={loaded}
+                        x={dec.x}
+                        y={dec.y}
+                        width={dec.width}
+                        height={dec.height}
+                        rotation={dec.rotation}
+                        opacity={dec.opacity}
+                        draggable={isActive}
+                        onClick={() => {
+                          setSelectedId(dec.id);
+                          setSelectedType("decorative");
+                        }}
+                        onTap={() => {
+                          setSelectedId(dec.id);
+                          setSelectedType("decorative");
+                        }}
+                        onDragEnd={(e) => handleDecorativeDragEnd(dec.id, e.target)}
+                        onTransformEnd={(e) => handleDecorativeTransformEnd(dec.id, e.target)}
+                      />
+                    );
+                  })}
 
                   {/* ArtKey template with QR */}
                   {hasQrOnCurrentSurface && currentDesign.qrCode && (
@@ -3211,6 +3990,7 @@ export function CustomizationStudio({
                           y={currentDesign.qrCode.y}
                           width={currentDesign.qrCode.width}
                           height={currentDesign.qrCode.height}
+                          crop={templateCrop}
                           draggable
                           onDragEnd={(e) => handleQrDragEnd(e.target)}
                         />
@@ -3220,10 +4000,10 @@ export function CustomizationStudio({
                         <KonvaImage
                           id="qr-code"
                           image={qrImageObj}
-                          x={currentDesign.qrCode.x + currentDesign.qrCode.width * QR_IN_TEMPLATE_X_FRACTION}
-                          y={currentDesign.qrCode.y + currentDesign.qrCode.height * QR_IN_TEMPLATE_Y_FRACTION}
-                          width={currentDesign.qrCode.width * QR_IN_TEMPLATE_FRACTION}
-                          height={currentDesign.qrCode.height * QR_IN_TEMPLATE_FRACTION}
+                          x={currentDesign.qrCode.x + currentDesign.qrCode.width * qrXFraction}
+                          y={currentDesign.qrCode.y + currentDesign.qrCode.height * qrYFraction}
+                          width={currentDesign.qrCode.width * qrSizeFraction}
+                          height={currentDesign.qrCode.width * qrSizeFraction}
                           listening={false}
                         />
                       )}
@@ -3266,8 +4046,8 @@ export function CustomizationStudio({
           </div>
         </div>
 
-        {/* Right Sidebar - simple preview (hidden on small screens) */}
-        <div className="hidden xl:block w-48 2xl:w-56 flex-shrink-0 border-l p-3 2xl:p-4 overflow-auto" style={{ background: BRAND.white, borderColor: BRAND.light }}>
+        {/* Right Sidebar - surface previews (uniform card sizes) */}
+        <div className="hidden xl:block w-56 2xl:w-64 flex-shrink-0 border-l p-3 2xl:p-4 overflow-auto" style={{ background: BRAND.white, borderColor: BRAND.light }}>
           <h3 className="font-semibold mb-3 text-sm">Preview</h3>
 
           <div className="space-y-3">
@@ -3283,29 +4063,34 @@ export function CustomizationStudio({
               >
                 <div className="p-2">
                   <div
-                    className="bg-white mx-auto flex items-center justify-center text-xs"
-                    style={{
-                      width: "100%",
-                      aspectRatio: `${canvasWidth} / ${canvasHeight}`,
-                      color: BRAND.medium,
-                    }}
+                    className="relative bg-white mx-auto overflow-hidden rounded-sm border"
+                    style={{ width: "100%", aspectRatio: "4 / 3", borderColor: BRAND.light }}
                   >
-                    {qrPlacement === p && productSpec.requiresQrCode ? (
-                      <span className="flex items-center gap-1" style={{ color: "#6d28d9" }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        ArtKey
-                      </span>
-                    ) : (designs[p]?.images?.length || 0) + (designs[p]?.texts?.length || 0) > 0 ? (
-                      <span style={{ color: "#16a34a" }}>
-                        {(designs[p]?.images?.length || 0) + (designs[p]?.texts?.length || 0)} items
-                      </span>
+                    {surfacePreviews[p] ? (
+                      <img
+                        src={surfacePreviews[p]}
+                        alt={`${getLabel(p)} preview`}
+                        className="w-full h-full object-contain"
+                        draggable={false}
+                      />
                     ) : (
-                      <span>Empty</span>
+                      <div className="w-full h-full flex items-center justify-center text-xs" style={{ color: BRAND.medium }}>
+                        No preview yet
+                      </div>
                     )}
                   </div>
                 </div>
-                <div className="py-1 text-xs text-center" style={{ background: BRAND.lightest, color: BRAND.dark }}>
-                  {getLabel(p)}
+                <div className="px-2 pb-2">
+                  <div className="rounded-sm bg-white border px-2 py-1.5" style={{ borderColor: BRAND.light }}>
+                    <div className="text-xs font-medium text-left" style={{ color: BRAND.dark }}>
+                      {getLabel(p)}
+                    </div>
+                    <div className="text-[10px] mt-0.5 text-left" style={{ color: BRAND.medium }}>
+                      {qrPlacement === p && productSpec.requiresQrCode
+                        ? "ArtKey surface"
+                        : `${(designs[p]?.images?.length || 0) + (designs[p]?.texts?.length || 0) + (decoratives[p]?.length || 0)} items`}
+                    </div>
+                  </div>
                 </div>
               </button>
             ))}

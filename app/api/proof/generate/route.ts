@@ -13,7 +13,7 @@
  *     cartItemId: string,
  *     designFiles: [{ placement: string, dataUrl: string }],
  *     artKeyData: { title, theme, features, links, ... },
- *     artKeyTemplatePosition: { placement, x, y, width, height },
+ *     artKeyTemplatePosition: { placement, x, y, width, height, templateId },
  *     requiresQrCode: boolean,
  *   }],
  *   customerEmail?: string,
@@ -41,6 +41,7 @@ import {
   generatePublicToken,
   generateOwnerToken,
 } from "@/lib/db";
+import { getArtKeyTemplateById } from "@/lib/artkeyTemplates";
 import { saveDatabase } from "@/db";
 
 const ARTKEY_DOMAIN =
@@ -125,14 +126,20 @@ export async function POST(req: Request) {
       });
 
       // Step 2: Generate the real QR code
-      // QR fraction constants must match the studio (CustomizationStudio.tsx)
-      // These represent where the QR sits inside the compact ArtKey template SVG
-      const QR_SIZE_FRAC = 0.55;    // QR is 55% of template size
-      const QR_X_FRAC = 0.225;      // QR top-left x offset within template
-      const QR_Y_FRAC = 0.30;       // QR top-left y offset within template
+      // QR fraction constants are template-specific and must match studio rendering.
+      const selectedTemplate = getArtKeyTemplateById(
+        artKeyTemplatePosition?.templateId
+      );
+      const QR_SIZE_FRAC = selectedTemplate.qr.sizeFraction;
+      const QR_X_FRAC = selectedTemplate.qr.xFraction;
+      const QR_Y_FRAC = selectedTemplate.qr.yFraction;
+      const MIN_QR_PX = 150;        // 0.5in @ 300 DPI
 
       const templateW = artKeyTemplatePosition?.width || 300;
-      const actualQrSize = Math.round(templateW * QR_SIZE_FRAC);
+      const designedQrSize = Math.round(templateW * QR_SIZE_FRAC);
+      // Generate at high enough source resolution for quality, but keep final
+      // composited dimensions exactly as designed in studio.
+      const actualQrSize = Math.max(MIN_QR_PX, designedQrSize);
       const qrDataUrl = await generateQRCode(portalUrl, actualQrSize, 2);
 
       // Step 3: Composite QR onto each design file that has the template
@@ -150,12 +157,9 @@ export async function POST(req: Request) {
             artKeyTemplatePosition.y +
               artKeyTemplatePosition.height * QR_Y_FRAC
           );
-          const qrW = Math.round(
-            artKeyTemplatePosition.width * QR_SIZE_FRAC
-          );
-          const qrH = Math.round(
-            artKeyTemplatePosition.height * QR_SIZE_FRAC
-          );
+          const qrSize = Math.round(artKeyTemplatePosition.width * QR_SIZE_FRAC);
+          const qrW = qrSize;
+          const qrH = qrSize;
 
           try {
             const composited = await compositeQrOntoDesign(

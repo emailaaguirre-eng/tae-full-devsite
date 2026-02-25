@@ -34,6 +34,8 @@ export interface CartItem {
 
   /** Exported design images from the Customization Studio */
   designFiles?: DesignFile[];
+  /** Lightweight signature to verify render payload integrity through checkout */
+  studioRenderSignature?: string;
 
   /** Whether this product includes an ArtKey QR code */
   requiresQrCode?: boolean;
@@ -48,6 +50,7 @@ export interface CartItem {
     y: number;
     width: number;
     height: number;
+    templateId?: string;
   };
 
   /** Legacy customization fields */

@@ -18,6 +18,12 @@ import { saveDatabase } from "@/db";
 
 export const dynamic = "force-dynamic";
 
+function validateEnv(): string[] {
+  const missing: string[] = [];
+  if (!process.env.PRINTFUL_TOKEN) missing.push("PRINTFUL_TOKEN");
+  return missing;
+}
+
 function getToken(): string {
   const token = process.env.PRINTFUL_TOKEN;
   if (!token) throw new Error("Missing PRINTFUL_TOKEN env var");
@@ -100,6 +106,17 @@ async function fetchPrintfulData(printfulProductId: number): Promise<PfCacheEntr
 
 export async function POST() {
   try {
+    const missingEnv = validateEnv();
+    if (missingEnv.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Backfill is not configured: missing ${missingEnv.join(", ")}`,
+        },
+        { status: 500 }
+      );
+    }
+
     const db = await getDb();
 
     // Only process active products with no hero image and a Printful mapping
@@ -121,18 +138,22 @@ export async function POST() {
     // Cache Printful data by productId to avoid duplicate calls
     const pfCache = new Map<number, PfCacheEntry | null>();
     const uniqueIds = [...new Set(targets.map((p) => p.printfulProductId!))];
+    const errors: Array<{ id: string; message: string }> = [];
 
     for (const pfId of uniqueIds) {
       try {
         pfCache.set(pfId, await fetchPrintfulData(pfId));
-      } catch {
+      } catch (err: any) {
         pfCache.set(pfId, null);
+        errors.push({
+          id: String(pfId),
+          message: `Printful fetch failed for ${pfId}: ${err?.message || "Unknown error"}`,
+        });
       }
     }
 
     let updatedCount = 0;
     let skippedCount = 0;
-    const errors: Array<{ id: string; message: string }> = [];
 
     for (const product of targets) {
       const pfData = pfCache.get(product.printfulProductId!);

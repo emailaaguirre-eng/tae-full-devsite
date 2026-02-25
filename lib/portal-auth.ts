@@ -16,6 +16,9 @@
  */
 
 import { getDb, artKeys, eq } from "@/lib/db";
+import { COOKIE_NAME, validateAdminToken } from "@/lib/admin-auth";
+
+const DEMO_PORTAL_PREFIX = "tae_demokey_";
 
 /**
  * Validate that an owner token matches the portal's actual owner token
@@ -72,4 +75,26 @@ export async function getPortalsByEmail(
     .all();
 
   return portals;
+}
+
+export function isDemoPortalToken(publicToken: string): boolean {
+  return publicToken.toLowerCase().startsWith(DEMO_PORTAL_PREFIX);
+}
+
+export function hasValidAdminSession(req: Request): boolean {
+  const cookieHeader = req.headers.get("cookie") || "";
+  if (!cookieHeader) return false;
+
+  const tokenPair = cookieHeader
+    .split(";")
+    .map((p) => p.trim())
+    .find((p) => p.startsWith(`${COOKIE_NAME}=`));
+
+  if (!tokenPair) return false;
+  const token = decodeURIComponent(tokenPair.slice(COOKIE_NAME.length + 1));
+  return validateAdminToken(token).valid;
+}
+
+export function canAdminAccessDemoPortal(req: Request, publicToken: string): boolean {
+  return isDemoPortalToken(publicToken) && hasValidAdminSession(req);
 }

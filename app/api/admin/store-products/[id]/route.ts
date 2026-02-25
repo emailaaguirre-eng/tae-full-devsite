@@ -28,6 +28,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
     const db = await getDb();
     const body = await req.json();
+    const existing = await db.select().from(shopProducts).where(eq(shopProducts.id, id)).get();
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
+    }
 
     const updates: Record<string, any> = {};
     const allowedFields = [
@@ -43,6 +47,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         updates[field] = body[field];
       }
     }
+
+    if (body.proofTerms !== undefined) {
+      let parsed: Record<string, any> = {};
+      if (existing.printfulDataJson) {
+        try {
+          parsed = JSON.parse(existing.printfulDataJson) || {};
+        } catch {
+          parsed = {};
+        }
+      }
+      parsed.proofTerms = typeof body.proofTerms === 'string' ? body.proofTerms : '';
+      updates.printfulDataJson = JSON.stringify(parsed);
+    }
+
     updates.updatedAt = Date.now().toString();
 
     await db.update(shopProducts).set(updates).where(eq(shopProducts.id, id));

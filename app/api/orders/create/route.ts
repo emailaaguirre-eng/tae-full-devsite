@@ -54,6 +54,23 @@ export async function POST(req: Request) {
       );
     }
 
+    const missingDesignPayload = items.find(
+      (item: any) =>
+        !!item?.printfulVariantId &&
+        (!Array.isArray(item.designFiles) ||
+          item.designFiles.length === 0 ||
+          item.designFiles.some((df: any) => !df?.dataUrl || !String(df.dataUrl).startsWith("data:")))
+    );
+    if (missingDesignPayload) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Missing rendered design files for item "${missingDesignPayload.name || "unknown"}".`,
+        },
+        { status: 400 }
+      );
+    }
+
     const db = await getDb();
     const now = new Date().toISOString();
     const orderNumber = generateOrderNumber();

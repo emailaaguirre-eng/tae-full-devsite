@@ -11,7 +11,12 @@
  *    — In production this should send an email instead of returning tokens directly
  */
 import { NextResponse } from "next/server";
-import { validateOwnerToken, getPortalsByEmail } from "@/lib/portal-auth";
+import {
+  validateOwnerToken,
+  getPortalsByEmail,
+  canAdminAccessDemoPortal,
+} from "@/lib/portal-auth";
+import { issuePortalSession, PORTAL_SESSION_COOKIE } from "@/lib/portal-session";
 
 export async function POST(req: Request) {
   try {
@@ -19,12 +24,38 @@ export async function POST(req: Request) {
 
     if (body.action === "validate") {
       const { publicToken, ownerToken } = body;
-      if (!publicToken || !ownerToken) {
+      if (!publicToken) {
         return NextResponse.json(
-          { success: false, error: "Missing tokens" },
+          { success: false, error: "Missing public token" },
           { status: 400 }
         );
       }
+
+      // Test helper: authenticated admins may access demo portals without
+      // owner token when token follows tae_demokey_* convention.
+      if (!ownerToken && canAdminAccessDemoPortal(req, publicToken)) {
+        const response = NextResponse.json({
+          success: true,
+          portalId: "admin-demo",
+          authMode: "admin_demo",
+        });
+        response.cookies.set(PORTAL_SESSION_COOKIE, issuePortalSession(publicToken, "admin_demo"), {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          maxAge: 60 * 60 * 12,
+          path: "/api/portal",
+        });
+        return response;
+      }
+
+      if (!ownerToken) {
+        return NextResponse.json(
+          { success: false, error: "Missing owner token" },
+          { status: 400 }
+        );
+      }
+
       const result = await validateOwnerToken(publicToken, ownerToken);
       if (!result.valid) {
         return NextResponse.json(
@@ -32,7 +63,19 @@ export async function POST(req: Request) {
           { status: 403 }
         );
       }
-      return NextResponse.json({ success: true, portalId: result.portalId });
+      const response = NextResponse.json({
+        success: true,
+        portalId: result.portalId,
+        authMode: "owner",
+      });
+      response.cookies.set(PORTAL_SESSION_COOKIE, issuePortalSession(publicToken, "owner"), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 60 * 60 * 12,
+        path: "/api/portal",
+      });
+      return response;
     }
 
     if (body.action === "lookup") {

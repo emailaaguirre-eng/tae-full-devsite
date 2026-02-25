@@ -14,6 +14,8 @@
 import { NextResponse } from "next/server";
 import { getDb, artKeys, guestbookEntries, mediaItems, eq } from "@/lib/db";
 import { saveDatabase } from "@/db";
+import { canAdminAccessDemoPortal } from "@/lib/portal-auth";
+import { validatePortalSession } from "@/lib/portal-session";
 
 export async function POST(
   req: Request,
@@ -45,7 +47,13 @@ export async function POST(
     }
 
     const portal = portals[0];
-    if (portal.ownerToken !== ownerToken) {
+    const ownerMatch = portal.ownerToken === ownerToken;
+    const adminDemoAccess =
+      ownerToken === "__admin_demo__" && canAdminAccessDemoPortal(req, token);
+    const session = validatePortalSession(req, token);
+    const cookieOwnerAccess = session.valid && session.mode === "owner";
+    const cookieAdminDemoAccess = session.valid && session.mode === "admin_demo";
+    if (!ownerMatch && !adminDemoAccess && !cookieOwnerAccess && !cookieAdminDemoAccess) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 403 }

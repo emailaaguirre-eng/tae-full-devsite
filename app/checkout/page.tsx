@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import type { CartItem } from "@/contexts/CartContext";
@@ -60,6 +60,23 @@ export default function CheckoutPage() {
   const subtotal = getTotalPrice();
   const shippingCost = 0; // Calculated at fulfillment
   const total = subtotal + shippingCost;
+  const hasMissingDesignRenders = useMemo(
+    () =>
+      cart.some(
+        (item) =>
+          !!item.printfulVariantId &&
+          (!item.designFiles?.length ||
+            item.designFiles.some((df) => !df.dataUrl || !df.dataUrl.startsWith("data:")))
+      ),
+    [cart]
+  );
+  const hasInvalidProofRenders = useMemo(
+    () =>
+      proofs.some(
+        (p) => !p.proofFiles?.length || p.proofFiles.some((pf) => !pf.dataUrl || !pf.dataUrl.startsWith("data:"))
+      ),
+    [proofs]
+  );
 
   const hasQrItems = cart.some((item) => item.requiresQrCode);
 
@@ -122,6 +139,7 @@ export default function CheckoutPage() {
   );
 
   const handleApproveProofs = () => {
+    if (hasInvalidProofRenders) return;
     setStep("payment");
   };
 
@@ -145,6 +163,7 @@ export default function CheckoutPage() {
           printfulVariantId: item.printfulVariantId,
           productSlug: item.productSlug,
           designFiles: proof?.proofFiles || item.designFiles,
+          studioRenderSignature: item.studioRenderSignature,
           requiresQrCode: item.requiresQrCode,
           portalToken: proof?.portalToken,
           portalUrl: proof?.portalUrl,
@@ -447,6 +466,11 @@ export default function CheckoutPage() {
 
               {!proofLoading && !proofError && proofs.length > 0 && (
                 <>
+                  {hasInvalidProofRenders && (
+                    <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                      Some proof renders are missing. Please go back and regenerate proofs before payment.
+                    </div>
+                  )}
                   <div className="space-y-8">
                     {proofs.map((proof) => {
                       const cartItem = cart.find(
@@ -497,7 +521,8 @@ export default function CheckoutPage() {
                     </button>
                     <button
                       onClick={handleApproveProofs}
-                      className="flex-1 bg-brand-dark text-white py-3 rounded-full font-semibold hover:bg-brand-darkest transition-colors flex items-center justify-center gap-2"
+                      disabled={hasInvalidProofRenders}
+                      className="flex-1 bg-brand-dark text-white py-3 rounded-full font-semibold hover:bg-brand-darkest transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       <Check className="w-4 h-4" />
                       Approve &amp; Continue to Payment
@@ -521,6 +546,8 @@ export default function CheckoutPage() {
                 total={total}
                 onPaymentComplete={handlePayment}
                 loading={paymentLoading}
+                disabled={hasMissingDesignRenders}
+                disabledReason="Design render data is missing for one or more items. Please return to cart/studio and re-save your design."
               />
             </div>
 
@@ -593,10 +620,14 @@ function PayPalSection({
   total,
   onPaymentComplete,
   loading,
+  disabled,
+  disabledReason,
 }: {
   total: number;
   onPaymentComplete: (paypalOrderId: string, transactionId: string) => void;
   loading: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
   const [paypalError, setPaypalError] = useState<string | null>(null);
@@ -609,7 +640,11 @@ function PayPalSection({
             {paypalError}
           </div>
         )}
-        {loading ? (
+        {disabled ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            {disabledReason || "Payment is disabled until all design renders are available."}
+          </div>
+        ) : loading ? (
           <div className="text-center py-8">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-dark" />
             <p className="text-sm text-brand-darkest/60">Processing your order...</p>
@@ -676,7 +711,7 @@ function PayPalSection({
       </div>
       <button
         onClick={() => onPaymentComplete(`DEMO-${Date.now()}`, `DEMO-TXN-${Date.now()}`)}
-        disabled={loading}
+        disabled={loading || disabled}
         className="bg-brand-dark text-white px-10 py-4 rounded-full text-lg font-semibold hover:bg-brand-darkest transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mx-auto shadow-lg"
       >
         {loading ? (

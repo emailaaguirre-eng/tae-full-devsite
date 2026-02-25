@@ -9,6 +9,7 @@
 export type Placement = string;
 
 export type TextAlign = "left" | "center" | "right";
+export type TextLabelShape = "none" | "rectangle" | "square" | "circle";
 
 export type PlacementDimensions = {
   width: number;
@@ -104,6 +105,14 @@ export type TextItem = {
   width?: number; // text box width for alignment/wrapping
   align?: TextAlign;
   textDecoration?: string; // e.g. "underline"
+  // Optional label-box styling (text remains editable)
+  labelShape?: TextLabelShape;
+  labelBoxHeight?: number;
+  labelPadding?: number;
+  labelOuterStrokeWidth?: number;
+  labelInnerStrokeWidth?: number;
+  labelOuterStrokeColor?: string;
+  labelInnerStrokeColor?: string;
 };
 
 export type QrCodePosition = {

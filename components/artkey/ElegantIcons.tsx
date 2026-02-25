@@ -93,22 +93,6 @@ export function InfinityIcon({ size = 48, color = 'currentColor', strokeWidth = 
   );
 }
 
-// Champagne Glasses - Celebration
-export function ChampagneIcon({ size = 48, color = 'currentColor', strokeWidth = 2, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className}>
-      <path d="M14 8L10 24L14 26L14 40" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M14 8L18 24L14 26" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M10 40H18" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" />
-      <path d="M34 8L30 24L34 26L34 40" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M34 8L38 24L34 26" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M30 40H38" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" />
-      <path d="M22 12L26 12" stroke={color} strokeWidth={strokeWidth * 0.75} fill="none" strokeLinecap="round" />
-      <path d="M24 10L24 14" stroke={color} strokeWidth={strokeWidth * 0.75} fill="none" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 // Dove - Peace, weddings
 export function DoveIcon({ size = 48, color = 'currentColor', strokeWidth = 2, className = '' }: IconProps) {
   return (
@@ -175,6 +159,33 @@ export function CrownIcon({ size = 48, color = 'currentColor', strokeWidth = 2, 
   );
 }
 
+// Graduation Cap
+export function GraduationCapIcon({ size = 48, color = 'currentColor', strokeWidth = 2, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className}>
+      <path d="M4 18L24 10L44 18L24 26L4 18Z" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinejoin="round" />
+      <path d="M12 22V30C12 30 16 34 24 34C32 34 36 30 36 30V22" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" />
+      <path d="M44 18V28" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <circle cx="44" cy="31.5" r="2.5" fill={color} />
+    </svg>
+  );
+}
+
+// Diploma Scroll
+export function DiplomaIcon({ size = 48, color = 'currentColor', strokeWidth = 2, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className}>
+      <path d="M10 16H38V28H10V16Z" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinejoin="round" />
+      <path d="M20 22H28" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d="M8 22C8 24.2 9.8 26 12 26C14.2 26 16 24.2 16 22C16 19.8 14.2 18 12 18C9.8 18 8 19.8 8 22Z" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <path d="M32 22C32 24.2 33.8 26 36 26C38.2 26 40 24.2 40 22C40 19.8 38.2 18 36 18C33.8 18 32 19.8 32 22Z" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <circle cx="24" cy="35" r="5" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <path d="M24 32.5V37.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d="M21.5 35H26.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // Icon Registry
 export const ELEGANT_ICONS = {
   rings: { component: RingsIcon, label: 'Rings', category: 'wedding' },
@@ -183,12 +194,13 @@ export const ELEGANT_ICONS = {
   monogram: { component: MonogramFrameIcon, label: 'Monogram', category: 'formal' },
   diamond: { component: DiamondIcon, label: 'Diamond', category: 'luxury' },
   infinity: { component: InfinityIcon, label: 'Infinity', category: 'love' },
-  champagne: { component: ChampagneIcon, label: 'Champagne', category: 'celebration' },
   dove: { component: DoveIcon, label: 'Dove', category: 'wedding' },
   sparkle: { component: SparkleIcon, label: 'Sparkle', category: 'celebration' },
   rose: { component: RoseIcon, label: 'Rose', category: 'botanical' },
   bell: { component: BellIcon, label: 'Bell', category: 'celebration' },
   crown: { component: CrownIcon, label: 'Crown', category: 'luxury' },
+  graduation_cap: { component: GraduationCapIcon, label: 'Graduation Cap', category: 'graduation' },
+  diploma: { component: DiplomaIcon, label: 'Diploma', category: 'graduation' },
   none: { component: () => null, label: 'None', category: 'none' },
 } as const;
 

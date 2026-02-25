@@ -173,7 +173,7 @@ export const ELEGANT_TEMPLATES: ArtKeyTemplate[] = [
     category: 'elegant',
     buttonStyle: 'solid',
     buttonShape: 'pill',
-    headerIcon: 'champagne',
+    headerIcon: 'sparkle',
     titleFont: 'g:Cormorant Garamond',
     buttonBorder: '#B8963E',
   },

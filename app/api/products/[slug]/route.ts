@@ -15,6 +15,16 @@ function cleanDescription(desc: string | null): string | null {
     .trim() || null;
 }
 
+function getProofTerms(raw: string | null | undefined): string {
+  if (!raw) return "";
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.proofTerms === "string" ? parsed.proofTerms : "";
+  } catch {
+    return "";
+  }
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: { slug: string } }
@@ -77,6 +87,7 @@ export async function GET(
         printFillMode: product.printFillMode,
         requiredPlacements: product.requiredPlacements,
         qrDefaultPosition: product.qrDefaultPosition,
+        proofTerms: getProofTerms(product.printfulDataJson),
         requiresQrCode: category?.requiresQrCode ?? false,
         category: category
           ? {

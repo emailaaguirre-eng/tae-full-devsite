@@ -7,6 +7,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { ProductSpec, Placement } from "@/customization-studio/types";
 import Link from "next/link";
+import { ARTKEY_TEMPLATES } from "@/lib/artkeyTemplates";
 
 const CustomizationStudio = dynamic(
   () => import("@/customization-studio").then((m) => m.CustomizationStudio),
@@ -60,7 +61,7 @@ const PRODUCTS: ProductDefinition[] = [
     requiresQrCode: true,
     supportsOrientation: true,
     defaultOrientation: "portrait",
-    qrSizeInches: 0.4,
+    qrSizeInches: 0.5,
   },
   {
     id: "TAE-POST",
@@ -75,7 +76,7 @@ const PRODUCTS: ProductDefinition[] = [
     requiresQrCode: true,
     supportsOrientation: true,
     defaultOrientation: "landscape",
-    qrSizeInches: 0.4,
+    qrSizeInches: 0.5,
   },
   {
     id: "TAE-WALL",
@@ -205,7 +206,7 @@ function buildSpecFromApiProduct(
       } catch { /* compute below */ }
     }
     if (!qrDefaultPosition) {
-      const qrSizeInches = 0.4;
+      const qrSizeInches = 0.5;
       const qrSize = Math.round(qrSizeInches * printDpi);
       const templateSize = Math.round(qrSize / 0.55);
       const margin = Math.round(0.5 * printDpi);
@@ -334,12 +335,28 @@ function StudioContent() {
 
   const productName = isApiMode ? apiProduct.name : selectedProduct.name;
 
+  const computeRenderSignature = useCallback(
+    (files: { placement: string; dataUrl: string }[]) =>
+      files
+        .map((f) => `${f.placement}:${f.dataUrl?.length || 0}:${(f.dataUrl || "").slice(0, 32)}`)
+        .join("|"),
+    []
+  );
+
   // Handle export: save design files to sessionStorage, then navigate to ArtKey editor
   const handleExport = useCallback(
     (
       files: { placement: string; dataUrl: string }[],
-      artKeyTemplatePosition?: { placement: string; x: number; y: number; width: number; height: number }
+      artKeyTemplatePosition?: {
+        placement: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        templateId: string;
+      }
     ) => {
+      const studioRenderSignature = computeRenderSignature(files);
       const studioData = {
         productSpec: {
           id: productSpec.id,
@@ -351,6 +368,7 @@ function StudioContent() {
           requiresQrCode: productSpec.requiresQrCode,
         },
         designFiles: files,
+        studioRenderSignature,
         artKeyTemplatePosition: artKeyTemplatePosition || null,
         exportedAt: new Date().toISOString(),
       };
@@ -370,7 +388,7 @@ function StudioContent() {
         router.push("/cart");
       }
     },
-    [productSpec, router]
+    [computeRenderSignature, productSpec, router]
   );
 
   const handleProductChange = (index: number) => {
@@ -524,7 +542,7 @@ function StudioContent() {
           key={`${productSpec.id}-${productSpec.printWidth}-${productSpec.printHeight}`}
           productSpec={productSpec}
           placeholderQrCodeUrl="/images/placeholder-qr.svg"
-          artKeyTemplateUrl="/images/artkey-template-compact.svg"
+          artKeyTemplates={ARTKEY_TEMPLATES}
           onExport={handleExport}
         />
       </div>

@@ -68,34 +68,35 @@ export default function PortalEditPage() {
     const urlOwner = searchParams.get("owner");
     const stored = sessionStorage.getItem(`portal_owner_${token}`);
     const ot = urlOwner || stored || null;
+    const payload: Record<string, any> = {
+      action: "validate",
+      publicToken: token,
+    };
+    if (ot) payload.ownerToken = ot;
 
-    if (!ot) {
-      setLoading(false);
-      return;
-    }
-
-    // Validate the token
     fetch("/api/portal/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "validate",
-        publicToken: token,
-        ownerToken: ot,
-      }),
+      body: JSON.stringify(payload),
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.success) {
+        if (!data.success) return;
+
+        if (ot) {
           setOwnerToken(ot);
-          setAuthed(true);
-          // Persist in session so they don't lose auth on refresh
+          // Keep legacy owner token for compatibility; server now also sets
+          // an httpOnly session cookie during validation.
           sessionStorage.setItem(`portal_owner_${token}`, ot);
           // Strip owner token from URL for security
           if (urlOwner) {
             router.replace(`/art-key/${token}/edit`);
           }
+        } else {
+          // Admin demo-mode session (tae_demokey_* + valid admin cookie)
+          setOwnerToken("__admin_demo__");
         }
+        setAuthed(true);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -130,10 +131,12 @@ export default function PortalEditPage() {
   // ── Load guestbook for moderation ─────────────────────────────────────
 
   const loadGuestbook = useCallback(async () => {
-    if (!authed || !ownerToken) return;
-    const res = await fetch(
-      `/api/portal/${token}/guestbook?owner=${ownerToken}`
-    );
+    if (!authed) return;
+    const url =
+      ownerToken && ownerToken !== "__admin_demo__"
+        ? `/api/portal/${token}/guestbook?owner=${ownerToken}`
+        : `/api/portal/${token}/guestbook`;
+    const res = await fetch(url);
     const data = await res.json();
     if (data.success) {
       setEntries(data.entries || []);
@@ -147,7 +150,7 @@ export default function PortalEditPage() {
   // ── Save handler ──────────────────────────────────────────────────────
 
   const handleSave = async () => {
-    if (!ownerToken) return;
+    if (!authed) return;
     setSaving(true);
     setSaveMsg(null);
 
@@ -169,12 +172,18 @@ export default function PortalEditPage() {
       },
     };
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (ownerToken && ownerToken !== "__admin_demo__") {
+      headers["X-Owner-Token"] = ownerToken;
+    } else if (ownerToken === "__admin_demo__") {
+      headers["X-Owner-Token"] = "__admin_demo__";
+    }
+
     const res = await fetch(`/api/portal/${token}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Owner-Token": ownerToken,
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
@@ -190,14 +199,19 @@ export default function PortalEditPage() {
     entryId: string,
     action: "approve" | "reject"
   ) => {
-    if (!ownerToken) return;
+    if (!authed) return;
     setModerating(entryId);
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (ownerToken && ownerToken !== "__admin_demo__") {
+      headers["X-Owner-Token"] = ownerToken;
+    } else if (ownerToken === "__admin_demo__") {
+      headers["X-Owner-Token"] = "__admin_demo__";
+    }
     await fetch(`/api/portal/${token}/moderate`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Owner-Token": ownerToken,
-      },
+      headers,
       body: JSON.stringify({ type: "guestbook", entryId, action }),
     });
     await loadGuestbook();

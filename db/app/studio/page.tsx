@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { CustomizationStudio } from "@/customization-studio";
 import { ProductSpec } from "@/customization-studio/types";
+import { ARTKEY_TEMPLATES } from "@/lib/artkeyTemplates";
 
 // =============================================================================
 // PRODUCT CATALOG - All available products with their specs
@@ -311,7 +312,7 @@ export default function StudioPage() {
           key={`${selectedProduct.id}-${selectedVariantIndex}-${orientation}`}
           productSpec={productSpec}
           placeholderQrCodeUrl="/images/placeholder-qr.svg"
-          artKeyTemplateUrl="/images/artkey-template.svg"
+          artKeyTemplates={ARTKEY_TEMPLATES}
           onExport={(files) => {
             console.log("Exported files:", files);
             // In production, send to server for Printful order

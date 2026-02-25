@@ -31,6 +31,10 @@ import {
 } from './artkey/ElegantIcons';
 import { CustomIcon } from './CustomIcons';
 
+function isElegantIconKey(value: string): value is ElegantIconKey {
+  return Object.prototype.hasOwnProperty.call(ELEGANT_ICONS, value);
+}
+
 // Palette
 const COLOR_PRIMARY = '#FFFFFF';
 const COLOR_ALT = '#ECECE9';
@@ -125,6 +129,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [buttonShape, setButtonShape] = useState<ButtonShape>('pill');
   const [buttonStyle, setButtonStyle] = useState<ButtonStyle>('solid');
   const [headerIcon, setHeaderIcon] = useState<ElegantIconKey>('none');
+  const [iconCategoryTab, setIconCategoryTab] = useState<'weddings' | 'birthdays' | 'graduations'>('weddings');
   // Default to desktop on PC, mobile on mobile devices
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>(() => {
     if (typeof window !== 'undefined') {
@@ -234,6 +239,25 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   useEffect(() => {
     if (artkeyId) loadArtKey(artkeyId);
   }, [artkeyId]);
+
+  // Keep local style/icon controls synced with loaded portal/theme data
+  useEffect(() => {
+    const shape = artKeyData.theme.button_shape as ButtonShape | undefined;
+    const style = artKeyData.theme.button_style as ButtonStyle | undefined;
+    const icon = artKeyData.theme.header_icon;
+
+    if (shape && BUTTON_SHAPES.some((s) => s.id === shape)) {
+      setButtonShape(shape);
+    }
+    if (style && BUTTON_STYLES.some((s) => s.id === style)) {
+      setButtonStyle(style);
+    }
+    if (typeof icon === 'string' && isElegantIconKey(icon)) {
+      setHeaderIcon(icon);
+    } else {
+      setHeaderIcon('none');
+    }
+  }, [artKeyData.theme.button_shape, artKeyData.theme.button_style, artKeyData.theme.header_icon]);
 
   // Load portal data when coming from admin demo builder
   useEffect(() => {
@@ -435,6 +459,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [draggedFeature, setDraggedFeature] = useState<number | null>(null);
   const [draggedLink, setDraggedLink] = useState<number | null>(null);
 
+  const getIconEventGroup = (category: string): 'weddings' | 'birthdays' | 'graduations' => {
+    if (category === 'graduation') return 'graduations';
+    if (category === 'celebration') return 'birthdays';
+    // wedding/love/botanical/formal/luxury all grouped as weddings for now
+    return 'weddings';
+  };
+
   // Helpers
   const handleTemplateSelect = (tpl: ArtKeyTemplate) => {
     setArtKeyData((prev) => ({
@@ -456,7 +487,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     }));
     if (tpl.buttonShape) setButtonShape(tpl.buttonShape);
     if (tpl.buttonStyle) setButtonStyle(tpl.buttonStyle);
-    if (tpl.headerIcon) setHeaderIcon(tpl.headerIcon);
+    setHeaderIcon(tpl.headerIcon || 'none');
   };
 
   const handleColorSelect = (color: typeof buttonColors[0], type: 'button' | 'title' | 'background') => {
@@ -716,6 +747,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           printfulProductId: spec.printfulProductId,
           printfulVariantId: spec.printfulVariantId,
           designFiles: studioExport.designFiles,
+          studioRenderSignature: studioExport.studioRenderSignature,
           requiresQrCode: spec.requiresQrCode,
           artKeyData: {
             ...artKeyData,
@@ -1672,8 +1704,31 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
                 <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
                   <h4 className="text-sm font-semibold mb-3">Header Icon</h4>
+                  <div className="flex gap-2 mb-3">
+                    {[
+                      { id: 'weddings' as const, label: 'Weddings' },
+                      { id: 'birthdays' as const, label: 'Birthdays' },
+                      { id: 'graduations' as const, label: 'Graduations' },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setIconCategoryTab(tab.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                        style={{
+                          background: iconCategoryTab === tab.id ? COLOR_ACCENT : COLOR_PRIMARY,
+                          color: iconCategoryTab === tab.id ? COLOR_PRIMARY : COLOR_ACCENT,
+                          border: '1px solid #d8d8d6',
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
                   <div className="grid grid-cols-4 gap-2">
-                    {Object.entries(ELEGANT_ICONS).map(([key, iconData]) => (
+                    {Object.entries(ELEGANT_ICONS)
+                      .filter(([key]) => key !== 'none')
+                      .filter(([, iconData]) => getIconEventGroup(iconData.category) === iconCategoryTab)
+                      .map(([key, iconData]) => (
                       <button
                         key={key}
                         onClick={() => {
@@ -1703,6 +1758,30 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                         </span>
                       </button>
                     ))}
+                    <button
+                      onClick={() => {
+                        setHeaderIcon('none');
+                        setArtKeyData((prev) => ({
+                          ...prev,
+                          theme: { ...prev.theme, header_icon: 'none' },
+                        }));
+                      }}
+                      className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center justify-center ${
+                        headerIcon === 'none' ? 'shadow-md' : ''
+                      }`}
+                      style={{
+                        borderColor: headerIcon === 'none' ? COLOR_ACCENT : '#e2e2e0',
+                        background: headerIcon === 'none' ? COLOR_ALT : COLOR_PRIMARY,
+                      }}
+                      title="None"
+                    >
+                      <span className="text-base leading-none" style={{ color: headerIcon === 'none' ? COLOR_ACCENT : '#999' }}>
+                        —
+                      </span>
+                      <span className="text-xs mt-1" style={{ color: COLOR_ACCENT }}>
+                        None
+                      </span>
+                    </button>
                   </div>
                 </div>
 
@@ -1808,18 +1887,28 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                         ) : (
                           // Display mode
                           <div
-                            draggable
-                            onDragStart={() => handleFeatureDragStart(idx)}
                             onDragOver={(e) => handleFeatureDragOver(e, idx)}
                             onDragEnd={handleFeatureDragEnd}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-grab transition-all group/row"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all group/row"
                             style={{
                               borderColor: (isCustomLink ? (f as any).enabled : artKeyData.features[f.field]) ? '#c7d2fe' : '#f0f0f0',
                               background: (isCustomLink ? (f as any).enabled : artKeyData.features[f.field]) ? '#f8f9ff' : '#fafafa',
                               opacity: draggedFeature === idx ? 0.5 : 1,
                             }}
                           >
-                            <div className="text-gray-300 group-hover/row:text-gray-400 transition-colors text-xs">⋮⋮</div>
+                            <div
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', String(idx));
+                                handleFeatureDragStart(idx);
+                              }}
+                              className="text-gray-300 group-hover/row:text-gray-400 transition-colors text-xs cursor-grab active:cursor-grabbing"
+                              title="Drag to reorder"
+                              aria-label="Drag to reorder"
+                            >
+                              ⋮⋮
+                            </div>
                             {!isCustomLink && (
                               <div
                                 onClick={(e) => {

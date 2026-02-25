@@ -6,6 +6,8 @@
  */
 import { NextResponse } from "next/server";
 import { getDb, artKeys, guestbookEntries, mediaItems, eq } from "@/lib/db";
+import { canAdminAccessDemoPortal } from "@/lib/portal-auth";
+import { validatePortalSession } from "@/lib/portal-session";
 
 export const dynamic = "force-dynamic";
 
@@ -125,8 +127,15 @@ export async function PUT(
 
     const portal = portals[0];
 
+    const ownerMatch = portal.ownerToken === ownerToken;
+    const adminDemoAccess =
+      ownerToken === "__admin_demo__" && canAdminAccessDemoPortal(req, token);
+    const session = validatePortalSession(req, token);
+    const cookieOwnerAccess = session.valid && session.mode === "owner";
+    const cookieAdminDemoAccess = session.valid && session.mode === "admin_demo";
+
     // Verify ownership
-    if (portal.ownerToken !== ownerToken) {
+    if (!ownerMatch && !adminDemoAccess && !cookieOwnerAccess && !cookieAdminDemoAccess) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 403 }
