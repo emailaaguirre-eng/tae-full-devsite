@@ -13,7 +13,10 @@ import {
   Link as LinkIcon,
   Paintbrush,
   Settings,
+  Trash2,
+  ArrowLeft,
 } from "lucide-react";
+import Link from "next/link";
 
 interface ArtKeyDemo {
   id: string;
@@ -44,6 +47,7 @@ export default function AdminArtKeyDemosPage() {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
@@ -123,6 +127,34 @@ export default function AdminArtKeyDemosPage() {
     a.click();
   };
 
+  const handleDeleteDemo = async (demo: ArtKeyDemo) => {
+    const confirmed = window.confirm(
+      `Delete demo "${demo.title}" (${demo.publicToken})?\n\nThis will permanently remove the portal and related guestbook/media data.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(demo.id);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/artkey-demos", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: demo.id }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error || "Failed to delete demo");
+      } else {
+        if (newResult?.id === demo.id) setNewResult(null);
+        await loadDemos();
+      }
+    } catch {
+      setError("Network error while deleting demo");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="text-brand-medium text-sm">Loading ArtKey demos...</div></div>;
   }
@@ -136,12 +168,20 @@ export default function AdminArtKeyDemosPage() {
             Create ArtKey portals with unique URLs and QR codes
           </p>
         </div>
-        <button
-          onClick={() => { setShowForm(true); setNewResult(null); }}
-          className="bg-brand-dark text-white px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/90 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Create Demo
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/b_d_admn_tae/dashboard"
+            className="border border-brand-light px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-lightest transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+          </Link>
+          <button
+            onClick={() => { setShowForm(true); setNewResult(null); }}
+            className="bg-brand-dark text-white px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/90 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Create Demo
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -371,6 +411,14 @@ export default function AdminArtKeyDemosPage() {
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
+                  <button
+                    onClick={() => handleDeleteDemo(d)}
+                    disabled={deletingId === d.id}
+                    className="p-1.5 text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors"
+                    title="Delete Demo"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             ))}

@@ -260,12 +260,24 @@ export default function PortalEditPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Back
+            </button>
             <Link
-              href={`/art-key/${token}`}
+              href="/b_d_admn_tae/artkey-demos"
+              className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Demo Builder
+            </Link>
+            <Link
+              href={`https://${domain}/${token}`}
               target="_blank"
               className="text-sm text-blue-600 hover:underline"
             >
-              Preview
+              Open Portal
             </Link>
             <button
               onClick={handleSave}

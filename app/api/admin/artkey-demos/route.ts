@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDb, artKeys, generateId } from '@/lib/db';
+import { getDb, artKeys, guestbookEntries, mediaItems, generateId, eq } from '@/lib/db';
 import { saveDatabase } from '@/db';
 import { generateQRCode, getArtKeyPortalUrl } from '@/lib/qr';
 
@@ -150,6 +150,64 @@ export async function POST(req: Request) {
     console.error('Failed to create artkey demo:', err);
     return NextResponse.json(
       { success: false, error: err?.message || 'Failed to create artkey demo' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const db = await getDb();
+    const body = await req.json().catch(() => ({}));
+    const id = typeof body?.id === "string" ? body.id.trim() : "";
+    const publicToken =
+      typeof body?.publicToken === "string" ? body.publicToken.trim() : "";
+
+    if (!id && !publicToken) {
+      return NextResponse.json(
+        { success: false, error: "id or publicToken is required" },
+        { status: 400 }
+      );
+    }
+
+    const rows = id
+      ? await db.select().from(artKeys).where(eq(artKeys.id, id)).all()
+      : await db
+          .select()
+          .from(artKeys)
+          .where(eq(artKeys.publicToken, publicToken))
+          .all();
+
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Demo portal not found" },
+        { status: 404 }
+      );
+    }
+
+    const portal = rows[0];
+    if (!portal.publicToken.toLowerCase().startsWith(DEMO_PREFIX)) {
+      return NextResponse.json(
+        { success: false, error: "Only demo portals can be deleted here" },
+        { status: 400 }
+      );
+    }
+
+    await db.delete(mediaItems).where(eq(mediaItems.artkeyId, portal.id));
+    await db
+      .delete(guestbookEntries)
+      .where(eq(guestbookEntries.artkeyId, portal.id));
+    await db.delete(artKeys).where(eq(artKeys.id, portal.id));
+    await saveDatabase();
+
+    return NextResponse.json({
+      success: true,
+      data: { id: portal.id, publicToken: portal.publicToken },
+    });
+  } catch (err: any) {
+    console.error("Failed to delete artkey demo:", err);
+    return NextResponse.json(
+      { success: false, error: err?.message || "Failed to delete artkey demo" },
       { status: 500 }
     );
   }
