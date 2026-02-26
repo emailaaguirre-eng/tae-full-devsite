@@ -498,6 +498,11 @@ export default function AdminArtKeyDemosPage() {
 
       {/* Demos list */}
       <div className="bg-white border border-brand-light">
+        <div className="px-4 py-2 text-[11px] text-brand-medium border-b border-brand-light bg-brand-lightest/40">
+          <span className="font-medium text-brand-dark">Admin Editor</span> is for internal design/setup.
+          {" "}
+          <span className="font-medium text-brand-dark">Host Settings</span> is what you send to the customer/host to manage their portal.
+        </div>
         {demos.length === 0 ? (
           <div className="p-8 text-center">
             <QrCode className="w-8 h-8 text-brand-medium mx-auto mb-2" />
@@ -538,17 +543,19 @@ export default function AdminArtKeyDemosPage() {
                 <div className="col-span-2 flex items-center gap-1 justify-end">
                   <a
                     href={`/artkey-editor?portal_token=${d.publicToken}&owner_token=${d.ownerToken}`}
-                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
+                    className="px-2 py-1 text-[10px] border border-brand-light text-brand-medium hover:text-brand-dark hover:bg-brand-lightest transition-colors inline-flex items-center gap-1"
                     title="ArtKey Demo Page Editor"
                   >
-                    <Paintbrush className="w-3.5 h-3.5" />
+                    <Paintbrush className="w-3 h-3" />
+                    <span>Admin Editor</span>
                   </a>
                   <a
                     href={d.editUrl}
-                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
+                    className="px-2 py-1 text-[10px] border border-brand-light text-brand-medium hover:text-brand-dark hover:bg-brand-lightest transition-colors inline-flex items-center gap-1"
                     title="Host: Edit ArtKey Portal"
                   >
-                    <Settings className="w-3.5 h-3.5" />
+                    <Settings className="w-3 h-3" />
+                    <span>Host Settings</span>
                   </a>
                   <button
                     onClick={() => copyToClipboard(d.portalUrl, d.id)}
