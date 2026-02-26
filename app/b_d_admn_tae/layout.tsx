@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { ARTKEY_ADMIN_DASHBOARD_PATH, ARTKEY_ADMIN_LOGIN_PATH } from "@/lib/routes";
 import {
   LayoutDashboard,
   Package,
@@ -20,7 +21,7 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/b_d_admn_tae/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: ARTKEY_ADMIN_DASHBOARD_PATH, label: "Dashboard", icon: LayoutDashboard },
   { href: "/b_d_admn_tae/catalog/products", label: "Products", icon: Package },
   { href: "/b_d_admn_tae/catalog/categories", label: "Categories", icon: Grid3X3 },
   { href: "/b_d_admn_tae/gallery", label: "Gallery", icon: Palette },
@@ -36,13 +37,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  if (pathname === "/b_d_admn_tae/login") {
+  if (pathname === ARTKEY_ADMIN_LOGIN_PATH) {
     return <>{children}</>;
   }
 
   const handleLogout = async () => {
     await fetch("/api/admin/login", { method: "DELETE" });
-    router.push("/b_d_admn_tae/login");
+    router.push(ARTKEY_ADMIN_LOGIN_PATH);
   };
 
   const Sidebar = () => (

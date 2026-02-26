@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { adminFetchJson, AdminUnauthorizedError } from "@/lib/admin/clientFetch";
+import { useSearchParams } from "next/navigation";
 import {
   Plus,
   X,
@@ -19,7 +18,7 @@ import {
   Printer,
 } from "lucide-react";
 import Link from "next/link";
-import { ARTKEY_TEMPLATES } from "@/lib/artkeyTemplates";
+import { ARTKEY_ADMIN_DASHBOARD_PATH } from "@/lib/routes";
 
 interface ArtKeyDemo {
   id: string;
@@ -43,21 +42,7 @@ interface NewDemoResult {
   qrCodeDataUrl: string | null;
 }
 
-const BTN_PRIMARY =
-  "bg-brand-dark text-white px-4 py-2 text-sm font-medium inline-flex items-center gap-2 hover:bg-brand-dark/90 transition-colors disabled:opacity-50";
-const BTN_SECONDARY =
-  "border border-brand-dark text-brand-dark px-3 py-2 text-sm font-medium inline-flex items-center gap-2 hover:bg-brand-lightest transition-colors disabled:opacity-50";
-const BTN_SUBTLE =
-  "border border-brand-light text-brand-dark px-3 py-2 text-sm font-medium inline-flex items-center gap-2 hover:bg-brand-lightest transition-colors disabled:opacity-50";
-const BTN_CHIP =
-  "px-2 py-1 text-[10px] border border-brand-light text-brand-medium hover:text-brand-dark hover:bg-brand-lightest transition-colors inline-flex items-center gap-1 disabled:opacity-50";
-const BTN_ICON =
-  "p-1.5 text-brand-medium hover:text-brand-dark transition-colors disabled:opacity-50";
-const BTN_DANGER_ICON =
-  "p-1.5 text-red-500 hover:text-red-700 transition-colors disabled:opacity-50";
-
 export default function AdminArtKeyDemosPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [demos, setDemos] = useState<ArtKeyDemo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,40 +60,21 @@ export default function AdminArtKeyDemosPage() {
 
   const [newResult, setNewResult] = useState<NewDemoResult | null>(null);
   const [qrDownloadSize, setQrDownloadSize] = useState(600);
-  const [showExportTool, setShowExportTool] = useState(false);
-  const [exportToken, setExportToken] = useState("");
-  const [exportFormat, setExportFormat] = useState<"pdf" | "png" | "svg">("pdf");
-  const [exportTemplateId, setExportTemplateId] = useState(ARTKEY_TEMPLATES[0]?.id || "artkey-elegant");
-  const [exportPaper, setExportPaper] = useState<"letter" | "a4">("letter");
-  const [exportWidth, setExportWidth] = useState(1800);
-  const [exporting, setExporting] = useState(false);
 
   const loadDemos = useCallback(async () => {
-    setLoading(true);
-    setError("");
     try {
-      const { res, data } = await adminFetchJson(
-        "/api/admin/artkey-demos",
-        undefined,
-        () => router.push("/b_d_admn_tae/login")
-      );
-      if (res.ok && data?.success) setDemos(data.data || []);
-      else setError(data?.error || `Failed to load ArtKey demos (${res.status})`);
-    } catch (err) {
-      if (err instanceof AdminUnauthorizedError) return;
+      const res = await fetch("/api/admin/artkey-demos");
+      const data = await res.json();
+      if (data.success) setDemos(data.data || []);
+      else setError(data.error);
+    } catch {
       setError("Failed to load ArtKey demos");
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => { loadDemos(); }, [loadDemos]);
-
-  useEffect(() => {
-    if (!exportToken && demos.length > 0) {
-      setExportToken(demos[0].publicToken);
-    }
-  }, [demos, exportToken]);
 
   useEffect(() => {
     if (searchParams.get("action") === "new") {
@@ -121,21 +87,21 @@ export default function AdminArtKeyDemosPage() {
     setSaving(true);
     setError("");
     try {
-      const { res, data } = await adminFetchJson("/api/admin/artkey-demos", {
+      const res = await fetch("/api/admin/artkey-demos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, ownerEmail: ownerEmail || undefined }),
-      }, () => router.push("/b_d_admn_tae/login"));
-      if (res.ok && data?.success) {
+      });
+      const data = await res.json();
+      if (data.success) {
         setNewResult(data.data);
         setTitle("");
         setOwnerEmail("");
         await loadDemos();
       } else {
-        setError(data?.error || `Creation failed (${res.status})`);
+        setError(data.error || "Creation failed");
       }
-    } catch (err) {
-      if (err instanceof AdminUnauthorizedError) return;
+    } catch {
       setError("Network error");
     } finally {
       setSaving(false);
@@ -254,72 +220,22 @@ export default function AdminArtKeyDemosPage() {
     setDeletingId(demo.id);
     setError("");
     try {
-      const { res, data } = await adminFetchJson("/api/admin/artkey-demos", {
+      const res = await fetch("/api/admin/artkey-demos", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: demo.id }),
-      }, () => router.push("/b_d_admn_tae/login"));
-      if (!res.ok || !data?.success) {
-        setError(data?.error || `Failed to delete demo (${res.status})`);
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error || "Failed to delete demo");
       } else {
         if (newResult?.id === demo.id) setNewResult(null);
         await loadDemos();
       }
-    } catch (err) {
-      if (err instanceof AdminUnauthorizedError) return;
+    } catch {
       setError("Network error while deleting demo");
     } finally {
       setDeletingId(null);
-    }
-  };
-
-  const openExportTool = (demo?: ArtKeyDemo) => {
-    if (demo) setExportToken(demo.publicToken);
-    setShowExportTool(true);
-  };
-
-  const runExportDownload = async () => {
-    if (!exportToken) {
-      setError("Select an ArtKey portal to export.");
-      return;
-    }
-    setExporting(true);
-    setError("");
-    try {
-      const params = new URLSearchParams({
-        token: exportToken,
-        format: exportFormat,
-        templateId: exportTemplateId,
-      });
-      if (exportFormat === "pdf") {
-        params.set("paper", exportPaper);
-      } else {
-        params.set("width", String(exportWidth));
-      }
-      const url = `/api/admin/artkey-demos/export?${params.toString()}`;
-      const res = await fetch(url, { cache: "no-store" });
-      if (res.status === 401) {
-        router.push("/b_d_admn_tae/login");
-        return;
-      }
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.error || "Failed to export ArtKey template");
-        return;
-      }
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      const ext = exportFormat;
-      a.href = objectUrl;
-      a.download = `artkey-demo-template.${ext}`;
-      a.click();
-      URL.revokeObjectURL(objectUrl);
-      setShowExportTool(false);
-    } catch {
-      setError("Network error while exporting ArtKey template");
-    } finally {
-      setExporting(false);
     }
   };
 
@@ -329,13 +245,14 @@ export default function AdminArtKeyDemosPage() {
     setError("");
     setNotice(null);
     try {
-      const { res, data } = await adminFetchJson("/api/admin/artkey/archive-digests", {
+      const res = await fetch("/api/admin/artkey/archive-digests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           token ? { publicToken: token, force: true } : {}
         ),
-      }, () => router.push("/b_d_admn_tae/login"));
+      });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.success) {
         setError(data?.error || "Failed to send archive digest");
         return;
@@ -354,8 +271,7 @@ export default function AdminArtKeyDemosPage() {
           `Archive digest run complete: sent ${sentCount}, skipped ${skippedCount}, failed ${failedCount}.`
         );
       }
-    } catch (err) {
-      if (err instanceof AdminUnauthorizedError) return;
+    } catch {
       setError("Network error while sending archive digest");
     } finally {
       setSendingArchiveFor(null);
@@ -372,10 +288,10 @@ export default function AdminArtKeyDemosPage() {
         <div>
           <h1 className="text-2xl font-bold text-brand-dark font-playfair">ArtKey Demo Builder</h1>
           <p className="text-sm text-brand-medium mt-1">
-            Create and manage demo portals for QR testing and studio validation.
+            Create ArtKey portals with unique URLs and QR codes
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 border border-brand-light px-2 py-1.5 bg-white">
             <label className="text-[11px] text-brand-medium">QR Size</label>
             <select
@@ -390,28 +306,22 @@ export default function AdminArtKeyDemosPage() {
             </select>
           </div>
           <Link
-            href="/b_d_admn_tae/dashboard"
-            className={BTN_SUBTLE}
+            href={ARTKEY_ADMIN_DASHBOARD_PATH}
+            className="border border-brand-light px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-lightest transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard
           </Link>
           <button
             onClick={() => handleSendArchiveDigest()}
             disabled={sendingArchiveFor === "__all__"}
-            className={BTN_SECONDARY}
+            className="border border-brand-dark px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-lightest transition-colors disabled:opacity-50"
             title="Send pre-expiry archive digest emails now"
           >
             {sendingArchiveFor === "__all__" ? "Sending..." : "Send Archive Digests"}
           </button>
           <button
-            onClick={() => openExportTool()}
-            className={BTN_SECONDARY}
-          >
-            <Printer className="w-4 h-4" /> Export Template
-          </button>
-          <button
             onClick={() => { setShowForm(true); setNewResult(null); }}
-            className={BTN_PRIMARY}
+            className="bg-brand-dark text-white px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/90 transition-colors"
           >
             <Plus className="w-4 h-4" /> New Portal
           </button>
@@ -428,118 +338,6 @@ export default function AdminArtKeyDemosPage() {
         <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 mb-4 flex items-center justify-between">
           {notice}
           <button onClick={() => setNotice(null)}><X className="w-4 h-4" /></button>
-        </div>
-      )}
-
-      {showExportTool && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg border border-brand-light">
-            <div className="px-5 py-4 border-b border-brand-light flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-brand-dark">Demo ArtKey Print/Export Tool</h3>
-              <button onClick={() => setShowExportTool(false)} className="text-brand-medium hover:text-brand-dark">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              <p className="text-xs text-brand-medium bg-brand-lightest border border-brand-light px-3 py-2">
-                Use this tool to generate downloadable test assets with the correct portal QR.
-              </p>
-              <div>
-                <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                  ArtKey Portal
-                </label>
-                <select
-                  value={exportToken}
-                  onChange={(e) => setExportToken(e.target.value)}
-                  className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest focus:outline-none focus:ring-2 focus:ring-brand-medium"
-                >
-                  {demos.map((d) => (
-                    <option key={d.id} value={d.publicToken}>
-                      {d.title} ({d.publicToken.slice(0, 8)}...)
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                    Format
-                  </label>
-                  <select
-                    value={exportFormat}
-                    onChange={(e) => setExportFormat(e.target.value as "pdf" | "png" | "svg")}
-                    className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest focus:outline-none focus:ring-2 focus:ring-brand-medium"
-                  >
-                    <option value="pdf">PDF (paper)</option>
-                    <option value="svg">SVG</option>
-                    <option value="png">PNG</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                    Template
-                  </label>
-                  <select
-                    value={exportTemplateId}
-                    onChange={(e) => setExportTemplateId(e.target.value)}
-                    className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest focus:outline-none focus:ring-2 focus:ring-brand-medium"
-                  >
-                    {ARTKEY_TEMPLATES.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {exportFormat === "pdf" ? (
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                    Paper
-                  </label>
-                  <select
-                    value={exportPaper}
-                    onChange={(e) => setExportPaper(e.target.value as "letter" | "a4")}
-                    className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest focus:outline-none focus:ring-2 focus:ring-brand-medium"
-                  >
-                    <option value="letter">Letter (US)</option>
-                    <option value="a4">A4</option>
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                    Output Width (px)
-                  </label>
-                  <input
-                    type="number"
-                    min={800}
-                    max={5000}
-                    step={100}
-                    value={exportWidth}
-                    onChange={(e) => setExportWidth(parseInt(e.target.value || "1800", 10))}
-                    className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest focus:outline-none focus:ring-2 focus:ring-brand-medium"
-                  />
-                </div>
-              )}
-              <p className="text-xs text-brand-medium">
-                Exports always include the selected ArtKey portal QR on the template.
-              </p>
-            </div>
-            <div className="px-5 py-4 border-t border-brand-light flex justify-end gap-2">
-              <button
-                onClick={() => setShowExportTool(false)}
-                className={BTN_SUBTLE}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={runExportDownload}
-                disabled={exporting || demos.length === 0}
-                className={BTN_PRIMARY}
-              >
-                {exporting ? "Exporting..." : "Export"}
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -573,13 +371,13 @@ export default function AdminArtKeyDemosPage() {
             <button
               onClick={handleCreate}
               disabled={saving || !title.trim()}
-              className={BTN_PRIMARY}
+              className="px-6 py-2 text-sm bg-brand-dark text-white hover:bg-brand-dark/90 transition-colors disabled:opacity-50"
             >
               {saving ? "Creating..." : "Create Portal"}
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className={BTN_SUBTLE}
+              className="px-4 py-2 text-sm border border-brand-light hover:bg-brand-lightest transition-colors"
             >
               Cancel
             </button>
@@ -673,25 +471,25 @@ export default function AdminArtKeyDemosPage() {
           <div className="mt-4 pt-4 border-t border-green-200 flex gap-2 flex-wrap">
             <a
               href={`/artkey-editor?portal_token=${newResult.publicToken}&owner_token=${newResult.ownerToken}`}
-              className={BTN_PRIMARY}
+              className="px-4 py-2 text-sm bg-brand-dark text-white hover:bg-brand-dark/90 transition-colors flex items-center gap-2"
             >
               <Paintbrush className="w-4 h-4" /> ArtKey Demo Page Editor
             </a>
             <a
               href={`/art-key/${newResult.publicToken}/edit?owner=${newResult.ownerToken}`}
-              className={BTN_SECONDARY}
+              className="px-4 py-2 text-sm border border-brand-dark text-brand-dark hover:bg-brand-lightest transition-colors flex items-center gap-2"
             >
               <Settings className="w-4 h-4" /> Host: Edit ArtKey Portal
             </a>
             <button
               onClick={() => printPortalQr({ title: newResult.title, portalUrl: newResult.portalUrl })}
-              className={BTN_SECONDARY}
+              className="px-4 py-2 text-sm border border-brand-dark text-brand-dark hover:bg-brand-lightest transition-colors flex items-center gap-2"
             >
               <Printer className="w-4 h-4" /> Print QR + URL
             </button>
             <button
               onClick={() => { setNewResult(null); setShowForm(true); }}
-              className={BTN_SUBTLE}
+              className="px-4 py-2 text-sm border border-brand-light text-brand-medium hover:bg-brand-lightest transition-colors"
             >
               Create Another
             </button>
@@ -746,7 +544,7 @@ export default function AdminArtKeyDemosPage() {
                 <div className="col-span-2 flex items-center gap-1 justify-end">
                   <a
                     href={`/artkey-editor?portal_token=${d.publicToken}&owner_token=${d.ownerToken}`}
-                    className={BTN_CHIP}
+                    className="px-2 py-1 text-[10px] border border-brand-light text-brand-medium hover:text-brand-dark hover:bg-brand-lightest transition-colors inline-flex items-center gap-1"
                     title="ArtKey Demo Page Editor"
                   >
                     <Paintbrush className="w-3 h-3" />
@@ -754,7 +552,7 @@ export default function AdminArtKeyDemosPage() {
                   </a>
                   <a
                     href={d.editUrl}
-                    className={BTN_CHIP}
+                    className="px-2 py-1 text-[10px] border border-brand-light text-brand-medium hover:text-brand-dark hover:bg-brand-lightest transition-colors inline-flex items-center gap-1"
                     title="Host: Edit ArtKey Portal"
                   >
                     <Settings className="w-3 h-3" />
@@ -762,7 +560,7 @@ export default function AdminArtKeyDemosPage() {
                   </a>
                   <button
                     onClick={() => copyToClipboard(d.portalUrl, d.id)}
-                    className={BTN_ICON}
+                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
                     title="Copy Portal URL"
                   >
                     {copiedId === d.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
@@ -770,28 +568,21 @@ export default function AdminArtKeyDemosPage() {
                   <button
                     onClick={() => downloadPortalQr(d)}
                     disabled={downloadingQrId === d.id}
-                    className={BTN_ICON}
+                    className="p-1.5 text-brand-medium hover:text-brand-dark disabled:opacity-50 transition-colors"
                     title={`Download QR Code PNG (${qrDownloadSize}px)`}
                   >
                     <Download className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => printPortalQr({ title: d.title, portalUrl: d.portalUrl })}
-                    className={BTN_ICON}
+                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
                     title="Print QR + Portal URL"
                   >
                     <Printer className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => openExportTool(d)}
-                    className={BTN_ICON}
-                    title="Export template (PDF/SVG/PNG)"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                  </button>
-                  <button
                     onClick={() => openUrlsAndQr(d)}
-                    className={BTN_ICON}
+                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
                     title="View URLs + QR"
                   >
                     <LinkIcon className="w-3.5 h-3.5" />
@@ -800,7 +591,7 @@ export default function AdminArtKeyDemosPage() {
                     href={d.portalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={BTN_ICON}
+                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
                     title="View Portal"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -808,7 +599,7 @@ export default function AdminArtKeyDemosPage() {
                   <button
                     onClick={() => handleDeleteDemo(d)}
                     disabled={deletingId === d.id}
-                    className={BTN_DANGER_ICON}
+                    className="p-1.5 text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors"
                     title="Delete Demo"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -816,7 +607,7 @@ export default function AdminArtKeyDemosPage() {
                   <button
                     onClick={() => handleSendArchiveDigest(d)}
                     disabled={sendingArchiveFor === d.publicToken}
-                    className={BTN_CHIP}
+                    className="px-2 py-1.5 text-[10px] border border-brand-light text-brand-medium hover:text-brand-dark hover:bg-brand-lightest disabled:opacity-50 transition-colors"
                     title="Send archive digest for this portal"
                   >
                     {sendingArchiveFor === d.publicToken ? "Sending..." : "Send PDF Digest"}

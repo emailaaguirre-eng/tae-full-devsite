@@ -12,6 +12,7 @@
 import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
+import { ARTKEY_ADMIN_DASHBOARD_PATH } from '@/lib/routes';
 import { 
   TEMPLATE_CATEGORIES, 
   getTemplatesByCategory, 
@@ -29,7 +30,6 @@ import {
   ELEGANT_ICONS, 
   type ElegantIconKey 
 } from './artkey/ElegantIcons';
-import { AdvancedColorPickerPopover } from './artkey/AdvancedColorPickerPopover';
 import { CustomIcon } from './CustomIcons';
 
 function isElegantIconKey(value: string): value is ElegantIconKey {
@@ -97,9 +97,8 @@ interface ArtKeyData {
 function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { addToCart, updateCartItem } = useCart();
+  const { addToCart } = useCart();
   const productId = searchParams.get('product_id');
-  const cartItemIdParam = searchParams.get('cart_item_id');
   const fromShop = searchParams.get('from_shop') === 'true' || searchParams.get('from_customize') === 'true';
   const fromStudio = searchParams.get('from_studio') === 'true';
   const productNameParam = searchParams.get('product_name');
@@ -148,9 +147,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [editLinkUrl, setEditLinkUrl] = useState('');
   const [showColorPicker, setShowColorPicker] = useState<{ type: 'button' | 'title' | 'background' | null }>({ type: null });
   const [customColor, setCustomColor] = useState<string>('#000000');
-  const [customAlpha, setCustomAlpha] = useState<number>(1);
-  const [recentColors, setRecentColors] = useState<string[]>([]);
-  const [enableHaptics, setEnableHaptics] = useState(true);
   const [openedGallery, setOpenedGallery] = useState<'images' | 'videos' | null>(null); // Track which gallery is opened
   
   // QR Code & Skeleton Key state (only for cards/invitations/postcards)
@@ -161,36 +157,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   // Save state: prevent duplicate saves and show result modal
   const [isSaving, setIsSaving] = useState(false);
   const [savedPortalToken, setSavedPortalToken] = useState<string | null>(null);
-  const [saveModal, setSaveModal] = useState<{ show: boolean; url: string; message: string; hostUrl?: string } | null>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = window.localStorage.getItem('artkey_recent_colors');
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(parsed)) {
-        setRecentColors(parsed.filter((c) => typeof c === 'string').slice(0, 10));
-      }
-    } catch {
-      // ignore malformed localStorage data
-    }
-  }, []);
-
-  const rememberRecentColor = (colorValue: string) => {
-    const normalized = String(colorValue || '').trim();
-    if (!normalized) return;
-    setRecentColors((prev) => {
-      const next = [normalized, ...prev.filter((c) => c.toLowerCase() !== normalized.toLowerCase())].slice(0, 10);
-      if (typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem('artkey_recent_colors', JSON.stringify(next));
-        } catch {
-          // ignore storage errors
-        }
-      }
-      return next;
-    });
-  };
+  const [saveModal, setSaveModal] = useState<{ show: boolean; url: string; message: string } | null>(null);
 
   // ArtKey data
   const [artKeyData, setArtKeyData] = useState<ArtKeyData>({
@@ -548,11 +515,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     setHeaderIcon(tpl.headerIcon || 'none');
   };
 
-  const handleColorSelect = (
-    color: typeof buttonColors[0],
-    type: 'button' | 'title' | 'background',
-    rememberSelection = true
-  ) => {
+  const handleColorSelect = (color: typeof buttonColors[0], type: 'button' | 'title' | 'background') => {
     const isGradient = color.type === 'gradient' || (typeof color.bg === 'string' && color.bg.startsWith('linear-gradient'));
     if (type === 'button') {
       setArtKeyData((prev) => ({
@@ -570,18 +533,9 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         theme: { ...prev.theme, bg_color: color.bg || color.color, bg_image_url: '' },
       }));
     }
-    if (rememberSelection && !isGradient) {
-      rememberRecentColor(color.color || color.bg);
-    }
   };
 
   const getColorsForPage = (page: number, arr: typeof buttonColors) => arr.slice(page * 12, page * 12 + 12);
-
-  const applyCustomColor = (type: 'button' | 'title' | 'background', value: string) => {
-    const normalized = value.trim();
-    if (!normalized) return;
-    handleColorSelect({ bg: normalized, color: normalized, label: 'Custom', type: 'solid' }, type, false);
-  };
 
   const resolveUploadAuth = () => {
     const publicToken = (portalToken || savedPortalToken || artkeyId || '').trim();
@@ -709,10 +663,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     try {
       const artKeyDomain = (process.env.NEXT_PUBLIC_ARTKEY_DOMAIN || 'artkey.theartfulexperience.com').replace(/^https?:\/\//, '');
       const buildArtKeyPortalUrl = (publicToken: string) => `https://${artKeyDomain}/${publicToken}`;
-      const buildHostEditUrl = (publicToken: string, ownerToken?: string) =>
-        ownerToken
-          ? `https://${artKeyDomain}/${publicToken}/edit?owner=${encodeURIComponent(ownerToken)}`
-          : `https://${artKeyDomain}/${publicToken}/edit`;
       // QR placement is handled in the Customization Studio canvas, not here
 
       // Include skeleton key and QR position in customizations if product requires QR
@@ -751,8 +701,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       }
 
       // If coming from admin demo builder, save directly to portal API
-      if (fromAdmin && portalToken) {
-        const adminOwnerToken = ownerTokenParam || "__admin_demo__";
+      if (fromAdmin && portalToken && ownerTokenParam) {
         const portalPayload = {
           title: artKeyData.title,
           theme: artKeyData.theme,
@@ -768,21 +717,17 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'X-Owner-Token': adminOwnerToken,
+            'X-Owner-Token': ownerTokenParam,
           },
           body: JSON.stringify(portalPayload),
         });
         const portalData = await portalRes.json();
         if (portalData.success) {
-          if (typeof window !== 'undefined' && ownerTokenParam) {
-            sessionStorage.setItem(`portal_owner_${portalToken}`, ownerTokenParam);
-          }
           const portalUrl = buildArtKeyPortalUrl(portalToken);
-          const hostUrl = buildHostEditUrl(portalToken, ownerTokenParam || undefined);
           if (redirectToShop) {
             router.push('/b_d_admn_tae/artkey-demos');
           } else {
-            setSaveModal({ show: true, url: portalUrl, hostUrl, message: 'ArtKey Portal saved and published successfully.' });
+            setSaveModal({ show: true, url: portalUrl, message: 'ArtKey Portal saved successfully!' });
           }
         } else {
           setSaveModal({ show: true, url: '', message: portalData.error || 'Failed to save portal' });
@@ -833,13 +778,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         }
 
         const portalUrl = buildArtKeyPortalUrl(existingPortalToken);
-        const hostUrl = buildHostEditUrl(existingPortalToken, effectiveOwnerToken || undefined);
 
         if (redirectToShop && fromStudio && studioExport?.productSpec) {
           const spec = studioExport.productSpec;
           const frontDesign = studioExport.designFiles?.find((f: any) => f.placement === 'front');
           const cartItem: Record<string, any> = {
-            id: cartItemIdParam || `${spec.id}-${artkeyId || Date.now()}`,
+            id: `${spec.id}-${artkeyId || Date.now()}`,
             name: spec.name || productNameParam || 'Custom Product',
             price: spec.basePrice || 0,
             quantity: 1,
@@ -849,7 +793,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             printfulProductId: spec.printfulProductId,
             printfulVariantId: spec.printfulVariantId,
             designFiles: studioExport.designFiles,
-            designDraftId: studioExport.studioExportId || undefined,
             studioRenderSignature: studioExport.studioRenderSignature,
             requiresQrCode: spec.requiresQrCode,
             artKeyData: {
@@ -865,8 +808,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           if (studioExport.artKeyTemplatePosition) {
             cartItem.artKeyTemplatePosition = studioExport.artKeyTemplatePosition;
           }
-          if (cartItemIdParam) updateCartItem(cartItemIdParam, cartItem);
-          else addToCart(cartItem);
+          addToCart(cartItem);
           sessionStorage.removeItem('tae-studio-export');
           router.push('/cart');
           return;
@@ -893,7 +835,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         }
 
         if (redirectToShop) router.push('/cart');
-        else setSaveModal({ show: true, url: portalUrl, hostUrl, message: 'ArtKey saved and published.' });
+        else setSaveModal({ show: true, url: portalUrl, message: 'ArtKey saved!' });
         return;
       }
 
@@ -923,21 +865,14 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       
       const result = await res.json();
       if (result.token) setSavedPortalToken(result.token);
-      if (typeof window !== 'undefined' && result.token && result.owner_token) {
-        sessionStorage.setItem(`portal_owner_${result.token}`, result.owner_token);
-      }
       const portalUrl = result.share_url || (result.token ? buildArtKeyPortalUrl(result.token) : '');
-      const hostUrl =
-        result.token
-          ? buildHostEditUrl(result.token, result.owner_token || undefined)
-          : undefined;
       
       // If coming from studio, build cart item with design files + ArtKey data
       if (redirectToShop && fromStudio && studioExport?.productSpec) {
         const spec = studioExport.productSpec;
         const frontDesign = studioExport.designFiles?.find((f: any) => f.placement === 'front');
         const cartItem: Record<string, any> = {
-          id: cartItemIdParam || `${spec.id}-${artkeyId || Date.now()}`,
+          id: `${spec.id}-${artkeyId || Date.now()}`,
           name: spec.name || productNameParam || 'Custom Product',
           price: spec.basePrice || 0,
           quantity: 1,
@@ -947,7 +882,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           printfulProductId: spec.printfulProductId,
           printfulVariantId: spec.printfulVariantId,
           designFiles: studioExport.designFiles,
-          designDraftId: studioExport.studioExportId || undefined,
           studioRenderSignature: studioExport.studioRenderSignature,
           requiresQrCode: spec.requiresQrCode,
           artKeyData: {
@@ -963,8 +897,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         if (studioExport.artKeyTemplatePosition) {
           cartItem.artKeyTemplatePosition = studioExport.artKeyTemplatePosition;
         }
-        if (cartItemIdParam) updateCartItem(cartItemIdParam, cartItem);
-        else addToCart(cartItem);
+        addToCart(cartItem);
         // Clean up sessionStorage
         sessionStorage.removeItem('tae-studio-export');
         router.push('/cart');
@@ -995,7 +928,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       if (redirectToShop) {
         router.push('/cart');
       } else {
-        setSaveModal({ show: true, url: portalUrl, hostUrl, message: 'ArtKey saved and published.' });
+        setSaveModal({ show: true, url: portalUrl, message: 'ArtKey saved!' });
       }
     } catch (err) {
       console.error('Save failed', err);
@@ -1005,7 +938,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     }
   };
 
-  const handleSaveAndContinue = () => handleSave(true);
+  const handleSaveAndContinue = () => handleSave(false);
   const handleSaveAndCheckout = () => handleSave(true);
 
   const toggleFeature = (field: keyof ArtKeyData['features']) => {
@@ -1034,29 +967,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       if (f.key === 'gallery' && artKeyData.features.enable_gallery) {
         items.push({ label: f.label || 'Gallery', href: previewPortalToken ? `/art-key/${previewPortalToken}/gallery` : undefined });
       } else if (f.key === 'video' && artKeyData.features.enable_video) {
-        const featuredVideoUrl = artKeyData.featured_video?.video_url || null;
-        let usedPrimaryVideoLabel = false;
-        if (featuredVideoUrl) {
-          items.push({
-            label: artKeyData.featured_video?.button_label || f.label || 'Featured Video',
-            href: previewPortalToken ? `/art-key/${previewPortalToken}/video?v=featured` : undefined,
-          });
-          usedPrimaryVideoLabel = true;
-        }
-        artKeyData.uploadedVideos.forEach((url, idx) => {
-          if (!url || url === featuredVideoUrl) return;
-          items.push({
-            label: usedPrimaryVideoLabel ? `Video ${idx + 1}` : f.label || 'Featured Video',
-            href: previewPortalToken ? `/art-key/${previewPortalToken}/video?v=${idx}` : undefined,
-          });
-          usedPrimaryVideoLabel = true;
+        items.push({
+          label: artKeyData.featured_video?.button_label || f.label || 'Featured Video',
+          href: previewPortalToken ? `/art-key/${previewPortalToken}/video` : undefined,
         });
-        if (!featuredVideoUrl && artKeyData.uploadedVideos.length === 0) {
-          items.push({
-            label: f.label || 'Featured Video',
-            href: previewPortalToken ? `/art-key/${previewPortalToken}/video` : undefined,
-          });
-        }
       } else if (f.key === 'guestbook' && artKeyData.features.show_guestbook) {
         items.push({ label: f.label || 'Guestbook', href: previewPortalToken ? `/art-key/${previewPortalToken}/guestbook` : undefined });
       } else if (f.key === 'spotify' && artKeyData.features.enable_spotify) {
@@ -1166,8 +1080,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           WebkitBackdropFilter: 'blur(10px)',
           color: buttonColor,
           borderRadius,
-          border: `1px solid ${buttonColor}55`,
-          boxShadow: `inset 0 0 0 1px ${buttonColor}22`,
+          border: `1px solid ${buttonColor}30`,
         };
       default:
         return {
@@ -1275,36 +1188,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
   return (
     <div style={{ background: '#f5f5f7' }} className="min-h-screen">
-      <style>{`
-        .artkey-ripple {
-          position: absolute;
-          width: 12px;
-          height: 12px;
-          margin-left: -6px;
-          margin-top: -6px;
-          border-radius: 9999px;
-          pointer-events: none;
-          z-index: 0;
-          background: radial-gradient(circle, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 38%, rgba(255,255,255,0) 70%);
-          animation: artkey-ripple 600ms ease-out forwards;
-        }
-        @keyframes artkey-ripple {
-          0% {
-            opacity: 0.8;
-            transform: scale(1);
-          }
-          100% {
-            opacity: 0;
-            transform: scale(16);
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .artkey-ripple {
-            animation: none !important;
-            opacity: 0 !important;
-          }
-        }
-      `}</style>
       {/* Top Bar */}
       <div className="sticky top-0 z-50 shadow-lg border-b border-white/10" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
@@ -1312,7 +1195,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             <div className="flex items-center gap-3">
               {isAdmin && (
                 <button
-                  onClick={() => router.push('/b_d_admn_tae/dashboard')}
+                  onClick={() => {
+                    if (process.env.NODE_ENV !== 'production') {
+                      console.log('[ArtKeyEditor] Back to Dashboard target:', ARTKEY_ADMIN_DASHBOARD_PATH);
+                    }
+                    router.push(ARTKEY_ADMIN_DASHBOARD_PATH);
+                  }}
                   className="px-3 py-1.5 rounded-lg font-medium transition-all text-xs hover:bg-white/20"
                   style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.15)' }}
                   title="Back to Admin Dashboard"
@@ -1369,37 +1257,21 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-24 border border-[#e2e2e0]">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold font-playfair" style={{ color: COLOR_ACCENT }}>Live Preview</h3>
-                <div className="flex items-center gap-2">
+                <div className="flex gap-2 p-1 rounded-lg" style={{ background: COLOR_ALT }}>
                   <button
-                    type="button"
-                    onClick={() => setEnableHaptics((v) => !v)}
-                    aria-pressed={enableHaptics}
-                    className={`px-2.5 py-1 rounded text-xs font-medium border transition-all ${enableHaptics ? 'shadow-sm' : ''}`}
-                    style={{
-                      background: enableHaptics ? COLOR_PRIMARY : 'transparent',
-                      color: enableHaptics ? COLOR_ACCENT : '#666',
-                      borderColor: '#d8d8d6',
-                    }}
-                    title="Toggle mobile haptic feedback for button taps"
+                    onClick={() => setPreviewDevice('mobile')}
+                    className={`px-3 py-1 rounded text-sm font-medium transition-all ${previewDevice === 'mobile' ? 'shadow' : ''}`}
+                    style={previewDevice === 'mobile' ? { background: COLOR_PRIMARY, color: COLOR_ACCENT } : { color: '#666' }}
                   >
-                    Haptics {enableHaptics ? 'On' : 'Off'}
+                    📱 Mobile
                   </button>
-                  <div className="flex gap-2 p-1 rounded-lg" style={{ background: COLOR_ALT }}>
-                    <button
-                      onClick={() => setPreviewDevice('mobile')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-all ${previewDevice === 'mobile' ? 'shadow' : ''}`}
-                      style={previewDevice === 'mobile' ? { background: COLOR_PRIMARY, color: COLOR_ACCENT } : { color: '#666' }}
-                    >
-                      📱 Mobile
-                    </button>
-                    <button
-                      onClick={() => setPreviewDevice('desktop')}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-all ${previewDevice === 'desktop' ? 'shadow' : ''}`}
-                      style={previewDevice === 'desktop' ? { background: COLOR_PRIMARY, color: COLOR_ACCENT } : { color: '#666' }}
-                    >
-                      🖥️ Desktop
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setPreviewDevice('desktop')}
+                    className={`px-3 py-1 rounded text-sm font-medium transition-all ${previewDevice === 'desktop' ? 'shadow' : ''}`}
+                    style={previewDevice === 'desktop' ? { background: COLOR_PRIMARY, color: COLOR_ACCENT } : { color: '#666' }}
+                  >
+                    🖥️ Desktop
+                  </button>
                 </div>
               </div>
 
@@ -1443,24 +1315,25 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                 const displayText = (btn.label || `Link ${idx + 1}`).length > maxChars 
                                   ? (btn.label || `Link ${idx + 1}`).substring(0, maxChars - 3) + '...'
                                   : (btn.label || `Link ${idx + 1}`);
-                                const previewButtonVisualStyle = (artKeyData.theme.button_style as ButtonStyle) || buttonStyle;
                                 return (
-                                  <TactilePreviewButton
+                                  <a
                                     key={idx}
                                     href={btn.href || '#'}
-                                    disabled={!btn.href}
-                                    enableHaptics={enableHaptics}
-                                    visualStyle={previewButtonVisualStyle}
-                                    className={`block w-full py-2.5 px-3 ${fontSize} font-semibold shadow-md ${btn.href ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
+                                    target={btn.href ? '_blank' : undefined}
+                                    rel={btn.href ? 'noopener noreferrer' : undefined}
+                                    onClick={(e) => {
+                                      if (!btn.href) e.preventDefault();
+                                    }}
+                                    className={`block w-full py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md ${btn.href ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
                                     style={getButtonPreviewStyles(
                                       artKeyData.theme.button_color,
-                                      previewButtonVisualStyle,
+                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle,
                                       (artKeyData.theme.button_shape as ButtonShape) || buttonShape
                                     )}
                                     title={btn.href ? 'Open portal page in new tab' : 'Save portal first to enable live links'}
                                   >
                                     {displayText}
-                                  </TactilePreviewButton>
+                                  </a>
                                 );
                               })}
                             </div>
@@ -1529,24 +1402,25 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                 const displayText = (btn.label || `Link ${idx + 1}`).length > maxChars 
                                   ? (btn.label || `Link ${idx + 1}`).substring(0, maxChars - 3) + '...'
                                   : (btn.label || `Link ${idx + 1}`);
-                                const previewButtonVisualStyle = (artKeyData.theme.button_style as ButtonStyle) || buttonStyle;
                                 return (
-                                  <TactilePreviewButton
+                                  <a
                                     key={idx}
                                     href={btn.href || '#'}
-                                    disabled={!btn.href}
-                                    enableHaptics={enableHaptics}
-                                    visualStyle={previewButtonVisualStyle}
+                                    target={btn.href ? '_blank' : undefined}
+                                    rel={btn.href ? 'noopener noreferrer' : undefined}
+                                    onClick={(e) => {
+                                      if (!btn.href) e.preventDefault();
+                                    }}
                                     className={`block ${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md ${btn.href ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
                                     style={getButtonPreviewStyles(
                                       artKeyData.theme.button_color,
-                                      previewButtonVisualStyle,
+                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle,
                                       (artKeyData.theme.button_shape as ButtonShape) || buttonShape
                                     )}
                                     title={btn.href ? 'Open portal page in new tab' : 'Save portal first to enable live links'}
                                   >
                                     {displayText}
-                                  </TactilePreviewButton>
+                                  </a>
                                 );
                               })}
                             </div>
@@ -1685,35 +1559,48 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       selected={artKeyData.theme.bg_color}
                       onSelect={(c) => handleColorSelect(c, 'background')}
                       onCustomColor={() => {
-                        const currentColor = artKeyData.theme.bg_color || '#000000';
+                        const currentColor = artKeyData.theme.bg_color?.startsWith('#') ? artKeyData.theme.bg_color : '#000000';
                         setCustomColor(currentColor);
-                        setCustomAlpha(1);
                         setShowColorPicker({ type: 'background' });
                       }}
                     />
                     {showColorPicker.type === 'background' && (
-                      <AdvancedColorPickerPopover
-                        title="Background Color"
-                        value={customColor}
-                        alpha={customAlpha}
-                        recentColors={recentColors}
-                        palette={{ primary: COLOR_PRIMARY, alt: COLOR_ALT, accent: COLOR_ACCENT }}
-                        onChange={(val, alpha) => {
-                          setCustomColor(val);
-                          setCustomAlpha(alpha);
-                          applyCustomColor('background', val);
-                        }}
-                        onSelectRecent={(val) => {
-                          setCustomColor(val);
-                          setCustomAlpha(1);
-                          applyCustomColor('background', val);
-                          rememberRecentColor(val);
-                        }}
-                        onClose={() => {
-                          rememberRecentColor(customColor);
-                          setShowColorPicker({ type: null });
-                        }}
-                      />
+                      <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
+                          <input
+                            type="color"
+                            value={customColor}
+                            onChange={(e) => {
+                              setCustomColor(e.target.value);
+                              handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'background');
+                            }}
+                            className="h-8 w-16 rounded border"
+                            style={{ borderColor: '#d8d8d6' }}
+                          />
+                          <input
+                            type="text"
+                            value={customColor}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                                setCustomColor(val);
+                                handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'background');
+                              }
+                            }}
+                            className="flex-1 px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6' }}
+                            placeholder="#000000"
+                          />
+                          <button
+                            onClick={() => setShowColorPicker({ type: null })}
+                            className="px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </>
                 )}
@@ -1791,35 +1678,48 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       selected={artKeyData.theme.title_color}
                       onSelect={(c) => handleColorSelect(c, 'title')}
                       onCustomColor={() => {
-                        const currentColor = artKeyData.theme.title_color || '#000000';
+                        const currentColor = artKeyData.theme.title_color?.startsWith('#') ? artKeyData.theme.title_color : '#000000';
                         setCustomColor(currentColor);
-                        setCustomAlpha(1);
                         setShowColorPicker({ type: 'title' });
                       }}
                     />
                     {showColorPicker.type === 'title' && (
-                      <AdvancedColorPickerPopover
-                        title="Title Color"
-                        value={customColor}
-                        alpha={customAlpha}
-                        recentColors={recentColors}
-                        palette={{ primary: COLOR_PRIMARY, alt: COLOR_ALT, accent: COLOR_ACCENT }}
-                        onChange={(val, alpha) => {
-                          setCustomColor(val);
-                          setCustomAlpha(alpha);
-                          applyCustomColor('title', val);
-                        }}
-                        onSelectRecent={(val) => {
-                          setCustomColor(val);
-                          setCustomAlpha(1);
-                          applyCustomColor('title', val);
-                          rememberRecentColor(val);
-                        }}
-                        onClose={() => {
-                          rememberRecentColor(customColor);
-                          setShowColorPicker({ type: null });
-                        }}
-                      />
+                      <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
+                          <input
+                            type="color"
+                            value={customColor}
+                            onChange={(e) => {
+                              setCustomColor(e.target.value);
+                              handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'title');
+                            }}
+                            className="h-8 w-16 rounded border"
+                            style={{ borderColor: '#d8d8d6' }}
+                          />
+                          <input
+                            type="text"
+                            value={customColor}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                                setCustomColor(val);
+                                handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'title');
+                              }
+                            }}
+                            className="flex-1 px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6' }}
+                            placeholder="#000000"
+                          />
+                          <button
+                            onClick={() => setShowColorPicker({ type: null })}
+                            className="px-2 py-1 rounded text-xs"
+                            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                          >
+                            ✓
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
@@ -1851,35 +1751,48 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     selected={artKeyData.theme.button_color}
                     onSelect={(c) => handleColorSelect(c, 'button')}
                     onCustomColor={() => {
-                      const currentColor = artKeyData.theme.button_color || '#000000';
+                      const currentColor = artKeyData.theme.button_color?.startsWith('#') ? artKeyData.theme.button_color : '#000000';
                       setCustomColor(currentColor);
-                      setCustomAlpha(1);
                       setShowColorPicker({ type: 'button' });
                     }}
                   />
                   {showColorPicker.type === 'button' && (
-                    <AdvancedColorPickerPopover
-                      title="Button Color"
-                      value={customColor}
-                      alpha={customAlpha}
-                      recentColors={recentColors}
-                      palette={{ primary: COLOR_PRIMARY, alt: COLOR_ALT, accent: COLOR_ACCENT }}
-                      onChange={(val, alpha) => {
-                        setCustomColor(val);
-                        setCustomAlpha(alpha);
-                        applyCustomColor('button', val);
-                      }}
-                      onSelectRecent={(val) => {
-                        setCustomColor(val);
-                        setCustomAlpha(1);
-                        applyCustomColor('button', val);
-                        rememberRecentColor(val);
-                      }}
-                      onClose={() => {
-                        rememberRecentColor(customColor);
-                        setShowColorPicker({ type: null });
-                      }}
-                    />
+                    <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
+                        <input
+                          type="color"
+                          value={customColor}
+                          onChange={(e) => {
+                            setCustomColor(e.target.value);
+                            handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'button');
+                          }}
+                          className="h-8 w-16 rounded border"
+                          style={{ borderColor: '#d8d8d6' }}
+                        />
+                        <input
+                          type="text"
+                          value={customColor}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                              setCustomColor(val);
+                              handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'button');
+                            }
+                          }}
+                          className="flex-1 px-2 py-1 rounded text-xs"
+                          style={{ border: '1px solid #d8d8d6' }}
+                          placeholder="#000000"
+                        />
+                        <button
+                          onClick={() => setShowColorPicker({ type: null })}
+                          className="px-2 py-1 rounded text-xs"
+                          style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+                        >
+                          ✓
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
 
@@ -2782,7 +2695,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             <p className="text-sm text-gray-700 mb-4">{saveModal.message}</p>
             {saveModal.url && (
               <div className="mb-4">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Public Portal URL</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Portal URL</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -2804,30 +2717,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                 </div>
               </div>
             )}
-            {saveModal.hostUrl && (
-              <div className="mb-4">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Host Edit URL</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={saveModal.hostUrl}
-                    className="flex-1 px-3 py-2 rounded-lg border text-sm bg-gray-50 select-all"
-                    style={{ borderColor: '#d8d8d6' }}
-                    onClick={(e) => (e.target as HTMLInputElement).select()}
-                  />
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(saveModal.hostUrl || '');
-                    }}
-                    className="px-3 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
-                    style={{ background: COLOR_ACCENT, color: '#fff' }}
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-            )}
             <div className="flex gap-2 justify-end">
               {saveModal.url && (
                 <a
@@ -2838,17 +2727,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   style={{ background: COLOR_ALT, color: COLOR_ACCENT, border: '1px solid #d8d8d6' }}
                 >
                   View Portal
-                </a>
-              )}
-              {saveModal.hostUrl && (
-                <a
-                  href={saveModal.hostUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
-                  style={{ background: '#f8fafc', color: COLOR_ACCENT, border: '1px solid #d8d8d6' }}
-                >
-                  Host Settings
                 </a>
               )}
               <button
@@ -2867,136 +2745,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 }
 
 // Helper Components
-function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = () => setPrefersReducedMotion(media.matches);
-    onChange();
-    media.addEventListener?.('change', onChange);
-    return () => media.removeEventListener?.('change', onChange);
-  }, []);
-
-  return prefersReducedMotion;
-}
-
-function TactilePreviewButton({
-  href,
-  disabled,
-  enableHaptics,
-  visualStyle,
-  className,
-  style,
-  title,
-  children,
-}: {
-  href: string;
-  disabled?: boolean;
-  enableHaptics?: boolean;
-  visualStyle?: ButtonStyle;
-  className?: string;
-  style?: React.CSSProperties;
-  title?: string;
-  children: React.ReactNode;
-}) {
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const [pressed, setPressed] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number }>>([]);
-
-  const triggerHaptic = () => {
-    if (!enableHaptics || typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
-    try {
-      navigator.vibrate(8);
-    } catch {
-      // no-op on unsupported/blocked environments
-    }
-  };
-
-  const triggerRipple = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (prefersReducedMotion || disabled) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const nextRipple = {
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
-    setRipples((prev) => [...prev, nextRipple]);
-    window.setTimeout(() => {
-      setRipples((prev) => prev.filter((r) => r.id !== nextRipple.id));
-    }, 600);
-  };
-
-  const handleClick = () => {
-    if (!href || disabled) return;
-    window.open(href, '_blank', 'noopener,noreferrer');
-  };
-
-  const mergedStyle: React.CSSProperties = {
-    ...style,
-    position: 'relative',
-    overflow: 'hidden',
-    transform: pressed ? 'scale(0.985)' : 'scale(1)',
-    transition: prefersReducedMotion
-      ? 'none'
-      : 'transform 120ms ease, box-shadow 160ms ease, filter 160ms ease, border-color 160ms ease',
-    boxShadow: pressed
-      ? 'inset 0 1px 2px rgba(0,0,0,0.2)'
-      : focused
-      ? `${style?.boxShadow ? `${style.boxShadow}, ` : ''}0 0 0 2px rgba(26, 26, 46, 0.35)`
-      : style?.boxShadow,
-    filter: pressed ? 'brightness(0.96)' : hovered ? 'brightness(1.02)' : 'none',
-    border:
-      visualStyle === 'glass'
-        ? focused
-          ? `1px solid rgba(255,255,255,0.72)`
-          : hovered
-          ? `1px solid rgba(255,255,255,0.58)`
-          : `1px solid rgba(255,255,255,0.48)`
-        : style?.border,
-  };
-
-  return (
-    <>
-      <button
-        type="button"
-        disabled={!!disabled}
-        className={className}
-        style={mergedStyle}
-        title={title}
-        aria-label={typeof children === 'string' ? children : 'Preview portal button'}
-        onPointerDown={(e) => {
-          setPressed(true);
-          triggerHaptic();
-          triggerRipple(e);
-        }}
-        onPointerUp={() => setPressed(false)}
-        onPointerCancel={() => setPressed(false)}
-        onPointerLeave={() => setPressed(false)}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        onClick={handleClick}
-      >
-        {!prefersReducedMotion &&
-          ripples.map((r) => (
-            <span
-              key={r.id}
-              className="artkey-ripple"
-              style={{ left: r.x, top: r.y }}
-              aria-hidden="true"
-            />
-          ))}
-        <span className="relative z-[1]">{children}</span>
-      </button>
-    </>
-  );
-}
-
 function Card({ title, step, children, onBack }: { title: string; step?: string; children: React.ReactNode; onBack?: () => void }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-100">
