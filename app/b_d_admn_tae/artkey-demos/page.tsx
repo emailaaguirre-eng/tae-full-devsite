@@ -15,6 +15,7 @@ import {
   Settings,
   Trash2,
   ArrowLeft,
+  Printer,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -57,6 +58,7 @@ export default function AdminArtKeyDemosPage() {
   const [ownerEmail, setOwnerEmail] = useState("");
 
   const [newResult, setNewResult] = useState<NewDemoResult | null>(null);
+  const [qrDownloadSize, setQrDownloadSize] = useState(600);
 
   const loadDemos = useCallback(async () => {
     try {
@@ -123,10 +125,10 @@ export default function AdminArtKeyDemosPage() {
     }
   };
 
-  const downloadQr = (dataUrl: string, title: string) => {
+  const downloadQr = (dataUrl: string, title: string, sizePx: number) => {
     const a = document.createElement("a");
     a.href = dataUrl;
-    a.download = `artkey-qr-${title.toLowerCase().replace(/\s+/g, "-")}.png`;
+    a.download = `artkey-qr-${title.toLowerCase().replace(/\s+/g, "-")}-${sizePx}px.png`;
     a.click();
   };
 
@@ -136,16 +138,50 @@ export default function AdminArtKeyDemosPage() {
     try {
       const QRCode = await import("qrcode");
       const dataUrl = await QRCode.toDataURL(demo.portalUrl, {
-        width: 300,
+        width: qrDownloadSize,
         margin: 2,
         color: { dark: "#000000", light: "#FFFFFF" },
         errorCorrectionLevel: "M",
       });
-      downloadQr(dataUrl, demo.title);
+      downloadQr(dataUrl, demo.title, qrDownloadSize);
     } catch {
       setError("Failed to generate QR code download");
     } finally {
       setDownloadingQrId(null);
+    }
+  };
+
+  const printPortalQr = async (demo: { title: string; portalUrl: string }) => {
+    setError("");
+    try {
+      const QRCode = await import("qrcode");
+      const dataUrl = await QRCode.toDataURL(demo.portalUrl, {
+        width: qrDownloadSize,
+        margin: 2,
+        color: { dark: "#000000", light: "#FFFFFF" },
+        errorCorrectionLevel: "M",
+      });
+      const w = window.open("", "_blank", "width=900,height=700");
+      if (!w) {
+        setError("Popup blocked. Please allow popups to print QR.");
+        return;
+      }
+      w.document.write(`
+        <html>
+          <head><title>Print ArtKey QR</title></head>
+          <body style="font-family:Arial,sans-serif;padding:24px">
+            <h2 style="margin:0 0 8px">${demo.title}</h2>
+            <p style="margin:0 0 16px"><a href="${demo.portalUrl}">${demo.portalUrl}</a></p>
+            <img src="${dataUrl}" style="width:${Math.min(480, qrDownloadSize)}px;height:${Math.min(480, qrDownloadSize)}px;display:block;border:1px solid #ddd;padding:8px" />
+            <p style="margin-top:12px;color:#555;font-size:12px">QR export: PNG (${qrDownloadSize}px)</p>
+          </body>
+        </html>
+      `);
+      w.document.close();
+      w.focus();
+      setTimeout(() => w.print(), 200);
+    } catch {
+      setError("Failed to prepare printable QR");
     }
   };
 
@@ -230,6 +266,19 @@ export default function AdminArtKeyDemosPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 border border-brand-light px-2 py-1.5 bg-white">
+            <label className="text-[11px] text-brand-medium">QR Size</label>
+            <select
+              value={qrDownloadSize}
+              onChange={(e) => setQrDownloadSize(parseInt(e.target.value, 10))}
+              className="text-xs border border-brand-light px-2 py-1 bg-white"
+            >
+              <option value={300}>300 px</option>
+              <option value={600}>600 px</option>
+              <option value={900}>900 px</option>
+              <option value={1200}>1200 px</option>
+            </select>
+          </div>
           <Link
             href="/b_d_admn_tae/dashboard"
             className="border border-brand-light px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-lightest transition-colors"
@@ -344,7 +393,7 @@ export default function AdminArtKeyDemosPage() {
                 </div>
               </div>
               <div>
-                <div className="text-[10px] text-brand-dark/70 uppercase tracking-wider mb-1 font-medium">Owner Edit URL</div>
+                <div className="text-[10px] text-brand-dark/70 uppercase tracking-wider mb-1 font-medium">Host Editor URL</div>
                 <div className="flex items-center gap-2">
                   <code className="text-xs bg-white px-3 py-2 border border-green-200 flex-1 break-all">
                     {newResult.editUrl}
@@ -381,10 +430,10 @@ export default function AdminArtKeyDemosPage() {
                     />
                   </div>
                   <button
-                    onClick={() => downloadQr(newResult.qrCodeDataUrl!, newResult.title)}
+                    onClick={() => downloadQr(newResult.qrCodeDataUrl!, newResult.title, 300)}
                     className="flex items-center gap-2 text-sm text-green-700 hover:text-green-800 transition-colors"
                   >
-                    <Download className="w-4 h-4" /> Download QR Code
+                    <Download className="w-4 h-4" /> Download Preview QR (PNG)
                   </button>
                 </>
               ) : (
@@ -406,6 +455,12 @@ export default function AdminArtKeyDemosPage() {
             >
               <Settings className="w-4 h-4" /> Edit Settings
             </a>
+            <button
+              onClick={() => printPortalQr({ title: newResult.title, portalUrl: newResult.portalUrl })}
+              className="px-4 py-2 text-sm border border-brand-dark text-brand-dark hover:bg-brand-lightest transition-colors flex items-center gap-2"
+            >
+              <Printer className="w-4 h-4" /> Print QR + URL
+            </button>
             <button
               onClick={() => { setNewResult(null); setShowForm(true); }}
               className="px-4 py-2 text-sm border border-brand-light text-brand-medium hover:bg-brand-lightest transition-colors"
@@ -481,9 +536,16 @@ export default function AdminArtKeyDemosPage() {
                     onClick={() => downloadPortalQr(d)}
                     disabled={downloadingQrId === d.id}
                     className="p-1.5 text-brand-medium hover:text-brand-dark disabled:opacity-50 transition-colors"
-                    title="Download QR Code"
+                    title={`Download QR Code PNG (${qrDownloadSize}px)`}
                   >
                     <Download className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => printPortalQr({ title: d.title, portalUrl: d.portalUrl })}
+                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
+                    title="Print QR + Portal URL"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
                   </button>
                   <a
                     href={d.portalUrl}
