@@ -12,6 +12,7 @@
 import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
+import { ARTKEY_ADMIN_DASHBOARD_PATH } from '@/lib/routes';
 import { 
   TEMPLATE_CATEGORIES, 
   getTemplatesByCategory, 
@@ -1194,7 +1195,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             <div className="flex items-center gap-3">
               {isAdmin && (
                 <button
-                  onClick={() => router.push('/manage/dashboard')}
+                  onClick={() => {
+                    if (process.env.NODE_ENV !== 'production') {
+                      console.log('[ArtKeyEditor] Back to Dashboard target:', ARTKEY_ADMIN_DASHBOARD_PATH);
+                    }
+                    router.push(ARTKEY_ADMIN_DASHBOARD_PATH);
+                  }}
                   className="px-3 py-1.5 rounded-lg font-medium transition-all text-xs hover:bg-white/20"
                   style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.15)' }}
                   title="Back to Admin Dashboard"

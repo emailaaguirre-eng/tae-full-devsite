@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ARTKEY_ADMIN_DASHBOARD_PATH } from "@/lib/routes";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function AdminLoginPage() {
       });
       const data = await res.json();
       if (data.success) {
-        router.push("/b_d_admn_tae/dashboard");
+        router.push(ARTKEY_ADMIN_DASHBOARD_PATH);
       } else {
         setError(data.error || "Login failed");
       }

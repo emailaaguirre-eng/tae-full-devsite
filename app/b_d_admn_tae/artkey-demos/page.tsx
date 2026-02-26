@@ -18,6 +18,7 @@ import {
   Printer,
 } from "lucide-react";
 import Link from "next/link";
+import { ARTKEY_ADMIN_DASHBOARD_PATH } from "@/lib/routes";
 
 interface ArtKeyDemo {
   id: string;
@@ -305,7 +306,7 @@ export default function AdminArtKeyDemosPage() {
             </select>
           </div>
           <Link
-            href="/b_d_admn_tae/dashboard"
+            href={ARTKEY_ADMIN_DASHBOARD_PATH}
             className="border border-brand-light px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-lightest transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard

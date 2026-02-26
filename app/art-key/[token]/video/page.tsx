@@ -35,6 +35,7 @@ export default function ArtKeyVideoPage() {
   const token = params.token as string;
   const { portal, loading, error } = usePortal(token);
   const [showControls, setShowControls] = useState(false);
+  const [videoUnavailable, setVideoUnavailable] = useState(false);
 
   if (loading) return <LoadingScreen />;
   if (error || !portal) return <ErrorScreen error={error || "Portal not found"} />;
@@ -57,14 +58,21 @@ export default function ArtKeyVideoPage() {
         className="w-full rounded-xl overflow-hidden bg-black h-[calc(100dvh-220px)] min-h-[280px] max-h-[72dvh] sm:h-[62vh] sm:max-h-[520px]"
         onClick={() => setShowControls((v) => !v)}
       >
-        {directVideo ? (
+        {videoUnavailable ? (
+          <div className="w-full h-full flex items-center justify-center px-6 text-center text-sm text-white/80">
+            Video unavailable right now. Please try again later.
+          </div>
+        ) : directVideo ? (
           <video
             src={source}
             className="w-full h-full object-contain"
             autoPlay
             muted
             playsInline
+            preload="metadata"
             controls={showControls}
+            onError={() => setVideoUnavailable(true)}
+            onCanPlay={() => setVideoUnavailable(false)}
           />
         ) : youtubeEmbed ? (
           <iframe
@@ -80,7 +88,10 @@ export default function ArtKeyVideoPage() {
             autoPlay
             muted
             playsInline
+            preload="metadata"
             controls={showControls}
+            onError={() => setVideoUnavailable(true)}
+            onCanPlay={() => setVideoUnavailable(false)}
           />
         )}
       </div>
