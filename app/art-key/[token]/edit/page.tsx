@@ -40,6 +40,9 @@ export default function PortalEditPage() {
   const [portal, setPortal] = useState<PortalData | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
 
   // Guestbook moderation
   const [entries, setEntries] = useState<GuestbookEntry[]>([]);
@@ -56,6 +59,8 @@ export default function PortalEditPage() {
   const [enableSpotify, setEnableSpotify] = useState(false);
   const [enableLinks, setEnableLinks] = useState(true);
   const [gbRequireApproval, setGbRequireApproval] = useState(true);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [uploadedVideos, setUploadedVideos] = useState<string[]>([]);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<"settings" | "moderation">(
@@ -121,6 +126,8 @@ export default function PortalEditPage() {
       setEnableSpotify(d.features?.enable_spotify === true);
       setEnableLinks(d.features?.enable_custom_links !== false);
       setGbRequireApproval(d.features?.gb_require_approval !== false);
+      setUploadedImages(Array.isArray(d.uploadedImages) ? d.uploadedImages : []);
+      setUploadedVideos(Array.isArray(d.uploadedVideos) ? d.uploadedVideos : []);
     }
   }, [authed, token]);
 
@@ -170,6 +177,8 @@ export default function PortalEditPage() {
         enable_custom_links: enableLinks,
         gb_require_approval: gbRequireApproval,
       },
+      uploadedImages,
+      uploadedVideos,
     };
 
     const headers: Record<string, string> = {
@@ -225,6 +234,67 @@ export default function PortalEditPage() {
     setLinks(links.filter((_, i) => i !== idx));
   const updateLink = (idx: number, field: "label" | "url", value: string) =>
     setLinks(links.map((l, i) => (i === idx ? { ...l, [field]: value } : l)));
+
+  const uploadFile = async (file: File, kind: "image" | "video") => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("publicToken", token);
+    if (ownerToken && ownerToken !== "__admin_demo__") {
+      formData.append("ownerToken", ownerToken);
+    }
+
+    const res = await fetch("/api/artkey/upload", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.success || !data?.url) {
+      throw new Error(data?.error || `Failed to upload ${kind}`);
+    }
+    return data.url as string;
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingImage(true);
+    setUploadErr(null);
+    try {
+      let next = [...uploadedImages];
+      for (const file of Array.from(files)) {
+        const url = await uploadFile(file, "image");
+        next = [...next, url];
+      }
+      setUploadedImages(next);
+      setSaveMsg("Image(s) uploaded. Click Save to publish.");
+    } catch (err: any) {
+      setUploadErr(err?.message || "Image upload failed");
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingVideo(true);
+    setUploadErr(null);
+    try {
+      let next = [...uploadedVideos];
+      for (const file of Array.from(files)) {
+        const url = await uploadFile(file, "video");
+        next = [...next, url];
+      }
+      setUploadedVideos(next);
+      setSaveMsg("Video uploaded. Click Save to publish.");
+    } catch (err: any) {
+      setUploadErr(err?.message || "Video upload failed");
+    } finally {
+      setUploadingVideo(false);
+      e.target.value = "";
+    }
+  };
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -336,6 +406,11 @@ export default function PortalEditPage() {
       <div className="max-w-3xl mx-auto px-4 py-6">
         {activeTab === "settings" && (
           <div className="space-y-6">
+            {uploadErr && (
+              <div className="bg-red-50 text-red-700 border border-red-200 rounded-lg px-3 py-2 text-sm">
+                {uploadErr}
+              </div>
+            )}
             {/* Title */}
             <Section title="Portal Title">
               <input
@@ -439,14 +514,102 @@ export default function PortalEditPage() {
 
             {/* Video */}
             {enableVideo && (
-              <Section title="Featured Video URL">
-                <input
-                  type="url"
-                  placeholder="https://youtube.com/watch?v=..."
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  className="w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
+              <Section title="Featured Video">
+                <div className="space-y-3">
+                  <input
+                    type="url"
+                    placeholder="https://youtube.com/watch?v=... (optional)"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    className="w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <div className="flex items-center gap-3">
+                    <label className="px-3 py-2 text-sm border rounded-lg cursor-pointer hover:bg-gray-50">
+                      {uploadingVideo ? "Uploading..." : "Upload Video File"}
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm,video/quicktime"
+                        multiple
+                        onChange={handleVideoUpload}
+                        disabled={uploadingVideo}
+                        className="hidden"
+                      />
+                    </label>
+                    <span className="text-xs text-gray-500">MP4/WebM/MOV</span>
+                  </div>
+                  {uploadedVideos.length > 0 && (
+                    <div className="space-y-2">
+                      {uploadedVideos.map((url, i) => (
+                        <div key={`${url}-${i}`} className="flex items-center gap-2">
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline break-all flex-1"
+                          >
+                            {url}
+                          </a>
+                          <button
+                            onClick={() =>
+                              setUploadedVideos(uploadedVideos.filter((_, idx) => idx !== i))
+                            }
+                            className="text-xs px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Section>
+            )}
+
+            {enableGallery && (
+              <Section title="Gallery Uploads">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <label className="px-3 py-2 text-sm border rounded-lg cursor-pointer hover:bg-gray-50">
+                      {uploadingImage ? "Uploading..." : "Upload Image Files"}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                        multiple
+                        onChange={handleImageUpload}
+                        disabled={uploadingImage}
+                        className="hidden"
+                      />
+                    </label>
+                    <span className="text-xs text-gray-500">JPG/PNG/WebP/GIF/SVG</span>
+                  </div>
+                  {uploadedImages.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3">
+                      {uploadedImages.map((url, i) => (
+                        <div key={`${url}-${i}`} className="border rounded-lg p-2">
+                          <img src={url} alt={`Uploaded ${i + 1}`} className="w-full h-24 object-cover rounded" />
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] text-blue-600 hover:underline truncate"
+                            >
+                              Open
+                            </a>
+                            <button
+                              onClick={() =>
+                                setUploadedImages(uploadedImages.filter((_, idx) => idx !== i))
+                              }
+                              className="text-[11px] px-2 py-1 rounded bg-red-50 text-red-700 hover:bg-red-100"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </Section>
             )}
           </div>

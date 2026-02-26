@@ -1,445 +1,82 @@
-"use client";
+\"use client\";
 
-import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ElegantIcon, type ElegantIconKey } from "@/components/artkey/ElegantIcons";
-
-interface PortalData {
-  id: string;
-  publicToken: string;
-  title: string;
-  theme: {
-    bg_color?: string;
-    bg_image_url?: string;
-    font?: string;
-    text_color?: string;
-    title_color?: string;
-    title_style?: string;
-    button_color?: string;
-    button_gradient?: string;
-    header_icon?: string;
-    button_shape?: string;
-    button_style?: string;
-    button_border?: string;
-  };
-  features: {
-    enable_gallery?: boolean;
-    enable_video?: boolean;
-    show_guestbook?: boolean;
-    enable_custom_links?: boolean;
-    enable_spotify?: boolean;
-    order?: string[];
-  };
-  links: { label: string; url: string }[];
-  spotify: { url: string; autoplay?: boolean };
-  featuredVideo: { video_url: string; button_label: string } | null;
-  uploadedImages: string[];
-  uploadedVideos: string[];
-  guestbook: { id: string; name: string; message: string; createdAt: string }[];
-  media: { id: string; type: string; url: string; caption?: string }[];
-}
+import {
+  ErrorScreen,
+  getButtonStyle,
+  getGalleryImages,
+  getVideoSource,
+  LoadingScreen,
+  PortalScaffold,
+  usePortal,
+} from "./_shared";
 
 export default function ArtKeyPortalPage() {
   const params = useParams();
   const token = params.token as string;
-
-  const [portal, setPortal] = useState<PortalData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Guestbook form
-  const [gbName, setGbName] = useState("");
-  const [gbMessage, setGbMessage] = useState("");
-  const [gbSubmitting, setGbSubmitting] = useState(false);
-  const [gbSuccess, setGbSuccess] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch(`/api/portal/${token}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success) {
-          setPortal(data.data);
-        } else {
-          setError(data.error || "Portal not found");
-        }
-      })
-      .catch(() => setError("Failed to load portal"))
-      .finally(() => setLoading(false));
-  }, [token]);
-
-  // Load Google Font if the theme uses one (stored as "g:Font Name")
-  useEffect(() => {
-    const font = portal?.theme?.font;
-    if (font && font.startsWith("g:")) {
-      const fontName = font.replace("g:", "").replace(/\s+/g, "+");
-      const linkId = `gf-${fontName}`;
-      if (typeof window !== "undefined" && !document.getElementById(linkId)) {
-        const link = document.createElement("link");
-        link.id = linkId;
-        link.rel = "stylesheet";
-        link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;600;700&display=swap`;
-        document.head.appendChild(link);
-      }
-    }
-  }, [portal?.theme?.font]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="animate-pulse text-white text-lg">Loading...</div>
-      </div>
-    );
-  }
-
-  if (error || !portal) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 px-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-3">Portal Not Found</h1>
-          <p className="text-gray-400 mb-6">{error}</p>
-          <Link href="/" className="text-blue-400 underline">
-            Go to theAE
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const { portal, loading, error } = usePortal(token);
+  if (loading) return <LoadingScreen />;
+  if (error || !portal) return <ErrorScreen error={error || "Portal not found"} />;
 
   const theme = portal.theme || {};
   const features = portal.features || {};
-  const bgColor = theme.bg_color || "#1a1a2e";
-  const textColor = theme.text_color || "#ffffff";
-  const titleColor = theme.title_color || "#ffffff";
-  const buttonColor = theme.button_color || "#3b82f6";
-  const buttonShape = theme.button_shape || "pill";
-  const buttonStyle = theme.button_style || "solid";
-  const sectionOrder = features.order || [
-    "links",
-    "gallery",
-    "video",
-    "spotify",
-    "guestbook",
-  ];
-
-  const buttonBorderRadius =
-    buttonShape === "square" ? "0px" : buttonShape === "rounded" ? "8px" : "9999px";
-
-  const getButtonStyle = (): React.CSSProperties => {
-    const base: React.CSSProperties = { borderRadius: buttonBorderRadius };
-    if (buttonStyle === "outline") {
-      return {
-        ...base,
-        backgroundColor: "transparent",
-        border: `2px solid ${buttonColor}`,
-        color: buttonColor,
-      };
-    }
-    if (buttonStyle === "glass") {
-      return {
-        ...base,
-        backgroundColor: `${buttonColor}33`,
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        border: `1px solid ${buttonColor}66`,
-        color: "#ffffff",
-      };
-    }
-    if (theme.button_gradient) {
-      return {
-        ...base,
-        background: theme.button_gradient,
-        color: "#ffffff",
-      };
-    }
-    return {
-      ...base,
-      backgroundColor: buttonColor,
-      color: "#ffffff",
-    };
-  };
-
-  const btnStyle = getButtonStyle();
-
-  const parseFontFamily = (fontValue?: string): string => {
-    if (!fontValue) return "Inter, sans-serif";
-    if (fontValue.startsWith("g:")) {
-      return `"${fontValue.replace("g:", "")}", sans-serif`;
-    }
-    if (fontValue === "system") return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    if (fontValue === "serif") return 'Georgia, "Times New Roman", serif';
-    return fontValue;
-  };
-
-  const handleGuestbookSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!gbName.trim() || !gbMessage.trim()) return;
-    setGbSubmitting(true);
-    setGbSuccess(null);
-    try {
-      const res = await fetch(`/api/portal/${token}/guestbook`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: gbName.trim(),
-          message: gbMessage.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setGbSuccess(data.message);
-        setGbName("");
-        setGbMessage("");
-      }
-    } catch {
-      setGbSuccess("Something went wrong. Please try again.");
-    } finally {
-      setGbSubmitting(false);
-    }
-  };
-
-  // Render sections in the configured order
-  const renderSection = (sectionKey: string) => {
-    switch (sectionKey) {
-      case "links":
-        if (!features.enable_custom_links || portal.links.length === 0)
-          return null;
-        return (
-          <div key="links" className="space-y-3 mb-8">
-            {portal.links.map((link, i) => (
-              <a
-                key={i}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
-                style={btnStyle}
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
-        );
-
-      case "gallery":
-        if (!features.enable_gallery) return null;
-        const images = [
-          ...portal.uploadedImages,
-          ...portal.media.filter((m) => m.type === "image").map((m) => m.url),
-        ];
-        if (images.length === 0) return null;
-        return (
-          <div key="gallery" className="mb-8">
-            <h3
-              className="text-sm font-semibold uppercase tracking-wider mb-4 opacity-70"
-              style={{ color: textColor }}
-            >
-              Gallery
-            </h3>
-            <div className="grid grid-cols-2 gap-2 rounded-xl overflow-hidden">
-              {images.map((src, i) => (
-                <div
-                  key={i}
-                  className="aspect-square bg-black/20 overflow-hidden"
-                >
-                  <img
-                    src={src}
-                    alt={`Gallery ${i + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-      case "video":
-        if (!features.enable_video || !portal.featuredVideo?.video_url)
-          return null;
-        return (
-          <div key="video" className="mb-8">
-            <h3
-              className="text-sm font-semibold uppercase tracking-wider mb-4 opacity-70"
-              style={{ color: textColor }}
-            >
-              Featured Video
-            </h3>
-            <div className="aspect-video rounded-xl overflow-hidden bg-black/20">
-              <iframe
-                src={portal.featuredVideo.video_url.replace(
-                  "watch?v=",
-                  "embed/"
-                )}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          </div>
-        );
-
-      case "spotify":
-        if (!features.enable_spotify || !portal.spotify?.url) return null;
-        const spotifyEmbed = portal.spotify.url
-          .replace("open.spotify.com/", "open.spotify.com/embed/")
-          .split("?")[0];
-        return (
-          <div key="spotify" className="mb-8">
-            <h3
-              className="text-sm font-semibold uppercase tracking-wider mb-4 opacity-70"
-              style={{ color: textColor }}
-            >
-              Listen
-            </h3>
-            <div className="rounded-xl overflow-hidden">
-              <iframe
-                src={`${spotifyEmbed}?theme=0`}
-                width="100%"
-                height="152"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-                className="rounded-xl"
-              />
-            </div>
-          </div>
-        );
-
-      case "guestbook":
-        if (!features.show_guestbook) return null;
-        return (
-          <div key="guestbook" className="mb-8">
-            <h3
-              className="text-sm font-semibold uppercase tracking-wider mb-4 opacity-70"
-              style={{ color: textColor }}
-            >
-              Guestbook
-            </h3>
-
-            {/* Existing entries */}
-            {portal.guestbook.length > 0 && (
-              <div className="space-y-3 mb-6">
-                {portal.guestbook.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="bg-white/10 backdrop-blur-sm rounded-xl p-4"
-                  >
-                    <p className="text-sm" style={{ color: textColor }}>
-                      {entry.message}
-                    </p>
-                    <p className="text-xs mt-2 opacity-50" style={{ color: textColor }}>
-                      &mdash; {entry.name}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Sign form */}
-            {gbSuccess && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 text-sm mb-4" style={{ color: textColor }}>
-                {gbSuccess}
-              </div>
-            )}
-            <form onSubmit={handleGuestbookSubmit} className="space-y-3">
-              <input
-                type="text"
-                placeholder="Your name"
-                value={gbName}
-                onChange={(e) => setGbName(e.target.value)}
-                required
-                className="w-full bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 text-sm placeholder:opacity-50 focus:outline-none focus:ring-2 focus:ring-white/20"
-                style={{ color: textColor }}
-              />
-              <textarea
-                placeholder="Leave a message..."
-                value={gbMessage}
-                onChange={(e) => setGbMessage(e.target.value)}
-                required
-                rows={3}
-                className="w-full bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 text-sm placeholder:opacity-50 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none"
-                style={{ color: textColor }}
-              />
-              <button
-                type="submit"
-                disabled={gbSubmitting}
-                className="w-full py-3 font-semibold text-sm transition-all disabled:opacity-50"
-                style={btnStyle}
-              >
-                {gbSubmitting ? "Submitting..." : "Sign Guestbook"}
-              </button>
-            </form>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
+  const btnStyle = getButtonStyle(theme);
+  const galleryImages = getGalleryImages(portal);
+  const videoSource = getVideoSource(portal);
+  const hasSpotify = !!portal.spotify?.url && features.enable_spotify;
+  const customLinks = features.enable_custom_links ? portal.links : [];
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center"
-      style={{
-        backgroundColor: bgColor,
-        backgroundImage: theme.bg_image_url
-          ? `url(${theme.bg_image_url})`
-          : undefined,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        fontFamily: parseFontFamily(theme.font),
-      }}
-    >
-      {/* Header */}
-      <div className="w-full max-w-md px-6 pt-12 pb-6 text-center">
-        {theme.header_icon && theme.header_icon !== "none" && (
-          <div className="mb-4 flex justify-center">
-            <ElegantIcon
-              icon={theme.header_icon as ElegantIconKey}
-              size={48}
-              color={titleColor}
-            />
-          </div>
-        )}
-        <h1
-          className="text-2xl font-bold mb-2"
-          style={
-            theme.title_style === "gradient"
-              ? {
-                  background: `linear-gradient(135deg, ${titleColor}, ${buttonColor})`,
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }
-              : { color: titleColor }
-          }
-        >
-          {portal.title}
-        </h1>
-        <div
-          className="w-12 h-0.5 mx-auto rounded-full opacity-30"
-          style={{ backgroundColor: textColor }}
-        />
-      </div>
-
-      {/* Content */}
-      <div className="w-full max-w-md px-6 pb-12">
-        {sectionOrder.map(renderSection)}
-      </div>
-
-      {/* Footer */}
-      <div className="mt-auto py-6 text-center">
-        <p className="text-[10px] opacity-30" style={{ color: textColor }}>
-          Powered by{" "}
-          <a
-            href="https://theartfulexperience.com"
-            className="underline"
-            target="_blank"
-            rel="noopener noreferrer"
+    <PortalScaffold token={token} portal={portal} pageTitle="Portal Home">
+      <div className="space-y-3">
+        {features.enable_gallery && galleryImages.length > 0 && (
+          <Link
+            href={`/art-key/${token}/gallery`}
+            className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+            style={btnStyle}
           >
-            The Artful Experience
-          </a>
-        </p>
+            Gallery
+          </Link>
+        )}
+        {features.enable_video && videoSource && (
+          <Link
+            href={`/art-key/${token}/video`}
+            className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+            style={btnStyle}
+          >
+            {portal.featuredVideo?.button_label || "Featured Video"}
+          </Link>
+        )}
+        {hasSpotify && (
+          <Link
+            href={`/art-key/${token}/spotify`}
+            className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+            style={btnStyle}
+          >
+            Listen
+          </Link>
+        )}
+        {features.show_guestbook && (
+          <Link
+            href={`/art-key/${token}/guestbook`}
+            className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+            style={btnStyle}
+          >
+            Guestbook
+          </Link>
+        )}
+        {customLinks.map((link, idx) => (
+          <Link
+            key={`${link.label}-${idx}`}
+            href={`/art-key/${token}/link/${idx}`}
+            className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+            style={btnStyle}
+          >
+            {link.label || `Link ${idx + 1}`}
+          </Link>
+        ))}
       </div>
-    </div>
+    </PortalScaffold>
   );
 }
