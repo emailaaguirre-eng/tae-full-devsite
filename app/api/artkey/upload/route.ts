@@ -7,8 +7,8 @@ import { validatePortalSession } from '@/lib/portal-session';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Allow larger file uploads (up to 10MB)
-export const maxDuration = 30;
+// Allow longer processing time for larger uploads.
+export const maxDuration = 120;
 
 
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'artkey');
@@ -63,22 +63,55 @@ export async function POST(req: Request) {
       );
     }
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { success: false, error: 'File too large. Max 10MB.' },
-        { status: 400 }
-      );
-    }
-
     const allowedTypes = [
       'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
       'video/mp4', 'video/webm', 'video/quicktime',
     ];
 
-    if (!allowedTypes.includes(file.type)) {
+    const ext = path.extname(file.name || '').toLowerCase();
+    const inferredTypeByExtension: Record<string, string> = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml',
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.mov': 'video/quicktime',
+      '.m4v': 'video/mp4',
+    };
+
+    const rawType = (file.type || '').toLowerCase();
+    const effectiveType =
+      rawType && rawType !== 'application/octet-stream'
+        ? rawType
+        : (inferredTypeByExtension[ext] || rawType);
+
+    if (!allowedTypes.includes(effectiveType)) {
       return NextResponse.json(
-        { success: false, error: `File type ${file.type} not allowed` },
+        {
+          success: false,
+          error: `File type ${file.type || 'unknown'} not allowed${ext ? ` (extension: ${ext})` : ''}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const defaultImageMaxBytes = 20 * 1024 * 1024; // 20MB
+    const defaultVideoMaxBytes = 200 * 1024 * 1024; // 200MB
+    const configuredImageMaxBytes = Number(process.env.ARTKEY_IMAGE_UPLOAD_MAX_BYTES || defaultImageMaxBytes);
+    const configuredVideoMaxBytes = Number(process.env.ARTKEY_VIDEO_UPLOAD_MAX_BYTES || defaultVideoMaxBytes);
+    const isVideo = effectiveType.startsWith('video/');
+    const maxSize = isVideo ? configuredVideoMaxBytes : configuredImageMaxBytes;
+
+    if (file.size > maxSize) {
+      const maxMb = Math.round(maxSize / 1024 / 1024);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `File too large. Max ${maxMb}MB for ${isVideo ? 'videos' : 'images'}.`,
+        },
         { status: 400 }
       );
     }
@@ -99,7 +132,7 @@ export async function POST(req: Request) {
       id: Date.now(),
       filename,
       size: file.size,
-      type: file.type,
+      type: effectiveType,
     });
   } catch (err: any) {
     console.error('File upload failed:', err);
