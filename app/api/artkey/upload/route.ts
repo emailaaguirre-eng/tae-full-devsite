@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
+import { canAdminAccessDemoPortal, hasValidAdminSession, validateOwnerToken } from '@/lib/portal-auth';
+import { validatePortalSession } from '@/lib/portal-session';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -28,11 +30,36 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
+    const publicToken = (formData.get('publicToken') as string | null)?.trim() || '';
+    const ownerToken = (formData.get('ownerToken') as string | null)?.trim() || '';
 
     if (!file) {
       return NextResponse.json(
         { success: false, error: 'No file provided' },
         { status: 400 }
+      );
+    }
+
+    // Host-only uploads: require portal context + owner/admin authorization.
+    if (!publicToken) {
+      return NextResponse.json(
+        { success: false, error: 'Missing portal token for upload' },
+        { status: 400 }
+      );
+    }
+
+    const ownerMatch = ownerToken
+      ? (await validateOwnerToken(publicToken, ownerToken)).valid
+      : false;
+    const session = validatePortalSession(req, publicToken);
+    const sessionAllowed = session.valid && (session.mode === 'owner' || session.mode === 'admin_demo');
+    const adminDemoAccess = canAdminAccessDemoPortal(req, publicToken);
+    const adminSession = hasValidAdminSession(req);
+
+    if (!ownerMatch && !sessionAllowed && !adminDemoAccess && !adminSession) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized upload attempt' },
+        { status: 403 }
       );
     }
 

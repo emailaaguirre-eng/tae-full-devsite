@@ -59,6 +59,11 @@ interface PfCacheEntry {
   variants: Array<{ id: number; image: string | null; name?: string; size?: string; color?: string; color_code?: string; price?: string; in_stock?: boolean }>;
 }
 
+interface BackfillOptions {
+  force?: boolean;
+  dryRun?: boolean;
+}
+
 async function fetchPrintfulData(printfulProductId: number): Promise<PfCacheEntry | null> {
   // Try catalog endpoint first
   const catalogRes = await pfFetch(`/products/${printfulProductId}`);
@@ -104,8 +109,62 @@ async function fetchPrintfulData(printfulProductId: number): Promise<PfCacheEntr
   return null;
 }
 
-export async function POST() {
+function isMappedProduct(p: any) {
+  return !!p.printfulProductId;
+}
+
+function isMissingHero(p: any) {
+  return !p.heroImage || String(p.heroImage).trim() === "";
+}
+
+function getTargets(products: any[], options: BackfillOptions) {
+  const force = !!options.force;
+  return products.filter(
+    (p) => p.active && isMappedProduct(p) && (force || isMissingHero(p))
+  );
+}
+
+export async function GET() {
   try {
+    const missingEnv = validateEnv();
+    const db = await getDb();
+    const allProducts = await db.select().from(shopProducts).all();
+    const active = allProducts.filter((p) => p.active);
+    const activeMapped = active.filter((p) => isMappedProduct(p));
+    const eligible = activeMapped.filter((p) => isMissingHero(p));
+    const uniqueProductIds = [...new Set(eligible.map((p) => p.printfulProductId).filter(Boolean))];
+
+    return NextResponse.json({
+      success: true,
+      preflight: {
+        missingEnv,
+        totals: {
+          allProducts: allProducts.length,
+          activeProducts: active.length,
+          activeMappedProducts: activeMapped.length,
+          eligibleForBackfill: eligible.length,
+          alreadyHasHero: activeMapped.length - eligible.length,
+          uniqueMappedPrintfulProductIds: uniqueProductIds.length,
+        },
+        sampleProductIds: uniqueProductIds.slice(0, 20),
+      },
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err?.message || "Preflight failed" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const options: BackfillOptions = {
+      force: !!body?.force,
+      dryRun: !!body?.dryRun,
+    };
+
     const missingEnv = validateEnv();
     if (missingEnv.length > 0) {
       return NextResponse.json(
@@ -119,17 +178,16 @@ export async function POST() {
 
     const db = await getDb();
 
-    // Only process active products with no hero image and a Printful mapping
     const allProducts = await db.select().from(shopProducts).all();
-    const targets = allProducts.filter(
-      (p) => p.active && !p.heroImage && p.printfulProductId
-    );
+    const targets = getTargets(allProducts, options);
 
     if (targets.length === 0) {
       return NextResponse.json({
         success: true,
         updatedCount: 0,
         skippedCount: allProducts.filter((p) => p.active).length,
+        dryRun: options.dryRun,
+        force: options.force,
         errors: [],
         message: "No products need image backfill (all active products already have images, or none are mapped to Printful).",
       });
@@ -154,12 +212,28 @@ export async function POST() {
 
     let updatedCount = 0;
     let skippedCount = 0;
+    const results: Array<{
+      id: string;
+      slug: string;
+      printfulProductId: number | null;
+      status: "updated" | "would_update" | "skipped";
+      reason?: string;
+      heroImage?: string | null;
+    }> = [];
 
     for (const product of targets) {
       const pfData = pfCache.get(product.printfulProductId!);
       if (!pfData) {
         skippedCount++;
-        errors.push({ id: product.id, message: `No Printful data for product ${product.printfulProductId}` });
+        const message = `No Printful data for product ${product.printfulProductId}`;
+        errors.push({ id: product.id, message });
+        results.push({
+          id: product.id,
+          slug: product.slug,
+          printfulProductId: product.printfulProductId,
+          status: "skipped",
+          reason: message,
+        });
         continue;
       }
 
@@ -176,7 +250,15 @@ export async function POST() {
 
       if (!heroImage) {
         skippedCount++;
-        errors.push({ id: product.id, message: "No image found in Printful response" });
+        const message = "No image found in Printful response";
+        errors.push({ id: product.id, message });
+        results.push({
+          id: product.id,
+          slug: product.slug,
+          printfulProductId: product.printfulProductId,
+          status: "skipped",
+          reason: message,
+        });
         continue;
       }
 
@@ -191,14 +273,36 @@ export async function POST() {
       const variantData = matchingVariant || null;
       const siblingVariants = pfData.variants;
 
+      if (options.dryRun) {
+        updatedCount++;
+        results.push({
+          id: product.id,
+          slug: product.slug,
+          printfulProductId: product.printfulProductId,
+          status: "would_update",
+          heroImage,
+        });
+        continue;
+      }
+
+      let existingPrintfulData: any = {};
+      if (product.printfulDataJson) {
+        try {
+          existingPrintfulData = JSON.parse(product.printfulDataJson);
+        } catch {
+          existingPrintfulData = {};
+        }
+      }
+
       const now = new Date().toISOString();
       await db
         .update(shopProducts)
         .set({
           heroImage,
-          galleryImages: galleryUrls.length > 0 ? JSON.stringify(galleryUrls) : null,
+          galleryImages: galleryUrls.length > 0 ? JSON.stringify(galleryUrls) : product.galleryImages,
           printfulDataJson: JSON.stringify({
-            product: { image: pfData.productImage },
+            ...existingPrintfulData,
+            product: { ...(existingPrintfulData.product || {}), image: pfData.productImage },
             variant: variantData,
             siblingVariants,
           }),
@@ -208,15 +312,28 @@ export async function POST() {
         .where(eq(shopProducts.id, product.id));
 
       updatedCount++;
+      results.push({
+        id: product.id,
+        slug: product.slug,
+        printfulProductId: product.printfulProductId,
+        status: "updated",
+        heroImage,
+      });
     }
 
-    await saveDatabase();
+    if (!options.dryRun) {
+      await saveDatabase();
+    }
 
     return NextResponse.json({
       success: true,
       updatedCount,
       skippedCount,
+      dryRun: options.dryRun,
+      force: options.force,
+      totalTargets: targets.length,
       errors,
+      results,
     });
   } catch (err: any) {
     console.error("[backfill-images] Error:", err?.message);

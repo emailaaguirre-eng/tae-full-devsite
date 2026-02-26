@@ -15,16 +15,22 @@ function generateToken(length: number = 32): string {
   return result;
 }
 
-function nextDemoToken(existing: string[]): string {
-  let max = 0;
-  for (const t of existing) {
-    const lower = t.toLowerCase();
-    if (!lower.startsWith(DEMO_PREFIX)) continue;
-    const suffix = lower.slice(DEMO_PREFIX.length);
-    const n = parseInt(suffix, 10);
-    if (!Number.isNaN(n)) max = Math.max(max, n);
+function isAdminDemoPortal(portal: { publicToken: string; customizations: string }): boolean {
+  if (portal.publicToken.toLowerCase().startsWith(DEMO_PREFIX)) return true;
+  try {
+    const parsed = JSON.parse(portal.customizations || "{}");
+    return parsed?.adminDemo === true;
+  } catch {
+    return false;
   }
-  return `${DEMO_PREFIX}${String(max + 1).padStart(2, "0")}`;
+}
+
+function nextRandomPublicToken(existing: Set<string>): string {
+  for (let i = 0; i < 20; i++) {
+    const token = generateToken(32);
+    if (!existing.has(token)) return token;
+  }
+  throw new Error("Failed to generate unique public token");
 }
 
 export async function GET() {
@@ -32,11 +38,15 @@ export async function GET() {
     const db = await getDb();
     const allKeys = await db.select().from(artKeys).all();
 
-    allKeys.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    const demoKeys = allKeys.filter((k) => isAdminDemoPortal({
+      publicToken: k.publicToken,
+      customizations: k.customizations || "{}",
+    }));
+    demoKeys.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
     const domain = process.env.ARTKEY_DOMAIN || 'artkey.theartfulexperience.com';
 
-    const mapped = allKeys.map(k => ({
+    const mapped = demoKeys.map(k => ({
       id: k.id,
       publicToken: k.publicToken,
       ownerToken: k.ownerToken,
@@ -74,18 +84,11 @@ export async function POST(req: Request) {
 
     const id = generateId();
     const now = new Date().toISOString();
-    const existingTokens = (await db
+    const existingTokens = new Set((await db
       .select({ publicToken: artKeys.publicToken })
       .from(artKeys)
-      .all()).map((r) => r.publicToken);
-    const requestedPublicToken =
-      typeof body.publicToken === "string" ? body.publicToken.trim() : "";
-    const requestedIsDemo =
-      requestedPublicToken && requestedPublicToken.toLowerCase().startsWith(DEMO_PREFIX);
-    const publicToken =
-      requestedIsDemo && !existingTokens.includes(requestedPublicToken)
-        ? requestedPublicToken
-        : nextDemoToken(existingTokens);
+      .all()).map((r) => r.publicToken));
+    const publicToken = nextRandomPublicToken(existingTokens);
     const ownerToken = generateToken(32);
 
     await db.insert(artKeys).values({
@@ -98,7 +101,7 @@ export async function POST(req: Request) {
       features: JSON.stringify(features || {
         enable_gallery: true,
         enable_video: false,
-        show_guestbook: true,
+        show_guestbook: false,
         enable_custom_links: true,
         enable_spotify: false,
         allow_img_uploads: true,
@@ -110,12 +113,12 @@ export async function POST(req: Request) {
         gb_require_approval: true,
         img_require_approval: true,
         vid_require_approval: true,
-        order: ['gallery', 'guestbook', 'links'],
+        order: ['links', 'gallery', 'video', 'spotify', 'guestbook'],
       }),
       links: JSON.stringify(links || []),
       spotify: JSON.stringify(spotify || { url: '', autoplay: false }),
       featuredVideo: JSON.stringify(featuredVideo || null),
-      customizations: JSON.stringify({}),
+      customizations: JSON.stringify({ adminDemo: true }),
       uploadedImages: JSON.stringify([]),
       uploadedVideos: JSON.stringify([]),
       createdAt: now,
@@ -186,9 +189,12 @@ export async function DELETE(req: Request) {
     }
 
     const portal = rows[0];
-    if (!portal.publicToken.toLowerCase().startsWith(DEMO_PREFIX)) {
+    if (!isAdminDemoPortal({
+      publicToken: portal.publicToken,
+      customizations: portal.customizations || "{}",
+    })) {
       return NextResponse.json(
-        { success: false, error: "Only demo portals can be deleted here" },
+        { success: false, error: "You can only delete admin demo keys from this page." },
         { status: 400 }
       );
     }

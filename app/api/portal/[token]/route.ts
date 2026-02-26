@@ -103,14 +103,8 @@ export async function PUT(
     const db = await getDb();
     const { token } = params;
 
-    // Owner auth: check X-Owner-Token header
+    // Owner auth: accept either explicit owner token header OR validated portal session cookie.
     const ownerToken = req.headers.get("X-Owner-Token");
-    if (!ownerToken) {
-      return NextResponse.json(
-        { success: false, error: "Missing owner token" },
-        { status: 401 }
-      );
-    }
 
     const portals = await db
       .select()
@@ -127,7 +121,7 @@ export async function PUT(
 
     const portal = portals[0];
 
-    const ownerMatch = portal.ownerToken === ownerToken;
+    const ownerMatch = !!ownerToken && portal.ownerToken === ownerToken;
     const adminDemoAccess =
       ownerToken === "__admin_demo__" && canAdminAccessDemoPortal(req, token);
     const session = validatePortalSession(req, token);

@@ -13,6 +13,7 @@ import { getDb, artKeys, guestbookEntries, eq, generateId } from "@/lib/db";
 import { saveDatabase } from "@/db";
 import { canAdminAccessDemoPortal } from "@/lib/portal-auth";
 import { validatePortalSession } from "@/lib/portal-session";
+import { sendGuestbookEntryNotification } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,25 @@ export async function POST(
     });
 
     await saveDatabase();
+
+    // Notify portal owner about new guestbook activity (best effort)
+    if (portal.ownerEmail) {
+      const domain = process.env.ARTKEY_DOMAIN || "artkey.theartfulexperience.com";
+      const portalUrl = `https://${domain}/${token}`;
+      try {
+        await sendGuestbookEntryNotification({
+          ownerEmail: portal.ownerEmail,
+          portalTitle: portal.title || "ArtKey Portal",
+          portalUrl,
+          guestName: name.trim(),
+          guestMessage: message.trim(),
+          guestEmail: email?.trim() || null,
+          requiresApproval: requireApproval,
+        });
+      } catch {
+        // Keep guestbook submit non-blocking if email fails.
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -2,20 +2,20 @@
  * Admin: Generate Mockup from Design
  * POST /api/admin/mockups/generate
  *
- * Accepts a design file URL, uploads to Printful if needed,
+ * Accepts a studio export reference, uploads the matching placement file,
  * creates a mockup generation task, and stores the result.
  *
  * Body: {
  *   shopProductId: string,
- *   designDraftId?: string,
- *   designFileUrl: string,     // public URL to the design PNG
- *   placement?: string,        // default "front"
+ *   studioExportId: string,    // server-registered studio export id
+ *   placement?: string,        // default "default"
  * }
  */
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, productMockups, eq } from "@/lib/db";
 import { saveDatabase } from "@/db";
 import { generateId } from "@/lib/db";
+import { getStudioExportById } from "@/lib/studio-exports";
 import {
   uploadFileByUrl,
   createMockupTask,
@@ -37,14 +37,13 @@ export async function POST(req: Request) {
     const body = await req.json();
     const {
       shopProductId,
-      designDraftId,
-      designFileUrl,
-      placement = "front",
+      studioExportId,
+      placement = "default",
     } = body;
 
-    if (!shopProductId || !designFileUrl) {
+    if (!shopProductId || !studioExportId) {
       return NextResponse.json(
-        { success: false, error: "shopProductId and designFileUrl are required" },
+        { success: false, error: "shopProductId and studioExportId are required" },
         { status: 400 }
       );
     }
@@ -65,12 +64,74 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!product.printfulProductId || !product.printfulVariantId) {
+    if (!product.printfulProductId) {
       return NextResponse.json(
-        { success: false, error: "Product has no Printful mapping" },
+        { success: false, error: "Product has no Printful product mapping" },
         { status: 400 }
       );
     }
+
+    let variantId = product.printfulVariantId || null;
+    if (!variantId && product.printfulDataJson) {
+      try {
+        const parsed = JSON.parse(product.printfulDataJson);
+        const siblingId = parsed?.siblingVariants?.[0]?.id;
+        if (typeof siblingId === "number") {
+          variantId = siblingId;
+        }
+      } catch {
+        // Keep null and fail below with actionable message.
+      }
+    }
+
+    if (!variantId) {
+      return NextResponse.json(
+        { success: false, error: "Product has no Printful variant mapping" },
+        { status: 400 }
+      );
+    }
+
+    const normalizedPlacement = placement === "front" ? "default" : placement;
+    const exportRecord = getStudioExportById(String(studioExportId));
+    if (!exportRecord || exportRecord.source !== "studio") {
+      return NextResponse.json(
+        { success: false, error: "Invalid studio export source" },
+        { status: 400 }
+      );
+    }
+    if (exportRecord.shopProductId !== shopProductId) {
+      return NextResponse.json(
+        { success: false, error: "Studio export does not belong to this product" },
+        { status: 400 }
+      );
+    }
+    const exportFile = exportRecord.files.find((f) => f.placement === normalizedPlacement);
+    if (!exportFile) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Placement "${normalizedPlacement}" not found in studio export`,
+          placements: exportRecord.placements,
+        },
+        { status: 400 }
+      );
+    }
+    const origin =
+      req.headers.get("origin") ||
+      (() => {
+        const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+        if (!host) return null;
+        const proto = req.headers.get("x-forwarded-proto") || "https";
+        return `${proto}://${host}`;
+      })();
+    if (!origin) {
+      return NextResponse.json(
+        { success: false, error: "Request origin missing for studio export URL resolution" },
+        { status: 400 }
+      );
+    }
+    const designFileUrl = `${origin}${exportFile.relativeUrl}`;
+    const designDraftId = exportRecord.exportId;
 
     // Check cache: reuse existing mockup if (product + designDraft + placement) match
     if (designDraftId) {
@@ -83,7 +144,7 @@ export async function POST(req: Request) {
       const cached = existing.find(
         (m) =>
           m.designDraftId === designDraftId &&
-          m.placement === placement &&
+          m.placement === normalizedPlacement &&
           m.status === "completed"
       );
 
@@ -109,11 +170,12 @@ export async function POST(req: Request) {
     // Create mockup task
     if (DEBUG) console.log("[mockup-generate] Creating mockup task");
     const task = await createMockupTask(product.printfulProductId, {
-      variant_ids: [product.printfulVariantId],
+      variant_ids: [variantId],
+      // Use Printful placement names ("default", "inside", "back"...)
       format: "jpg",
       files: [
         {
-          placement,
+          placement: normalizedPlacement,
           image_url: uploaded.url,
         },
       ],
@@ -163,7 +225,7 @@ export async function POST(req: Request) {
       id: mockupId,
       shopProductId,
       designDraftId: designDraftId || null,
-      placement: mockup.placement || placement,
+      placement: mockup.placement || normalizedPlacement,
       mockupUrl: mockup.mockup_url,
       printfulTaskKey: task.task_key,
       status: "completed",
@@ -181,7 +243,7 @@ export async function POST(req: Request) {
       mockup: {
         id: mockupId,
         mockupUrl: mockup.mockup_url,
-        placement: mockup.placement || placement,
+        placement: mockup.placement || normalizedPlacement,
         status: "completed",
         extra: mockup.extra || [],
       },

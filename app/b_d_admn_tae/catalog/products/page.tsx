@@ -9,6 +9,8 @@ import {
   X,
   Search,
   Package,
+  ExternalLink,
+  Wand2,
   Check,
   ChevronDown,
   Upload,
@@ -86,8 +88,16 @@ export default function AdminProductsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<string | null>(null);
+  const [checkingBackfill, setCheckingBackfill] = useState(false);
   const [syncingSpecs, setSyncingSpecs] = useState(false);
   const [syncingSurfaceMaps, setSyncingSurfaceMaps] = useState(false);
+  const [generatingMockupFor, setGeneratingMockupFor] = useState<string | null>(null);
+  const [mockupPreview, setMockupPreview] = useState<{
+    productName: string;
+    mockupUrl: string;
+    placement: string;
+    cached: boolean;
+  } | null>(null);
 
   // Image editor modal
   const [imageEditProduct, setImageEditProduct] = useState<Product | null>(null);
@@ -100,8 +110,10 @@ export default function AdminProductsPage() {
     setBackfilling(true);
     setBackfillResult(null);
     try {
-      const res = await fetch("/api/admin/backfill-product-images", {
+      const res = await fetch("/api/admin/products/backfill-images", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: false, dryRun: false }),
       });
       const raw = await res.text();
       let data: any = null;
@@ -124,8 +136,11 @@ export default function AdminProductsPage() {
         const errMsg = data.errors?.length
           ? ` (${data.errors.length} errors)`
           : "";
+        const firstError = data.errors?.[0]?.message
+          ? ` First error: ${data.errors[0].message}`
+          : "";
         setBackfillResult(
-          `Updated ${data.updatedCount} products, skipped ${data.skippedCount}${errMsg}`
+          `Updated ${data.updatedCount} products, skipped ${data.skippedCount}${errMsg}.${firstError}`
         );
         loadProducts();
       } else {
@@ -135,6 +150,34 @@ export default function AdminProductsPage() {
       setBackfillResult("Failed to backfill images");
     } finally {
       setBackfilling(false);
+    }
+  };
+
+  const handleBackfillPreflight = async () => {
+    setCheckingBackfill(true);
+    setBackfillResult(null);
+    try {
+      const res = await fetch("/api/admin/products/backfill-images", {
+        method: "GET",
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        setBackfillResult(`Backfill preflight failed (${res.status}): ${data?.error || "Unknown error"}`);
+        return;
+      }
+      const totals = data.preflight?.totals;
+      const missingEnv = (data.preflight?.missingEnv || []) as string[];
+      if (missingEnv.length > 0) {
+        setBackfillResult(`Backfill not configured. Missing env: ${missingEnv.join(", ")}`);
+        return;
+      }
+      setBackfillResult(
+        `Backfill preflight: ${totals?.eligibleForBackfill || 0} eligible of ${totals?.activeMappedProducts || 0} active mapped products (${totals?.alreadyHasHero || 0} already have images).`
+      );
+    } catch {
+      setBackfillResult("Failed to run backfill preflight");
+    } finally {
+      setCheckingBackfill(false);
     }
   };
 
@@ -185,6 +228,70 @@ export default function AdminProductsPage() {
       setBackfillResult("Failed to sync surface maps");
     } finally {
       setSyncingSurfaceMaps(false);
+    }
+  };
+
+  const handleGenerateMockupPreview = async (product: Product) => {
+    setGeneratingMockupFor(product.id);
+    setBackfillResult(null);
+    try {
+      const exportsRes = await fetch(
+        `/api/admin/studio-exports?shopProductId=${encodeURIComponent(product.id)}&limit=10`
+      );
+      const exportsData = await exportsRes.json().catch(() => ({}));
+      const latestExport = exportsData?.exports?.[0];
+      if (!exportsRes.ok || !latestExport) {
+        setBackfillResult(
+          "No studio export found for this product. Open Studio, click Save & Continue, then retry."
+        );
+        return;
+      }
+      const availablePlacements: string[] = Array.isArray(latestExport.placements)
+        ? latestExport.placements
+        : [];
+      const defaultPlacement = availablePlacements[0] || "default";
+      const placementInput = window.prompt(
+        `Placement from latest studio export (${availablePlacements.join(", ")}):`,
+        defaultPlacement
+      );
+      if (!placementInput) return;
+      const placement = placementInput.trim();
+      if (!availablePlacements.includes(placement)) {
+        setBackfillResult(
+          `Placement "${placement}" is not in latest studio export. Available: ${availablePlacements.join(", ")}`
+        );
+        return;
+      }
+
+      const res = await fetch("/api/admin/mockups/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shopProductId: product.id,
+          studioExportId: latestExport.exportId,
+          placement,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        setBackfillResult(
+          `Mockup preview failed (${res.status}): ${data?.error || "Unknown error"}`
+        );
+        return;
+      }
+      setMockupPreview({
+        productName: product.name,
+        mockupUrl: data.mockup?.mockupUrl,
+        placement: data.mockup?.placement || placement,
+        cached: !!data.cached,
+      });
+      setBackfillResult(
+        `Mockup preview ready for ${product.name} using studio export ${latestExport.exportId} (${data.cached ? "cached" : "new"})`
+      );
+    } catch {
+      setBackfillResult("Failed to generate mockup preview");
+    } finally {
+      setGeneratingMockupFor(null);
     }
   };
 
@@ -421,8 +528,20 @@ export default function AdminProductsPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={handleBackfillPreflight}
+            disabled={checkingBackfill || backfilling}
+            className="border border-brand-dark text-brand-dark px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/10 transition-colors disabled:opacity-50"
+          >
+            {checkingBackfill ? (
+              <div className="animate-spin w-4 h-4 border-2 border-brand-dark border-t-transparent rounded-full" />
+            ) : (
+              <Search className="w-4 h-4" />
+            )}
+            {checkingBackfill ? "Checking..." : "Check Backfill"}
+          </button>
+          <button
             onClick={handleBackfillImages}
-            disabled={backfilling}
+            disabled={backfilling || checkingBackfill}
             className="border border-brand-dark text-brand-dark px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/10 transition-colors disabled:opacity-50"
           >
             {backfilling ? (
@@ -469,6 +588,26 @@ export default function AdminProductsPage() {
         <div className="bg-blue-50 border border-blue-200 text-blue-700 text-sm px-4 py-3 mb-4 flex items-center justify-between">
           {backfillResult}
           <button onClick={() => setBackfillResult(null)}><X className="w-4 h-4" /></button>
+        </div>
+      )}
+
+      {mockupPreview?.mockupUrl && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 mb-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              Mockup preview: {mockupPreview.productName} ({mockupPreview.placement})
+              {mockupPreview.cached ? " [cached]" : ""}
+            </div>
+            <button onClick={() => setMockupPreview(null)}><X className="w-4 h-4" /></button>
+          </div>
+          <a
+            href={mockupPreview.mockupUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block mt-2 text-brand-accent hover:underline"
+          >
+            Open mockup image
+          </a>
         </div>
       )}
 
@@ -548,6 +687,29 @@ export default function AdminProductsPage() {
                   {p.printProvider === "printful" ? "Print Partner" : (p.printProvider || "Print Partner")}
                 </div>
                 <div className="col-span-4 md:col-span-1 flex items-center gap-1 justify-end">
+                  {p.slug && (
+                    <a
+                      href={`/studio?slug=${encodeURIComponent(p.slug)}&product_id=${encodeURIComponent(p.id)}${p.printfulVariantId ? `&variant_id=${p.printfulVariantId}` : ""}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
+                      title="Test in Studio (print from browser)"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                  <button
+                    onClick={() => handleGenerateMockupPreview(p)}
+                    disabled={generatingMockupFor === p.id}
+                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors disabled:opacity-50"
+                    title="Generate mockup preview from latest studio export"
+                  >
+                    {generatingMockupFor === p.id ? (
+                      <div className="animate-spin w-3.5 h-3.5 border border-brand-dark border-t-transparent rounded-full" />
+                    ) : (
+                      <Wand2 className="w-3.5 h-3.5" />
+                    )}
+                  </button>
                   <button onClick={() => { setImageEditProduct(p); setImgError(null); }} className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors" title="Images">
                     <ImageIcon className="w-3.5 h-3.5" />
                   </button>

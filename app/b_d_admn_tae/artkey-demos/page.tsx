@@ -48,7 +48,10 @@ export default function AdminArtKeyDemosPage() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [sendingArchiveFor, setSendingArchiveFor] = useState<string | null>(null);
+  const [downloadingQrId, setDownloadingQrId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
@@ -127,6 +130,25 @@ export default function AdminArtKeyDemosPage() {
     a.click();
   };
 
+  const downloadPortalQr = async (demo: ArtKeyDemo) => {
+    setDownloadingQrId(demo.id);
+    setError("");
+    try {
+      const QRCode = await import("qrcode");
+      const dataUrl = await QRCode.toDataURL(demo.portalUrl, {
+        width: 300,
+        margin: 2,
+        color: { dark: "#000000", light: "#FFFFFF" },
+        errorCorrectionLevel: "M",
+      });
+      downloadQr(dataUrl, demo.title);
+    } catch {
+      setError("Failed to generate QR code download");
+    } finally {
+      setDownloadingQrId(null);
+    }
+  };
+
   const handleDeleteDemo = async (demo: ArtKeyDemo) => {
     const confirmed = window.confirm(
       `Delete demo "${demo.title}" (${demo.publicToken})?\n\nThis will permanently remove the portal and related guestbook/media data.`
@@ -155,6 +177,45 @@ export default function AdminArtKeyDemosPage() {
     }
   };
 
+  const handleSendArchiveDigest = async (demo?: ArtKeyDemo) => {
+    const token = demo?.publicToken || null;
+    setSendingArchiveFor(token || "__all__");
+    setError("");
+    setNotice(null);
+    try {
+      const res = await fetch("/api/admin/artkey/archive-digests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          token ? { publicToken: token, force: true } : {}
+        ),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        setError(data?.error || "Failed to send archive digest");
+        return;
+      }
+      const sentCount = data?.summary?.sent || 0;
+      const failedCount = data?.summary?.failed || 0;
+      const skippedCount = data?.summary?.skipped || 0;
+      if (token) {
+        setNotice(
+          sentCount > 0
+            ? `Archive digest sent for ${token}.`
+            : `No digest sent for ${token} (skipped: ${skippedCount}, failed: ${failedCount}).`
+        );
+      } else {
+        setNotice(
+          `Archive digest run complete: sent ${sentCount}, skipped ${skippedCount}, failed ${failedCount}.`
+        );
+      }
+    } catch {
+      setError("Network error while sending archive digest");
+    } finally {
+      setSendingArchiveFor(null);
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="text-brand-medium text-sm">Loading ArtKey demos...</div></div>;
   }
@@ -176,10 +237,18 @@ export default function AdminArtKeyDemosPage() {
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard
           </Link>
           <button
+            onClick={() => handleSendArchiveDigest()}
+            disabled={sendingArchiveFor === "__all__"}
+            className="border border-brand-dark px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-lightest transition-colors disabled:opacity-50"
+            title="Send pre-expiry archive digest emails now"
+          >
+            {sendingArchiveFor === "__all__" ? "Sending..." : "Send Archive Digests"}
+          </button>
+          <button
             onClick={() => { setShowForm(true); setNewResult(null); }}
             className="bg-brand-dark text-white px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/90 transition-colors"
           >
-            <Plus className="w-4 h-4" /> Create Demo
+            <Plus className="w-4 h-4" /> New Portal
           </button>
         </div>
       </div>
@@ -188,6 +257,12 @@ export default function AdminArtKeyDemosPage() {
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 mb-4 flex items-center justify-between">
           {error}
           <button onClick={() => setError("")}><X className="w-4 h-4" /></button>
+        </div>
+      )}
+      {notice && (
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 mb-4 flex items-center justify-between">
+          {notice}
+          <button onClick={() => setNotice(null)}><X className="w-4 h-4" /></button>
         </div>
       )}
 
@@ -223,7 +298,7 @@ export default function AdminArtKeyDemosPage() {
               disabled={saving || !title.trim()}
               className="px-6 py-2 text-sm bg-brand-dark text-white hover:bg-brand-dark/90 transition-colors disabled:opacity-50"
             >
-              {saving ? "Creating..." : "Generate Portal + QR Code"}
+              {saving ? "Creating..." : "Create Portal"}
             </button>
             <button
               onClick={() => setShowForm(false)}
@@ -402,6 +477,14 @@ export default function AdminArtKeyDemosPage() {
                   >
                     {copiedId === d.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
+                  <button
+                    onClick={() => downloadPortalQr(d)}
+                    disabled={downloadingQrId === d.id}
+                    className="p-1.5 text-brand-medium hover:text-brand-dark disabled:opacity-50 transition-colors"
+                    title="Download QR Code"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
                   <a
                     href={d.portalUrl}
                     target="_blank"
@@ -418,6 +501,14 @@ export default function AdminArtKeyDemosPage() {
                     title="Delete Demo"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleSendArchiveDigest(d)}
+                    disabled={sendingArchiveFor === d.publicToken}
+                    className="px-2 py-1.5 text-[10px] border border-brand-light text-brand-medium hover:text-brand-dark hover:bg-brand-lightest disabled:opacity-50 transition-colors"
+                    title="Send archive digest for this portal"
+                  >
+                    {sendingArchiveFor === d.publicToken ? "Sending..." : "Send PDF Digest"}
                   </button>
                 </div>
               </div>

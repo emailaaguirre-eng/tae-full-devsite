@@ -345,7 +345,7 @@ function StudioContent() {
 
   // Handle export: save design files to sessionStorage, then navigate to ArtKey editor
   const handleExport = useCallback(
-    (
+    async (
       files: { placement: string; dataUrl: string }[],
       artKeyTemplatePosition?: {
         placement: string;
@@ -357,6 +357,27 @@ function StudioContent() {
       }
     ) => {
       const studioRenderSignature = computeRenderSignature(files);
+      let studioExportId: string | null = null;
+      try {
+        const registerRes = await fetch("/api/studio/exports", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shopProductId: productSpec.id,
+            productSlug: productSpec.productSlug || null,
+            productName: productSpec.name,
+            studioRenderSignature,
+            designFiles: files,
+          }),
+        });
+        const registerData = await registerRes.json().catch(() => ({}));
+        if (registerRes.ok && registerData?.success) {
+          studioExportId = registerData.export?.exportId || null;
+        }
+      } catch {
+        // Non-blocking: export flow still continues for checkout.
+      }
+
       const studioData = {
         productSpec: {
           id: productSpec.id,
@@ -369,6 +390,7 @@ function StudioContent() {
         },
         designFiles: files,
         studioRenderSignature,
+        studioExportId,
         artKeyTemplatePosition: artKeyTemplatePosition || null,
         exportedAt: new Date().toISOString(),
       };

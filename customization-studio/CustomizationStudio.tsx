@@ -325,6 +325,7 @@ const LAYOUT_OUTER_PADDING_MIN = 8;
 const LAYOUT_OUTER_PADDING_MAX = 48;
 const LAYOUT_SLOT_INSET_MIN = 2;
 const LAYOUT_SLOT_INSET_MAX = 24;
+const SLOT_SNAP_DISTANCE = 36;
 
 type ArtKeyTemplatePosition = {
   placement: Placement;
@@ -909,12 +910,27 @@ export function CustomizationStudio({
 
   const getSlotIndexForPoint = useCallback(
     (x: number, y: number): number | undefined => {
+      // First pass: direct hit inside a slot.
       for (let i = 0; i < slotRects.length; i++) {
         const s = slotRects[i];
         if (x >= s.x && x <= s.x + s.width && y >= s.y && y <= s.y + s.height) {
           return i;
         }
       }
+
+      // Second pass: near-slot snap zone for friendlier drag/drop behavior.
+      for (let i = 0; i < slotRects.length; i++) {
+        const s = slotRects[i];
+        if (
+          x >= s.x - SLOT_SNAP_DISTANCE &&
+          x <= s.x + s.width + SLOT_SNAP_DISTANCE &&
+          y >= s.y - SLOT_SNAP_DISTANCE &&
+          y <= s.y + s.height + SLOT_SNAP_DISTANCE
+        ) {
+          return i;
+        }
+      }
+
       return undefined;
     },
     [slotRects]
@@ -2669,12 +2685,12 @@ export function CustomizationStudio({
     <div className="w-full h-screen max-h-screen overflow-hidden flex flex-col" style={{ background: BRAND.lightest, color: BRAND.dark }}>
       {/* Top Bar */}
       <div
-        className="px-3 py-2 lg:px-4 lg:py-2.5 border-b flex items-center justify-between gap-2 overflow-x-auto"
+        className="px-3 py-2 lg:px-4 lg:py-2.5 border-b flex flex-wrap items-center gap-2"
         style={{ background: BRAND.white, borderColor: BRAND.light }}
       >
-        <div className="flex items-center gap-2 lg:gap-3 shrink-0">
+        <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
           <h1 
-            className="text-xl font-bold" 
+            className="text-base sm:text-lg lg:text-xl font-bold truncate" 
             style={{ 
               color: BRAND.dark,
               fontFamily: "'Playfair Display', Georgia, serif",
@@ -2686,9 +2702,105 @@ export function CustomizationStudio({
           <span className="text-sm px-2 py-1 rounded" style={{ background: BRAND.light, color: BRAND.dark }}>
             {productSpec.name}
           </span>
+          <button
+            onClick={() => {
+              setSelectedId(null);
+              setSelectedType(null);
+              setTextInput("Your text here");
+              setTextLabelShape("none");
+              setIsAddingText(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm"
+            style={{ background: BRAND.light, color: BRAND.dark }}
+            title="Add editable text to canvas"
+          >
+            <IconText /> Add Text
+          </button>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 min-w-0 w-full lg:w-auto order-3 lg:order-none overflow-x-auto">
+          {(isAddingText || selectedType === "text") && (
+            <>
+              <input
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                className="px-2 py-1.5 rounded border text-sm min-w-[12rem] sm:min-w-[14rem]"
+                style={{ borderColor: BRAND.light, background: BRAND.white }}
+                placeholder="Edit text on canvas"
+              />
+              <select
+                value={textFont}
+                onChange={(e) => setTextFont(e.target.value)}
+                className="px-2 py-1.5 rounded border text-sm"
+                style={{ borderColor: BRAND.light, background: BRAND.white }}
+                title="Font"
+              >
+                {FONT_OPTIONS.map((f) => (
+                  <option key={f.family} value={f.family}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={8}
+                max={300}
+                value={textSize}
+                onChange={(e) => setTextSize(parseInt(e.target.value || "8", 10))}
+                className="w-16 px-2 py-1.5 rounded border text-sm"
+                style={{ borderColor: BRAND.light, background: BRAND.white }}
+                title="Font size"
+              />
+              <button
+                onClick={() => setTextBold((v) => !v)}
+                className="w-8 h-8 rounded border text-sm font-bold"
+                style={{
+                  borderColor: BRAND.light,
+                  background: textBold ? BRAND.lightest : BRAND.white,
+                  color: BRAND.dark,
+                }}
+                title="Bold"
+              >
+                B
+              </button>
+              <button
+                onClick={() => setTextItalic((v) => !v)}
+                className="w-8 h-8 rounded border text-sm italic"
+                style={{
+                  borderColor: BRAND.light,
+                  background: textItalic ? BRAND.lightest : BRAND.white,
+                  color: BRAND.dark,
+                }}
+                title="Italic"
+              >
+                I
+              </button>
+              <button
+                onClick={() => setTextUnderline((v) => !v)}
+                className="w-8 h-8 rounded border text-sm underline"
+                style={{
+                  borderColor: BRAND.light,
+                  background: textUnderline ? BRAND.lightest : BRAND.white,
+                  color: BRAND.dark,
+                }}
+                title="Underline"
+              >
+                U
+              </button>
+              {selectedType !== "text" && (
+                <button
+                  onClick={handleAddText}
+                  className="px-3 py-1.5 rounded text-sm font-medium"
+                  style={{ background: BRAND.accent, color: BRAND.white }}
+                >
+                  Place
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-start lg:justify-end">
           {/* Undo / Redo */}
           <button
             onClick={handleUndo}
@@ -2708,24 +2820,18 @@ export function CustomizationStudio({
           >
             <IconRedo /> Redo
           </button>
-
-          {/* Quick add text */}
-          <button
-            onClick={() => {
-              setSelectedId(null);
-              setSelectedType(null);
-              setTextInput("Your text here");
-              setIsAddingText(true);
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm"
-            style={{ background: BRAND.light, color: BRAND.dark }}
-            title="Add a text label"
-          >
-            <IconText /> Add Text
-          </button>
+          {selectedId && (
+            <span
+              className="text-xs px-2 py-1 rounded"
+              style={{ background: BRAND.lightest, color: BRAND.medium, border: `1px solid ${BRAND.light}` }}
+              title="Current selected item rotation"
+            >
+              {Math.round(selectedRotationDegrees)} deg
+            </span>
+          )}
 
           {/* Zoom */}
-          <div className="mx-2 h-6 w-px" style={{ background: BRAND.light }} />
+          <div className="mx-1 h-6 w-px hidden sm:block" style={{ background: BRAND.light }} />
           <button
             onClick={handleZoomOut}
             className="flex items-center justify-center w-8 h-8 rounded"
@@ -2760,7 +2866,7 @@ export function CustomizationStudio({
           </button>
 
           {/* Export */}
-          <div className="mx-2 h-6 w-px" style={{ background: BRAND.light }} />
+          <div className="mx-1 h-6 w-px hidden sm:block" style={{ background: BRAND.light }} />
           {productSpec.placements.length > 1 ? (
             <>
               <button
@@ -2806,7 +2912,7 @@ export function CustomizationStudio({
                   <button
                     key={p}
                     onClick={() => switchPlacement(p)}
-                    className="h-16 text-center px-2 py-2 lg:px-3 lg:py-2.5 rounded-lg border-2 text-xs lg:text-sm font-medium transition-all"
+                    className="min-h-[5.5rem] text-center px-2 py-2 lg:px-3 lg:py-2.5 rounded-lg border-2 text-xs lg:text-sm font-medium transition-all flex flex-col items-center justify-between"
                     style={{
                       borderColor: activePlacement === p ? BRAND.accent : BRAND.light,
                       background: activePlacement === p ? BRAND.accent : BRAND.white,
@@ -2814,11 +2920,16 @@ export function CustomizationStudio({
                       boxShadow: activePlacement === p ? `0 2px 8px ${BRAND.accent}40` : "none",
                     }}
                   >
-                    <span className="block text-[10px] lg:text-[11px] opacity-60 mb-0.5">{idx + 1}/{productSpec.placements.length}</span>
-                    {getLabel(p)}
+                    <span className="block text-[10px] lg:text-[11px] opacity-60 leading-none">{idx + 1}/{productSpec.placements.length}</span>
+                    <span className="block leading-tight">{getLabel(p)}</span>
                     <span
-                      className="block text-[10px] mt-0.5"
-                      style={{ color: qrPlacement === p && productSpec.requiresQrCode ? (activePlacement === p ? "#ddd" : "#6d28d9") : "transparent" }}
+                      className="inline-flex items-center justify-center h-4 px-1.5 rounded text-[10px] leading-none border"
+                      style={{
+                        visibility: qrPlacement === p && productSpec.requiresQrCode ? "visible" : "hidden",
+                        color: activePlacement === p ? "#ddd" : "#6d28d9",
+                        borderColor: activePlacement === p ? "#d1d5db66" : "#c4b5fd",
+                        background: activePlacement === p ? "#ffffff18" : "#ede9fe",
+                      }}
                     >
                       ArtKey
                     </span>
@@ -3104,31 +3215,36 @@ export function CustomizationStudio({
                   </div>
                 </div>
 
-                {/* Label Art (decorative, non-editable text) */}
+                {/* Text labels */}
                 <div>
-                  <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>Label Art (non-text)</p>
-                  <div className="grid grid-cols-4 gap-1">
-                    {DECORATIVE_ELEMENTS.labels.map((el) => (
-                      <button
-                        key={el.id}
-                        onClick={() => addDecorativeElement(el)}
-                        className="aspect-square rounded border p-1 hover:border-gray-400 transition-colors"
-                        style={{ borderColor: BRAND.light, background: BRAND.lightest }}
-                        title={el.name}
-                      >
-                        <img 
-                          src={el.src} 
-                          alt={el.name} 
-                          className="w-full h-full object-contain opacity-60"
-                          style={{ filter: 'brightness(0)' }}
-                        />
-                      </button>
-                    ))}
+                  <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>Text Labels</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      onClick={() => addTextLabelWithShape("rectangle")}
+                      className="px-2 py-1.5 rounded border text-xs"
+                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+                    >
+                      Rectangle
+                    </button>
+                    <button
+                      onClick={() => addTextLabelWithShape("square")}
+                      className="px-2 py-1.5 rounded border text-xs"
+                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+                    >
+                      Square
+                    </button>
+                    <button
+                      onClick={() => addTextLabelWithShape("circle")}
+                      className="px-2 py-1.5 rounded border text-xs"
+                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+                    >
+                      Circle
+                    </button>
                   </div>
                 </div>
 
                 <p className="text-xs" style={{ color: BRAND.medium }}>
-                  Click to add. Drag to position, resize with handles.
+                  Borders and text labels can be moved, resized, rotated, and layered.
                 </p>
 
                 {/* Active decoratives layer list */}
@@ -3171,254 +3287,6 @@ export function CustomizationStudio({
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Text Tool */}
-          <div className="p-4 border-b" style={{ borderColor: BRAND.light }}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">Text</h3>
-              <button
-                onClick={() => {
-                  if (!isAddingText) {
-                    setSelectedId(null);
-                    setSelectedType(null);
-                    setTextInput("Your text here");
-                    setIsAddingText(true);
-                  } else {
-                    setIsAddingText(false);
-                  }
-                }}
-                className="px-3 py-1 rounded text-sm"
-                style={{ background: isAddingText ? BRAND.accent : BRAND.light, color: isAddingText ? BRAND.white : BRAND.dark }}
-              >
-                {isAddingText ? "Cancel" : "Add"}
-              </button>
-            </div>
-
-            <div className="mb-3">
-              <p className="text-xs mb-1.5" style={{ color: BRAND.medium }}>
-                Quick Label Boxes
-              </p>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  onClick={() => addTextLabelWithShape("rectangle")}
-                  className="px-2 py-1.5 rounded border text-xs"
-                  style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
-                >
-                  Rectangle
-                </button>
-                <button
-                  onClick={() => addTextLabelWithShape("square")}
-                  className="px-2 py-1.5 rounded border text-xs"
-                  style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
-                >
-                  Square
-                </button>
-                <button
-                  onClick={() => addTextLabelWithShape("circle")}
-                  className="px-2 py-1.5 rounded border text-xs"
-                  style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
-                >
-                  Circle
-                </button>
-              </div>
-            </div>
-
-            {/* Add/Edit Panel */}
-            {(isAddingText || selectedType === "text") && (
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                    Text
-                  </label>
-                  <textarea
-                    value={textInput}
-                    onChange={(e) => setTextInput(e.target.value)}
-                    rows={3}
-                    className="w-full border rounded px-3 py-2 text-sm"
-                    style={{ borderColor: BRAND.light }}
-                    placeholder="Type your message…"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                    Text Label Shape
-                  </label>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {([
-                      { id: "none", label: "None" },
-                      { id: "rectangle", label: "Rect" },
-                      { id: "square", label: "Square" },
-                      { id: "circle", label: "Circle" },
-                    ] as const).map((shape) => (
-                      <button
-                        key={shape.id}
-                        onClick={() => setTextLabelShape(shape.id)}
-                        className="px-2 py-1.5 rounded border text-xs"
-                        style={{
-                          borderColor: textLabelShape === shape.id ? BRAND.accent : BRAND.light,
-                          background: textLabelShape === shape.id ? BRAND.lightest : BRAND.white,
-                          color: BRAND.dark,
-                        }}
-                        title={`Use ${shape.label} text label`}
-                      >
-                        {shape.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[10px] mt-1" style={{ color: BRAND.medium }}>
-                    Label shapes are editable text boxes with inner + outer borders.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                      Font
-                    </label>
-                    <select
-                      value={textFont}
-                      onChange={(e) => setTextFont(e.target.value)}
-                      className="w-full border rounded px-2 py-2 text-sm"
-                      style={{ borderColor: BRAND.light }}
-                    >
-                      {FONT_OPTIONS.map((f) => (
-                        <option key={f.family} value={f.family}>
-                          {f.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                      Size
-                    </label>
-                    <input
-                      type="number"
-                      min={8}
-                      max={300}
-                      value={textSize}
-                      onChange={(e) => setTextSize(parseInt(e.target.value || "48", 10))}
-                      className="w-full border rounded px-2 py-2 text-sm"
-                      style={{ borderColor: BRAND.light }}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 items-center">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs" style={{ color: BRAND.medium }}>
-                      Color
-                    </label>
-                    <input
-                      type="color"
-                      value={textColor}
-                      onChange={(e) => setTextColor(e.target.value)}
-                      className="w-10 h-8 border rounded"
-                      style={{ borderColor: BRAND.light }}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => setTextBold((v) => !v)}
-                      className="flex items-center justify-center w-8 h-7 rounded text-sm border font-bold"
-                      style={{
-                        borderColor: textBold ? BRAND.accent : BRAND.light,
-                        background: textBold ? BRAND.accent : BRAND.white,
-                        color: textBold ? BRAND.white : BRAND.dark,
-                      }}
-                      title="Bold"
-                    >
-                      B
-                    </button>
-                    <button
-                      onClick={() => setTextItalic((v) => !v)}
-                      className="flex items-center justify-center w-8 h-7 rounded text-sm border italic"
-                      style={{
-                        borderColor: textItalic ? BRAND.accent : BRAND.light,
-                        background: textItalic ? BRAND.accent : BRAND.white,
-                        color: textItalic ? BRAND.white : BRAND.dark,
-                      }}
-                      title="Italic"
-                    >
-                      I
-                    </button>
-                    <button
-                      onClick={() => setTextUnderline((v) => !v)}
-                      className="flex items-center justify-center w-8 h-7 rounded text-sm border underline"
-                      style={{
-                        borderColor: textUnderline ? BRAND.accent : BRAND.light,
-                        background: textUnderline ? BRAND.accent : BRAND.white,
-                        color: textUnderline ? BRAND.white : BRAND.dark,
-                      }}
-                      title="Underline"
-                    >
-                      U
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <label className="text-xs" style={{ color: BRAND.medium }}>
-                    Align
-                  </label>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setTextAlign("left")}
-                      className="flex items-center justify-center w-8 h-7 rounded border"
-                      style={{
-                        borderColor: BRAND.light,
-                        background: textAlign === "left" ? BRAND.lightest : BRAND.white,
-                        color: BRAND.dark,
-                      }}
-                      title="Align left"
-                    >
-                      <IconAlignLeft />
-                    </button>
-                    <button
-                      onClick={() => setTextAlign("center")}
-                      className="flex items-center justify-center w-8 h-7 rounded border"
-                      style={{
-                        borderColor: BRAND.light,
-                        background: textAlign === "center" ? BRAND.lightest : BRAND.white,
-                        color: BRAND.dark,
-                      }}
-                      title="Align center"
-                    >
-                      <IconAlignCenter />
-                    </button>
-                    <button
-                      onClick={() => setTextAlign("right")}
-                      className="flex items-center justify-center w-8 h-7 rounded border"
-                      style={{
-                        borderColor: BRAND.light,
-                        background: textAlign === "right" ? BRAND.lightest : BRAND.white,
-                        color: BRAND.dark,
-                      }}
-                      title="Align right"
-                    >
-                      <IconAlignRight />
-                    </button>
-                  </div>
-                </div>
-
-                {selectedType !== "text" ? (
-                  <button
-                    onClick={handleAddText}
-                    className="w-full px-4 py-2 rounded font-medium"
-                    style={{ background: BRAND.accent, color: BRAND.white }}
-                  >
-                    Add Text
-                  </button>
-                ) : (
-                  <p className="text-xs" style={{ color: BRAND.medium }}>
-                    Editing selected text. Drag it on the canvas, or resize with handles.
-                  </p>
                 )}
               </div>
             )}
@@ -3638,39 +3506,8 @@ export function CustomizationStudio({
             </div>
           )}
 
-          {/* Surfaces */}
           <div className="p-4">
-            <h3 className="font-semibold mb-3">Surfaces</h3>
-            <div className="space-y-2">
-              {productSpec.placements.map((p) => (
-                <button
-                  key={p}
-                  onClick={() => switchPlacement(p)}
-                  className="w-full text-left px-4 py-3 rounded border"
-                  style={{
-                    borderColor: activePlacement === p ? BRAND.accent : BRAND.light,
-                    background: activePlacement === p ? BRAND.lightest : BRAND.white,
-                    color: BRAND.dark,
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">
-                      {getLabel(p)}
-                      {qrPlacement === p && productSpec.requiresQrCode && (
-                        <span className="ml-2 text-xs px-2 py-0.5 rounded" style={{ background: "#ede9fe", color: "#6d28d9" }}>
-                          ArtKey
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-xs" style={{ color: BRAND.medium }}>
-                      {(designs[p]?.images?.length || 0) + (designs[p]?.texts?.length || 0)} items
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-6 p-3 rounded" style={{ background: BRAND.lightest, border: `1px solid ${BRAND.light}` }}>
+            <div className="p-3 rounded" style={{ background: BRAND.lightest, border: `1px solid ${BRAND.light}` }}>
               <h4 className="text-xs font-semibold mb-2" style={{ color: BRAND.dark }}>
                 Shortcuts
               </h4>
@@ -3712,11 +3549,11 @@ export function CustomizationStudio({
                         y={s.y}
                         width={s.width}
                         height={s.height}
-                        fill={hoverSlotIndex === i ? "#47556922" : "#47556912"}
-                        stroke={BRAND.accent}
-                        strokeWidth={hoverSlotIndex === i ? 3 : 2}
-                        dash={[10, 6]}
-                        opacity={0.85}
+                        fill={hoverSlotIndex === i ? "#47556914" : "#47556908"}
+                        stroke={hoverSlotIndex === i ? BRAND.accent : "#94a3b8"}
+                        strokeWidth={hoverSlotIndex === i ? 2 : 1}
+                        dash={[8, 6]}
+                        opacity={0.65}
                         listening={false}
                       />
                       {currentLayoutId !== DEFAULT_LAYOUT_ID && (

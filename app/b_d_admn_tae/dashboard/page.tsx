@@ -137,7 +137,7 @@ export default function AdminDashboardPage() {
           className="bg-brand-dark text-white p-4 hover:bg-brand-dark/90 transition-colors"
         >
           <QrCode className="w-5 h-5 mb-2" />
-          <div className="text-sm font-semibold">Create ArtKey Demo</div>
+          <div className="text-sm font-semibold">ArtKey Demo Builder</div>
           <div className="text-xs text-white/60 mt-0.5">Generate a portal URL + QR code</div>
         </Link>
         <Link

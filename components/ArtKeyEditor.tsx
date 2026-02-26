@@ -512,38 +512,47 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
   const getColorsForPage = (page: number, arr: typeof buttonColors) => arr.slice(page * 12, page * 12 + 12);
 
+  const resolveUploadAuth = () => {
+    const publicToken = (portalToken || savedPortalToken || artkeyId || '').trim();
+    if (!publicToken) return { publicToken: '', ownerToken: '' };
+    const sessionOwnerToken =
+      typeof window !== 'undefined'
+        ? sessionStorage.getItem(`portal_owner_${publicToken}`) || ''
+        : '';
+    return {
+      publicToken,
+      ownerToken: (ownerTokenParam || sessionOwnerToken || '').trim(),
+    };
+  };
+
+  const notifyUploadError = (message: string) => {
+    setSaveModal({ show: true, url: '', message });
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
+    const auth = resolveUploadAuth();
+    if (!auth.publicToken) {
+      notifyUploadError('Upload requires a saved portal token. Save the portal first, then upload.');
+      return;
+    }
     for (const file of Array.from(files)) {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('publicToken', auth.publicToken);
+      if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
       try {
         const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const result = await res.json();
           setArtKeyData((prev) => ({ ...prev, uploadedImages: [...prev.uploadedImages, result.url] }));
         } else {
-          // Fallback: convert to base64 data URL
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            const dataUrl = ev.target?.result as string;
-            if (dataUrl) {
-              setArtKeyData((prev) => ({ ...prev, uploadedImages: [...prev.uploadedImages, dataUrl] }));
-            }
-          };
-          reader.readAsDataURL(file);
+          const err = await res.json().catch(() => ({}));
+          notifyUploadError(err?.error || 'Image upload failed');
         }
       } catch (err) {
-        // Fallback: convert to base64 data URL
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const dataUrl = ev.target?.result as string;
-          if (dataUrl) {
-            setArtKeyData((prev) => ({ ...prev, uploadedImages: [...prev.uploadedImages, dataUrl] }));
-          }
-        };
-        reader.readAsDataURL(file);
+        notifyUploadError('Image upload failed');
       }
     }
   };
@@ -553,25 +562,27 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     if (!files) return;
     const file = Array.from(files)[0];
     if (!file) return;
+    const auth = resolveUploadAuth();
+    if (!auth.publicToken) {
+      notifyUploadError('Upload requires a saved portal token. Save the portal first, then upload.');
+      return;
+    }
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('publicToken', auth.publicToken);
+    if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
     try {
       const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
-      let videoUrl: string;
       if (res.ok) {
         const result = await res.json();
-        videoUrl = result.url || result.fileUrl;
+        const videoUrl = result.url || result.fileUrl;
+        setArtKeyData((prev) => ({ ...prev, uploadedVideos: [...prev.uploadedVideos, videoUrl] }));
       } else {
-        // Fallback: convert to base64 data URL
-        videoUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (ev) => resolve(ev.target?.result as string);
-          reader.readAsDataURL(file);
-        });
+        const err = await res.json().catch(() => ({}));
+        notifyUploadError(err?.error || 'Video upload failed');
       }
-      setArtKeyData((prev) => ({ ...prev, uploadedVideos: [...prev.uploadedVideos, videoUrl] }));
     } catch (err) {
-      console.error('Upload failed', err);
+      notifyUploadError('Video upload failed');
     }
   };
 
@@ -598,34 +609,26 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
+    const auth = resolveUploadAuth();
+    if (!auth.publicToken) {
+      notifyUploadError('Upload requires a saved portal token. Save the portal first, then upload.');
+      return;
+    }
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('publicToken', auth.publicToken);
+    if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
     try {
       const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
       if (res.ok) {
         const result = await res.json();
         setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_image_url: result.url, bg_image_id: result.id || 0 } }));
       } else {
-        // Fallback: convert to base64 data URL
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const dataUrl = ev.target?.result as string;
-          if (dataUrl) {
-            setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_image_url: dataUrl, bg_image_id: 0 } }));
-          }
-        };
-        reader.readAsDataURL(file);
+        const err = await res.json().catch(() => ({}));
+        notifyUploadError(err?.error || 'Background upload failed');
       }
     } catch (err) {
-      // Fallback: convert to base64 data URL
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        if (dataUrl) {
-          setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_image_url: dataUrl, bg_image_id: 0 } }));
-        }
-      };
-      reader.readAsDataURL(file);
+      notifyUploadError('Background upload failed');
     }
   };
 
@@ -703,6 +706,110 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         } else {
           setSaveModal({ show: true, url: '', message: portalData.error || 'Failed to save portal' });
         }
+        return;
+      }
+
+      // For existing portals, always use protected portal update API.
+      const existingPortalToken = (savedPortalToken || artkeyId || '').trim();
+      if (existingPortalToken) {
+        const sessionOwnerToken =
+          typeof window !== 'undefined'
+            ? sessionStorage.getItem(`portal_owner_${existingPortalToken}`) || ''
+            : '';
+        const effectiveOwnerToken = (ownerTokenParam || sessionOwnerToken || '').trim();
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (effectiveOwnerToken) {
+          headers['X-Owner-Token'] = effectiveOwnerToken;
+        }
+
+        const portalPayload = {
+          title: artKeyData.title,
+          theme: artKeyData.theme,
+          features: artKeyData.features,
+          links: dataToSave.links || customLinks,
+          spotify: artKeyData.spotify,
+          featuredVideo: artKeyData.featured_video,
+          customizations,
+          uploadedImages: artKeyData.uploadedImages,
+          uploadedVideos: artKeyData.uploadedVideos,
+        };
+
+        const portalRes = await fetch(`/api/portal/${existingPortalToken}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(portalPayload),
+        });
+        const portalData = await portalRes.json().catch(() => ({}));
+        if (!portalRes.ok || !portalData.success) {
+          setSaveModal({
+            show: true,
+            url: '',
+            message: portalData?.error || 'Failed to save portal. Re-open your owner edit link and try again.',
+          });
+          return;
+        }
+
+        const portalUrl = buildArtKeyPortalUrl(existingPortalToken);
+
+        if (redirectToShop && fromStudio && studioExport?.productSpec) {
+          const spec = studioExport.productSpec;
+          const frontDesign = studioExport.designFiles?.find((f: any) => f.placement === 'front');
+          const cartItem: Record<string, any> = {
+            id: `${spec.id}-${artkeyId || Date.now()}`,
+            name: spec.name || productNameParam || 'Custom Product',
+            price: spec.basePrice || 0,
+            quantity: 1,
+            imageUrl: frontDesign?.dataUrl,
+            source: 'shop' as const,
+            productSlug: spec.productSlug || productSlugParam,
+            printfulProductId: spec.printfulProductId,
+            printfulVariantId: spec.printfulVariantId,
+            designFiles: studioExport.designFiles,
+            studioRenderSignature: studioExport.studioRenderSignature,
+            requiresQrCode: spec.requiresQrCode,
+            artKeyData: {
+              ...artKeyData,
+              links: customLinks,
+              customizations: {
+                ...artKeyData.customizations,
+                skeleton_key: skeletonKey,
+                qr_position: qrPosition,
+              },
+            },
+          };
+          if (studioExport.artKeyTemplatePosition) {
+            cartItem.artKeyTemplatePosition = studioExport.artKeyTemplatePosition;
+          }
+          addToCart(cartItem);
+          sessionStorage.removeItem('tae-studio-export');
+          router.push('/cart');
+          return;
+        }
+
+        if (redirectToShop && customizationData && productId) {
+          const cartItem = {
+            id: `${productId}-${artkeyId || Date.now()}`,
+            name: customizationData.productName || 'Custom Product',
+            price: customizationData.totalPrice || customizationData.basePrice || 0,
+            quantity: customizationData.customizations?.quantity || 1,
+            imageUrl: customizationData.designData?.imageDataUrl,
+            customization: {
+              size: customizationData.customizations?.size,
+              material: customizationData.customizations?.material,
+              frame: customizationData.customizations?.frame,
+              frameColor: customizationData.customizations?.frameColor,
+              uploadedImage: customizationData.designData?.imageDataUrl,
+              artkeyId: artkeyId || existingPortalToken,
+              artkeyUrl: portalUrl,
+            },
+          };
+          addToCart(cartItem);
+        }
+
+        if (redirectToShop) router.push('/cart');
+        else setSaveModal({ show: true, url: portalUrl, message: 'ArtKey saved!' });
         return;
       }
 
