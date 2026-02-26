@@ -54,13 +54,13 @@ export default function ArtKeyVideoPage() {
   return (
     <PortalScaffold token={token} portal={portal} pageTitle="Featured Video">
       <div
-        className="w-full rounded-xl overflow-hidden bg-black"
+        className="w-full rounded-xl overflow-hidden bg-black h-[calc(100dvh-220px)] min-h-[280px] max-h-[72dvh] sm:h-[62vh] sm:max-h-[520px]"
         onClick={() => setShowControls((v) => !v)}
       >
         {directVideo ? (
           <video
             src={source}
-            className="w-full h-auto max-h-[72vh] object-contain"
+            className="w-full h-full object-contain"
             autoPlay
             muted
             playsInline
@@ -69,14 +69,14 @@ export default function ArtKeyVideoPage() {
         ) : youtubeEmbed ? (
           <iframe
             src={youtubeEmbed}
-            className="w-full h-[62vh] max-h-[520px]"
+            className="w-full h-full"
             allow="autoplay; encrypted-media; picture-in-picture"
             allowFullScreen
           />
         ) : (
           <video
             src={source}
-            className="w-full h-auto max-h-[72vh] object-contain"
+            className="w-full h-full object-contain"
             autoPlay
             muted
             playsInline

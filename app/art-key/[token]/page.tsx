@@ -1,12 +1,10 @@
-\"use client\";
+"use client";
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ErrorScreen,
   getButtonStyle,
-  getGalleryImages,
-  getVideoSource,
   LoadingScreen,
   PortalScaffold,
   usePortal,
@@ -22,58 +20,86 @@ export default function ArtKeyPortalPage() {
   const theme = portal.theme || {};
   const features = portal.features || {};
   const btnStyle = getButtonStyle(theme);
-  const galleryImages = getGalleryImages(portal);
-  const videoSource = getVideoSource(portal);
-  const hasSpotify = !!portal.spotify?.url && features.enable_spotify;
-  const customLinks = features.enable_custom_links ? portal.links : [];
+  const customLinks = portal.links || [];
+  const rawFeatureDefs = Array.isArray(portal.customizations?.featureDefs)
+    ? portal.customizations.featureDefs
+    : [];
+
+  const buttons =
+    rawFeatureDefs.length > 0
+      ? rawFeatureDefs
+          .filter((f: any) => f?.enabled !== false)
+          .map((f: any) => {
+            if (f.type === "custom_link") {
+              if (!features.enable_custom_links || !f.linkData) return null;
+              const linkIndex = customLinks.findIndex(
+                (link) => link.url === f.linkData.url && link.label === f.linkData.label
+              );
+              if (linkIndex < 0) return null;
+              return {
+                key: `${f.key}-${linkIndex}`,
+                href: `/art-key/${token}/link/${linkIndex}`,
+                label: f.label || f.linkData.label || `Link ${linkIndex + 1}`,
+              };
+            }
+
+            if (f.key === "gallery" && features.enable_gallery) {
+              return { key: "gallery", href: `/art-key/${token}/gallery`, label: f.label || "Gallery" };
+            }
+            if (f.key === "video" && features.enable_video) {
+              return {
+                key: "video",
+                href: `/art-key/${token}/video`,
+                label: portal.featuredVideo?.button_label || f.label || "Featured Video",
+              };
+            }
+            if (f.key === "spotify" && features.enable_spotify) {
+              return { key: "spotify", href: `/art-key/${token}/spotify`, label: f.label || "Listen" };
+            }
+            if (f.key === "guestbook" && features.show_guestbook) {
+              return { key: "guestbook", href: `/art-key/${token}/guestbook`, label: f.label || "Guestbook" };
+            }
+
+            return null;
+          })
+          .filter(Boolean)
+      : [
+          features.enable_gallery
+            ? { key: "gallery", href: `/art-key/${token}/gallery`, label: "Gallery" }
+            : null,
+          features.enable_video
+            ? {
+                key: "video",
+                href: `/art-key/${token}/video`,
+                label: portal.featuredVideo?.button_label || "Featured Video",
+              }
+            : null,
+          features.enable_spotify
+            ? { key: "spotify", href: `/art-key/${token}/spotify`, label: "Listen" }
+            : null,
+          features.show_guestbook
+            ? { key: "guestbook", href: `/art-key/${token}/guestbook`, label: "Guestbook" }
+            : null,
+          ...(features.enable_custom_links
+            ? customLinks.map((link, idx) => ({
+                key: `${link.label}-${idx}`,
+                href: `/art-key/${token}/link/${idx}`,
+                label: link.label || `Link ${idx + 1}`,
+              }))
+            : []),
+        ].filter(Boolean);
 
   return (
     <PortalScaffold token={token} portal={portal} pageTitle="Portal Home">
       <div className="space-y-3">
-        {features.enable_gallery && galleryImages.length > 0 && (
+        {buttons.map((button: any) => (
           <Link
-            href={`/art-key/${token}/gallery`}
+            key={button.key}
+            href={button.href}
             className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
             style={btnStyle}
           >
-            Gallery
-          </Link>
-        )}
-        {features.enable_video && videoSource && (
-          <Link
-            href={`/art-key/${token}/video`}
-            className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
-            style={btnStyle}
-          >
-            {portal.featuredVideo?.button_label || "Featured Video"}
-          </Link>
-        )}
-        {hasSpotify && (
-          <Link
-            href={`/art-key/${token}/spotify`}
-            className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
-            style={btnStyle}
-          >
-            Listen
-          </Link>
-        )}
-        {features.show_guestbook && (
-          <Link
-            href={`/art-key/${token}/guestbook`}
-            className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
-            style={btnStyle}
-          >
-            Guestbook
-          </Link>
-        )}
-        {customLinks.map((link, idx) => (
-          <Link
-            key={`${link.label}-${idx}`}
-            href={`/art-key/${token}/link/${idx}`}
-            className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
-            style={btnStyle}
-          >
-            {link.label || `Link ${idx + 1}`}
+            {button.label}
           </Link>
         ))}
       </div>

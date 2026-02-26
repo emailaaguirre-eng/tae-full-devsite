@@ -31,6 +31,7 @@ export interface PortalData {
   links: { label: string; url: string }[];
   spotify: { url: string; autoplay?: boolean };
   featuredVideo: { video_url: string; button_label: string } | null;
+  customizations?: Record<string, any>;
   uploadedImages: string[];
   uploadedVideos: string[];
   guestbook: { id: string; name: string; message: string; createdAt: string }[];

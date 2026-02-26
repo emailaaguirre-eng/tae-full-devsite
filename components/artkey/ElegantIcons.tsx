@@ -147,6 +147,31 @@ export function BellIcon({ size = 48, color = 'currentColor', strokeWidth = 2, c
   );
 }
 
+// Birthday Present
+export function BirthdayPresentIcon({ size = 48, color = 'currentColor', strokeWidth = 2, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className}>
+      <rect x="8" y="18" width="32" height="22" rx="2" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <rect x="6" y="14" width="36" height="6" rx="1.5" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <path d="M24 14V40" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d="M16 14C14 12 14 9.5 16 8.5C18 7.5 20.5 9 24 14" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" />
+      <path d="M32 14C34 12 34 9.5 32 8.5C30 7.5 27.5 9 24 14" stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Birthday Cake
+export function BirthdayCakeIcon({ size = 48, color = 'currentColor', strokeWidth = 2, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className}>
+      <rect x="10" y="22" width="28" height="16" rx="2" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <path d="M10 28C12 26 14 26 16 28C18 30 20 30 22 28C24 26 26 26 28 28C30 30 32 30 34 28C36 26 38 26 38 28" stroke={color} strokeWidth={strokeWidth * 0.8} fill="none" strokeLinecap="round" />
+      <path d="M24 22V14" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d="M24 12C25.5 10.5 25.5 8.5 24 7C22.5 8.5 22.5 10.5 24 12Z" stroke={color} strokeWidth={strokeWidth * 0.8} fill="none" />
+    </svg>
+  );
+}
+
 // Crown - Royalty
 export function CrownIcon({ size = 48, color = 'currentColor', strokeWidth = 2, className = '' }: IconProps) {
   return (
@@ -198,6 +223,8 @@ export const ELEGANT_ICONS = {
   sparkle: { component: SparkleIcon, label: 'Sparkle', category: 'celebration' },
   rose: { component: RoseIcon, label: 'Rose', category: 'botanical' },
   bell: { component: BellIcon, label: 'Bell', category: 'celebration' },
+  birthday_present: { component: BirthdayPresentIcon, label: 'Birthday Present', category: 'celebration' },
+  birthday_cake: { component: BirthdayCakeIcon, label: 'Birthday Cake', category: 'celebration' },
   crown: { component: CrownIcon, label: 'Crown', category: 'luxury' },
   graduation_cap: { component: GraduationCapIcon, label: 'Graduation Cap', category: 'graduation' },
   diploma: { component: DiplomaIcon, label: 'Diploma', category: 'graduation' },

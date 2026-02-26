@@ -273,6 +273,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           const links = typeof d.links === 'string' ? JSON.parse(d.links) : (d.links || []);
           const spotify = typeof d.spotify === 'string' ? JSON.parse(d.spotify) : (d.spotify || { url: '', autoplay: false });
           const featuredVideo = typeof d.featuredVideo === 'string' ? JSON.parse(d.featuredVideo) : d.featuredVideo;
+          const customizations = typeof d.customizations === 'string' ? JSON.parse(d.customizations) : (d.customizations || {});
           const uploadedImages = typeof d.uploadedImages === 'string' ? JSON.parse(d.uploadedImages) : (d.uploadedImages || []);
           const uploadedVideos = typeof d.uploadedVideos === 'string' ? JSON.parse(d.uploadedVideos) : (d.uploadedVideos || []);
 
@@ -284,10 +285,25 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             links: links,
             spotify: spotify,
             featured_video: featuredVideo,
+            customizations: { ...prev.customizations, ...customizations },
             uploadedImages: uploadedImages,
             uploadedVideos: uploadedVideos,
           }));
           if (links.length > 0) setCustomLinks(links);
+          if (Array.isArray(customizations?.featureDefs) && customizations.featureDefs.length > 0) {
+            setFeatureDefs(customizations.featureDefs.map((f: any) => ({ ...f, enabled: f?.enabled !== false })));
+          } else {
+            const baseFeatures = featureDefsDefault.map((f) => ({ ...f, enabled: true }));
+            const linkFeatures = links.map((link: Link, idx: number) => ({
+              key: `custom_link_${idx}_${Date.now()}`,
+              label: link.label,
+              field: `custom_link_${idx}`,
+              type: 'custom_link' as const,
+              linkData: link,
+              enabled: true,
+            }));
+            setFeatureDefs([...baseFeatures, ...linkFeatures]);
+          }
           setPortalLoaded(true);
         }
       })
@@ -305,16 +321,17 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           setArtKeyData(savedData);
           setCustomLinks(savedData.links || []);
           if (savedData.featureDefs) {
-            setFeatureDefs(savedData.featureDefs);
+            setFeatureDefs(savedData.featureDefs.map((f: any) => ({ ...f, enabled: f?.enabled !== false })));
           } else {
             // Rebuild featureDefs from customLinks if not saved
-            const baseFeatures = [...featureDefsDefault];
+            const baseFeatures = featureDefsDefault.map((f) => ({ ...f, enabled: true }));
             const linkFeatures = (savedData.links || []).map((link: Link, idx: number) => ({
               key: `custom_link_${idx}_${Date.now()}`,
               label: link.label,
               field: `custom_link_${idx}`,
               type: 'custom_link' as const,
               linkData: link,
+              enabled: true,
             }));
             setFeatureDefs([...baseFeatures, ...linkFeatures]);
           }
@@ -335,16 +352,22 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       if (data?.data) {
         setArtKeyData(data.data);
         setCustomLinks(data.data.links || []);
-        // Rebuild featureDefs from customLinks
-        const baseFeatures = [...featureDefsDefault];
-        const linkFeatures = (data.data.links || []).map((link: Link, idx: number) => ({
-          key: `custom_link_${idx}_${Date.now()}`,
-          label: link.label,
-          field: `custom_link_${idx}`,
-          type: 'custom_link' as const,
-          linkData: link,
-        }));
-        setFeatureDefs([...baseFeatures, ...linkFeatures]);
+        const apiCustomizations = data.data.customizations || {};
+        if (Array.isArray(apiCustomizations?.featureDefs) && apiCustomizations.featureDefs.length > 0) {
+          setFeatureDefs(apiCustomizations.featureDefs.map((f: any) => ({ ...f, enabled: f?.enabled !== false })));
+        } else {
+          // Rebuild featureDefs from customLinks
+          const baseFeatures = featureDefsDefault.map((f) => ({ ...f, enabled: true }));
+          const linkFeatures = (data.data.links || []).map((link: Link, idx: number) => ({
+            key: `custom_link_${idx}_${Date.now()}`,
+            label: link.label,
+            field: `custom_link_${idx}`,
+            type: 'custom_link' as const,
+            linkData: link,
+            enabled: true,
+          }));
+          setFeatureDefs([...baseFeatures, ...linkFeatures]);
+        }
         if (data.data.customizations?.skeleton_key) {
           setSkeletonKey(data.data.customizations.skeleton_key);
         }
@@ -448,10 +471,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   ];
 
   const featureDefsDefault = [
-    { key: 'spotify', label: '🎵 Share Your Playlist', field: 'enable_spotify', type: 'feature' },
-    { key: 'gallery', label: '📸 Image Gallery', field: 'enable_gallery', type: 'feature' },
-    { key: 'guestbook', label: '📖 Guestbook', field: 'show_guestbook', type: 'feature' },
-    { key: 'video', label: '🎥 Video Gallery', field: 'enable_video', type: 'feature' },
+    { key: 'spotify', label: '🎵 Share Your Playlist', field: 'enable_spotify', type: 'feature', enabled: true },
+    { key: 'gallery', label: '📸 Image Gallery', field: 'enable_gallery', type: 'feature', enabled: true },
+    { key: 'guestbook', label: '📖 Guestbook', field: 'show_guestbook', type: 'feature', enabled: true },
+    { key: 'video', label: '🎥 Video Gallery', field: 'enable_video', type: 'feature', enabled: true },
   ];
   const [featureDefs, setFeatureDefs] = useState<Array<typeof featureDefsDefault[0] & { type?: 'feature' | 'custom_link'; linkData?: Link }>>(featureDefsDefault);
   const [editingFeatureIndex, setEditingFeatureIndex] = useState<number | null>(null);
@@ -465,6 +488,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     // wedding/love/botanical/formal/luxury all grouped as weddings for now
     return 'weddings';
   };
+  const hiddenWeddingIconKeys = new Set(['wreath', 'monogram', 'dove', 'crown']);
 
   // Helpers
   const handleTemplateSelect = (tpl: ArtKeyTemplate) => {
@@ -647,6 +671,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           skeleton_key: skeletonKey,
           qr_position: qrPosition,
         } : {}),
+        featureDefs: featureDefs.map((f) => ({ ...f, enabled: (f as any).enabled !== false })),
       };
 
       // Rebuild customLinks from enabled featureDefs custom_link entries
@@ -921,6 +946,38 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       features: { ...prev.features, [field]: !prev.features[field] },
     }));
   };
+
+  const previewPortalToken = (portalToken || savedPortalToken || '').trim();
+
+  const previewButtons = useMemo(() => {
+    const items: Array<{ label: string; href?: string }> = [];
+    for (const f of featureDefs) {
+      if ((f as any).enabled === false) continue;
+      if (f.type === 'custom_link') {
+        if (artKeyData.features.enable_custom_links && f.linkData) {
+          const linkIndex = customLinks.findIndex(
+            (link) => link.url === f.linkData?.url && link.label === f.linkData?.label
+          );
+          const href = linkIndex >= 0 && previewPortalToken ? `/art-key/${previewPortalToken}/link/${linkIndex}` : undefined;
+          items.push({ label: f.label || f.linkData.label || 'Link', href });
+        }
+        continue;
+      }
+      if (f.key === 'gallery' && artKeyData.features.enable_gallery) {
+        items.push({ label: f.label || 'Gallery', href: previewPortalToken ? `/art-key/${previewPortalToken}/gallery` : undefined });
+      } else if (f.key === 'video' && artKeyData.features.enable_video) {
+        items.push({
+          label: artKeyData.featured_video?.button_label || f.label || 'Featured Video',
+          href: previewPortalToken ? `/art-key/${previewPortalToken}/video` : undefined,
+        });
+      } else if (f.key === 'guestbook' && artKeyData.features.show_guestbook) {
+        items.push({ label: f.label || 'Guestbook', href: previewPortalToken ? `/art-key/${previewPortalToken}/guestbook` : undefined });
+      } else if (f.key === 'spotify' && artKeyData.features.enable_spotify) {
+        items.push({ label: f.label || 'Listen', href: previewPortalToken ? `/art-key/${previewPortalToken}/spotify` : undefined });
+      }
+    }
+    return items;
+  }, [featureDefs, artKeyData.features, artKeyData.featured_video, customLinks, previewPortalToken]);
 
   const handleAddLink = () => {
     if (!newLinkLabel || !newLinkUrl) return;
@@ -1242,46 +1299,35 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
                         {/* Buttons Preview - respects featureDefs drag order */}
                         {(() => {
-                          const allButtons: { label: string }[] = [];
-                          for (const f of featureDefs) {
-                            if (!(f as any).enabled) continue;
-                            if (f.type === 'custom_link' && f.linkData) {
-                              allButtons.push({ label: f.linkData.label || 'Link' });
-                            } else if (f.key === 'gallery' && artKeyData.features.enable_gallery) {
-                              allButtons.push({ label: f.label || 'Image Gallery' });
-                            } else if (f.key === 'video' && artKeyData.features.enable_video) {
-                              allButtons.push({ label: f.label || 'Video Gallery' });
-                            } else if (f.key === 'guestbook' && artKeyData.features.show_guestbook) {
-                              allButtons.push({ label: f.label || 'Guestbook' });
-                            } else if (f.key === 'spotify' && artKeyData.features.enable_spotify && artKeyData.spotify.url?.length > 10) {
-                              allButtons.push({ label: f.label || 'Spotify' });
-                            }
-                          }
-                          if (artKeyData.featured_video) {
-                            allButtons.push({ label: artKeyData.featured_video.button_label || 'Watch Video' });
-                          }
-                          const useTwoColumns = allButtons.length > 6;
+                          const useTwoColumns = previewButtons.length > 6;
                           const maxChars = 40;
                           const fontSize = useTwoColumns ? 'text-xs' : 'text-sm';
                           
                           return (
                             <div className={`mt-3 w-full max-w-sm ${useTwoColumns ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
-                              {allButtons.map((btn, idx) => {
+                              {previewButtons.map((btn, idx) => {
                                 const displayText = (btn.label || `Link ${idx + 1}`).length > maxChars 
                                   ? (btn.label || `Link ${idx + 1}`).substring(0, maxChars - 3) + '...'
                                   : (btn.label || `Link ${idx + 1}`);
                                 return (
-                                  <button
+                                  <a
                                     key={idx}
-                                    className={`w-full py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md`}
+                                    href={btn.href || '#'}
+                                    target={btn.href ? '_blank' : undefined}
+                                    rel={btn.href ? 'noopener noreferrer' : undefined}
+                                    onClick={(e) => {
+                                      if (!btn.href) e.preventDefault();
+                                    }}
+                                    className={`block w-full py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md ${btn.href ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
                                     style={getButtonPreviewStyles(
-                                      artKeyData.theme.button_color, 
-                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle, 
+                                      artKeyData.theme.button_color,
+                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle,
                                       (artKeyData.theme.button_shape as ButtonShape) || buttonShape
                                     )}
+                                    title={btn.href ? 'Open portal page in new tab' : 'Save portal first to enable live links'}
                                   >
                                     {displayText}
-                                  </button>
+                                  </a>
                                 );
                               })}
                             </div>
@@ -1340,46 +1386,35 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
                         {/* Buttons Preview - respects featureDefs drag order */}
                         {(() => {
-                          const allButtons: { label: string }[] = [];
-                          for (const f of featureDefs) {
-                            if (!(f as any).enabled) continue;
-                            if (f.type === 'custom_link' && f.linkData) {
-                              allButtons.push({ label: f.linkData.label || 'Link' });
-                            } else if (f.key === 'gallery' && artKeyData.features.enable_gallery) {
-                              allButtons.push({ label: f.label || 'Image Gallery' });
-                            } else if (f.key === 'video' && artKeyData.features.enable_video) {
-                              allButtons.push({ label: f.label || 'Video Gallery' });
-                            } else if (f.key === 'guestbook' && artKeyData.features.show_guestbook) {
-                              allButtons.push({ label: f.label || 'Guestbook' });
-                            } else if (f.key === 'spotify' && artKeyData.features.enable_spotify && artKeyData.spotify.url?.length > 10) {
-                              allButtons.push({ label: f.label || 'Spotify' });
-                            }
-                          }
-                          if (artKeyData.featured_video) {
-                            allButtons.push({ label: artKeyData.featured_video.button_label || 'Watch Video' });
-                          }
-                          const useTwoColumns = allButtons.length > 6;
+                          const useTwoColumns = previewButtons.length > 6;
                           const maxChars = 40;
                           const fontSize = useTwoColumns ? 'text-xs' : 'text-sm';
                           
                           return (
                             <div className={`mt-3 w-full max-w-sm ${useTwoColumns ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
-                              {allButtons.map((btn, idx) => {
+                              {previewButtons.map((btn, idx) => {
                                 const displayText = (btn.label || `Link ${idx + 1}`).length > maxChars 
                                   ? (btn.label || `Link ${idx + 1}`).substring(0, maxChars - 3) + '...'
                                   : (btn.label || `Link ${idx + 1}`);
                                 return (
-                                  <button
+                                  <a
                                     key={idx}
-                                    className={`${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md`}
+                                    href={btn.href || '#'}
+                                    target={btn.href ? '_blank' : undefined}
+                                    rel={btn.href ? 'noopener noreferrer' : undefined}
+                                    onClick={(e) => {
+                                      if (!btn.href) e.preventDefault();
+                                    }}
+                                    className={`block ${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md ${btn.href ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
                                     style={getButtonPreviewStyles(
-                                      artKeyData.theme.button_color, 
-                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle, 
+                                      artKeyData.theme.button_color,
+                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle,
                                       (artKeyData.theme.button_shape as ButtonShape) || buttonShape
                                     )}
+                                    title={btn.href ? 'Open portal page in new tab' : 'Save portal first to enable live links'}
                                   >
                                     {displayText}
-                                  </button>
+                                  </a>
                                 );
                               })}
                             </div>
@@ -1813,6 +1848,27 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
                 <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
                   <h4 className="text-sm font-semibold mb-3">Header Icon</h4>
+                  <div className="mb-3">
+                    <button
+                      onClick={() => {
+                        setHeaderIcon('none');
+                        setArtKeyData((prev) => ({
+                          ...prev,
+                          theme: { ...prev.theme, header_icon: 'none' },
+                        }));
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                        headerIcon === 'none' ? 'shadow-md' : ''
+                      }`}
+                      style={{
+                        background: headerIcon === 'none' ? COLOR_ACCENT : COLOR_PRIMARY,
+                        color: headerIcon === 'none' ? COLOR_PRIMARY : COLOR_ACCENT,
+                        borderColor: '#d8d8d6',
+                      }}
+                    >
+                      No Icon
+                    </button>
+                  </div>
                   <div className="flex gap-2 mb-3">
                     {[
                       { id: 'weddings' as const, label: 'Weddings' },
@@ -1837,6 +1893,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     {Object.entries(ELEGANT_ICONS)
                       .filter(([key]) => key !== 'none')
                       .filter(([, iconData]) => getIconEventGroup(iconData.category) === iconCategoryTab)
+                      .filter(([key]) => iconCategoryTab !== 'weddings' || !hiddenWeddingIconKeys.has(key))
                       .map(([key, iconData]) => (
                       <button
                         key={key}
@@ -1867,30 +1924,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                         </span>
                       </button>
                     ))}
-                    <button
-                      onClick={() => {
-                        setHeaderIcon('none');
-                        setArtKeyData((prev) => ({
-                          ...prev,
-                          theme: { ...prev.theme, header_icon: 'none' },
-                        }));
-                      }}
-                      className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center justify-center ${
-                        headerIcon === 'none' ? 'shadow-md' : ''
-                      }`}
-                      style={{
-                        borderColor: headerIcon === 'none' ? COLOR_ACCENT : '#e2e2e0',
-                        background: headerIcon === 'none' ? COLOR_ALT : COLOR_PRIMARY,
-                      }}
-                      title="None"
-                    >
-                      <span className="text-base leading-none" style={{ color: headerIcon === 'none' ? COLOR_ACCENT : '#999' }}>
-                        —
-                      </span>
-                      <span className="text-xs mt-1" style={{ color: COLOR_ACCENT }}>
-                        None
-                      </span>
-                    </button>
                   </div>
                 </div>
 
