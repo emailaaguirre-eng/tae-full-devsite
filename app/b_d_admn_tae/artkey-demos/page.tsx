@@ -151,6 +151,31 @@ export default function AdminArtKeyDemosPage() {
     }
   };
 
+  const openUrlsAndQr = async (demo: ArtKeyDemo) => {
+    setError("");
+    try {
+      const QRCode = await import("qrcode");
+      const qrCodeDataUrl = await QRCode.toDataURL(demo.portalUrl, {
+        width: 300,
+        margin: 2,
+        color: { dark: "#000000", light: "#FFFFFF" },
+        errorCorrectionLevel: "M",
+      });
+      setNewResult({
+        id: demo.id,
+        publicToken: demo.publicToken,
+        ownerToken: demo.ownerToken,
+        title: demo.title,
+        portalUrl: demo.portalUrl,
+        editUrl: demo.editUrl,
+        qrCodeDataUrl,
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      setError("Failed to load URL + QR panel");
+    }
+  };
+
   const printPortalQr = async (demo: { title: string; portalUrl: string }) => {
     setError("");
     try {
@@ -393,7 +418,7 @@ export default function AdminArtKeyDemosPage() {
                 </div>
               </div>
               <div>
-                <div className="text-[10px] text-brand-dark/70 uppercase tracking-wider mb-1 font-medium">Host Editor URL</div>
+                <div className="text-[10px] text-brand-dark/70 uppercase tracking-wider mb-1 font-medium">Host: Edit ArtKey Portal URL</div>
                 <div className="flex items-center gap-2">
                   <code className="text-xs bg-white px-3 py-2 border border-green-200 flex-1 break-all">
                     {newResult.editUrl}
@@ -447,13 +472,13 @@ export default function AdminArtKeyDemosPage() {
               href={`/artkey-editor?portal_token=${newResult.publicToken}&owner_token=${newResult.ownerToken}`}
               className="px-4 py-2 text-sm bg-brand-dark text-white hover:bg-brand-dark/90 transition-colors flex items-center gap-2"
             >
-              <Paintbrush className="w-4 h-4" /> Design Portal
+              <Paintbrush className="w-4 h-4" /> ArtKey Demo Page Editor
             </a>
             <a
               href={`/art-key/${newResult.publicToken}/edit?owner=${newResult.ownerToken}`}
               className="px-4 py-2 text-sm border border-brand-dark text-brand-dark hover:bg-brand-lightest transition-colors flex items-center gap-2"
             >
-              <Settings className="w-4 h-4" /> Edit Settings
+              <Settings className="w-4 h-4" /> Host: Edit ArtKey Portal
             </a>
             <button
               onClick={() => printPortalQr({ title: newResult.title, portalUrl: newResult.portalUrl })}
@@ -514,14 +539,14 @@ export default function AdminArtKeyDemosPage() {
                   <a
                     href={`/artkey-editor?portal_token=${d.publicToken}&owner_token=${d.ownerToken}`}
                     className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
-                    title="Design Portal"
+                    title="ArtKey Demo Page Editor"
                   >
                     <Paintbrush className="w-3.5 h-3.5" />
                   </a>
                   <a
                     href={d.editUrl}
                     className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
-                    title="Edit Settings"
+                    title="Host: Edit ArtKey Portal"
                   >
                     <Settings className="w-3.5 h-3.5" />
                   </a>
@@ -546,6 +571,13 @@ export default function AdminArtKeyDemosPage() {
                     title="Print QR + Portal URL"
                   >
                     <Printer className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => openUrlsAndQr(d)}
+                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
+                    title="View URLs + QR"
+                  >
+                    <LinkIcon className="w-3.5 h-3.5" />
                   </button>
                   <a
                     href={d.portalUrl}

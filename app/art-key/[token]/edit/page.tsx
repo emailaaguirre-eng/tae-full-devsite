@@ -43,7 +43,6 @@ export default function PortalEditPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
-  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
   // Guestbook moderation
   const [entries, setEntries] = useState<GuestbookEntry[]>([]);
@@ -67,6 +66,12 @@ export default function PortalEditPage() {
   const [activeTab, setActiveTab] = useState<"settings" | "moderation">(
     "settings"
   );
+  const [previewDevice, setPreviewDevice] = useState<"mobile" | "desktop">(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth >= 1024 ? "desktop" : "mobile";
+    }
+    return "mobile";
+  });
 
   // ── Auth ──────────────────────────────────────────────────────────────
 
@@ -157,7 +162,7 @@ export default function PortalEditPage() {
 
   // ── Save handler ──────────────────────────────────────────────────────
 
-  const handleSave = async (openLivePreview = false) => {
+  const handleSave = async () => {
     if (!authed) return;
     setSaving(true);
     setSaveMsg(null);
@@ -199,15 +204,7 @@ export default function PortalEditPage() {
 
     const data = await res.json();
     setSaving(false);
-    if (data.success) {
-      setSaveMsg("Saved!");
-      setPreviewRefreshKey((k) => k + 1);
-      if (openLivePreview && typeof window !== "undefined") {
-        window.open(`https://${domain}/${token}?preview=${Date.now()}`, "_blank", "noopener,noreferrer");
-      }
-    } else {
-      setSaveMsg(data.error || "Save failed");
-    }
+    setSaveMsg(data.success ? "Saved!" : data.error || "Save failed");
     setTimeout(() => setSaveMsg(null), 3000);
   };
 
@@ -340,6 +337,32 @@ export default function PortalEditPage() {
   const previewTitleColor = previewTheme.title_color || "#ffffff";
   const previewButtonColor = previewTheme.button_color || "#3b82f6";
   const previewBgColor = previewTheme.bg_color || "#1a1a2e";
+  const previewButtonShape = previewTheme.button_shape || "pill";
+  const previewButtonStyle = previewTheme.button_style || "solid";
+  const previewButtonRadius =
+    previewButtonShape === "square" ? "0px" : previewButtonShape === "rounded" ? "8px" : "9999px";
+  const previewButtonStyles: React.CSSProperties =
+    previewButtonStyle === "outline"
+      ? {
+          backgroundColor: "transparent",
+          border: `2px solid ${previewButtonColor}`,
+          color: previewButtonColor,
+          borderRadius: previewButtonRadius,
+        }
+      : previewButtonStyle === "glass"
+      ? {
+          backgroundColor: `${previewButtonColor}33`,
+          border: `1px solid ${previewButtonColor}66`,
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          color: "#ffffff",
+          borderRadius: previewButtonRadius,
+        }
+      : {
+          backgroundColor: previewButtonColor,
+          color: "#ffffff",
+          borderRadius: previewButtonRadius,
+        };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -348,7 +371,7 @@ export default function PortalEditPage() {
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-gray-900">
-              Edit ArtKey Portal
+              Edit ArtKey Portal (Host)
             </h1>
             <p className="text-xs text-gray-500">
               {domain}/{token}
@@ -386,13 +409,6 @@ export default function PortalEditPage() {
               className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
               {saving ? "Saving..." : "Save"}
-            </button>
-            <button
-              onClick={() => handleSave(true)}
-              disabled={saving}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-            >
-              {saving ? "Saving..." : "Save + Preview Live"}
             </button>
           </div>
         </div>
@@ -445,17 +461,32 @@ export default function PortalEditPage() {
         {activeTab === "settings" && (
           <div className="space-y-6">
             <Section title="Live Preview">
-              <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-                <div className="text-xs text-gray-500">
-                  This preview updates instantly as you edit. Use <span className="font-medium text-gray-700">Open Portal</span> to verify the published live page after saving.
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-500">Quick visual preview of your portal layout.</p>
+                <div className="inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("mobile")}
+                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                      previewDevice === "mobile"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Mobile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("desktop")}
+                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                      previewDevice === "desktop"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Desktop
+                  </button>
                 </div>
-                <Link
-                  href={`https://${domain}/${token}`}
-                  target="_blank"
-                  className="justify-self-start md:justify-self-end text-sm text-blue-600 hover:underline"
-                >
-                  Open Portal in New Tab
-                </Link>
               </div>
               <div className="mt-2">
                 <Link
@@ -466,56 +497,83 @@ export default function PortalEditPage() {
                 </Link>
               </div>
               <div className="mt-3 flex justify-center">
-                <div className="w-full max-w-sm rounded-[28px] p-2 bg-gradient-to-br from-gray-800 to-gray-900 shadow-xl">
-                  <div
-                    className="rounded-[22px] min-h-[560px] px-5 py-8 text-center"
-                    style={{
-                      backgroundColor: previewBgColor,
-                      backgroundImage: previewTheme.bg_image_url
-                        ? `url(${previewTheme.bg_image_url})`
-                        : undefined,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }}
-                  >
-                    <h2
-                      className="text-2xl font-bold mb-4 break-words"
-                      style={{ color: previewTitleColor }}
+                {previewDevice === "mobile" ? (
+                  <div className="w-full max-w-sm rounded-[28px] p-2 bg-gradient-to-br from-gray-800 to-gray-900 shadow-xl">
+                    <div
+                      className="rounded-[22px] min-h-[520px] px-5 py-8 text-center"
+                      style={{
+                        backgroundColor: previewBgColor,
+                        backgroundImage: previewTheme.bg_image_url
+                          ? `url(${previewTheme.bg_image_url})`
+                          : undefined,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }}
                     >
-                      {title || "Your Portal Title"}
-                    </h2>
-                    <div className="space-y-2">
-                      {previewButtons.length === 0 ? (
-                        <p className="text-xs opacity-80" style={{ color: previewTextColor }}>
-                          No sections enabled yet.
-                        </p>
-                      ) : (
-                        previewButtons.map((label, idx) => (
-                          <div
-                            key={`${label}-${idx}`}
-                            className="w-full py-3 px-4 rounded-full text-sm font-semibold shadow-md"
-                            style={{ backgroundColor: previewButtonColor, color: "#fff" }}
-                          >
-                            {label}
-                          </div>
-                        ))
-                      )}
+                      <h2
+                        className="text-2xl font-bold mb-4 break-words"
+                        style={{ color: previewTitleColor }}
+                      >
+                        {title || "Your Portal Title"}
+                      </h2>
+                      <div className="space-y-2">
+                        {previewButtons.length === 0 ? (
+                          <p className="text-xs opacity-80" style={{ color: previewTextColor }}>
+                            No sections enabled yet.
+                          </p>
+                        ) : (
+                          previewButtons.map((label, idx) => (
+                            <div
+                              key={`${label}-${idx}`}
+                              className="w-full py-3 px-4 text-sm font-semibold shadow-md"
+                              style={previewButtonStyles}
+                            >
+                              {label}
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-              <div className="mt-4">
-                <p className="text-xs text-gray-500 mb-2">
-                  Live portal snapshot (updates after Save):
-                </p>
-                <div className="rounded-xl border overflow-hidden bg-white">
-                  <iframe
-                    key={previewRefreshKey}
-                    src={`https://${domain}/${token}?preview=${previewRefreshKey}`}
-                    className="w-full h-[520px]"
-                    title="Live Portal Snapshot"
-                  />
-                </div>
+                ) : (
+                  <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div
+                      className="rounded-xl min-h-[320px] px-10 py-8 text-center"
+                      style={{
+                        backgroundColor: previewBgColor,
+                        backgroundImage: previewTheme.bg_image_url
+                          ? `url(${previewTheme.bg_image_url})`
+                          : undefined,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }}
+                    >
+                      <h2
+                        className="text-3xl font-bold mb-5 break-words"
+                        style={{ color: previewTitleColor }}
+                      >
+                        {title || "Your Portal Title"}
+                      </h2>
+                      <div className="grid sm:grid-cols-2 gap-2 max-w-xl mx-auto">
+                        {previewButtons.length === 0 ? (
+                          <p className="text-xs opacity-80 col-span-full" style={{ color: previewTextColor }}>
+                            No sections enabled yet.
+                          </p>
+                        ) : (
+                          previewButtons.map((label, idx) => (
+                            <div
+                              key={`${label}-${idx}`}
+                              className="w-full py-3 px-4 text-sm font-semibold shadow-md"
+                              style={previewButtonStyles}
+                            >
+                              {label}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </Section>
             {uploadErr && (
