@@ -48,19 +48,19 @@ Current hardening:
 
 Remaining hardening:
 
-- Move nonce state from in-memory store to durable shared store.
+- Move nonce state to a fully shared cross-instance store (Redis) for multi-instance deployments.
 - Add scheduled purge job for expired nonce records.
 
 ## Known Limitations (Current Phase)
 
-- Nonce tracking is currently in-memory per runtime instance (not distributed).
-- Rate-limiting is not yet centralized for all sensitive routes.
+- Nonce tracking now supports DB-backed persistence (`PORTAL_PREVIEW_NONCE_STORE=db`, default) and optional file-backed persistence (`PORTAL_PREVIEW_NONCE_STORE=file`), but cross-instance distribution still requires a shared external store (e.g. Redis).
+- Rate-limiting is in-process (per runtime instance), not yet centralized.
 - Watermark policy is fixed for proofs (`PROOF`), not yet per-brand/per-artist toggle.
 
 ## Next TODOs
 
-1. Add durable token/nonce store (Redis/DB) for cross-instance enforcement.
-2. Add explicit per-route rate limits on preview/proof endpoints.
+1. Move nonce replay control to Redis for cross-instance enforcement.
+2. Centralize rate limits (Redis/edge) for multi-instance enforcement.
 3. Add configurable watermark policies:
    - Proof watermark required pre-payment.
    - Optional branded/creator watermark for guest previews.

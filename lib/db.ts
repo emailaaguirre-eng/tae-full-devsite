@@ -4,7 +4,7 @@
  */
 
 // Re-export the Drizzle database connection and schema
-export { db, getDb, saveDatabase } from '@/db';
+export { db, getDb, saveDatabase, executeSql, querySql } from '@/db';
 export * from '@/db/schema';
 
 // Re-export drizzle-orm operators for convenience

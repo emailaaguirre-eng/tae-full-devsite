@@ -7,6 +7,7 @@ import {
   consumePortalPreviewNonce,
   verifySignedPortalPreviewParams,
 } from "@/lib/portal-preview-signing";
+import { enforceRequestRateLimit } from "@/lib/request-rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -70,6 +71,13 @@ export async function GET(
   { params }: { params: { token: string } }
 ) {
   try {
+    const rate = enforceRequestRateLimit(req, {
+      keyPrefix: "portal-preview",
+      windowMs: 60_000,
+      maxRequests: 90,
+    });
+    if (!rate.ok) return rate.response;
+
     if (!enforceHotlinkPolicy(req)) {
       return NextResponse.json({ success: false, error: HOTLINK_DENY }, { status: 403 });
     }
@@ -97,7 +105,7 @@ export async function GET(
     if (!sig.ok) {
       return NextResponse.json({ success: false, error: sig.reason }, { status: 403 });
     }
-    if (!consumePortalPreviewNonce({ token, nonce: sig.nonce, expiresAt: sig.expiresAt })) {
+    if (!(await consumePortalPreviewNonce({ token, nonce: sig.nonce, expiresAt: sig.expiresAt }))) {
       return NextResponse.json({ success: false, error: "Signed URL replay limit reached" }, { status: 403 });
     }
 

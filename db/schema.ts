@@ -206,6 +206,17 @@ export const artKeys = sqliteTable('ArtKey', {
 });
 
 // =============================================================================
+// Portal Preview Nonces - replay protection tracking
+// =============================================================================
+export const portalPreviewNonces = sqliteTable('PortalPreviewNonce', {
+  token: text('token').notNull(),
+  nonce: text('nonce').notNull(),
+  expiresAt: integer('expiresAt').notNull(),
+  uses: integer('uses').default(0).notNull(),
+  updatedAt: integer('updatedAt').notNull(),
+});
+
+// =============================================================================
 // Guestbook Entries
 // =============================================================================
 export const guestbookEntries = sqliteTable('GuestbookEntry', {

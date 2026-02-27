@@ -4,6 +4,7 @@ import { promises as fs } from "fs";
 import sharp from "sharp";
 import { getDb, eq, shopProducts } from "@/lib/db";
 import { parseWatermarkSettings } from "@/lib/product-watermark";
+import { enforceRequestRateLimit } from "@/lib/request-rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -69,6 +70,13 @@ function svgWatermark(
 
 export async function GET(req: Request) {
   try {
+    const rate = enforceRequestRateLimit(req, {
+      keyPrefix: "product-preview",
+      windowMs: 60_000,
+      maxRequests: 90,
+    });
+    if (!rate.ok) return rate.response;
+
     const { searchParams } = new URL(req.url);
     const productId = searchParams.get("productId");
     const kind = searchParams.get("kind") || "hero";

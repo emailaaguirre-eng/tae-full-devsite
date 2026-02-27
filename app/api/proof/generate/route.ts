@@ -43,6 +43,7 @@ import {
 } from "@/lib/db";
 import { getArtKeyTemplateById } from "@/lib/artkeyTemplates";
 import { saveDatabase } from "@/db";
+import { enforceRequestRateLimit } from "@/lib/request-rate-limit";
 
 const ARTKEY_DOMAIN =
   process.env.ARTKEY_DOMAIN || "artkey.theartfulexperience.com";
@@ -82,6 +83,13 @@ async function applyProofWatermark(dataUrl: string): Promise<string> {
 
 export async function POST(req: Request) {
   try {
+    const rate = enforceRequestRateLimit(req, {
+      keyPrefix: "proof-generate",
+      windowMs: 5 * 60_000,
+      maxRequests: 20,
+    });
+    if (!rate.ok) return rate.response;
+
     const body = await req.json();
     const { items, customerEmail } = body;
 

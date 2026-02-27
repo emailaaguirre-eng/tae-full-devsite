@@ -74,6 +74,28 @@ export async function saveDatabase() {
   }
 }
 
+export async function executeSql(query: string, params?: (string | number | null)[]) {
+  const sqlite = await initDatabase();
+  sqlite.run(query, params || []);
+}
+
+export async function querySql<T = Record<string, unknown>>(
+  query: string,
+  params?: (string | number | null)[]
+): Promise<T[]> {
+  const sqlite = await initDatabase();
+  const result = sqlite.exec(query, params || []);
+  if (!result[0]) return [];
+  const first = result[0];
+  return first.values.map((row) => {
+    const out: Record<string, unknown> = {};
+    for (let i = 0; i < first.columns.length; i++) {
+      out[first.columns[i]] = row[i];
+    }
+    return out as T;
+  });
+}
+
 // Synchronous db export for compatibility (will throw if not initialized)
 // Use getDb() for async initialization
 export const db = new Proxy({} as ReturnType<typeof drizzle>, {
