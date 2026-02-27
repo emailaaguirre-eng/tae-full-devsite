@@ -47,6 +47,39 @@ import { saveDatabase } from "@/db";
 const ARTKEY_DOMAIN =
   process.env.ARTKEY_DOMAIN || "artkey.theartfulexperience.com";
 
+function dataUrlToBuffer(dataUrl: string): Buffer {
+  const comma = dataUrl.indexOf(",");
+  if (comma < 0) throw new Error("Invalid data URL");
+  return Buffer.from(dataUrl.slice(comma + 1), "base64");
+}
+
+function bufferToDataUrl(buffer: Buffer, mime: string): string {
+  return `data:${mime};base64,${buffer.toString("base64")}`;
+}
+
+async function applyProofWatermark(dataUrl: string): Promise<string> {
+  const source = dataUrlToBuffer(dataUrl);
+  const base = sharp(source);
+  const meta = await base.metadata();
+  const width = meta.width || 1200;
+  const height = meta.height || 1200;
+  const fontSize = Math.max(28, Math.round(Math.min(width, height) * 0.08));
+  const svg = Buffer.from(
+    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <g transform="translate(${Math.round(width / 2)},${Math.round(height / 2)}) rotate(-22)">
+        <text x="0" y="0" text-anchor="middle" dominant-baseline="middle"
+          fill="rgba(255,255,255,0.22)"
+          font-family="Inter, Arial, sans-serif"
+          font-size="${fontSize}"
+          font-weight="700"
+          letter-spacing="2">PROOF</text>
+      </g>
+    </svg>`
+  );
+  const out = await base.composite([{ input: svg }]).png().toBuffer();
+  return bufferToDataUrl(out, "image/png");
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -180,6 +213,13 @@ export async function POST(req: Request) {
         }
       }
 
+      const proofFilesWithWatermark = await Promise.all(
+        proofFiles.map(async (file: { placement: string; dataUrl: string }) => ({
+          ...file,
+          dataUrl: await applyProofWatermark(file.dataUrl),
+        }))
+      );
+
       proofs.push({
         cartItemId,
         portalId,
@@ -187,7 +227,7 @@ export async function POST(req: Request) {
         ownerToken,
         portalUrl,
         editUrl,
-        proofFiles,
+        proofFiles: proofFilesWithWatermark,
       });
     }
 

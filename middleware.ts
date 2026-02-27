@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 
 const COOKIE_NAME = 'tae_admin_session';
 const ARTKEY_SUBDOMAIN = 'artkey';
+const PORTAL_X_ROBOTS = 'noindex, nofollow, noarchive, nosnippet, noimageindex';
 
 function isValidToken(token: string): boolean {
   try {
@@ -16,6 +17,14 @@ function isValidToken(token: string): boolean {
 export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
   const hostname = request.headers.get('host') || '';
+  const isPortalPath = pathname === '/art-key' || pathname.startsWith('/art-key/');
+
+  const withPortalRobots = (response: NextResponse) => {
+    if (isPortalPath || hostname.startsWith(`${ARTKEY_SUBDOMAIN}.`)) {
+      response.headers.set('X-Robots-Tag', PORTAL_X_ROBOTS);
+    }
+    return response;
+  };
 
   // Handle artkey subdomain: artkey.theartfulexperience.com/{token} -> /art-key/{token}
   const isArtKeySubdomain = hostname.startsWith(`${ARTKEY_SUBDOMAIN}.`);
@@ -24,14 +33,14 @@ export function middleware(request: NextRequest) {
     if (pathname === '/' || pathname === '') {
       const url = request.nextUrl.clone();
       url.pathname = '/art-key';
-      return NextResponse.rewrite(url);
+      return withPortalRobots(NextResponse.rewrite(url));
     }
     // artkey.domain.com/{token} -> /art-key/{token}
     // artkey.domain.com/{token}/edit -> /art-key/{token}/edit
     if (!pathname.startsWith('/art-key') && !pathname.startsWith('/api/') && !pathname.startsWith('/_next/') && !pathname.startsWith('/favicon') && !pathname.startsWith('/manifest')) {
       const url = request.nextUrl.clone();
       url.pathname = `/art-key${pathname}`;
-      return NextResponse.rewrite(url);
+      return withPortalRobots(NextResponse.rewrite(url));
     }
   }
 
@@ -61,7 +70,7 @@ export function middleware(request: NextRequest) {
 
     const token = request.cookies.get(COOKIE_NAME)?.value;
     if (!token || !isValidToken(token)) {
-      return NextResponse.redirect(new URL('/b_d_admn_tae/login', request.url));
+      return withPortalRobots(NextResponse.redirect(new URL('/b_d_admn_tae/login', request.url)));
     }
   }
 
@@ -69,11 +78,11 @@ export function middleware(request: NextRequest) {
   if (pathname.startsWith('/api/admin') && !pathname.startsWith('/api/admin/login')) {
     const token = request.cookies.get(COOKIE_NAME)?.value;
     if (!token || !isValidToken(token)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return withPortalRobots(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
     }
   }
 
-  return NextResponse.next();
+  return withPortalRobots(NextResponse.next());
 }
 
 export const config = {

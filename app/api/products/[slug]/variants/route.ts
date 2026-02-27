@@ -7,6 +7,7 @@
  */
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, eq } from "@/lib/db";
+import { buildProductPreviewUrl } from "@/lib/product-watermark";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,7 @@ export async function GET(
         paperType: p.paperType,
         finishType: p.finishType,
         orientation: p.orientation,
-        heroImage: p.heroImage,
+        heroImage: p.heroImage ? buildProductPreviewUrl(p.id, "hero") : null,
         basePrice: (p.printfulBasePrice || 0) + (p.taeAddOnFee || 0),
         printfulVariantId: p.printfulVariantId,
         printWidth: p.printWidth,

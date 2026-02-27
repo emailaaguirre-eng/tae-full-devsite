@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TAE Proof of Concept Status Report</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --card: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --line: #374151;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1, h2, h3 { margin: 0 0 10px; }
+    h1 { font-size: 28px; }
+    h2 { font-size: 20px; margin-top: 24px; }
+    h3 { font-size: 16px; margin-top: 16px; }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 6px;
+    }
+    .ok { background: rgba(34,197,94,.2); color: var(--ok); border: 1px solid rgba(34,197,94,.5); }
+    .warn { background: rgba(245,158,11,.2); color: var(--warn); border: 1px solid rgba(245,158,11,.5); }
+    .bad { background: rgba(239,68,68,.2); color: var(--bad); border: 1px solid rgba(239,68,68,.5); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th { background: #111827; }
+    code {
+      background: #0b1220;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 1px 6px;
+      color: #d1d5db;
+    }
+    .small { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>The Artful Experience - Proof of Concept Status Report</h1>
+    <p class="muted">Generated: 2026-02-26 | Branch: <code>dev.theartfulexperience</code> | Audience: Product/Engineering/Operations</p>
+
+    <div class="panel">
+      <h2>Executive Summary</h2>
+      <p>
+        The core proof-of-concept flow is mostly functional: product browsing, customization studio, ArtKey portal generation,
+        checkout proof generation, order creation, and portal rendering are in place.
+      </p>
+      <p>
+        Main remaining work is operational hardening and consistency: finalize permissions behavior, tighten auth/session security,
+        validate production-like host login flow, and complete regression testing across admin/customer paths.
+      </p>
+      <p>
+        <strong>POC readiness:</strong> <span class="badge warn">~80%</span>
+      </p>
+    </div>
+
+    <div class="panel">
+      <h2>Current Functional Status</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>Status</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Storefront + Product Listing</td>
+            <td><span class="badge ok">Working</span></td>
+            <td>Products render from DB APIs. Image backfill route exists and admin trigger exists.</td>
+          </tr>
+          <tr>
+            <td>Customization Studio</td>
+            <td><span class="badge ok">Working</span></td>
+            <td>Loads via slug/variant, supports surface map + export pipeline, routes into ArtKey flow.</td>
+          </tr>
+          <tr>
+            <td>ArtKey Demo Builder (Admin)</td>
+            <td><span class="badge warn">Mostly Working</span></td>
+            <td>Create/list/edit/delete present. QR download after creation exists; row-level QR download was added and needs deployment verification.</td>
+          </tr>
+          <tr>
+            <td>ArtKey Guest URL Rendering</td>
+            <td><span class="badge ok">Working</span></td>
+            <td><code>artkey.theartfulexperience.com/&lt;token&gt;</code> returns 200 after subdomain rewrite/proxy fix.</td>
+          </tr>
+          <tr>
+            <td>Checkout -> Portal Creation</td>
+            <td><span class="badge ok">Working</span></td>
+            <td><code>/api/proof/generate</code> creates portal + tokens before payment; order stores linkage.</td>
+          </tr>
+          <tr>
+            <td>Order Confirmation Portal Links</td>
+            <td><span class="badge ok">Working</span></td>
+            <td>Order page and email include portal and edit links.</td>
+          </tr>
+          <tr>
+            <td>Admin Login Control</td>
+            <td><span class="badge warn">Improved</span></td>
+            <td>Now restricted to <code>ADMIN1_USERNAME/ADMIN1_PASSWORD</code> only; ensure env files are normalized server-side.</td>
+          </tr>
+          <tr>
+            <td>Auth/Session Security</td>
+            <td><span class="badge bad">Needs Hardening</span></td>
+            <td>Admin token/session model still not cryptographically signed with server secret.</td>
+          </tr>
+          <tr>
+            <td>Guest Media Upload UX</td>
+            <td><span class="badge warn">Partial</span></td>
+            <td>Upload endpoint and data fields exist, but guest-facing upload flow and moderation UX need final pass.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Deployed vs Pending Changes</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Recently Deployed</h3>
+          <ul>
+            <li>ArtKey subdomain routing fixed to stop redirecting to legacy app/artkey path.</li>
+            <li>ArtKey demo delete flow and edit-page navigation updates.</li>
+            <li>Admin auth fallback credentials removed; env-only credential path enabled.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Pending Local Changes (Need Commit/Deploy)</h3>
+          <ul>
+            <li>Permissions parity update in portal update/moderation routes (header token OR validated session).</li>
+            <li>Row-level QR download action in admin ArtKey demo list.</li>
+            <li>Studio test shortcut action in Admin Products page.</li>
+            <li>Dashboard label cleanup to "ArtKey Demo Builder".</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>What Must Be Done for POC Sign-Off</h2>
+      <ol>
+        <li>
+          <strong>Deploy pending local updates</strong> and verify admin UI reflects QR download + studio test actions.
+        </li>
+        <li>
+          <strong>Normalize env credentials</strong>:
+          keep admin creds only in <code>.env.production</code> as <code>ADMIN1_USERNAME</code> + <code>ADMIN1_PASSWORD</code>;
+          remove duplicate <code>ADMIN*</code> keys from <code>.env</code> / <code>.env.local</code>.
+        </li>
+        <li>
+          <strong>Security hardening (next pass)</strong>:
+          sign admin session tokens with a secret and rotate existing sessions.
+        </li>
+        <li>
+          <strong>Finalize guest media behavior</strong>:
+          clarify who can upload (host only vs guest allowed), enforce feature flags, and verify moderation path.
+        </li>
+        <li>
+          <strong>Regression test the full buy flow</strong> on desktop/mobile:
+          studio -> proof -> checkout -> order confirmation -> portal open/edit.
+        </li>
+      </ol>
+    </div>
+
+    <div class="panel">
+      <h2>POC Test Checklist</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Test</th>
+            <th>Expected Result</th>
+            <th>Pass/Fail</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Create ArtKey Demo in admin</td>
+            <td>Portal appears in list with copy/open/edit/delete actions</td>
+            <td>___</td>
+          </tr>
+          <tr>
+            <td>Download QR from demo row</td>
+            <td>PNG downloads and scans to correct <code>artkey...</code> URL</td>
+            <td>___</td>
+          </tr>
+          <tr>
+            <td>Open guest portal URL</td>
+            <td><code>https://artkey.theartfulexperience.com/&lt;token&gt;</code> returns 200 and renders portal</td>
+            <td>___</td>
+          </tr>
+          <tr>
+            <td>Open host edit URL</td>
+            <td>Edit page loads, save works, updates reflect on guest portal</td>
+            <td>___</td>
+          </tr>
+          <tr>
+            <td>Create checkout order with QR item</td>
+            <td>Proof generated, order completes, order page shows portal + edit links</td>
+            <td>___</td>
+          </tr>
+          <tr>
+            <td>Admin login invalid creds</td>
+            <td>Rejected</td>
+            <td>___</td>
+          </tr>
+          <tr>
+            <td>Admin login valid <code>ADMIN1_*</code> creds</td>
+            <td>Accepted</td>
+            <td>___</td>
+          </tr>
+          <tr>
+            <td>Products image backfill</td>
+            <td>Hero images populate in API and shop listings</td>
+            <td>___</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Risks and Mitigations</h2>
+      <ul>
+        <li><strong>Risk:</strong> Server-level routing changes (subdomain proxy rules) are operational and can drift. <strong>Mitigation:</strong> document and version infra steps in deployment runbook.</li>
+        <li><strong>Risk:</strong> Session/auth token model still needs stronger signing. <strong>Mitigation:</strong> implement signed tokens + secret rotation before broader rollout.</li>
+        <li><strong>Risk:</strong> Cache/stale build mismatches can create false outages. <strong>Mitigation:</strong> enforce clean build + process restart procedure in deploy checklist.</li>
+      </ul>
+    </div>
+
+    <p class="small">
+      Report scope: functional POC readiness for dev environment. This is not a full production security audit.
+    </p>
+  </div>
+</body>
+</html>

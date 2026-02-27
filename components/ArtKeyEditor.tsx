@@ -29,6 +29,7 @@ import {
   ELEGANT_ICONS, 
   type ElegantIconKey 
 } from './artkey/ElegantIcons';
+import { AdvancedColorPickerPopover } from './artkey/AdvancedColorPickerPopover';
 import { CustomIcon } from './CustomIcons';
 
 function isElegantIconKey(value: string): value is ElegantIconKey {
@@ -146,6 +147,9 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [editLinkUrl, setEditLinkUrl] = useState('');
   const [showColorPicker, setShowColorPicker] = useState<{ type: 'button' | 'title' | 'background' | null }>({ type: null });
   const [customColor, setCustomColor] = useState<string>('#000000');
+  const [customAlpha, setCustomAlpha] = useState<number>(1);
+  const [recentColors, setRecentColors] = useState<string[]>([]);
+  const [enableHaptics, setEnableHaptics] = useState(true);
   const [openedGallery, setOpenedGallery] = useState<'images' | 'videos' | null>(null); // Track which gallery is opened
   
   // QR Code & Skeleton Key state (only for cards/invitations/postcards)
@@ -157,6 +161,35 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [savedPortalToken, setSavedPortalToken] = useState<string | null>(null);
   const [saveModal, setSaveModal] = useState<{ show: boolean; url: string; message: string } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem('artkey_recent_colors');
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) {
+        setRecentColors(parsed.filter((c) => typeof c === 'string').slice(0, 10));
+      }
+    } catch {
+      // ignore malformed localStorage data
+    }
+  }, []);
+
+  const rememberRecentColor = (colorValue: string) => {
+    const normalized = String(colorValue || '').trim();
+    if (!normalized) return;
+    setRecentColors((prev) => {
+      const next = [normalized, ...prev.filter((c) => c.toLowerCase() !== normalized.toLowerCase())].slice(0, 10);
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem('artkey_recent_colors', JSON.stringify(next));
+        } catch {
+          // ignore storage errors
+        }
+      }
+      return next;
+    });
+  };
 
   // ArtKey data
   const [artKeyData, setArtKeyData] = useState<ArtKeyData>({
@@ -514,7 +547,11 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     setHeaderIcon(tpl.headerIcon || 'none');
   };
 
-  const handleColorSelect = (color: typeof buttonColors[0], type: 'button' | 'title' | 'background') => {
+  const handleColorSelect = (
+    color: typeof buttonColors[0],
+    type: 'button' | 'title' | 'background',
+    rememberSelection = true
+  ) => {
     const isGradient = color.type === 'gradient' || (typeof color.bg === 'string' && color.bg.startsWith('linear-gradient'));
     if (type === 'button') {
       setArtKeyData((prev) => ({
@@ -532,9 +569,18 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         theme: { ...prev.theme, bg_color: color.bg || color.color, bg_image_url: '' },
       }));
     }
+    if (rememberSelection && !isGradient) {
+      rememberRecentColor(color.color || color.bg);
+    }
   };
 
   const getColorsForPage = (page: number, arr: typeof buttonColors) => arr.slice(page * 12, page * 12 + 12);
+
+  const applyCustomColor = (type: 'button' | 'title' | 'background', value: string) => {
+    const normalized = value.trim();
+    if (!normalized) return;
+    handleColorSelect({ bg: normalized, color: normalized, label: 'Custom', type: 'solid' }, type, false);
+  };
 
   const resolveUploadAuth = () => {
     const publicToken = (portalToken || savedPortalToken || artkeyId || '').trim();
@@ -966,10 +1012,29 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       if (f.key === 'gallery' && artKeyData.features.enable_gallery) {
         items.push({ label: f.label || 'Gallery', href: previewPortalToken ? `/art-key/${previewPortalToken}/gallery` : undefined });
       } else if (f.key === 'video' && artKeyData.features.enable_video) {
-        items.push({
-          label: artKeyData.featured_video?.button_label || f.label || 'Featured Video',
-          href: previewPortalToken ? `/art-key/${previewPortalToken}/video` : undefined,
+        const featuredVideoUrl = artKeyData.featured_video?.video_url || null;
+        let usedPrimaryVideoLabel = false;
+        if (featuredVideoUrl) {
+          items.push({
+            label: artKeyData.featured_video?.button_label || f.label || 'Featured Video',
+            href: previewPortalToken ? `/art-key/${previewPortalToken}/video?v=featured` : undefined,
+          });
+          usedPrimaryVideoLabel = true;
+        }
+        artKeyData.uploadedVideos.forEach((url, idx) => {
+          if (!url || url === featuredVideoUrl) return;
+          items.push({
+            label: usedPrimaryVideoLabel ? `Video ${idx + 1}` : f.label || 'Featured Video',
+            href: previewPortalToken ? `/art-key/${previewPortalToken}/video?v=${idx}` : undefined,
+          });
+          usedPrimaryVideoLabel = true;
         });
+        if (!featuredVideoUrl && artKeyData.uploadedVideos.length === 0) {
+          items.push({
+            label: f.label || 'Featured Video',
+            href: previewPortalToken ? `/art-key/${previewPortalToken}/video` : undefined,
+          });
+        }
       } else if (f.key === 'guestbook' && artKeyData.features.show_guestbook) {
         items.push({ label: f.label || 'Guestbook', href: previewPortalToken ? `/art-key/${previewPortalToken}/guestbook` : undefined });
       } else if (f.key === 'spotify' && artKeyData.features.enable_spotify) {
@@ -1079,7 +1144,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           WebkitBackdropFilter: 'blur(10px)',
           color: buttonColor,
           borderRadius,
-          border: `1px solid ${buttonColor}30`,
+          border: `1px solid ${buttonColor}55`,
+          boxShadow: `inset 0 0 0 1px ${buttonColor}22`,
         };
       default:
         return {
@@ -1187,6 +1253,36 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
   return (
     <div style={{ background: '#f5f5f7' }} className="min-h-screen">
+      <style>{`
+        .artkey-ripple {
+          position: absolute;
+          width: 12px;
+          height: 12px;
+          margin-left: -6px;
+          margin-top: -6px;
+          border-radius: 9999px;
+          pointer-events: none;
+          z-index: 0;
+          background: radial-gradient(circle, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 38%, rgba(255,255,255,0) 70%);
+          animation: artkey-ripple 600ms ease-out forwards;
+        }
+        @keyframes artkey-ripple {
+          0% {
+            opacity: 0.8;
+            transform: scale(1);
+          }
+          100% {
+            opacity: 0;
+            transform: scale(16);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .artkey-ripple {
+            animation: none !important;
+            opacity: 0 !important;
+          }
+        }
+      `}</style>
       {/* Top Bar */}
       <div className="sticky top-0 z-50 shadow-lg border-b border-white/10" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
@@ -1251,21 +1347,37 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-24 border border-[#e2e2e0]">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold font-playfair" style={{ color: COLOR_ACCENT }}>Live Preview</h3>
-                <div className="flex gap-2 p-1 rounded-lg" style={{ background: COLOR_ALT }}>
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setPreviewDevice('mobile')}
-                    className={`px-3 py-1 rounded text-sm font-medium transition-all ${previewDevice === 'mobile' ? 'shadow' : ''}`}
-                    style={previewDevice === 'mobile' ? { background: COLOR_PRIMARY, color: COLOR_ACCENT } : { color: '#666' }}
+                    type="button"
+                    onClick={() => setEnableHaptics((v) => !v)}
+                    aria-pressed={enableHaptics}
+                    className={`px-2.5 py-1 rounded text-xs font-medium border transition-all ${enableHaptics ? 'shadow-sm' : ''}`}
+                    style={{
+                      background: enableHaptics ? COLOR_PRIMARY : 'transparent',
+                      color: enableHaptics ? COLOR_ACCENT : '#666',
+                      borderColor: '#d8d8d6',
+                    }}
+                    title="Toggle mobile haptic feedback for button taps"
                   >
-                    📱 Mobile
+                    Haptics {enableHaptics ? 'On' : 'Off'}
                   </button>
-                  <button
-                    onClick={() => setPreviewDevice('desktop')}
-                    className={`px-3 py-1 rounded text-sm font-medium transition-all ${previewDevice === 'desktop' ? 'shadow' : ''}`}
-                    style={previewDevice === 'desktop' ? { background: COLOR_PRIMARY, color: COLOR_ACCENT } : { color: '#666' }}
-                  >
-                    🖥️ Desktop
-                  </button>
+                  <div className="flex gap-2 p-1 rounded-lg" style={{ background: COLOR_ALT }}>
+                    <button
+                      onClick={() => setPreviewDevice('mobile')}
+                      className={`px-3 py-1 rounded text-sm font-medium transition-all ${previewDevice === 'mobile' ? 'shadow' : ''}`}
+                      style={previewDevice === 'mobile' ? { background: COLOR_PRIMARY, color: COLOR_ACCENT } : { color: '#666' }}
+                    >
+                      📱 Mobile
+                    </button>
+                    <button
+                      onClick={() => setPreviewDevice('desktop')}
+                      className={`px-3 py-1 rounded text-sm font-medium transition-all ${previewDevice === 'desktop' ? 'shadow' : ''}`}
+                      style={previewDevice === 'desktop' ? { background: COLOR_PRIMARY, color: COLOR_ACCENT } : { color: '#666' }}
+                    >
+                      🖥️ Desktop
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1309,25 +1421,24 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                 const displayText = (btn.label || `Link ${idx + 1}`).length > maxChars 
                                   ? (btn.label || `Link ${idx + 1}`).substring(0, maxChars - 3) + '...'
                                   : (btn.label || `Link ${idx + 1}`);
+                                const previewButtonVisualStyle = (artKeyData.theme.button_style as ButtonStyle) || buttonStyle;
                                 return (
-                                  <a
+                                  <TactilePreviewButton
                                     key={idx}
                                     href={btn.href || '#'}
-                                    target={btn.href ? '_blank' : undefined}
-                                    rel={btn.href ? 'noopener noreferrer' : undefined}
-                                    onClick={(e) => {
-                                      if (!btn.href) e.preventDefault();
-                                    }}
-                                    className={`block w-full py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md ${btn.href ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
+                                    disabled={!btn.href}
+                                    enableHaptics={enableHaptics}
+                                    visualStyle={previewButtonVisualStyle}
+                                    className={`block w-full py-2.5 px-3 ${fontSize} font-semibold shadow-md ${btn.href ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
                                     style={getButtonPreviewStyles(
                                       artKeyData.theme.button_color,
-                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle,
+                                      previewButtonVisualStyle,
                                       (artKeyData.theme.button_shape as ButtonShape) || buttonShape
                                     )}
                                     title={btn.href ? 'Open portal page in new tab' : 'Save portal first to enable live links'}
                                   >
                                     {displayText}
-                                  </a>
+                                  </TactilePreviewButton>
                                 );
                               })}
                             </div>
@@ -1396,25 +1507,24 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                                 const displayText = (btn.label || `Link ${idx + 1}`).length > maxChars 
                                   ? (btn.label || `Link ${idx + 1}`).substring(0, maxChars - 3) + '...'
                                   : (btn.label || `Link ${idx + 1}`);
+                                const previewButtonVisualStyle = (artKeyData.theme.button_style as ButtonStyle) || buttonStyle;
                                 return (
-                                  <a
+                                  <TactilePreviewButton
                                     key={idx}
                                     href={btn.href || '#'}
-                                    target={btn.href ? '_blank' : undefined}
-                                    rel={btn.href ? 'noopener noreferrer' : undefined}
-                                    onClick={(e) => {
-                                      if (!btn.href) e.preventDefault();
-                                    }}
+                                    disabled={!btn.href}
+                                    enableHaptics={enableHaptics}
+                                    visualStyle={previewButtonVisualStyle}
                                     className={`block ${useTwoColumns ? 'w-full' : 'w-full'} py-2.5 px-3 ${fontSize} font-semibold transition-all shadow-md ${btn.href ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
                                     style={getButtonPreviewStyles(
                                       artKeyData.theme.button_color,
-                                      (artKeyData.theme.button_style as ButtonStyle) || buttonStyle,
+                                      previewButtonVisualStyle,
                                       (artKeyData.theme.button_shape as ButtonShape) || buttonShape
                                     )}
                                     title={btn.href ? 'Open portal page in new tab' : 'Save portal first to enable live links'}
                                   >
                                     {displayText}
-                                  </a>
+                                  </TactilePreviewButton>
                                 );
                               })}
                             </div>
@@ -1553,48 +1663,35 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       selected={artKeyData.theme.bg_color}
                       onSelect={(c) => handleColorSelect(c, 'background')}
                       onCustomColor={() => {
-                        const currentColor = artKeyData.theme.bg_color?.startsWith('#') ? artKeyData.theme.bg_color : '#000000';
+                        const currentColor = artKeyData.theme.bg_color || '#000000';
                         setCustomColor(currentColor);
+                        setCustomAlpha(1);
                         setShowColorPicker({ type: 'background' });
                       }}
                     />
                     {showColorPicker.type === 'background' && (
-                      <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
-                          <input
-                            type="color"
-                            value={customColor}
-                            onChange={(e) => {
-                              setCustomColor(e.target.value);
-                              handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'background');
-                            }}
-                            className="h-8 w-16 rounded border"
-                            style={{ borderColor: '#d8d8d6' }}
-                          />
-                          <input
-                            type="text"
-                            value={customColor}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-                                setCustomColor(val);
-                                handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'background');
-                              }
-                            }}
-                            className="flex-1 px-2 py-1 rounded text-xs"
-                            style={{ border: '1px solid #d8d8d6' }}
-                            placeholder="#000000"
-                          />
-                          <button
-                            onClick={() => setShowColorPicker({ type: null })}
-                            className="px-2 py-1 rounded text-xs"
-                            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
-                          >
-                            ✓
-                          </button>
-                        </div>
-                      </div>
+                      <AdvancedColorPickerPopover
+                        title="Background Color"
+                        value={customColor}
+                        alpha={customAlpha}
+                        recentColors={recentColors}
+                        palette={{ primary: COLOR_PRIMARY, alt: COLOR_ALT, accent: COLOR_ACCENT }}
+                        onChange={(val, alpha) => {
+                          setCustomColor(val);
+                          setCustomAlpha(alpha);
+                          applyCustomColor('background', val);
+                        }}
+                        onSelectRecent={(val) => {
+                          setCustomColor(val);
+                          setCustomAlpha(1);
+                          applyCustomColor('background', val);
+                          rememberRecentColor(val);
+                        }}
+                        onClose={() => {
+                          rememberRecentColor(customColor);
+                          setShowColorPicker({ type: null });
+                        }}
+                      />
                     )}
                   </>
                 )}
@@ -1672,48 +1769,35 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       selected={artKeyData.theme.title_color}
                       onSelect={(c) => handleColorSelect(c, 'title')}
                       onCustomColor={() => {
-                        const currentColor = artKeyData.theme.title_color?.startsWith('#') ? artKeyData.theme.title_color : '#000000';
+                        const currentColor = artKeyData.theme.title_color || '#000000';
                         setCustomColor(currentColor);
+                        setCustomAlpha(1);
                         setShowColorPicker({ type: 'title' });
                       }}
                     />
                     {showColorPicker.type === 'title' && (
-                      <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
-                          <input
-                            type="color"
-                            value={customColor}
-                            onChange={(e) => {
-                              setCustomColor(e.target.value);
-                              handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'title');
-                            }}
-                            className="h-8 w-16 rounded border"
-                            style={{ borderColor: '#d8d8d6' }}
-                          />
-                          <input
-                            type="text"
-                            value={customColor}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-                                setCustomColor(val);
-                                handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'title');
-                              }
-                            }}
-                            className="flex-1 px-2 py-1 rounded text-xs"
-                            style={{ border: '1px solid #d8d8d6' }}
-                            placeholder="#000000"
-                          />
-                          <button
-                            onClick={() => setShowColorPicker({ type: null })}
-                            className="px-2 py-1 rounded text-xs"
-                            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
-                          >
-                            ✓
-                          </button>
-                        </div>
-                      </div>
+                      <AdvancedColorPickerPopover
+                        title="Title Color"
+                        value={customColor}
+                        alpha={customAlpha}
+                        recentColors={recentColors}
+                        palette={{ primary: COLOR_PRIMARY, alt: COLOR_ALT, accent: COLOR_ACCENT }}
+                        onChange={(val, alpha) => {
+                          setCustomColor(val);
+                          setCustomAlpha(alpha);
+                          applyCustomColor('title', val);
+                        }}
+                        onSelectRecent={(val) => {
+                          setCustomColor(val);
+                          setCustomAlpha(1);
+                          applyCustomColor('title', val);
+                          rememberRecentColor(val);
+                        }}
+                        onClose={() => {
+                          rememberRecentColor(customColor);
+                          setShowColorPicker({ type: null });
+                        }}
+                      />
                     )}
                   </div>
                 )}
@@ -1745,48 +1829,35 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     selected={artKeyData.theme.button_color}
                     onSelect={(c) => handleColorSelect(c, 'button')}
                     onCustomColor={() => {
-                      const currentColor = artKeyData.theme.button_color?.startsWith('#') ? artKeyData.theme.button_color : '#000000';
+                      const currentColor = artKeyData.theme.button_color || '#000000';
                       setCustomColor(currentColor);
+                      setCustomAlpha(1);
                       setShowColorPicker({ type: 'button' });
                     }}
                   />
                   {showColorPicker.type === 'button' && (
-                    <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
-                        <input
-                          type="color"
-                          value={customColor}
-                          onChange={(e) => {
-                            setCustomColor(e.target.value);
-                            handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'button');
-                          }}
-                          className="h-8 w-16 rounded border"
-                          style={{ borderColor: '#d8d8d6' }}
-                        />
-                        <input
-                          type="text"
-                          value={customColor}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-                              setCustomColor(val);
-                              handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'button');
-                            }
-                          }}
-                          className="flex-1 px-2 py-1 rounded text-xs"
-                          style={{ border: '1px solid #d8d8d6' }}
-                          placeholder="#000000"
-                        />
-                        <button
-                          onClick={() => setShowColorPicker({ type: null })}
-                          className="px-2 py-1 rounded text-xs"
-                          style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
-                        >
-                          ✓
-                        </button>
-                      </div>
-                    </div>
+                    <AdvancedColorPickerPopover
+                      title="Button Color"
+                      value={customColor}
+                      alpha={customAlpha}
+                      recentColors={recentColors}
+                      palette={{ primary: COLOR_PRIMARY, alt: COLOR_ALT, accent: COLOR_ACCENT }}
+                      onChange={(val, alpha) => {
+                        setCustomColor(val);
+                        setCustomAlpha(alpha);
+                        applyCustomColor('button', val);
+                      }}
+                      onSelectRecent={(val) => {
+                        setCustomColor(val);
+                        setCustomAlpha(1);
+                        applyCustomColor('button', val);
+                        rememberRecentColor(val);
+                      }}
+                      onClose={() => {
+                        rememberRecentColor(customColor);
+                        setShowColorPicker({ type: null });
+                      }}
+                    />
                   )}
                 </div>
 
@@ -2739,6 +2810,136 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 }
 
 // Helper Components
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = () => setPrefersReducedMotion(media.matches);
+    onChange();
+    media.addEventListener?.('change', onChange);
+    return () => media.removeEventListener?.('change', onChange);
+  }, []);
+
+  return prefersReducedMotion;
+}
+
+function TactilePreviewButton({
+  href,
+  disabled,
+  enableHaptics,
+  visualStyle,
+  className,
+  style,
+  title,
+  children,
+}: {
+  href: string;
+  disabled?: boolean;
+  enableHaptics?: boolean;
+  visualStyle?: ButtonStyle;
+  className?: string;
+  style?: React.CSSProperties;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const [pressed, setPressed] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number }>>([]);
+
+  const triggerHaptic = () => {
+    if (!enableHaptics || typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+    try {
+      navigator.vibrate(8);
+    } catch {
+      // no-op on unsupported/blocked environments
+    }
+  };
+
+  const triggerRipple = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (prefersReducedMotion || disabled) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const nextRipple = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+    setRipples((prev) => [...prev, nextRipple]);
+    window.setTimeout(() => {
+      setRipples((prev) => prev.filter((r) => r.id !== nextRipple.id));
+    }, 600);
+  };
+
+  const handleClick = () => {
+    if (!href || disabled) return;
+    window.open(href, '_blank', 'noopener,noreferrer');
+  };
+
+  const mergedStyle: React.CSSProperties = {
+    ...style,
+    position: 'relative',
+    overflow: 'hidden',
+    transform: pressed ? 'scale(0.985)' : 'scale(1)',
+    transition: prefersReducedMotion
+      ? 'none'
+      : 'transform 120ms ease, box-shadow 160ms ease, filter 160ms ease, border-color 160ms ease',
+    boxShadow: pressed
+      ? 'inset 0 1px 2px rgba(0,0,0,0.2)'
+      : focused
+      ? `${style?.boxShadow ? `${style.boxShadow}, ` : ''}0 0 0 2px rgba(26, 26, 46, 0.35)`
+      : style?.boxShadow,
+    filter: pressed ? 'brightness(0.96)' : hovered ? 'brightness(1.02)' : 'none',
+    border:
+      visualStyle === 'glass'
+        ? focused
+          ? `1px solid rgba(255,255,255,0.72)`
+          : hovered
+          ? `1px solid rgba(255,255,255,0.58)`
+          : `1px solid rgba(255,255,255,0.48)`
+        : style?.border,
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={!!disabled}
+        className={className}
+        style={mergedStyle}
+        title={title}
+        aria-label={typeof children === 'string' ? children : 'Preview portal button'}
+        onPointerDown={(e) => {
+          setPressed(true);
+          triggerHaptic();
+          triggerRipple(e);
+        }}
+        onPointerUp={() => setPressed(false)}
+        onPointerCancel={() => setPressed(false)}
+        onPointerLeave={() => setPressed(false)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onClick={handleClick}
+      >
+        {!prefersReducedMotion &&
+          ripples.map((r) => (
+            <span
+              key={r.id}
+              className="artkey-ripple"
+              style={{ left: r.x, top: r.y }}
+              aria-hidden="true"
+            />
+          ))}
+        <span className="relative z-[1]">{children}</span>
+      </button>
+    </>
+  );
+}
+
 function Card({ title, step, children, onBack }: { title: string; step?: string; children: React.ReactNode; onBack?: () => void }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-100">

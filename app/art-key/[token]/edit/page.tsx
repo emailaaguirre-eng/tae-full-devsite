@@ -711,6 +711,13 @@ export default function PortalEditPage() {
                     <div className="space-y-2">
                       {uploadedVideos.map((url, i) => (
                         <div key={`${url}-${i}`} className="flex items-center gap-2">
+                          <video
+                            src={url}
+                            className="w-16 h-10 object-cover rounded border border-gray-200 bg-black"
+                            muted
+                            playsInline
+                            preload="metadata"
+                          />
                           <a
                             href={url}
                             target="_blank"

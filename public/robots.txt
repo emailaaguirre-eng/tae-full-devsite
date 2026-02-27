@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /art-key
+Disallow: /art-key/
+Disallow: /api/portal/
+
+# Keep admin and studio private too
+Disallow: /b_d_admn_tae/
+Disallow: /studio
+
+Sitemap: https://theartfulexperience.com/sitemap.xml

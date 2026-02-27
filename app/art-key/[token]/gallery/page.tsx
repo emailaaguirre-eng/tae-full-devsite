@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import {
   ErrorScreen,
-  getGalleryImages,
+  getProtectedGalleryImages,
   LoadingScreen,
   PortalScaffold,
   usePortal,
@@ -17,7 +17,7 @@ export default function ArtKeyGalleryPage() {
   if (loading) return <LoadingScreen />;
   if (error || !portal) return <ErrorScreen error={error || "Portal not found"} />;
 
-  const images = getGalleryImages(portal);
+  const images = getProtectedGalleryImages(portal, token);
   return (
     <PortalScaffold token={token} portal={portal} pageTitle="Gallery">
       {images.length === 0 ? (
@@ -26,7 +26,13 @@ export default function ArtKeyGalleryPage() {
         <div className="grid grid-cols-2 gap-2 rounded-xl overflow-hidden">
           {images.map((src, i) => (
             <div key={`${src}-${i}`} className="aspect-square bg-black/20 overflow-hidden">
-              <img src={src} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
+              <img
+                src={src}
+                alt={`Gallery ${i + 1}`}
+                className="w-full h-full object-cover select-none"
+                draggable={false}
+                onContextMenu={(e) => e.preventDefault()}
+              />
             </div>
           ))}
         </div>

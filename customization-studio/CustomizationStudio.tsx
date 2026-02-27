@@ -46,6 +46,7 @@ import {
   getArtKeyTemplateById,
   type ArtKeyTemplateDefinition,
 } from "@/lib/artkeyTemplates";
+import { AdvancedColorPickerPopover } from "@/components/artkey/AdvancedColorPickerPopover";
 
 // ============================================================================
 // FONT OPTIONS
@@ -85,6 +86,16 @@ const COLOR_PRESETS = [
   "#dbeafe", "#bfdbfe", "#93c5fd", "#3b82f6", "#dcfce7", "#bbf7d0", "#22c55e",
   "#fce7f3", "#fbcfe8", "#f472b6", "#e9d5ff", "#c4b5fd", "#8b5cf6",
 ];
+
+function parseCssAlpha(color: string | undefined): number {
+  if (!color) return 1;
+  const raw = String(color).trim();
+  const rgbaMatch = raw.match(
+    /^rgba?\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})(?:\s*,\s*(0|0?\.\d+|1(?:\.0+)?)\s*)?\)$/i
+  );
+  if (!rgbaMatch) return 1;
+  return Math.max(0, Math.min(1, rgbaMatch[4] !== undefined ? parseFloat(rgbaMatch[4]) : 1));
+}
 
 // ============================================================================
 // DECORATIVE ELEMENTS (SVG assets from /assets/labels/)
@@ -175,10 +186,43 @@ const TARGET_QR_INCHES = 0.5; // enforce minimum 0.5in printed QR for scannabili
 const MIN_TEMPLATE_CANVAS_FRACTION = 0.22;
 const MAX_TEMPLATE_CANVAS_FRACTION = 0.75;
 const DEFAULT_LAYOUT_ID = "freeform";
+const ROTATION_SNAP_STEP = 15;
+const ROTATION_SNAP_TOLERANCE = 4;
+const ROTATION_STRONG_SNAP_TOLERANCE = 8;
 
 function normalizeDegrees(value: number): number {
   const normalized = value % 360;
   return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function snapRotationDegrees(raw: number): number {
+  const normalized = normalizeDegrees(raw);
+  const nearestStep = Math.round(normalized / ROTATION_SNAP_STEP) * ROTATION_SNAP_STEP;
+  const nearestNormalized = normalizeDegrees(nearestStep);
+  const isCardinal = nearestNormalized % 90 === 0;
+  const diff = Math.min(
+    Math.abs(normalized - nearestNormalized),
+    360 - Math.abs(normalized - nearestNormalized)
+  );
+  const tolerance = isCardinal ? ROTATION_STRONG_SNAP_TOLERANCE : ROTATION_SNAP_TOLERANCE;
+  return diff <= tolerance ? nearestNormalized : normalized;
+}
+
+function getRotationSnapInfo(raw: number): {
+  snapped: boolean;
+  strong: boolean;
+  target: number;
+} {
+  const normalized = normalizeDegrees(raw);
+  const nearestStep = Math.round(normalized / ROTATION_SNAP_STEP) * ROTATION_SNAP_STEP;
+  const target = normalizeDegrees(nearestStep);
+  const strong = target % 90 === 0;
+  const diff = Math.min(
+    Math.abs(normalized - target),
+    360 - Math.abs(normalized - target)
+  );
+  const tolerance = strong ? ROTATION_STRONG_SNAP_TOLERANCE : ROTATION_SNAP_TOLERANCE;
+  return { snapped: diff <= tolerance, strong, target };
 }
 
 function getLabelBoxHeight(item: TextItem): number {
@@ -749,6 +793,15 @@ export function CustomizationStudio({
   const [textUnderline, setTextUnderline] = useState(false);
   const [textAlign, setTextAlign] = useState<TextAlign>("left");
   const [textLabelShape, setTextLabelShape] = useState<TextLabelShape>("none");
+  const [insertLabelShape, setInsertLabelShape] = useState<Exclude<TextLabelShape, "none">>("rectangle");
+  const [textLineHeight, setTextLineHeight] = useState(1.2);
+  const [textLetterSpacing, setTextLetterSpacing] = useState(0);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [editingTextValue, setEditingTextValue] = useState("");
+  const [rotationInput, setRotationInput] = useState("0");
+  const [activeColorPicker, setActiveColorPicker] = useState<"text" | "labelFill" | "labelBorder" | "background" | null>(null);
+  const [activeColorAlpha, setActiveColorAlpha] = useState(1);
+  const [recentTextColors, setRecentTextColors] = useState<string[]>([]);
 
   // Undo/redo
   const [history, setHistory] = useState<DesignState[]>([]);
@@ -808,6 +861,7 @@ export function CustomizationStudio({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const inlineTextEditorRef = useRef<HTMLTextAreaElement>(null);
 
   // Resolve label for a placement, using productSpec.placementLabels (from
   // SurfaceMap) first, then the static PLACEMENT_LABELS fallback.
@@ -1026,6 +1080,43 @@ export function CustomizationStudio({
     selectedType === "image" && selectedId
       ? (currentDesign.images || []).find((img) => img.id === selectedId) || null
       : null;
+  const editingTextItem = editingTextId
+    ? (currentDesign.texts || []).find((t) => t.id === editingTextId) || null
+    : null;
+
+  const getColorValueForTarget = useCallback(
+    (target: "text" | "labelFill" | "labelBorder" | "background"): string => {
+      if (target === "text") return textColor || BRAND.dark;
+      if (target === "labelFill") return selectedTextItem?.labelFillColor || BRAND.white;
+      if (target === "background") return currentBackground.color || BRAND.white;
+      return selectedTextItem?.labelBorderColor || BRAND.dark;
+    },
+    [currentBackground.color, selectedTextItem?.labelBorderColor, selectedTextItem?.labelFillColor, textColor]
+  );
+
+  const rememberRecentTextColor = useCallback((value: string) => {
+    if (!value) return;
+    setRecentTextColors((prev) => {
+      const next = [value, ...prev.filter((c) => c !== value)];
+      return next.slice(0, 10);
+    });
+  }, []);
+
+  const closeActiveColorPicker = useCallback(() => {
+    if (activeColorPicker) {
+      rememberRecentTextColor(getColorValueForTarget(activeColorPicker));
+    }
+    setActiveColorPicker(null);
+  }, [activeColorPicker, getColorValueForTarget, rememberRecentTextColor]);
+
+  const openColorPickerFor = useCallback(
+    (target: "text" | "labelFill" | "labelBorder" | "background") => {
+      const current = getColorValueForTarget(target);
+      setActiveColorAlpha(parseCssAlpha(current));
+      setActiveColorPicker(target);
+    },
+    [getColorValueForTarget]
+  );
 
   const selectedRotationDegrees = useMemo(() => {
     if (!selectedId || !selectedType) return 0;
@@ -1034,12 +1125,37 @@ export function CustomizationStudio({
     if (selectedType === "decorative") return normalizeDegrees(selectedDecorativeItem?.rotation ?? 0);
     return 0;
   }, [selectedDecorativeItem, selectedId, selectedImageItem, selectedTextItem, selectedType]);
+  const rotationSnapInfo = useMemo(
+    () => getRotationSnapInfo(selectedRotationDegrees),
+    [selectedRotationDegrees]
+  );
+  const rotationSnaps = useMemo(
+    () => Array.from({ length: 360 / ROTATION_SNAP_STEP }, (_, i) => i * ROTATION_SNAP_STEP),
+    []
+  );
 
   const cropImageItem = cropImageId ? (currentDesign.images || []).find((img) => img.id === cropImageId) : null;
   const cropLoadedImage = cropImageId ? loadedImages.get(cropImageId) : null;
 
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
+
+  useEffect(() => {
+    if (!selectedId || !selectedType) {
+      setRotationInput("0");
+      return;
+    }
+    setRotationInput(String(Math.round(selectedRotationDegrees)));
+  }, [selectedId, selectedRotationDegrees, selectedType]);
+
+  useEffect(() => {
+    if (
+      (activeColorPicker === "text" || activeColorPicker === "labelFill" || activeColorPicker === "labelBorder") &&
+      (selectedType !== "text" || !selectedTextItem)
+    ) {
+      setActiveColorPicker(null);
+    }
+  }, [activeColorPicker, selectedTextItem, selectedType]);
 
   // -------------------------------------------------------------------------
   // LOAD STATIC ASSETS (QR placeholder + template)
@@ -1140,7 +1256,15 @@ export function CustomizationStudio({
     setTextUnderline(selectedTextItem.textDecoration === "underline");
     setTextAlign(selectedTextItem.align || "left");
     setTextLabelShape(selectedTextItem.labelShape || "none");
+    setTextLineHeight(Math.max(0.8, Math.min(3, selectedTextItem.lineHeight ?? 1.2)));
+    setTextLetterSpacing(Math.max(-5, Math.min(40, selectedTextItem.letterSpacing ?? 0)));
   }, [selectedTextItem]);
+
+  useEffect(() => {
+    if (!editingTextId) return;
+    inlineTextEditorRef.current?.focus();
+    inlineTextEditorRef.current?.select();
+  }, [editingTextId]);
 
   // -------------------------------------------------------------------------
   // UNDO / REDO (push history when designs change)
@@ -1405,7 +1529,7 @@ export function CustomizationStudio({
           y: node.y(),
           width: Math.max(20, d.width * scaleX),
           height: Math.max(20, d.height * scaleY),
-          rotation: node.rotation(),
+          rotation: snapRotationDegrees(node.rotation()),
         };
       }),
     }));
@@ -1982,7 +2106,7 @@ export function CustomizationStudio({
         y: node.y(),
         width: Math.max(5, node.width() * scaleX),
         height: Math.max(5, node.height() * scaleY),
-        rotation: node.rotation(),
+        rotation: snapRotationDegrees(node.rotation()),
       };
 
       node.scaleX(1);
@@ -2037,6 +2161,8 @@ export function CustomizationStudio({
         width,
         align: textAlign,
         textDecoration: textUnderline ? "underline" : "",
+        lineHeight: textLineHeight,
+        letterSpacing: textLetterSpacing,
         labelShape: effectiveShape,
         labelBoxHeight,
         labelPadding,
@@ -2044,6 +2170,12 @@ export function CustomizationStudio({
         labelInnerStrokeWidth: effectiveShape === "none" ? 0 : 1.5,
         labelOuterStrokeColor: effectiveShape === "none" ? undefined : BRAND.dark,
         labelInnerStrokeColor: effectiveShape === "none" ? undefined : BRAND.medium,
+        labelFillEnabled: effectiveShape !== "none",
+        labelFillColor: BRAND.white,
+        labelBorderEnabled: effectiveShape !== "none",
+        labelBorderColor: BRAND.dark,
+        labelBorderWidth: effectiveShape === "none" ? 0 : 2,
+        labelCornerRadius: effectiveShape === "rounded" ? Math.max(12, Math.round(textSize * 0.35)) : 0,
       };
 
       setDesigns((prev) => ({
@@ -2069,6 +2201,8 @@ export function CustomizationStudio({
       textFont,
       textItalic,
       textLabelShape,
+      textLetterSpacing,
+      textLineHeight,
       textSize,
       textUnderline,
     ]
@@ -2085,20 +2219,42 @@ export function CustomizationStudio({
     [addText]
   );
 
-  const updateSelectedText = useCallback(
-    (updates: Partial<TextItem>) => {
-      if (!selectedId || selectedType !== "text") return;
-
+  const updateTextById = useCallback(
+    (id: string, updates: Partial<TextItem>) => {
       setDesigns((prev) => ({
         ...prev,
         [activePlacement]: {
           ...prev[activePlacement],
-          texts: (prev[activePlacement]?.texts || []).map((t) => (t.id === selectedId ? { ...t, ...updates } : t)),
+          texts: (prev[activePlacement]?.texts || []).map((t) => (t.id === id ? { ...t, ...updates } : t)),
         },
       }));
     },
-    [activePlacement, selectedId, selectedType]
+    [activePlacement]
   );
+
+  const updateSelectedText = useCallback(
+    (updates: Partial<TextItem>) => {
+      if (!selectedId || selectedType !== "text") return;
+      updateTextById(selectedId, updates);
+    },
+    [selectedId, selectedType, updateTextById]
+  );
+
+  const commitInlineTextEdit = useCallback(() => {
+    if (!editingTextId) return;
+    updateTextById(editingTextId, { text: editingTextValue });
+    if (selectedId === editingTextId && selectedType === "text") {
+      setTextInput(editingTextValue);
+    }
+    setEditingTextId(null);
+  }, [editingTextId, editingTextValue, selectedId, selectedType, updateTextById]);
+
+  const beginInlineTextEdit = useCallback((item: TextItem) => {
+    setSelectedId(item.id);
+    setSelectedType("text");
+    setEditingTextId(item.id);
+    setEditingTextValue(item.text || "");
+  }, []);
 
   // Apply style controls to selected text
   useEffect(() => {
@@ -2114,8 +2270,10 @@ export function CustomizationStudio({
       align: textAlign,
       textDecoration: textUnderline ? "underline" : "",
       labelShape: textLabelShape,
+      lineHeight: textLineHeight,
+      letterSpacing: textLetterSpacing,
     });
-  }, [selectedTextItem, textAlign, textBold, textColor, textFont, textInput, textItalic, textLabelShape, textSize, textUnderline, updateSelectedText]);
+  }, [selectedTextItem, textAlign, textBold, textColor, textFont, textInput, textItalic, textLabelShape, textSize, textUnderline, textLineHeight, textLetterSpacing, updateSelectedText]);
 
   const handleTextDragEnd = useCallback(
     (id: string, node: Konva.Node) => {
@@ -2142,21 +2300,24 @@ export function CustomizationStudio({
           texts: (prev[activePlacement]?.texts || []).map((t) => {
             if (t.id !== id) return t;
 
-            const nextFontSize = Math.max(8, t.fontSize * scaleY);
             const currentWidth = typeof t.width === "number" ? t.width : node.width();
             const nextWidth = Math.max(40, currentWidth * scaleX);
+            const isSquareLike = t.labelShape === "square" || t.labelShape === "circle";
+            const baseHeight = getLabelBoxHeight(t);
+            const uniformScale = Math.max(Math.abs(scaleX), Math.abs(scaleY));
             const nextLabelHeight =
               t.labelShape && t.labelShape !== "none"
-                ? Math.max(40, getLabelBoxHeight(t) * scaleY)
+                ? Math.max(40, (isSquareLike ? baseHeight * uniformScale : baseHeight * Math.abs(scaleY)))
                 : t.labelBoxHeight;
+            const normalizedWidth = isSquareLike ? Math.max(nextWidth, nextLabelHeight || 0) : nextWidth;
 
             return {
               ...t,
               x: node.x(),
               y: node.y(),
-              rotation: node.rotation(),
-              fontSize: nextFontSize,
-              width: nextWidth,
+              rotation: snapRotationDegrees(node.rotation()),
+              // Keep font size stable; resize changes box dimensions for text reflow.
+              width: normalizedWidth,
               labelBoxHeight: nextLabelHeight,
             };
           }),
@@ -2285,6 +2446,9 @@ export function CustomizationStudio({
   const handleStageClick = useCallback((e: any) => {
     // Any left click hides context menu
     setContextMenu((cm) => ({ ...cm, visible: false }));
+    if (editingTextId) {
+      commitInlineTextEdit();
+    }
 
     const stage = e.target.getStage();
     const clickedOnEmpty = e.target === stage;
@@ -2293,7 +2457,7 @@ export function CustomizationStudio({
       setSelectedId(null);
       setSelectedType(null);
     }
-  }, []);
+  }, [commitInlineTextEdit, editingTextId]);
 
   const handleStageContextMenu = useCallback((e: any) => {
     e.evt.preventDefault();
@@ -2716,6 +2880,28 @@ export function CustomizationStudio({
           >
             <IconText /> Add Text
           </button>
+          <div className="flex items-center gap-1.5">
+            <select
+              value={insertLabelShape}
+              onChange={(e) => setInsertLabelShape(e.target.value as Exclude<TextLabelShape, "none">)}
+              className="px-2 py-1.5 rounded border text-xs"
+              style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+              title="Choose label shape"
+            >
+              <option value="rectangle">Rectangle Label</option>
+              <option value="rounded">Rounded Label</option>
+              <option value="square">Square Label</option>
+              <option value="circle">Circle Label</option>
+            </select>
+            <button
+              onClick={() => addTextLabelWithShape(insertLabelShape)}
+              className="px-3 py-2 rounded text-sm"
+              style={{ background: BRAND.light, color: BRAND.dark }}
+              title="Add label with editable text"
+            >
+              + Label
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 min-w-0 w-full lg:w-auto order-3 lg:order-none overflow-x-auto">
@@ -2823,10 +3009,15 @@ export function CustomizationStudio({
           {selectedId && (
             <span
               className="text-xs px-2 py-1 rounded"
-              style={{ background: BRAND.lightest, color: BRAND.medium, border: `1px solid ${BRAND.light}` }}
+              style={{
+                background: rotationSnapInfo.snapped ? "#ecfdf5" : BRAND.lightest,
+                color: rotationSnapInfo.snapped ? "#166534" : BRAND.medium,
+                border: `1px solid ${rotationSnapInfo.snapped ? "#86efac" : BRAND.light}`,
+              }}
               title="Current selected item rotation"
             >
-              {Math.round(selectedRotationDegrees)} deg
+              {Math.round(selectedRotationDegrees)}°
+              {rotationSnapInfo.snapped ? ` • snap ${rotationSnapInfo.target}°` : ""}
             </span>
           )}
 
@@ -3074,22 +3265,30 @@ export function CustomizationStudio({
                 <div>
                   <label className="text-xs block mb-2" style={{ color: BRAND.medium }}>Color</label>
                   <div className="flex items-center gap-2 mb-2">
-                    <input
-                      type="color"
-                      value={currentBackground.color}
-                      onChange={(e) => updateBackground({ color: e.target.value })}
-                      className="w-10 h-8 rounded border cursor-pointer"
-                      style={{ borderColor: BRAND.light }}
-                    />
-                    <span className="text-xs font-mono" style={{ color: BRAND.medium }}>
-                      {currentBackground.color.toUpperCase()}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openColorPickerFor("background")}
+                      className="h-8 rounded border px-2 flex items-center gap-2"
+                      style={{ borderColor: BRAND.light, background: BRAND.white }}
+                      title="Open background color picker"
+                    >
+                      <span
+                        className="w-5 h-5 rounded border"
+                        style={{ background: currentBackground.color, borderColor: BRAND.light }}
+                      />
+                      <span className="text-xs font-mono" style={{ color: BRAND.medium }}>
+                        {currentBackground.color.toUpperCase()}
+                      </span>
+                    </button>
                   </div>
                   <div className="grid grid-cols-7 gap-1">
                     {COLOR_PRESETS.map((color) => (
                       <button
                         key={color}
-                        onClick={() => updateBackground({ color })}
+                        onClick={() => {
+                          rememberRecentTextColor(color);
+                          updateBackground({ color });
+                        }}
                         className="w-6 h-6 rounded border-2 transition-transform hover:scale-110"
                         style={{
                           background: color,
@@ -3099,6 +3298,28 @@ export function CustomizationStudio({
                       />
                     ))}
                   </div>
+                  {activeColorPicker === "background" && (
+                    <AdvancedColorPickerPopover
+                      title="Background Color"
+                      value={currentBackground.color}
+                      alpha={activeColorAlpha}
+                      recentColors={recentTextColors}
+                      palette={{
+                        primary: BRAND.white,
+                        alt: BRAND.lightest,
+                        accent: BRAND.accent,
+                      }}
+                      onChange={(value, alpha) => {
+                        setActiveColorAlpha(alpha);
+                        updateBackground({ color: value });
+                      }}
+                      onSelectRecent={(value) => {
+                        rememberRecentTextColor(value);
+                        updateBackground({ color: value });
+                      }}
+                      onClose={closeActiveColorPicker}
+                    />
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2">
@@ -3225,6 +3446,13 @@ export function CustomizationStudio({
                       style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
                     >
                       Rectangle
+                    </button>
+                    <button
+                      onClick={() => addTextLabelWithShape("rounded")}
+                      className="px-2 py-1.5 rounded border text-xs"
+                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+                    >
+                      Rounded
                     </button>
                     <button
                       onClick={() => addTextLabelWithShape("square")}
@@ -3358,24 +3586,280 @@ export function CustomizationStudio({
                 </div>
               )}
 
+              {selectedType === "text" && selectedTextItem && (
+                <div className="mb-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                        Text Color
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openColorPickerFor("text")}
+                        className="w-full h-9 border rounded flex items-center justify-between px-2"
+                        style={{ borderColor: BRAND.light, background: BRAND.white }}
+                        title="Open text color picker"
+                      >
+                        <span className="text-xs truncate" style={{ color: BRAND.medium }}>
+                          {textColor}
+                        </span>
+                        <span
+                          className="w-5 h-5 rounded border"
+                          style={{ background: textColor, borderColor: BRAND.light }}
+                        />
+                      </button>
+                    </div>
+                    <div>
+                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                        Label Shape
+                      </label>
+                      <select
+                        value={selectedTextItem.labelShape || "none"}
+                        onChange={(e) => setTextLabelShape(e.target.value as TextLabelShape)}
+                        className="w-full border rounded px-2 py-2 text-sm"
+                        style={{ borderColor: BRAND.light }}
+                      >
+                        <option value="none">None</option>
+                        <option value="rectangle">Rectangle</option>
+                        <option value="rounded">Rounded</option>
+                        <option value="square">Square</option>
+                        <option value="circle">Circle</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                        Line Height
+                      </label>
+                      <input
+                        type="number"
+                        min={0.8}
+                        max={3}
+                        step={0.05}
+                        value={textLineHeight}
+                        onChange={(e) => setTextLineHeight(Math.max(0.8, Math.min(3, Number(e.target.value) || 1.2)))}
+                        className="w-full border rounded px-2 py-2 text-sm"
+                        style={{ borderColor: BRAND.light }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                        Letter Spacing
+                      </label>
+                      <input
+                        type="number"
+                        min={-5}
+                        max={40}
+                        step={0.5}
+                        value={textLetterSpacing}
+                        onChange={(e) => setTextLetterSpacing(Math.max(-5, Math.min(40, Number(e.target.value) || 0)))}
+                        className="w-full border rounded px-2 py-2 text-sm"
+                        style={{ borderColor: BRAND.light }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                      Label Padding
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={64}
+                      step={1}
+                      value={Math.round(selectedTextItem.labelPadding ?? 0)}
+                      onChange={(e) => updateSelectedText({ labelPadding: Number(e.target.value) })}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {(selectedTextItem.labelShape || "none") !== "none" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs" style={{ color: BRAND.medium }}>
+                          Fill
+                        </label>
+                        <input
+                          type="checkbox"
+                          checked={selectedTextItem.labelFillEnabled ?? true}
+                          onChange={(e) => updateSelectedText({ labelFillEnabled: e.target.checked })}
+                        />
+                      </div>
+                      {(selectedTextItem.labelFillEnabled ?? true) && (
+                        <button
+                          type="button"
+                          onClick={() => openColorPickerFor("labelFill")}
+                          className="w-full h-9 border rounded flex items-center justify-between px-2"
+                          style={{ borderColor: BRAND.light, background: BRAND.white }}
+                          title="Open label fill color picker"
+                        >
+                          <span className="text-xs truncate" style={{ color: BRAND.medium }}>
+                            {selectedTextItem.labelFillColor || BRAND.white}
+                          </span>
+                          <span
+                            className="w-5 h-5 rounded border"
+                            style={{
+                              background: selectedTextItem.labelFillColor || BRAND.white,
+                              borderColor: BRAND.light,
+                            }}
+                          />
+                        </button>
+                      )}
+
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs" style={{ color: BRAND.medium }}>
+                          Border
+                        </label>
+                        <input
+                          type="checkbox"
+                          checked={selectedTextItem.labelBorderEnabled ?? true}
+                          onChange={(e) => updateSelectedText({ labelBorderEnabled: e.target.checked })}
+                        />
+                      </div>
+                      {(selectedTextItem.labelBorderEnabled ?? true) && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openColorPickerFor("labelBorder")}
+                            className="w-full h-9 border rounded flex items-center justify-between px-2"
+                            style={{ borderColor: BRAND.light, background: BRAND.white }}
+                            title="Open label border color picker"
+                          >
+                            <span className="text-xs truncate" style={{ color: BRAND.medium }}>
+                              {selectedTextItem.labelBorderColor || BRAND.dark}
+                            </span>
+                            <span
+                              className="w-5 h-5 rounded border"
+                              style={{
+                                background: selectedTextItem.labelBorderColor || BRAND.dark,
+                                borderColor: BRAND.light,
+                              }}
+                            />
+                          </button>
+                          <input
+                            type="number"
+                            min={0}
+                            max={16}
+                            step={0.5}
+                            value={selectedTextItem.labelBorderWidth ?? 2}
+                            onChange={(e) => updateSelectedText({ labelBorderWidth: Math.max(0, Number(e.target.value) || 0) })}
+                            className="w-full border rounded px-2 py-2 text-sm"
+                            style={{ borderColor: BRAND.light }}
+                          />
+                        </div>
+                      )}
+
+                      {(selectedTextItem.labelShape || "none") === "rounded" && (
+                        <div>
+                          <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                            Corner Radius
+                          </label>
+                          <input
+                            type="range"
+                            min={0}
+                            max={80}
+                            step={1}
+                            value={Math.round(selectedTextItem.labelCornerRadius ?? Math.round(selectedTextItem.fontSize * 0.3))}
+                            onChange={(e) => updateSelectedText({ labelCornerRadius: Number(e.target.value) })}
+                            className="w-full"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeColorPicker && activeColorPicker !== "background" && (
+                    <AdvancedColorPickerPopover
+                      title={
+                        activeColorPicker === "text"
+                          ? "Text Color"
+                          : activeColorPicker === "labelFill"
+                            ? "Label Fill Color"
+                            : activeColorPicker === "labelBorder"
+                              ? "Label Border Color"
+                              : "Color"
+                      }
+                      value={getColorValueForTarget(activeColorPicker)}
+                      alpha={activeColorAlpha}
+                      recentColors={recentTextColors}
+                      palette={{
+                        primary: BRAND.white,
+                        alt: BRAND.lightest,
+                        accent: BRAND.accent,
+                      }}
+                      onChange={(value, alpha) => {
+                        setActiveColorAlpha(alpha);
+                        if (activeColorPicker === "text") {
+                          setTextColor(value);
+                          return;
+                        }
+                        if (activeColorPicker === "labelFill") {
+                          updateSelectedText({ labelFillColor: value });
+                          return;
+                        }
+                        if (activeColorPicker === "labelBorder") {
+                          updateSelectedText({ labelBorderColor: value });
+                        }
+                      }}
+                      onSelectRecent={(value) => {
+                        rememberRecentTextColor(value);
+                        if (activeColorPicker === "text") {
+                          setTextColor(value);
+                          return;
+                        }
+                        if (activeColorPicker === "labelFill") {
+                          updateSelectedText({ labelFillColor: value });
+                          return;
+                        }
+                        if (activeColorPicker === "labelBorder") {
+                          updateSelectedText({ labelBorderColor: value });
+                        }
+                      }}
+                      onClose={closeActiveColorPicker}
+                    />
+                  )}
+                </div>
+              )}
+
               <div className="mb-3">
                 <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
                   Rotation (deg)
                 </label>
                 <input
                   type="number"
-                  min={0}
-                  max={359.9}
                   step={1}
-                  value={Number(selectedRotationDegrees.toFixed(1))}
+                  value={rotationInput}
                   onChange={(e) => {
-                    const next = Number.parseFloat(e.target.value);
-                    if (Number.isNaN(next)) return;
-                    setSelectedRotation(next);
+                    setRotationInput(e.target.value);
+                  }}
+                  onBlur={() => {
+                    const parsed = Number.parseFloat(rotationInput);
+                    if (Number.isNaN(parsed)) {
+                      setRotationInput(String(Math.round(selectedRotationDegrees)));
+                      return;
+                    }
+                    const normalized = normalizeDegrees(parsed);
+                    setSelectedRotation(normalized);
+                    setRotationInput(String(Math.round(normalized)));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    const parsed = Number.parseFloat(rotationInput);
+                    if (Number.isNaN(parsed)) return;
+                    const normalized = normalizeDegrees(parsed);
+                    setSelectedRotation(normalized);
+                    setRotationInput(String(Math.round(normalized)));
                   }}
                   className="w-full border rounded px-2 py-2 text-sm"
                   style={{ borderColor: BRAND.light }}
                 />
+                <p className="text-[11px] mt-1" style={{ color: BRAND.medium }}>
+                  Snaps every {ROTATION_SNAP_STEP}°. Strong snap near 0/90/180/270.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -3529,7 +4013,7 @@ export function CustomizationStudio({
 
         {/* Canvas Area */}
         <div ref={canvasContainerRef} className="flex-1 min-h-0 w-full overflow-hidden p-2 lg:p-2.5 flex items-center justify-center">
-          <div className="inline-block rounded-lg shadow-xl overflow-hidden" style={{ background: BRAND.white, border: `1px solid ${BRAND.light}` }}>
+          <div className="inline-block rounded-lg shadow-xl overflow-hidden relative" style={{ background: BRAND.white, border: `1px solid ${BRAND.light}` }}>
             <Stage
               ref={stageRef}
               width={stageWidth}
@@ -3696,38 +4180,32 @@ export function CustomizationStudio({
                     const labelShape = t.labelShape || "none";
                     const labelHeight = getLabelBoxHeight(t);
                     const labelPadding = Math.max(0, t.labelPadding ?? 0);
-                    const outerStroke = t.labelOuterStrokeColor || BRAND.dark;
-                    const innerStroke = t.labelInnerStrokeColor || BRAND.medium;
-                    const outerStrokeWidth = Math.max(0, t.labelOuterStrokeWidth ?? 0);
-                    const innerStrokeWidth = Math.max(0, t.labelInnerStrokeWidth ?? 0);
+                    const labelFillEnabled = t.labelFillEnabled ?? labelShape !== "none";
+                    const labelFillColor = t.labelFillColor || BRAND.white;
+                    const labelBorderEnabled =
+                      t.labelBorderEnabled ?? Math.max(0, t.labelOuterStrokeWidth ?? 0, t.labelInnerStrokeWidth ?? 0) > 0;
+                    const labelBorderColor = t.labelBorderColor || t.labelOuterStrokeColor || BRAND.dark;
+                    const labelBorderWidth = Math.max(0, t.labelBorderWidth ?? t.labelOuterStrokeWidth ?? 2);
+                    const labelCornerRadius = Math.max(0, t.labelCornerRadius ?? Math.round(t.fontSize * 0.3));
                     const textHeight = labelShape === "none" ? undefined : labelHeight;
 
                     return (
                       <Group key={t.id}>
-                        {labelShape !== "none" && (labelShape === "rectangle" || labelShape === "square") && (
-                          <>
+                        {labelShape !== "none" &&
+                          (labelShape === "rectangle" || labelShape === "square" || labelShape === "rounded") && (
                             <Rect
                               x={t.x}
                               y={t.y}
                               width={textWidth}
                               height={labelShape === "square" ? textWidth : labelHeight}
                               rotation={t.rotation}
-                              stroke={outerStroke}
-                              strokeWidth={outerStrokeWidth}
+                              cornerRadius={labelShape === "rounded" ? labelCornerRadius : 0}
+                              fill={labelFillEnabled ? labelFillColor : undefined}
+                              stroke={labelBorderEnabled ? labelBorderColor : undefined}
+                              strokeWidth={labelBorderEnabled ? labelBorderWidth : 0}
                               listening={false}
                             />
-                            <Rect
-                              x={t.x + 8}
-                              y={t.y + 8}
-                              width={Math.max(1, textWidth - 16)}
-                              height={Math.max(1, (labelShape === "square" ? textWidth : labelHeight) - 16)}
-                              rotation={t.rotation}
-                              stroke={innerStroke}
-                              strokeWidth={innerStrokeWidth}
-                              listening={false}
-                            />
-                          </>
-                        )}
+                          )}
 
                         {labelShape !== "none" && labelShape === "circle" && (
                           <>
@@ -3735,16 +4213,9 @@ export function CustomizationStudio({
                               x={t.x + textWidth / 2}
                               y={t.y + textWidth / 2}
                               radius={textWidth / 2}
-                              stroke={outerStroke}
-                              strokeWidth={outerStrokeWidth}
-                              listening={false}
-                            />
-                            <Circle
-                              x={t.x + textWidth / 2}
-                              y={t.y + textWidth / 2}
-                              radius={Math.max(1, textWidth / 2 - 8)}
-                              stroke={innerStroke}
-                              strokeWidth={innerStrokeWidth}
+                              fill={labelFillEnabled ? labelFillColor : undefined}
+                              stroke={labelBorderEnabled ? labelBorderColor : undefined}
+                              strokeWidth={labelBorderEnabled ? labelBorderWidth : 0}
                               listening={false}
                             />
                           </>
@@ -3766,6 +4237,8 @@ export function CustomizationStudio({
                           fontStyle={t.fontStyle}
                           align={t.align}
                           textDecoration={t.textDecoration}
+                          lineHeight={t.lineHeight ?? 1.2}
+                          letterSpacing={t.letterSpacing ?? 0}
                           rotation={t.rotation}
                           draggable
                           onClick={() => {
@@ -3776,6 +4249,8 @@ export function CustomizationStudio({
                             setSelectedId(t.id);
                             setSelectedType("text");
                           }}
+                          onDblClick={() => beginInlineTextEdit(t)}
+                          onDblTap={() => beginInlineTextEdit(t)}
                           onDragEnd={(e) => handleTextDragEnd(t.id, e.target)}
                           onTransformEnd={(e) => handleTextTransformEnd(t.id, e.target)}
                         />
@@ -3860,7 +4335,13 @@ export function CustomizationStudio({
                   rotateEnabled={true}
                   rotateAnchorOffset={30}
                   rotateAnchorCursor="grab"
-                  keepRatio={selectedType === "text"}
+                  rotationSnaps={rotationSnaps}
+                  rotationSnapTolerance={ROTATION_SNAP_TOLERANCE}
+                  keepRatio={
+                    selectedType === "text" &&
+                    ((selectedTextItem?.labelShape || "none") === "circle" ||
+                      (selectedTextItem?.labelShape || "none") === "square")
+                  }
                   anchorStyleFunc={(anchor) => {
                     if (anchor.hasName("rotater")) {
                       anchor.cornerRadius(20);
@@ -3880,6 +4361,43 @@ export function CustomizationStudio({
                 />
               </Layer>
             </Stage>
+            {editingTextItem && (
+              <textarea
+                ref={inlineTextEditorRef}
+                value={editingTextValue}
+                onChange={(e) => setEditingTextValue(e.target.value)}
+                onBlur={commitInlineTextEdit}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setEditingTextId(null);
+                    return;
+                  }
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    commitInlineTextEdit();
+                  }
+                }}
+                className="absolute z-20 border rounded px-2 py-1 text-sm shadow-lg"
+                style={{
+                  left: editingTextItem.x * displayScale,
+                  top: editingTextItem.y * displayScale,
+                  width: Math.max(80, (editingTextItem.width || 240) * displayScale),
+                  minHeight:
+                    ((editingTextItem.labelShape && editingTextItem.labelShape !== "none"
+                      ? getLabelBoxHeight(editingTextItem)
+                      : Math.max(editingTextItem.fontSize * 1.6, 48)) || 48) * displayScale,
+                  fontFamily: editingTextItem.fontFamily,
+                  fontSize: Math.max(12, editingTextItem.fontSize * displayScale),
+                  lineHeight: String(editingTextItem.lineHeight ?? 1.2),
+                  letterSpacing: `${(editingTextItem.letterSpacing ?? 0) * displayScale}px`,
+                  color: editingTextItem.fill,
+                  background: "rgba(255,255,255,0.96)",
+                  borderColor: BRAND.accent,
+                  transform: `rotate(${editingTextItem.rotation}deg)`,
+                  transformOrigin: "top left",
+                }}
+              />
+            )}
           </div>
         </div>
 

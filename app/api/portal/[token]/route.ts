@@ -8,8 +8,11 @@ import { NextResponse } from "next/server";
 import { getDb, artKeys, guestbookEntries, mediaItems, eq } from "@/lib/db";
 import { canAdminAccessDemoPortal } from "@/lib/portal-auth";
 import { validatePortalSession } from "@/lib/portal-session";
+import { issueSignedPortalPreviewParams } from "@/lib/portal-preview-signing";
 
 export const dynamic = "force-dynamic";
+const PORTAL_PREVIEW_DEFAULT_WIDTH = 1400;
+const PORTAL_PREVIEW_DEFAULT_TTL_SECONDS = 5 * 60;
 
 // ─── GET: Public portal read ──────────────────────────────────────────────
 
@@ -54,6 +57,29 @@ export async function GET(
       .all();
 
     const approvedMedia = media.filter((m) => m.approved);
+    const theme = safeJsonParse<{ bg_image_url?: string }>(portal.theme, {});
+    const uploadedImages = safeJsonParse<string[]>(portal.uploadedImages, []);
+    const portalImageSources = [
+      ...uploadedImages.filter((src) => typeof src === "string"),
+      ...approvedMedia
+        .filter((m) => m.type === "image" && typeof m.url === "string")
+        .map((m) => m.url as string),
+    ];
+
+    const signedGalleryPreviewUrls = portalImageSources.map((src) =>
+      buildSignedPreviewUrl({
+        token,
+        src,
+        width: PORTAL_PREVIEW_DEFAULT_WIDTH,
+        ttlSeconds: PORTAL_PREVIEW_DEFAULT_TTL_SECONDS,
+      })
+    );
+    const signedBackgroundPreviewUrl = buildSignedPreviewUrl({
+      token,
+      src: theme.bg_image_url,
+      width: PORTAL_PREVIEW_DEFAULT_WIDTH,
+      ttlSeconds: PORTAL_PREVIEW_DEFAULT_TTL_SECONDS,
+    });
 
     return NextResponse.json({
       success: true,
@@ -61,14 +87,16 @@ export async function GET(
         id: portal.id,
         publicToken: portal.publicToken,
         title: portal.title,
-        theme: safeJsonParse(portal.theme, {}),
+        theme,
         features: safeJsonParse(portal.features, {}),
         links: safeJsonParse(portal.links, []),
         spotify: safeJsonParse(portal.spotify, { url: "", autoplay: false }),
         featuredVideo: safeJsonParse(portal.featuredVideo, null),
         customizations: safeJsonParse(portal.customizations, {}),
-        uploadedImages: safeJsonParse(portal.uploadedImages, []),
+        uploadedImages,
         uploadedVideos: safeJsonParse(portal.uploadedVideos, []),
+        signedGalleryPreviewUrls,
+        signedBackgroundPreviewUrl,
         guestbook: approvedEntries.map((e) => ({
           id: e.id,
           name: e.name,
@@ -174,4 +202,27 @@ function safeJsonParse(str: string | null | undefined, fallback: any): any {
   } catch {
     return fallback;
   }
+}
+
+function buildSignedPreviewUrl(input: {
+  token: string;
+  src?: string | null;
+  width: number;
+  ttlSeconds: number;
+}): string | null {
+  if (!input.src) return null;
+  const params = issueSignedPortalPreviewParams({
+    token: input.token,
+    src: input.src,
+    width: input.width,
+    ttlSeconds: input.ttlSeconds,
+  });
+  const qp = new URLSearchParams({
+    src: input.src,
+    w: String(input.width),
+    n: params.n,
+    e: String(params.e),
+    s: params.s,
+  });
+  return `/api/portal/${input.token}/preview?${qp.toString()}`;
 }

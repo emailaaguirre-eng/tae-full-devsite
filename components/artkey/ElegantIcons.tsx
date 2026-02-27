@@ -211,6 +211,44 @@ export function DiplomaIcon({ size = 48, color = 'currentColor', strokeWidth = 2
   );
 }
 
+// Baby Feet - Newborn / baby shower
+export function BabyFeetIcon({ size = 48, color = 'currentColor', strokeWidth = 1.8, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className}>
+      <ellipse cx="17" cy="28" rx="4.5" ry="7" transform="rotate(-18 17 28)" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <circle cx="11.5" cy="20.5" r="1.7" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <circle cx="13.7" cy="17.5" r="1.5" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <circle cx="16.6" cy="15.5" r="1.35" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <circle cx="20" cy="15.2" r="1.2" stroke={color} strokeWidth={strokeWidth} fill="none" />
+
+      <ellipse cx="31" cy="30" rx="4.5" ry="7" transform="rotate(18 31 30)" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <circle cx="36.6" cy="22.8" r="1.7" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <circle cx="34.3" cy="19.8" r="1.5" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <circle cx="31.5" cy="17.9" r="1.35" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <circle cx="28.1" cy="17.5" r="1.2" stroke={color} strokeWidth={strokeWidth} fill="none" />
+    </svg>
+  );
+}
+
+// Paw Prints - Pet memories
+export function PawPrintsIcon({ size = 48, color = 'currentColor', strokeWidth = 1.8, className = '' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className}>
+      <ellipse cx="18" cy="28" rx="4.8" ry="4.1" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <ellipse cx="12.8" cy="22.4" rx="1.8" ry="2.4" transform="rotate(-15 12.8 22.4)" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <ellipse cx="16.6" cy="19.8" rx="1.8" ry="2.5" transform="rotate(-4 16.6 19.8)" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <ellipse cx="20.8" cy="19.9" rx="1.8" ry="2.5" transform="rotate(8 20.8 19.9)" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <ellipse cx="24.7" cy="22.7" rx="1.8" ry="2.4" transform="rotate(20 24.7 22.7)" stroke={color} strokeWidth={strokeWidth} fill="none" />
+
+      <ellipse cx="31.2" cy="35.2" rx="4.3" ry="3.7" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <ellipse cx="27" cy="30.5" rx="1.5" ry="2.1" transform="rotate(-18 27 30.5)" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <ellipse cx="30" cy="28.6" rx="1.5" ry="2.1" transform="rotate(-6 30 28.6)" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <ellipse cx="33.3" cy="28.7" rx="1.5" ry="2.1" transform="rotate(8 33.3 28.7)" stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <ellipse cx="36.2" cy="30.9" rx="1.5" ry="2.1" transform="rotate(18 36.2 30.9)" stroke={color} strokeWidth={strokeWidth} fill="none" />
+    </svg>
+  );
+}
+
 // Icon Registry
 export const ELEGANT_ICONS = {
   rings: { component: RingsIcon, label: 'Rings', category: 'wedding' },
@@ -228,6 +266,8 @@ export const ELEGANT_ICONS = {
   crown: { component: CrownIcon, label: 'Crown', category: 'luxury' },
   graduation_cap: { component: GraduationCapIcon, label: 'Graduation Cap', category: 'graduation' },
   diploma: { component: DiplomaIcon, label: 'Diploma', category: 'graduation' },
+  baby_feet: { component: BabyFeetIcon, label: 'Baby Feet', category: 'celebration' },
+  paw_prints: { component: PawPrintsIcon, label: 'Paw Prints', category: 'celebration' },
   none: { component: () => null, label: 'None', category: 'none' },
 } as const;
 

@@ -6,6 +6,8 @@
 import { NextResponse } from 'next/server';
 import { getDb, shopProducts, eq } from '@/lib/db';
 import { saveDatabase } from '@/db';
+import { mergeProductMeta, parseProductMeta, parseWatermarkSettings } from '@/lib/product-watermark';
+import { parsePricingSettings } from '@/lib/product-pricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +19,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!product) {
       return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
     }
-    return NextResponse.json({ success: true, data: product });
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...product,
+        watermark: parseWatermarkSettings(product.printfulDataJson),
+        pricing: parsePricingSettings(product.printfulDataJson),
+      },
+    });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err?.message || 'Failed to fetch product' }, { status: 500 });
   }
@@ -49,16 +58,24 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     if (body.proofTerms !== undefined) {
-      let parsed: Record<string, any> = {};
-      if (existing.printfulDataJson) {
-        try {
-          parsed = JSON.parse(existing.printfulDataJson) || {};
-        } catch {
-          parsed = {};
-        }
-      }
-      parsed.proofTerms = typeof body.proofTerms === 'string' ? body.proofTerms : '';
-      updates.printfulDataJson = JSON.stringify(parsed);
+      updates.printfulDataJson = mergeProductMeta(
+        existing.printfulDataJson,
+        { proofTerms: typeof body.proofTerms === 'string' ? body.proofTerms : '' }
+      );
+    }
+
+    if (body.watermark !== undefined) {
+      const baseMeta = parseProductMeta(updates.printfulDataJson ?? existing.printfulDataJson);
+      updates.printfulDataJson = mergeProductMeta(JSON.stringify(baseMeta), {
+        watermark: body.watermark,
+      });
+    }
+
+    if (body.pricing !== undefined) {
+      const baseMeta = parseProductMeta(updates.printfulDataJson ?? existing.printfulDataJson);
+      updates.printfulDataJson = mergeProductMeta(JSON.stringify(baseMeta), {
+        pricing: body.pricing,
+      });
     }
 
     updates.updatedAt = Date.now().toString();

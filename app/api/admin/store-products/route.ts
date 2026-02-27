@@ -8,33 +8,26 @@
 import { NextResponse } from 'next/server';
 import { getDb, shopProducts, shopCategories, desc, eq, generateId } from '@/lib/db';
 import { saveDatabase } from '@/db';
+import {
+  DEFAULT_WATERMARK,
+  mergeProductMeta,
+  parseWatermarkSettings,
+  parseProductMeta,
+} from '@/lib/product-watermark';
+import { DEFAULT_PRICING, parsePricingSettings } from '@/lib/product-pricing';
 
 export const dynamic = 'force-dynamic';
 
 function getProofTermsFromMeta(raw: string | null | undefined): string {
-  if (!raw) return '';
-  try {
-    const parsed = JSON.parse(raw);
-    return typeof parsed?.proofTerms === 'string' ? parsed.proofTerms : '';
-  } catch {
-    return '';
-  }
+  const parsed = parseProductMeta(raw);
+  return typeof parsed?.proofTerms === 'string' ? parsed.proofTerms : '';
 }
 
 function withProofTermsMeta(
   raw: string | null | undefined,
   proofTerms: string
 ): string {
-  let parsed: Record<string, any> = {};
-  if (raw) {
-    try {
-      parsed = JSON.parse(raw) || {};
-    } catch {
-      parsed = {};
-    }
-  }
-  parsed.proofTerms = proofTerms;
-  return JSON.stringify(parsed);
+  return mergeProductMeta(raw, { proofTerms });
 }
 
 export async function GET(req: Request) {
@@ -95,6 +88,8 @@ export async function GET(req: Request) {
         categoryName: cat?.name || 'Uncategorized',
         categorySlug: cat?.slug || '',
         proofTerms: getProofTermsFromMeta(p.printfulDataJson),
+        watermark: parseWatermarkSettings(p.printfulDataJson),
+        pricing: parsePricingSettings(p.printfulDataJson),
       };
     });
 
@@ -164,7 +159,13 @@ export async function POST(req: Request) {
       printHeight: body.printHeight || null,
       requiredPlacements: body.requiredPlacements || null,
       qrDefaultPosition: body.qrDefaultPosition || null,
-      printfulDataJson: withProofTermsMeta(null, body.proofTerms || ''),
+      printfulDataJson: mergeProductMeta(
+        withProofTermsMeta(null, body.proofTerms || ''),
+        {
+          watermark: body.watermark || DEFAULT_WATERMARK,
+          pricing: body.pricing || DEFAULT_PRICING,
+        }
+      ),
       active: body.active !== false,
       sortOrder: body.sortOrder || 0,
       createdAt: now,

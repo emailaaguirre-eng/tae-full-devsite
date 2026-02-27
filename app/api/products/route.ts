@@ -11,6 +11,7 @@
  */
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, eq, desc, like, and } from "@/lib/db";
+import { buildProductPreviewUrl } from "@/lib/product-watermark";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +94,7 @@ export async function GET(req: Request) {
         slug: rep.slug,
         name: productTypeName,
         description: cleanDescription(cat?.description || rep.description),
-        heroImage: withImage.heroImage,
+        heroImage: withImage.heroImage ? buildProductPreviewUrl(withImage.id, "hero") : null,
         basePrice: lowestPrice,
         hasMultipleVariants: variants.length > 1,
         variantCount: variants.length,

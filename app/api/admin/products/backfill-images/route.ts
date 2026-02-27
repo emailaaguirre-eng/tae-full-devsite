@@ -62,6 +62,7 @@ interface PfCacheEntry {
 interface BackfillOptions {
   force?: boolean;
   dryRun?: boolean;
+  syncGallery?: boolean;
 }
 
 async function fetchPrintfulData(printfulProductId: number): Promise<PfCacheEntry | null> {
@@ -117,10 +118,24 @@ function isMissingHero(p: any) {
   return !p.heroImage || String(p.heroImage).trim() === "";
 }
 
+function isMissingGallery(p: any) {
+  if (!p.galleryImages) return true;
+  try {
+    const parsed = JSON.parse(p.galleryImages);
+    return !Array.isArray(parsed) || parsed.length === 0;
+  } catch {
+    return true;
+  }
+}
+
 function getTargets(products: any[], options: BackfillOptions) {
   const force = !!options.force;
+  const syncGallery = !!options.syncGallery;
   return products.filter(
-    (p) => p.active && isMappedProduct(p) && (force || isMissingHero(p))
+    (p) =>
+      p.active &&
+      isMappedProduct(p) &&
+      (force || isMissingHero(p) || (syncGallery && isMissingGallery(p)) || syncGallery)
   );
 }
 
@@ -163,6 +178,7 @@ export async function POST(req: Request) {
     const options: BackfillOptions = {
       force: !!body?.force,
       dryRun: !!body?.dryRun,
+      syncGallery: body?.syncGallery !== false,
     };
 
     const missingEnv = validateEnv();
@@ -262,11 +278,16 @@ export async function POST(req: Request) {
         continue;
       }
 
-      // Build gallery from all unique images
+      // Build gallery from all unique product + variant images
       const galleryUrls: string[] = [];
-      if (pfData.productImage) galleryUrls.push(pfData.productImage);
-      if (matchingVariant?.image && !galleryUrls.includes(matchingVariant.image)) {
-        galleryUrls.push(matchingVariant.image);
+      const pushUnique = (url: string | null | undefined) => {
+        if (!url || galleryUrls.includes(url)) return;
+        galleryUrls.push(url);
+      };
+      pushUnique(pfData.productImage);
+      pushUnique(matchingVariant?.image);
+      for (const v of pfData.variants) {
+        pushUnique(v.image);
       }
 
       // Also store variant data for the variant selector to use
@@ -295,16 +316,26 @@ export async function POST(req: Request) {
       }
 
       const now = new Date().toISOString();
+      const nextHeroImage = options.force || isMissingHero(product) ? heroImage : product.heroImage;
       await db
         .update(shopProducts)
         .set({
-          heroImage,
+          heroImage: nextHeroImage,
           galleryImages: galleryUrls.length > 0 ? JSON.stringify(galleryUrls) : product.galleryImages,
           printfulDataJson: JSON.stringify({
             ...existingPrintfulData,
             product: { ...(existingPrintfulData.product || {}), image: pfData.productImage },
             variant: variantData,
             siblingVariants,
+            variantImages: pfData.variants
+              .filter((v) => !!v.image)
+              .map((v) => ({
+                id: v.id,
+                image: v.image,
+                name: v.name,
+                size: v.size,
+                color: v.color,
+              })),
           }),
           lastSyncedAt: now,
           updatedAt: now,

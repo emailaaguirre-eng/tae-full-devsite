@@ -4,6 +4,19 @@ export const metadata: Metadata = {
   title: "ArtKey Portal",
   description:
     "A personal digital experience — images, videos, links, guestbook, and more.",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+      "max-snippet": -1,
+      "max-image-preview": "none",
+      "max-video-preview": -1,
+    },
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

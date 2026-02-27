@@ -49,7 +49,7 @@ type ProductDefinition = {
 const PRODUCTS: ProductDefinition[] = [
   {
     id: "TAE-CARD",
-    name: "Greeting Card",
+    name: "ArtKey Card",
     printfulProductId: 568,
     variants: [
       { id: "TAE-CARD-SM", name: 'Small (4.25" x 5.5")', printfulVariantId: 14457, landscapeWidth: 1842, landscapeHeight: 1240 },
@@ -95,6 +95,22 @@ const PRODUCTS: ProductDefinition[] = [
     qrSizeInches: 0.5,
   },
 ];
+
+function pickFallbackProductIndex(
+  products: ProductDefinition[],
+  productNameHint: string | null
+): number {
+  if (!productNameHint) return 0;
+  const hint = productNameHint.toLowerCase();
+  const idx = products.findIndex((p) => {
+    const name = p.name.toLowerCase();
+    if (name.includes("card") && (hint.includes("card") || hint.includes("artkey"))) return true;
+    if (name.includes("postcard") && hint.includes("postcard")) return true;
+    if (name.includes("poster") && (hint.includes("poster") || hint.includes("print"))) return true;
+    return false;
+  });
+  return idx >= 0 ? idx : 0;
+}
 
 function buildProductSpec(
   product: ProductDefinition,
@@ -266,6 +282,7 @@ function StudioContent() {
 
   const slugParam = searchParams.get("slug");
   const productIdParam = searchParams.get("product_id");
+  const productNameParam = searchParams.get("product_name");
 
   // API-loaded product state
   const [apiProduct, setApiProduct] = useState<any>(null);
@@ -275,7 +292,9 @@ function StudioContent() {
   const [printSpecsData, setPrintSpecsData] = useState<PrintSpecsData | null>(null);
 
   // Fallback catalog state
-  const [selectedProductIndex, setSelectedProductIndex] = useState(0);
+  const [selectedProductIndex, setSelectedProductIndex] = useState(() =>
+    pickFallbackProductIndex(PRODUCTS, productNameParam)
+  );
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(1);
   const [orientation, setOrientation] = useState<Orientation>(PRODUCTS[0].defaultOrientation);
 
@@ -295,6 +314,12 @@ function StudioContent() {
       .catch(() => setApiError("Failed to load product"))
       .finally(() => setApiLoading(false));
   }, [slugParam]);
+
+  // Keep fallback mode aligned with incoming product hints (e.g. cart/studio deep links).
+  useEffect(() => {
+    if (slugParam) return;
+    setSelectedProductIndex(pickFallbackProductIndex(PRODUCTS, productNameParam));
+  }, [slugParam, productNameParam]);
 
   // Fetch sibling variants for API mode
   useEffect(() => {

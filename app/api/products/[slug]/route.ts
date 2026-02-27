@@ -4,6 +4,7 @@
  */
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, eq } from "@/lib/db";
+import { buildProductPreviewUrl } from "@/lib/product-watermark";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,13 @@ export async function GET(
     const basePrice =
       (product.printfulBasePrice || 0) + (product.taeAddOnFee || 0);
 
+    let gallery: string[] = [];
+    try {
+      gallery = product.galleryImages ? JSON.parse(product.galleryImages) : [];
+    } catch {
+      gallery = [];
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -69,8 +77,8 @@ export async function GET(
         slug: product.slug,
         name: product.name,
         description: cleanDescription(product.description),
-        heroImage: product.heroImage,
-        galleryImages: product.galleryImages ? JSON.parse(product.galleryImages) : [],
+        heroImage: product.heroImage ? buildProductPreviewUrl(product.id, "hero") : null,
+        galleryImages: gallery.map((_url, idx) => buildProductPreviewUrl(product.id, "gallery", idx)),
         basePrice,
         printfulBasePrice: product.printfulBasePrice || 0,
         taeAddOnFee: product.taeAddOnFee || 0,
