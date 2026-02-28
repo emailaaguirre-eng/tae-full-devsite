@@ -3,6 +3,8 @@ export type ArtKeyTemplateDefinition = {
   name: string;
   assetUrl: string;
   displayAspectRatio?: number;
+  minCanvasFraction?: number;
+  maxCanvasFraction?: number;
   contentCrop?: {
     xFraction: number;
     yFraction: number;
@@ -19,7 +21,7 @@ export type ArtKeyTemplateDefinition = {
 export const ARTKEY_TEMPLATES: ArtKeyTemplateDefinition[] = [
   {
     id: "artkey-elegant",
-    name: "ArtKey",
+    name: "Elegant ArtKey",
     assetUrl: "/images/taeaktemp.svg",
     displayAspectRatio: 2.25,
     // The uploaded SVG contains a large canvas with the key artwork centered
@@ -37,6 +39,22 @@ export const ARTKEY_TEMPLATES: ArtKeyTemplateDefinition[] = [
       sizeFraction: 0.118,
       xFraction: 0.605,
       yFraction: 0.22,
+    },
+  },
+  {
+    id: "keycard",
+    name: "KeyCard",
+    assetUrl: "/images/tae-keycard.svg",
+    displayAspectRatio: 1,
+    // Keep KeyCard visually compact relative to larger key templates.
+    minCanvasFraction: 0.1,
+    maxCanvasFraction: 0.34,
+    qr: {
+      // QR fit area inside template white window:
+      // x=49, y=69, w=102 on a 200x200 viewBox.
+      sizeFraction: 0.51,
+      xFraction: 0.245,
+      yFraction: 0.345,
     },
   },
 ];

@@ -4,7 +4,7 @@
  */
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, eq } from "@/lib/db";
-import { buildProductPreviewUrl } from "@/lib/product-watermark";
+import { buildProductPreviewUrl, parseRequiresQrCode } from "@/lib/product-watermark";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +69,29 @@ export async function GET(
       gallery = [];
     }
 
+    let printfulData: any = {};
+    try {
+      printfulData = product.printfulDataJson ? JSON.parse(product.printfulDataJson) : {};
+    } catch {
+      printfulData = {};
+    }
+
+    const fallbackHero =
+      printfulData?.variant?.image ||
+      printfulData?.product?.image ||
+      null;
+
+    const fallbackGallery: string[] = Array.isArray(printfulData?.variantImages)
+      ? printfulData.variantImages
+          .map((v: any) => (typeof v?.image === "string" ? v.image : null))
+          .filter((url: string | null): url is string => !!url)
+      : [];
+
+    const finalGallery = gallery.length > 0 ? gallery : fallbackGallery;
+    const requiresQrCode =
+      parseRequiresQrCode(product.printfulDataJson) ??
+      (category?.requiresQrCode ?? false);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -77,8 +100,15 @@ export async function GET(
         slug: product.slug,
         name: product.name,
         description: cleanDescription(product.description),
-        heroImage: product.heroImage ? buildProductPreviewUrl(product.id, "hero") : null,
-        galleryImages: gallery.map((_url, idx) => buildProductPreviewUrl(product.id, "gallery", idx)),
+        heroImage: product.heroImage
+          ? buildProductPreviewUrl(product.id, "hero")
+          : fallbackHero,
+        galleryImages:
+          gallery.length > 0
+            ? finalGallery.map((_url, idx) =>
+                buildProductPreviewUrl(product.id, "gallery", idx)
+              )
+            : finalGallery,
         basePrice,
         printfulBasePrice: product.printfulBasePrice || 0,
         taeAddOnFee: product.taeAddOnFee || 0,
@@ -96,7 +126,7 @@ export async function GET(
         requiredPlacements: product.requiredPlacements,
         qrDefaultPosition: product.qrDefaultPosition,
         proofTerms: getProofTerms(product.printfulDataJson),
-        requiresQrCode: category?.requiresQrCode ?? false,
+        requiresQrCode,
         category: category
           ? {
               id: category.id,

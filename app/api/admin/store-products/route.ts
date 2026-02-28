@@ -11,6 +11,7 @@ import { saveDatabase } from '@/db';
 import {
   DEFAULT_WATERMARK,
   mergeProductMeta,
+  parseRequiresQrCode,
   parseWatermarkSettings,
   parseProductMeta,
 } from '@/lib/product-watermark';
@@ -88,6 +89,7 @@ export async function GET(req: Request) {
         categoryName: cat?.name || 'Uncategorized',
         categorySlug: cat?.slug || '',
         proofTerms: getProofTermsFromMeta(p.printfulDataJson),
+        requiresQrCode: parseRequiresQrCode(p.printfulDataJson) ?? (cat?.requiresQrCode ?? false),
         watermark: parseWatermarkSettings(p.printfulDataJson),
         pricing: parsePricingSettings(p.printfulDataJson),
       };
@@ -102,6 +104,7 @@ export async function GET(req: Request) {
         name: c.name,
         icon: c.icon,
         taeBaseFee: c.taeBaseFee,
+        requiresQrCode: c.requiresQrCode ?? false,
         productCount: products.filter(p => p.categoryId === c.id).length,
       })),
     });
@@ -162,6 +165,7 @@ export async function POST(req: Request) {
       printfulDataJson: mergeProductMeta(
         withProofTermsMeta(null, body.proofTerms || ''),
         {
+          requiresQrCode: typeof body.requiresQrCode === 'boolean' ? body.requiresQrCode : undefined,
           watermark: body.watermark || DEFAULT_WATERMARK,
           pricing: body.pricing || DEFAULT_PRICING,
         }

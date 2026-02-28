@@ -283,6 +283,8 @@ function StudioContent() {
   const slugParam = searchParams.get("slug");
   const productIdParam = searchParams.get("product_id");
   const productNameParam = searchParams.get("product_name");
+  const requiresQrParam = searchParams.get("requires_qr");
+  const forceArtKeyParam = searchParams.get("force_artkey");
 
   // API-loaded product state
   const [apiProduct, setApiProduct] = useState<any>(null);
@@ -422,8 +424,22 @@ function StudioContent() {
 
       sessionStorage.setItem("tae-studio-export", JSON.stringify(studioData));
 
-      // If product requires QR, go to ArtKey editor; otherwise go to cart
-      if (productSpec.requiresQrCode) {
+      const paramForcesArtKey =
+        forceArtKeyParam === "1" ||
+        forceArtKeyParam === "true" ||
+        requiresQrParam === "1" ||
+        requiresQrParam === "true";
+
+      const categorySlug = String(apiProduct?.category?.slug || "").toLowerCase();
+      const categoryName = String(apiProduct?.category?.name || "").toLowerCase();
+      const nameHint = String(productNameParam || productSpec.name || "").toLowerCase();
+      const metadataSuggestsArtKey =
+        /artkey|qr|portal/.test(categorySlug) ||
+        /artkey|qr|portal/.test(categoryName) ||
+        /artkey|qr|portal/.test(nameHint);
+
+      // Route to ArtKey editor when QR is required OR when upstream flow explicitly forces ArtKey.
+      if (productSpec.requiresQrCode || paramForcesArtKey || metadataSuggestsArtKey) {
         const params = new URLSearchParams({
           from_studio: "true",
           product_id: productSpec.id,
@@ -435,7 +451,7 @@ function StudioContent() {
         router.push("/cart");
       }
     },
-    [computeRenderSignature, productSpec, router]
+    [apiProduct?.category?.name, apiProduct?.category?.slug, computeRenderSignature, forceArtKeyParam, productNameParam, productSpec, requiresQrParam, router]
   );
 
   const handleProductChange = (index: number) => {
@@ -501,6 +517,12 @@ function StudioContent() {
                         slug: variant.slug,
                         product_name: variant.name,
                       });
+                      if (requiresQrParam) {
+                        params.set("requires_qr", requiresQrParam);
+                      }
+                      if (forceArtKeyParam) {
+                        params.set("force_artkey", forceArtKeyParam);
+                      }
                       if (variant.printfulVariantId) {
                         params.set("variant_id", String(variant.printfulVariantId));
                       }

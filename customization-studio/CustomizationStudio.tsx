@@ -9,7 +9,7 @@
 // - Text tool: add/edit text boxes, font, size, bold/italic/underline, alignment, color
 // - Background: adjustable colored background layer per surface
 // - Decorative elements: Borders, Labels, Accents (SVG assets)
-// - Layouts: Single, 2-Up, 3-Up, 4 Grid, Collage
+// - Layouts: Single (default), Side by Side, 2x2 Grid
 // - Layer ordering: bring to front, send to back
 // - Delete: Delete/Backspace, toolbar button, right-click context menu
 // - Canvas behavior: print-space pixel coords stay constant (no stage scaling)
@@ -185,7 +185,7 @@ function getDecorativeKind(item: { id?: string; src?: string; kind?: DecorativeK
 const TARGET_QR_INCHES = 0.5; // enforce minimum 0.5in printed QR for scannability
 const MIN_TEMPLATE_CANVAS_FRACTION = 0.22;
 const MAX_TEMPLATE_CANVAS_FRACTION = 0.75;
-const DEFAULT_LAYOUT_ID = "freeform";
+const DEFAULT_LAYOUT_ID = "single";
 const ROTATION_SNAP_STEP = 15;
 const ROTATION_SNAP_TOLERANCE = 4;
 const ROTATION_STRONG_SNAP_TOLERANCE = 8;
@@ -350,6 +350,29 @@ const IconText = () => (
 const IconFit = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m10 0h3a2 2 0 0 0 2-2v-3"/></svg>
 );
+
+function LayoutPreview({ slots }: { slots: { x: number; y: number; width: number; height: number }[] }) {
+  return (
+    <div className="w-full aspect-[4/3] rounded border bg-white p-1.5" style={{ borderColor: "#d8d8d6" }}>
+      <div className="relative w-full h-full rounded-sm bg-[#f8fafc] overflow-hidden">
+        {slots.map((slot, idx) => (
+          <div
+            key={`slot-preview-${idx}`}
+            className="absolute rounded-[3px] border"
+            style={{
+              left: `${slot.x * 100}%`,
+              top: `${slot.y * 100}%`,
+              width: `${slot.width * 100}%`,
+              height: `${slot.height * 100}%`,
+              borderColor: "#94a3b8",
+              background: "rgba(148,163,184,0.14)",
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ============================================================================
 // ZOOM LEVELS (multiplier on top of "fit" scale)
@@ -668,21 +691,34 @@ export function CustomizationStudio({
   const [qrPlacement, setQrPlacement] = useState<Placement>(
     productSpec.qrDefaultPosition?.placement || productSpec.placements[0] || "front"
   );
-  const elegantOnlyTemplates = useMemo(
-    () => artKeyTemplates.filter((template) => template.id === "artkey-elegant"),
+  const availableArtKeyTemplates = useMemo(
+    () => (artKeyTemplates.length > 0 ? artKeyTemplates : [DEFAULT_ARTKEY_TEMPLATE]),
     [artKeyTemplates]
   );
-  const [selectedArtKeyTemplateId] = useState<string>(
-    elegantOnlyTemplates[0]?.id || DEFAULT_ARTKEY_TEMPLATE.id
+  const [selectedArtKeyTemplateId, setSelectedArtKeyTemplateId] = useState<string>(
+    availableArtKeyTemplates[0]?.id || DEFAULT_ARTKEY_TEMPLATE.id
   );
+  useEffect(() => {
+    if (!availableArtKeyTemplates.some((template) => template.id === selectedArtKeyTemplateId)) {
+      setSelectedArtKeyTemplateId(availableArtKeyTemplates[0]?.id || DEFAULT_ARTKEY_TEMPLATE.id);
+    }
+  }, [availableArtKeyTemplates, selectedArtKeyTemplateId]);
   const selectedArtKeyTemplate = useMemo(
-    () => getArtKeyTemplateById(selectedArtKeyTemplateId),
-    [selectedArtKeyTemplateId]
+    () =>
+      availableArtKeyTemplates.find((template) => template.id === selectedArtKeyTemplateId) ||
+      getArtKeyTemplateById(selectedArtKeyTemplateId),
+    [availableArtKeyTemplates, selectedArtKeyTemplateId]
   );
   const qrSizeFraction = selectedArtKeyTemplate.qr.sizeFraction;
   const qrXFraction = selectedArtKeyTemplate.qr.xFraction;
   const qrYFraction = selectedArtKeyTemplate.qr.yFraction;
   const templateAspectRatio = selectedArtKeyTemplate.displayAspectRatio || 1;
+  const templateMinCanvasFraction =
+    selectedArtKeyTemplate.minCanvasFraction ?? MIN_TEMPLATE_CANVAS_FRACTION;
+  const templateMaxCanvasFraction =
+    selectedArtKeyTemplate.maxCanvasFraction ?? MAX_TEMPLATE_CANVAS_FRACTION;
+  const previousTemplateIdRef = useRef<string>(selectedArtKeyTemplate.id);
+  const previousQrSizeFractionRef = useRef<number>(qrSizeFraction);
 
   // Normalize default template geometry so each template renders with the
   // correct aspect ratio and keeps a usable visual size.
@@ -697,12 +733,12 @@ export function CustomizationStudio({
     const minTemplateFromQr = Math.round(expectedQrPx / Math.max(0.01, qrSizeFraction));
     const minTemplateFromCanvas = Math.round(
       Math.min(productSpec.printWidth, productSpec.printHeight * templateAspectRatio) *
-        MIN_TEMPLATE_CANVAS_FRACTION
+        templateMinCanvasFraction
     );
     const minTemplate = Math.max(minTemplateFromQr, minTemplateFromCanvas);
     const maxTemplate = Math.round(
       Math.min(productSpec.printWidth, productSpec.printHeight * templateAspectRatio) *
-        MAX_TEMPLATE_CANVAS_FRACTION
+        templateMaxCanvasFraction
     );
 
     // Heuristic: if caller accidentally passed QR size instead of template size, upscale it.
@@ -730,7 +766,7 @@ export function CustomizationStudio({
       width,
       height,
     };
-  }, [productSpec, qrSizeFraction, templateAspectRatio]);
+  }, [productSpec, qrSizeFraction, templateAspectRatio, templateMinCanvasFraction, templateMaxCanvasFraction]);
 
   const [designs, setDesigns] = useState<DesignState>(() => {
     const initial: any = {};
@@ -783,7 +819,6 @@ export function CustomizationStudio({
   }, [selectedArtKeyTemplate.contentCrop, templateImageObj]);
 
   // Text tool state
-  const [isAddingText, setIsAddingText] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [textFont, setTextFont] = useState(FONT_OPTIONS[0].family);
   const [textSize, setTextSize] = useState(48);
@@ -793,11 +828,8 @@ export function CustomizationStudio({
   const [textUnderline, setTextUnderline] = useState(false);
   const [textAlign, setTextAlign] = useState<TextAlign>("left");
   const [textLabelShape, setTextLabelShape] = useState<TextLabelShape>("none");
-  const [insertLabelShape, setInsertLabelShape] = useState<Exclude<TextLabelShape, "none">>("rectangle");
   const [textLineHeight, setTextLineHeight] = useState(1.2);
   const [textLetterSpacing, setTextLetterSpacing] = useState(0);
-  const [editingTextId, setEditingTextId] = useState<string | null>(null);
-  const [editingTextValue, setEditingTextValue] = useState("");
   const [rotationInput, setRotationInput] = useState("0");
   const [activeColorPicker, setActiveColorPicker] = useState<"text" | "labelFill" | "labelBorder" | "background" | null>(null);
   const [activeColorAlpha, setActiveColorAlpha] = useState(1);
@@ -811,6 +843,8 @@ export function CustomizationStudio({
   // Zoom
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
   const zoomLevel = ZOOM_LEVELS[zoomIndex];
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<{ tone: "info" | "success" | "error"; message: string } | null>(null);
 
   // Crop
   const [cropImageId, setCropImageId] = useState<string | null>(null);
@@ -861,7 +895,6 @@ export function CustomizationStudio({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
-  const inlineTextEditorRef = useRef<HTMLTextAreaElement>(null);
 
   // Resolve label for a placement, using productSpec.placementLabels (from
   // SurfaceMap) first, then the static PLACEMENT_LABELS fallback.
@@ -941,11 +974,7 @@ export function CustomizationStudio({
     [currentLayoutId]
   );
   const basicLayouts = useMemo(
-    () => COLLAGE_LAYOUTS.filter((l) => (l.category || "basic") === "basic" && l.id !== DEFAULT_LAYOUT_ID),
-    []
-  );
-  const collageLayouts = useMemo(
-    () => COLLAGE_LAYOUTS.filter((l) => l.category === "collage"),
+    () => COLLAGE_LAYOUTS.filter((l) => (l.category || "basic") === "basic"),
     []
   );
   const currentBackground = backgrounds[activePlacement] || { enabled: false, color: "#f3f3f3", x: 0, y: 0, width: 100, height: 100 };
@@ -961,6 +990,21 @@ export function CustomizationStudio({
   const slotRects = useMemo(() => {
     return buildSlotRects(currentLayout, canvasWidth, canvasHeight);
   }, [currentLayout, canvasWidth, canvasHeight]);
+  const occupiedLayoutSlots = useMemo(() => {
+    const used = new Set<number>();
+    for (const img of currentDesign.images || []) {
+      if (typeof img.slotIndex === "number" && img.slotIndex >= 0) {
+        used.add(img.slotIndex);
+      }
+    }
+    return used;
+  }, [currentDesign.images]);
+
+  // Keep slot guides above the design/background layer so photo containers stay visible.
+  useEffect(() => {
+    guidesLayerRef.current?.moveToTop();
+    guidesLayerRef.current?.getStage()?.batchDraw();
+  }, [activePlacement, currentLayoutId, slotRects.length, displayScale]);
 
   const getSlotIndexForPoint = useCallback(
     (x: number, y: number): number | undefined => {
@@ -998,14 +1042,14 @@ export function CustomizationStudio({
     const minTemplateFromQr = Math.round(expectedQrPx / Math.max(0.01, qrSizeFraction));
     const minTemplateFromCanvas = Math.round(
       Math.min(canvasWidth, canvasHeight * templateAspectRatio) *
-        MIN_TEMPLATE_CANVAS_FRACTION
+        templateMinCanvasFraction
     );
     const minTemplate = Math.max(minTemplateFromQr, minTemplateFromCanvas);
     const maxTemplate = Math.max(
       1,
       Math.round(
         Math.min(canvasWidth, canvasHeight * templateAspectRatio) *
-          MAX_TEMPLATE_CANVAS_FRACTION
+          templateMaxCanvasFraction
       )
     );
 
@@ -1013,8 +1057,16 @@ export function CustomizationStudio({
       const current = prev[qrPlacement];
       if (!current?.qrCode) return prev;
       const { qrCode } = current;
+      const templateChanged = previousTemplateIdRef.current !== selectedArtKeyTemplate.id;
+      const priorQrFraction = Math.max(0.01, previousQrSizeFractionRef.current || qrSizeFraction);
 
-      let nextWidth = clamp(qrCode.width, Math.max(1, minTemplate), maxTemplate);
+      // When switching templates, preserve physical QR size by scaling template
+      // box width using oldFraction/newFraction instead of keeping old template width.
+      const widthFromQrRatio = templateChanged
+        ? (qrCode.width * priorQrFraction) / Math.max(0.01, qrSizeFraction)
+        : qrCode.width;
+
+      let nextWidth = clamp(widthFromQrRatio, Math.max(1, minTemplate), maxTemplate);
       let nextHeight = Math.max(1, Math.round(nextWidth / templateAspectRatio));
 
       // Fit to canvas if the aspect-adjusted box overflows.
@@ -1059,12 +1111,17 @@ export function CustomizationStudio({
         },
       };
     });
+    previousTemplateIdRef.current = selectedArtKeyTemplate.id;
+    previousQrSizeFractionRef.current = qrSizeFraction;
   }, [
     productSpec.requiresQrCode,
     productSpec.printDpi,
     qrPlacement,
+    selectedArtKeyTemplate.id,
     qrSizeFraction,
     templateAspectRatio,
+    templateMinCanvasFraction,
+    templateMaxCanvasFraction,
     canvasWidth,
     canvasHeight,
   ]);
@@ -1080,10 +1137,6 @@ export function CustomizationStudio({
     selectedType === "image" && selectedId
       ? (currentDesign.images || []).find((img) => img.id === selectedId) || null
       : null;
-  const editingTextItem = editingTextId
-    ? (currentDesign.texts || []).find((t) => t.id === editingTextId) || null
-    : null;
-
   const getColorValueForTarget = useCallback(
     (target: "text" | "labelFill" | "labelBorder" | "background"): string => {
       if (target === "text") return textColor || BRAND.dark;
@@ -1139,6 +1192,12 @@ export function CustomizationStudio({
 
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
+
+  useEffect(() => {
+    if (!exportStatus) return;
+    const timer = window.setTimeout(() => setExportStatus(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [exportStatus]);
 
   useEffect(() => {
     if (!selectedId || !selectedType) {
@@ -1259,12 +1318,6 @@ export function CustomizationStudio({
     setTextLineHeight(Math.max(0.8, Math.min(3, selectedTextItem.lineHeight ?? 1.2)));
     setTextLetterSpacing(Math.max(-5, Math.min(40, selectedTextItem.letterSpacing ?? 0)));
   }, [selectedTextItem]);
-
-  useEffect(() => {
-    if (!editingTextId) return;
-    inlineTextEditorRef.current?.focus();
-    inlineTextEditorRef.current?.select();
-  }, [editingTextId]);
 
   // -------------------------------------------------------------------------
   // UNDO / REDO (push history when designs change)
@@ -1499,12 +1552,63 @@ export function CustomizationStudio({
         [activePlacement]: [...(prev[activePlacement] || []), newDecorative],
       }));
 
-      setSelectedId(newId);
-      setSelectedType("decorative");
+      if (getDecorativeKind(element) === "label") {
+        const textId = generateId("txt");
+        const fontStyle = `${textBold ? "bold " : ""}${textItalic ? "italic" : ""}`.trim() || "normal";
+        const textWidth = Math.max(90, Math.round(width * 0.72));
+        const textX = newDecorative.x + (newDecorative.width - textWidth) / 2;
+        const textY = newDecorative.y + (newDecorative.height - textSize) / 2;
+        const defaultText = "Your text here";
+
+        const newText: TextItem = {
+          id: textId,
+          text: defaultText,
+          x: textX,
+          y: textY,
+          width: textWidth,
+          fontSize: textSize,
+          fontFamily: textFont,
+          fill: textColor,
+          fontStyle,
+          align: "center",
+          textDecoration: textUnderline ? "underline" : "",
+          lineHeight: textLineHeight,
+          letterSpacing: textLetterSpacing,
+          labelShape: "none",
+          rotation: 0,
+        };
+
+        setDesigns((prev) => ({
+          ...prev,
+          [activePlacement]: {
+            ...(prev[activePlacement] || { images: [], texts: [], layoutId: DEFAULT_LAYOUT_ID }),
+            texts: [...((prev[activePlacement]?.texts || []) as TextItem[]), newText],
+          },
+        }));
+
+        setSelectedId(textId);
+        setSelectedType("text");
+        setTextInput(defaultText);
+      } else {
+        setSelectedId(newId);
+        setSelectedType("decorative");
+      }
     };
 
     img.onerror = () => console.error("Failed to load decorative:", element.src);
-  }, [activePlacement, canvasWidth, canvasHeight]);
+  }, [
+    activePlacement,
+    canvasWidth,
+    canvasHeight,
+    textBold,
+    textColor,
+    textFont,
+    textItalic,
+    textLetterSpacing,
+    textLineHeight,
+    textSize,
+    textUnderline,
+  ]);
 
   const handleDecorativeDragEnd = useCallback((id: string, node: Konva.Node) => {
     setDecoratives((prev) => ({
@@ -1763,6 +1867,26 @@ export function CustomizationStudio({
   // -------------------------------------------------------------------------
   // LAYOUT HELPERS
   // -------------------------------------------------------------------------
+  const fitImageToSlotFrame = useCallback(
+    (img: ImageItem, slotIndex: number): ImageItem => {
+      const slot = slotRects[slotIndex];
+      if (!slot) return { ...img, slotIndex: undefined };
+      const srcW = img.originalWidth || img.width;
+      const srcH = img.originalHeight || img.height;
+      const fitted = coverImageToSlot(srcW, srcH, slot.width, slot.height);
+      const centered = centerInSlot(fitted.width, fitted.height, slot.x, slot.y, slot.width, slot.height);
+      return {
+        ...img,
+        slotIndex,
+        x: centered.x,
+        y: centered.y,
+        width: fitted.width,
+        height: fitted.height,
+      };
+    },
+    [slotRects]
+  );
+
   const applyLayout = useCallback(
     (layoutId: string) => {
       const layout = getLayoutById(layoutId);
@@ -1776,33 +1900,16 @@ export function CustomizationStudio({
         const slotCount = nextSlotRects.length;
 
         // Deterministic placement: first N images always occupy first N slots.
-        // This avoids partial slot assignment where some images remain free-floating.
         const normalized = images.map((img, idx) => {
           if (idx >= slotCount || slotCount === 0) {
             return { ...img, slotIndex: undefined };
           }
-
           const slot = nextSlotRects[idx];
           const srcW = img.originalWidth || img.width;
           const srcH = img.originalHeight || img.height;
           const fitted = coverImageToSlot(srcW, srcH, slot.width, slot.height);
-          const centered = centerInSlot(
-            fitted.width,
-            fitted.height,
-            slot.x,
-            slot.y,
-            slot.width,
-            slot.height
-          );
-
-          return {
-            ...img,
-            slotIndex: idx,
-            x: centered.x,
-            y: centered.y,
-            width: fitted.width,
-            height: fitted.height,
-          };
+          const centered = centerInSlot(fitted.width, fitted.height, slot.x, slot.y, slot.width, slot.height);
+          return { ...img, slotIndex: idx, x: centered.x, y: centered.y, width: fitted.width, height: fitted.height };
         });
 
         return {
@@ -2069,19 +2176,7 @@ export function CustomizationStudio({
             const slotIndex = getSlotIndexForPoint(centerX, centerY);
 
             if (typeof slotIndex === "number") {
-              const slot = slotRects[slotIndex];
-              const srcW = dropped.originalWidth || dropped.width;
-              const srcH = dropped.originalHeight || dropped.height;
-              const fitted = coverImageToSlot(srcW, srcH, slot.width, slot.height);
-              const centered = centerInSlot(fitted.width, fitted.height, slot.x, slot.y, slot.width, slot.height);
-              return {
-                ...dropped,
-                slotIndex,
-                x: centered.x,
-                y: centered.y,
-                width: fitted.width,
-                height: fitted.height,
-              };
+              return fitImageToSlotFrame({ ...dropped, slotIndex }, slotIndex);
             }
 
             if (currentLayoutId === DEFAULT_LAYOUT_ID) {
@@ -2093,7 +2188,7 @@ export function CustomizationStudio({
         },
       }));
     },
-    [activePlacement, constrainImageToSlot, currentLayoutId, getSlotIndexForPoint, slotRects]
+    [activePlacement, constrainImageToSlot, currentLayoutId, fitImageToSlotFrame, getSlotIndexForPoint, slotRects]
   );
 
   const handleImageTransformEnd = useCallback(
@@ -2189,7 +2284,6 @@ export function CustomizationStudio({
       setSelectedId(id);
       setSelectedType("text");
       setTextInput(trimmed);
-      setIsAddingText(false);
     },
     [
       activePlacement,
@@ -2206,17 +2300,6 @@ export function CustomizationStudio({
       textSize,
       textUnderline,
     ]
-  );
-
-  const handleAddText = useCallback(() => addText(textInput), [addText, textInput]);
-
-  const addTextLabelWithShape = useCallback(
-    (shape: TextLabelShape) => {
-      setTextLabelShape(shape);
-      if (shape === "none") return;
-      addText("Your text here", shape);
-    },
-    [addText]
   );
 
   const updateTextById = useCallback(
@@ -2239,22 +2322,6 @@ export function CustomizationStudio({
     },
     [selectedId, selectedType, updateTextById]
   );
-
-  const commitInlineTextEdit = useCallback(() => {
-    if (!editingTextId) return;
-    updateTextById(editingTextId, { text: editingTextValue });
-    if (selectedId === editingTextId && selectedType === "text") {
-      setTextInput(editingTextValue);
-    }
-    setEditingTextId(null);
-  }, [editingTextId, editingTextValue, selectedId, selectedType, updateTextById]);
-
-  const beginInlineTextEdit = useCallback((item: TextItem) => {
-    setSelectedId(item.id);
-    setSelectedType("text");
-    setEditingTextId(item.id);
-    setEditingTextValue(item.text || "");
-  }, []);
 
   // Apply style controls to selected text
   useEffect(() => {
@@ -2446,9 +2513,6 @@ export function CustomizationStudio({
   const handleStageClick = useCallback((e: any) => {
     // Any left click hides context menu
     setContextMenu((cm) => ({ ...cm, visible: false }));
-    if (editingTextId) {
-      commitInlineTextEdit();
-    }
 
     const stage = e.target.getStage();
     const clickedOnEmpty = e.target === stage;
@@ -2457,7 +2521,7 @@ export function CustomizationStudio({
       setSelectedId(null);
       setSelectedType(null);
     }
-  }, [commitInlineTextEdit, editingTextId]);
+  }, []);
 
   const handleStageContextMenu = useCallback((e: any) => {
     e.evt.preventDefault();
@@ -2603,17 +2667,31 @@ export function CustomizationStudio({
   }, [designs, productSpec.requiresQrCode, qrPlacement, selectedArtKeyTemplate.id]);
 
   const handleExport = useCallback(async () => {
-    const dataUrl = await exportCurrentPlacement();
-    if (!dataUrl) return;
+    if (isExporting) return;
+    setIsExporting(true);
+    setExportStatus({ tone: "info", message: onExport ? "Saving design..." : "Preparing download..." });
+    try {
+      const dataUrl = await exportCurrentPlacement();
+      if (!dataUrl) {
+        setExportStatus({ tone: "error", message: "Export failed. Please try again." });
+        return;
+      }
 
-    if (onExport) {
-      const pfPlacement = resolvePrintfulPlacement(productSpec, activePlacement);
-      onExport([{ placement: pfPlacement, dataUrl }], getArtKeyTemplatePosition());
-      return;
+      if (onExport) {
+        const pfPlacement = resolvePrintfulPlacement(productSpec, activePlacement);
+        await Promise.resolve(onExport([{ placement: pfPlacement, dataUrl }], getArtKeyTemplatePosition()));
+        setExportStatus({ tone: "success", message: "Design saved successfully." });
+        return;
+      }
+
+      downloadDataURL(dataUrl, `${productSpec.name}-${activePlacement}.png`);
+      setExportStatus({ tone: "success", message: "Download started." });
+    } catch {
+      setExportStatus({ tone: "error", message: "Export failed. Please try again." });
+    } finally {
+      setIsExporting(false);
     }
-
-    downloadDataURL(dataUrl, `${productSpec.name}-${activePlacement}.png`);
-  }, [activePlacement, exportCurrentPlacement, getArtKeyTemplatePosition, onExport, productSpec]);
+  }, [activePlacement, exportCurrentPlacement, getArtKeyTemplatePosition, isExporting, onExport, productSpec]);
 
   /**
    * Generic compositor: loads N images and composites them into a single
@@ -2689,6 +2767,9 @@ export function CustomizationStudio({
   );
 
   const handleExportAll = useCallback(async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    setExportStatus({ tone: "info", message: onExport ? "Saving all surfaces..." : "Preparing downloads..." });
     const originalPlacement = activePlacement;
 
     setSelectedId(null);
@@ -2795,13 +2876,21 @@ export function CustomizationStudio({
       }
     }
 
-    if (onExport) {
-      onExport(finalOutputs, getArtKeyTemplatePosition());
-      return;
-    }
+    try {
+      if (onExport) {
+        await Promise.resolve(onExport(finalOutputs, getArtKeyTemplatePosition()));
+        setExportStatus({ tone: "success", message: "All surfaces saved successfully." });
+        return;
+      }
 
-    finalOutputs.forEach((o) => downloadDataURL(o.dataUrl, `${productSpec.name}-${o.placement}.png`));
-  }, [activePlacement, compositeImages, snapshotStage, getArtKeyTemplatePosition, onExport, productSpec]);
+      finalOutputs.forEach((o) => downloadDataURL(o.dataUrl, `${productSpec.name}-${o.placement}.png`));
+      setExportStatus({ tone: "success", message: `Download started (${finalOutputs.length} files).` });
+    } catch {
+      setExportStatus({ tone: "error", message: "Export failed. Please try again." });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [activePlacement, compositeImages, getArtKeyTemplatePosition, isExporting, onExport, productSpec, snapshotStage]);
 
   // -------------------------------------------------------------------------
   // UI HELPERS
@@ -2868,11 +2957,8 @@ export function CustomizationStudio({
           </span>
           <button
             onClick={() => {
-              setSelectedId(null);
-              setSelectedType(null);
-              setTextInput("Your text here");
               setTextLabelShape("none");
-              setIsAddingText(true);
+              addText("Your text here", "none");
             }}
             className="flex items-center gap-1.5 px-3 py-2 rounded text-sm"
             style={{ background: BRAND.light, color: BRAND.dark }}
@@ -2880,113 +2966,37 @@ export function CustomizationStudio({
           >
             <IconText /> Add Text
           </button>
-          <div className="flex items-center gap-1.5">
-            <select
-              value={insertLabelShape}
-              onChange={(e) => setInsertLabelShape(e.target.value as Exclude<TextLabelShape, "none">)}
-              className="px-2 py-1.5 rounded border text-xs"
-              style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
-              title="Choose label shape"
-            >
-              <option value="rectangle">Rectangle Label</option>
-              <option value="rounded">Rounded Label</option>
-              <option value="square">Square Label</option>
-              <option value="circle">Circle Label</option>
-            </select>
-            <button
-              onClick={() => addTextLabelWithShape(insertLabelShape)}
-              className="px-3 py-2 rounded text-sm"
-              style={{ background: BRAND.light, color: BRAND.dark }}
-              title="Add label with editable text"
-            >
-              + Label
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 min-w-0 w-full lg:w-auto order-3 lg:order-none overflow-x-auto">
-          {(isAddingText || selectedType === "text") && (
-            <>
-              <input
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                className="px-2 py-1.5 rounded border text-sm min-w-[12rem] sm:min-w-[14rem]"
-                style={{ borderColor: BRAND.light, background: BRAND.white }}
-                placeholder="Edit text on canvas"
-              />
-              <select
-                value={textFont}
-                onChange={(e) => setTextFont(e.target.value)}
-                className="px-2 py-1.5 rounded border text-sm"
-                style={{ borderColor: BRAND.light, background: BRAND.white }}
-                title="Font"
-              >
-                {FONT_OPTIONS.map((f) => (
-                  <option key={f.family} value={f.family}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min={8}
-                max={300}
-                value={textSize}
-                onChange={(e) => setTextSize(parseInt(e.target.value || "8", 10))}
-                className="w-16 px-2 py-1.5 rounded border text-sm"
-                style={{ borderColor: BRAND.light, background: BRAND.white }}
-                title="Font size"
-              />
-              <button
-                onClick={() => setTextBold((v) => !v)}
-                className="w-8 h-8 rounded border text-sm font-bold"
-                style={{
-                  borderColor: BRAND.light,
-                  background: textBold ? BRAND.lightest : BRAND.white,
-                  color: BRAND.dark,
-                }}
-                title="Bold"
-              >
-                B
-              </button>
-              <button
-                onClick={() => setTextItalic((v) => !v)}
-                className="w-8 h-8 rounded border text-sm italic"
-                style={{
-                  borderColor: BRAND.light,
-                  background: textItalic ? BRAND.lightest : BRAND.white,
-                  color: BRAND.dark,
-                }}
-                title="Italic"
-              >
-                I
-              </button>
-              <button
-                onClick={() => setTextUnderline((v) => !v)}
-                className="w-8 h-8 rounded border text-sm underline"
-                style={{
-                  borderColor: BRAND.light,
-                  background: textUnderline ? BRAND.lightest : BRAND.white,
-                  color: BRAND.dark,
-                }}
-                title="Underline"
-              >
-                U
-              </button>
-              {selectedType !== "text" && (
-                <button
-                  onClick={handleAddText}
-                  className="px-3 py-1.5 rounded text-sm font-medium"
-                  style={{ background: BRAND.accent, color: BRAND.white }}
-                >
-                  Place
-                </button>
-              )}
-            </>
-          )}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-start lg:justify-end">
+          {exportStatus && (
+            <span
+              className="text-xs px-2 py-1 rounded"
+              style={{
+                background:
+                  exportStatus.tone === "success"
+                    ? "#ecfdf5"
+                    : exportStatus.tone === "error"
+                    ? "#fef2f2"
+                    : BRAND.lightest,
+                color:
+                  exportStatus.tone === "success"
+                    ? "#166534"
+                    : exportStatus.tone === "error"
+                    ? "#991b1b"
+                    : BRAND.medium,
+                border: `1px solid ${
+                  exportStatus.tone === "success"
+                    ? "#86efac"
+                    : exportStatus.tone === "error"
+                    ? "#fecaca"
+                    : BRAND.light
+                }`,
+              }}
+            >
+              {exportStatus.message}
+            </span>
+          )}
           {/* Undo / Redo */}
           <button
             onClick={handleUndo}
@@ -3062,29 +3072,32 @@ export function CustomizationStudio({
             <>
               <button
                 onClick={handleExportAll}
-                className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
+                disabled={isExporting}
+                className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium disabled:opacity-60"
                 style={{ background: BRAND.accent, color: BRAND.white }}
                 title={onExport ? 'Save all surfaces and continue' : 'Download all surfaces as PNG'}
               >
-                <IconExport /> {onExport ? 'Save & Continue' : 'Download All'}
+                <IconExport /> {isExporting ? "Working..." : onExport ? 'Save & Continue' : 'Download All'}
               </button>
               <button
                 onClick={handleExport}
-                className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
+                disabled={isExporting}
+                className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium disabled:opacity-60"
                 style={{ background: BRAND.gold, color: BRAND.dark }}
                 title={onExport ? 'Save current surface and continue' : 'Download current surface as PNG'}
               >
-                <IconExport /> {onExport ? 'Save Current' : 'Download'}
+                <IconExport /> {isExporting ? "Working..." : onExport ? 'Save Current' : 'Download'}
               </button>
             </>
           ) : (
             <button
               onClick={handleExport}
-              className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium"
+              disabled={isExporting}
+              className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium disabled:opacity-60"
               style={{ background: BRAND.accent, color: BRAND.white }}
               title={onExport ? 'Save design and continue' : 'Download design as PNG'}
             >
-              <IconExport /> {onExport ? 'Save & Continue' : 'Download PNG'}
+              <IconExport /> {isExporting ? "Working..." : onExport ? 'Save & Continue' : 'Download PNG'}
             </button>
           )}
         </div>
@@ -3200,43 +3213,21 @@ export function CustomizationStudio({
               Choose a layout style, then drag images to adjust.
             </p>
             <p className="text-xs mb-2" style={{ color: BRAND.medium }}>
-              Default mode is Freeform (no layout) and is always available automatically.
-            </p>
-            <p className="text-[11px] font-medium mb-1.5" style={{ color: BRAND.medium }}>
-              Basic
+              Default mode is Single image.
             </p>
             <div className="grid grid-cols-2 gap-2 mb-3">
               {basicLayouts.map((layout) => (
                 <button
                   key={layout.id}
                   onClick={() => applyLayout(layout.id)}
-                  className="px-3 py-2 rounded text-sm border"
+                  className="rounded border p-1 transition-colors"
                   style={{
                     borderColor: currentLayoutId === layout.id ? BRAND.accent : BRAND.light,
                     background: currentLayoutId === layout.id ? BRAND.lightest : BRAND.white,
-                    color: BRAND.dark,
                   }}
+                  title={layout.name}
                 >
-                  {layout.name}
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] font-medium mb-1.5" style={{ color: BRAND.medium }}>
-              Collage Styles
-            </p>
-            <div className="grid grid-cols-1 gap-2">
-              {collageLayouts.map((layout) => (
-                <button
-                  key={layout.id}
-                  onClick={() => applyLayout(layout.id)}
-                  className="px-3 py-2 rounded text-sm border text-left"
-                  style={{
-                    borderColor: currentLayoutId === layout.id ? BRAND.accent : BRAND.light,
-                    background: currentLayoutId === layout.id ? BRAND.lightest : BRAND.white,
-                    color: BRAND.dark,
-                  }}
-                >
-                  {layout.name}
+                  <LayoutPreview slots={layout.slots} />
                 </button>
               ))}
             </div>
@@ -3413,6 +3404,57 @@ export function CustomizationStudio({
             
             {panelStates.decoratives && (
               <div className="space-y-4">
+                {/* Decorative text labels (SVG assets) */}
+                <div>
+                  <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>Text Labels</p>
+                  <div className="grid grid-cols-4 gap-1">
+                    {DECORATIVE_ELEMENTS.labels.map((el) => (
+                      <button
+                        key={el.id}
+                        onClick={() => addDecorativeElement(el)}
+                        className="aspect-square rounded border p-1 hover:border-gray-400 transition-colors"
+                        style={{ borderColor: BRAND.light, background: BRAND.lightest }}
+                        title={el.name}
+                      >
+                        <img
+                          src={el.src}
+                          alt={el.name}
+                          className="w-full h-full object-contain"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] font-medium mt-3 mb-2" style={{ color: BRAND.medium }}>
+                    Standard Label Shapes
+                  </p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      onClick={() => addText("Your text here", "rectangle")}
+                      className="px-2 py-1.5 rounded border text-xs"
+                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+                      title="Add rectangular text label"
+                    >
+                      Rectangle
+                    </button>
+                    <button
+                      onClick={() => addText("Your text here", "square")}
+                      className="px-2 py-1.5 rounded border text-xs"
+                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+                      title="Add square text label"
+                    >
+                      Square
+                    </button>
+                    <button
+                      onClick={() => addText("Your text here", "circle")}
+                      className="px-2 py-1.5 rounded border text-xs"
+                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+                      title="Add circle text label"
+                    >
+                      Circle
+                    </button>
+                  </div>
+                </div>
+
                 {/* Borders */}
                 <div>
                   <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>Borders</p>
@@ -3425,49 +3467,14 @@ export function CustomizationStudio({
                         style={{ borderColor: BRAND.light, background: BRAND.lightest }}
                         title={el.name}
                       >
-                        <img 
-                          src={el.src} 
-                          alt={el.name} 
+                        <img
+                          src={el.src}
+                          alt={el.name}
                           className="w-full h-full object-contain opacity-60"
                           style={{ filter: 'brightness(0)' }}
                         />
                       </button>
                     ))}
-                  </div>
-                </div>
-
-                {/* Text labels */}
-                <div>
-                  <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>Text Labels</p>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button
-                      onClick={() => addTextLabelWithShape("rectangle")}
-                      className="px-2 py-1.5 rounded border text-xs"
-                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
-                    >
-                      Rectangle
-                    </button>
-                    <button
-                      onClick={() => addTextLabelWithShape("rounded")}
-                      className="px-2 py-1.5 rounded border text-xs"
-                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
-                    >
-                      Rounded
-                    </button>
-                    <button
-                      onClick={() => addTextLabelWithShape("square")}
-                      className="px-2 py-1.5 rounded border text-xs"
-                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
-                    >
-                      Square
-                    </button>
-                    <button
-                      onClick={() => addTextLabelWithShape("circle")}
-                      className="px-2 py-1.5 rounded border text-xs"
-                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
-                    >
-                      Circle
-                    </button>
                   </div>
                 </div>
 
@@ -3970,14 +3977,22 @@ export function CustomizationStudio({
                 </select>
               </div>
 
-              {/* Template selector intentionally hidden for Elegant-only mode */}
               <div className="mb-3">
                 <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
                   ArtKey
                 </label>
-                <div className="w-full border rounded px-2 py-2 text-sm" style={{ borderColor: BRAND.light, background: BRAND.lightest }}>
-                  {selectedArtKeyTemplate.name}
-                </div>
+                <select
+                  value={selectedArtKeyTemplateId}
+                  onChange={(e) => setSelectedArtKeyTemplateId(e.target.value)}
+                  className="w-full border rounded px-2 py-2 text-sm"
+                  style={{ borderColor: BRAND.light }}
+                >
+                  {availableArtKeyTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <p className="text-xs" style={{ color: BRAND.medium }}>
@@ -4028,25 +4043,18 @@ export function CustomizationStudio({
                   {/* Slot guides */}
                   {slotRects.map((s, i) => (
                     <Group key={`slot-guide-${i}`} listening={false}>
-                      <Rect
-                        x={s.x}
-                        y={s.y}
-                        width={s.width}
-                        height={s.height}
-                        fill={hoverSlotIndex === i ? "#47556914" : "#47556908"}
-                        stroke={hoverSlotIndex === i ? BRAND.accent : "#94a3b8"}
-                        strokeWidth={hoverSlotIndex === i ? 2 : 1}
-                        dash={[8, 6]}
-                        opacity={0.65}
-                        listening={false}
-                      />
-                      {currentLayoutId !== DEFAULT_LAYOUT_ID && (
-                        <KonvaText
-                          x={s.x + 8}
-                          y={s.y + 8}
-                          text={`Slot ${i + 1}`}
-                          fontSize={18}
-                          fill={BRAND.accent}
+                      {currentLayoutId !== DEFAULT_LAYOUT_ID && !occupiedLayoutSlots.has(i) && (
+                        <Rect
+                          x={s.x}
+                          y={s.y}
+                          width={s.width}
+                          height={s.height}
+                          cornerRadius={8}
+                          fill={hoverSlotIndex === i ? "#47556914" : "#4755690d"}
+                          stroke={hoverSlotIndex === i ? BRAND.accent : "#94a3b8"}
+                          strokeWidth={hoverSlotIndex === i ? 2 : 1}
+                          dash={[10, 7]}
+                          opacity={0.72}
                           listening={false}
                         />
                       )}
@@ -4184,8 +4192,10 @@ export function CustomizationStudio({
                     const labelFillColor = t.labelFillColor || BRAND.white;
                     const labelBorderEnabled =
                       t.labelBorderEnabled ?? Math.max(0, t.labelOuterStrokeWidth ?? 0, t.labelInnerStrokeWidth ?? 0) > 0;
-                    const labelBorderColor = t.labelBorderColor || t.labelOuterStrokeColor || BRAND.dark;
-                    const labelBorderWidth = Math.max(0, t.labelBorderWidth ?? t.labelOuterStrokeWidth ?? 2);
+                    const labelOuterStrokeColor = t.labelOuterStrokeColor || t.labelBorderColor || BRAND.dark;
+                    const labelInnerStrokeColor = t.labelInnerStrokeColor || BRAND.medium;
+                    const labelOuterStrokeWidth = Math.max(0, t.labelOuterStrokeWidth ?? t.labelBorderWidth ?? 2);
+                    const labelInnerStrokeWidth = Math.max(0, t.labelInnerStrokeWidth ?? 1.2);
                     const labelCornerRadius = Math.max(0, t.labelCornerRadius ?? Math.round(t.fontSize * 0.3));
                     const textHeight = labelShape === "none" ? undefined : labelHeight;
 
@@ -4201,8 +4211,32 @@ export function CustomizationStudio({
                               rotation={t.rotation}
                               cornerRadius={labelShape === "rounded" ? labelCornerRadius : 0}
                               fill={labelFillEnabled ? labelFillColor : undefined}
-                              stroke={labelBorderEnabled ? labelBorderColor : undefined}
-                              strokeWidth={labelBorderEnabled ? labelBorderWidth : 0}
+                              stroke={labelBorderEnabled ? labelOuterStrokeColor : undefined}
+                              strokeWidth={labelBorderEnabled ? labelOuterStrokeWidth : 0}
+                              listening={false}
+                            />
+                          )}
+                        {labelShape !== "none" &&
+                          (labelShape === "rectangle" || labelShape === "square" || labelShape === "rounded") &&
+                          labelBorderEnabled &&
+                          labelInnerStrokeWidth > 0 && (
+                            <Rect
+                              x={t.x + labelOuterStrokeWidth + 2}
+                              y={t.y + labelOuterStrokeWidth + 2}
+                              width={Math.max(1, textWidth - (labelOuterStrokeWidth + 2) * 2)}
+                              height={Math.max(
+                                1,
+                                (labelShape === "square" ? textWidth : labelHeight) - (labelOuterStrokeWidth + 2) * 2
+                              )}
+                              rotation={t.rotation}
+                              cornerRadius={
+                                labelShape === "rounded"
+                                  ? Math.max(0, labelCornerRadius - (labelOuterStrokeWidth + 2))
+                                  : 0
+                              }
+                              fillEnabled={false}
+                              stroke={labelInnerStrokeColor}
+                              strokeWidth={labelInnerStrokeWidth}
                               listening={false}
                             />
                           )}
@@ -4214,8 +4248,17 @@ export function CustomizationStudio({
                               y={t.y + textWidth / 2}
                               radius={textWidth / 2}
                               fill={labelFillEnabled ? labelFillColor : undefined}
-                              stroke={labelBorderEnabled ? labelBorderColor : undefined}
-                              strokeWidth={labelBorderEnabled ? labelBorderWidth : 0}
+                              stroke={labelBorderEnabled ? labelOuterStrokeColor : undefined}
+                              strokeWidth={labelBorderEnabled ? labelOuterStrokeWidth : 0}
+                              listening={false}
+                            />
+                            <Circle
+                              x={t.x + textWidth / 2}
+                              y={t.y + textWidth / 2}
+                              radius={Math.max(1, textWidth / 2 - labelOuterStrokeWidth - 2)}
+                              fillEnabled={false}
+                              stroke={labelBorderEnabled ? labelInnerStrokeColor : undefined}
+                              strokeWidth={labelBorderEnabled ? labelInnerStrokeWidth : 0}
                               listening={false}
                             />
                           </>
@@ -4249,8 +4292,6 @@ export function CustomizationStudio({
                             setSelectedId(t.id);
                             setSelectedType("text");
                           }}
-                          onDblClick={() => beginInlineTextEdit(t)}
-                          onDblTap={() => beginInlineTextEdit(t)}
                           onDragEnd={(e) => handleTextDragEnd(t.id, e.target)}
                           onTransformEnd={(e) => handleTextTransformEnd(t.id, e.target)}
                         />
@@ -4361,43 +4402,6 @@ export function CustomizationStudio({
                 />
               </Layer>
             </Stage>
-            {editingTextItem && (
-              <textarea
-                ref={inlineTextEditorRef}
-                value={editingTextValue}
-                onChange={(e) => setEditingTextValue(e.target.value)}
-                onBlur={commitInlineTextEdit}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setEditingTextId(null);
-                    return;
-                  }
-                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                    e.preventDefault();
-                    commitInlineTextEdit();
-                  }
-                }}
-                className="absolute z-20 border rounded px-2 py-1 text-sm shadow-lg"
-                style={{
-                  left: editingTextItem.x * displayScale,
-                  top: editingTextItem.y * displayScale,
-                  width: Math.max(80, (editingTextItem.width || 240) * displayScale),
-                  minHeight:
-                    ((editingTextItem.labelShape && editingTextItem.labelShape !== "none"
-                      ? getLabelBoxHeight(editingTextItem)
-                      : Math.max(editingTextItem.fontSize * 1.6, 48)) || 48) * displayScale,
-                  fontFamily: editingTextItem.fontFamily,
-                  fontSize: Math.max(12, editingTextItem.fontSize * displayScale),
-                  lineHeight: String(editingTextItem.lineHeight ?? 1.2),
-                  letterSpacing: `${(editingTextItem.letterSpacing ?? 0) * displayScale}px`,
-                  color: editingTextItem.fill,
-                  background: "rgba(255,255,255,0.96)",
-                  borderColor: BRAND.accent,
-                  transform: `rotate(${editingTextItem.rotation}deg)`,
-                  transformOrigin: "top left",
-                }}
-              />
-            )}
           </div>
         </div>
 

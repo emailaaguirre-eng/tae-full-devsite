@@ -16,6 +16,7 @@ export interface ProductWatermarkSettings {
 export interface ProductMeta {
   proofTerms?: string;
   watermark?: ProductWatermarkSettings;
+  requiresQrCode?: boolean;
 }
 
 export const DEFAULT_WATERMARK: ProductWatermarkSettings = {
@@ -90,6 +91,13 @@ export function mergeProductMeta(
   const current = parseProductMeta(raw);
   const next = { ...current, ...updates };
   return JSON.stringify(next);
+}
+
+export function parseRequiresQrCode(
+  raw: string | null | undefined
+): boolean | undefined {
+  const meta = parseProductMeta(raw);
+  return typeof meta.requiresQrCode === "boolean" ? meta.requiresQrCode : undefined;
 }
 
 export function buildProductPreviewUrl(

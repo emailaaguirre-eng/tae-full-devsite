@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { getDb, shopProducts, eq } from '@/lib/db';
 import { saveDatabase } from '@/db';
-import { mergeProductMeta, parseProductMeta, parseWatermarkSettings } from '@/lib/product-watermark';
+import { mergeProductMeta, parseProductMeta, parseRequiresQrCode, parseWatermarkSettings } from '@/lib/product-watermark';
 import { parsePricingSettings } from '@/lib/product-pricing';
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +23,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       success: true,
       data: {
         ...product,
+        requiresQrCode: parseRequiresQrCode(product.printfulDataJson),
         watermark: parseWatermarkSettings(product.printfulDataJson),
         pricing: parsePricingSettings(product.printfulDataJson),
       },
@@ -61,6 +62,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       updates.printfulDataJson = mergeProductMeta(
         existing.printfulDataJson,
         { proofTerms: typeof body.proofTerms === 'string' ? body.proofTerms : '' }
+      );
+    }
+
+    if (body.requiresQrCode !== undefined) {
+      updates.printfulDataJson = mergeProductMeta(
+        updates.printfulDataJson ?? existing.printfulDataJson,
+        { requiresQrCode: !!body.requiresQrCode }
       );
     }
 

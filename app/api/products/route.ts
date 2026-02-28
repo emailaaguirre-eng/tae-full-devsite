@@ -11,7 +11,7 @@
  */
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, eq, desc, like, and } from "@/lib/db";
-import { buildProductPreviewUrl } from "@/lib/product-watermark";
+import { buildProductPreviewUrl, parseRequiresQrCode } from "@/lib/product-watermark";
 
 export const dynamic = "force-dynamic";
 
@@ -81,12 +81,23 @@ export async function GET(req: Request) {
       const rep = variants[0];
       const cat = catMap.get(rep.categoryId || "");
       const lowestPrice = (rep.printfulBasePrice || 0) + (rep.taeAddOnFee || 0);
+      const requiresQrCode =
+        parseRequiresQrCode(rep.printfulDataJson) ??
+        (cat?.requiresQrCode ?? false);
 
       // Use category name as display name (e.g. "Greeting Cards") instead of variant-specific name
       const productTypeName = cat?.name || rep.name.split(" — ")[0] || rep.name;
 
-      // Use the first variant that has a heroImage, or fallback to rep
       const withImage = variants.find((v) => v.heroImage) || rep;
+      let fallbackHero: string | null = null;
+      if (!withImage.heroImage && withImage.printfulDataJson) {
+        try {
+          const parsed = JSON.parse(withImage.printfulDataJson);
+          fallbackHero = parsed?.variant?.image || parsed?.product?.image || null;
+        } catch {
+          fallbackHero = null;
+        }
+      }
 
       return {
         id: rep.id,
@@ -94,14 +105,16 @@ export async function GET(req: Request) {
         slug: rep.slug,
         name: productTypeName,
         description: cleanDescription(cat?.description || rep.description),
-        heroImage: withImage.heroImage ? buildProductPreviewUrl(withImage.id, "hero") : null,
+        heroImage: withImage.heroImage
+          ? buildProductPreviewUrl(withImage.id, "hero")
+          : fallbackHero,
         basePrice: lowestPrice,
         hasMultipleVariants: variants.length > 1,
         variantCount: variants.length,
         sizeLabel: null,
         paperType: null,
         orientation: null,
-        requiresQrCode: cat?.requiresQrCode ?? false,
+        requiresQrCode,
         categoryId: rep.categoryId,
         categoryName: cat?.name || "Uncategorized",
         categorySlug: cat?.slug || "",

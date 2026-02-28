@@ -40,6 +40,7 @@ interface Product {
   categoryId: string;
   categoryName: string;
   categorySlug: string;
+  requiresQrCode?: boolean;
   proofTerms?: string | null;
   pricing?: {
     marginTarget: number;
@@ -68,6 +69,7 @@ interface Category {
   name: string;
   icon: string;
   taeBaseFee: number;
+  requiresQrCode?: boolean;
   productCount: number;
 }
 
@@ -95,6 +97,7 @@ const EMPTY_FORM = {
   watermarkY: "0.50",
   watermarkScale: "0.12",
   watermarkRotation: "-18",
+  requiresQrCode: false,
   active: true,
   sortOrder: "0",
 };
@@ -149,6 +152,11 @@ export default function AdminProductsPage() {
   const [wmDraft, setWmDraft] = useState<{ x: number; y: number; scale: number; rotation: number } | null>(null);
   const [wmDragging, setWmDragging] = useState(false);
   const [wmResizing, setWmResizing] = useState(false);
+
+  const getCategoryRequiresQrDefault = useCallback(
+    (categoryId?: string) => categories.find((c) => c.id === categoryId)?.requiresQrCode ?? false,
+    [categories]
+  );
 
   const handleBackfillImages = async () => {
     setBackfilling(true);
@@ -498,9 +506,14 @@ export default function AdminProductsPage() {
     if (searchParams.get("action") === "new") {
       setShowForm(true);
       setEditId(null);
-      setForm(EMPTY_FORM);
+      const defaultCategoryId = categories[0]?.id || "";
+      setForm({
+        ...EMPTY_FORM,
+        categoryId: defaultCategoryId,
+        requiresQrCode: getCategoryRequiresQrDefault(defaultCategoryId),
+      });
     }
-  }, [searchParams]);
+  }, [categories, getCategoryRequiresQrDefault, searchParams]);
 
   const handleEdit = (p: Product) => {
     const wm = p.watermark || {
@@ -540,6 +553,7 @@ export default function AdminProductsPage() {
       watermarkY: String(wm.transform?.y ?? 0.5),
       watermarkScale: String(wm.transform?.scale ?? 0.12),
       watermarkRotation: String(wm.transform?.rotation ?? -18),
+      requiresQrCode: !!p.requiresQrCode,
       active: p.active,
       sortOrder: (p.sortOrder || 0).toString(),
     });
@@ -581,6 +595,7 @@ export default function AdminProductsPage() {
             rotation: Math.max(-180, Math.min(180, parseFloat(form.watermarkRotation) || -18)),
           },
         },
+        requiresQrCode: !!form.requiresQrCode,
         active: form.active,
         sortOrder: parseInt(form.sortOrder) || 0,
       };
@@ -700,7 +715,16 @@ export default function AdminProductsPage() {
             {syncingSurfaceMaps ? "Syncing..." : "Sync Surface Maps"}
           </button>
           <button
-            onClick={() => { setShowForm(true); setEditId(null); setForm({ ...EMPTY_FORM, categoryId: categories[0]?.id || "" }); }}
+            onClick={() => {
+              const defaultCategoryId = categories[0]?.id || "";
+              setShowForm(true);
+              setEditId(null);
+              setForm({
+                ...EMPTY_FORM,
+                categoryId: defaultCategoryId,
+                requiresQrCode: getCategoryRequiresQrDefault(defaultCategoryId),
+              });
+            }}
             className={BTN_PRIMARY}
           >
             <Plus className="w-4 h-4" /> Add Product
@@ -776,7 +800,16 @@ export default function AdminProductsPage() {
             <Package className="w-8 h-8 text-brand-medium mx-auto mb-2" />
             <div className="text-sm text-brand-medium">No products found</div>
             <button
-              onClick={() => { setShowForm(true); setEditId(null); setForm({ ...EMPTY_FORM, categoryId: categories[0]?.id || "" }); }}
+              onClick={() => {
+                const defaultCategoryId = categories[0]?.id || "";
+                setShowForm(true);
+                setEditId(null);
+                setForm({
+                  ...EMPTY_FORM,
+                  categoryId: defaultCategoryId,
+                  requiresQrCode: getCategoryRequiresQrDefault(defaultCategoryId),
+                });
+              }}
               className="text-xs text-brand-accent hover:underline mt-2"
             >
               Create your first product
@@ -942,6 +975,27 @@ export default function AdminProductsPage() {
                     <option value="printful">Print Partner</option>
                     <option value="custom">Custom / In-house</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="border border-brand-light rounded-lg p-3 sm:p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
+                      ArtKey Requirement
+                    </div>
+                    <p className="text-[11px] mt-1 text-brand-medium">
+                      Controls whether studio requires the ArtKey Portal step for this product.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, requiresQrCode: !form.requiresQrCode })}
+                    className={`px-2.5 py-1 text-xs rounded border ${form.requiresQrCode ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
+                    title="Toggle ArtKey requirement for this product"
+                  >
+                    {form.requiresQrCode ? "Required" : "Not Required"}
+                  </button>
                 </div>
               </div>
 

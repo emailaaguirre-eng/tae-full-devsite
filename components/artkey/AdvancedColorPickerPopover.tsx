@@ -189,17 +189,26 @@ export function AdvancedColorPickerPopover({
 
   const rgb = hsvToRgb(hsv.h, hsv.s, hsv.v);
   const hexValue = rgbToHex(rgb.r, rgb.g, rgb.b);
-  const composed = localAlpha >= 0.999 ? hexValue : `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${localAlpha.toFixed(2)})`;
 
-  useEffect(() => {
-    onChange(composed, localAlpha);
-  }, [composed, localAlpha, onChange]);
+  const emitChange = (nextHsv: { h: number; s: number; v: number }, nextAlpha: number) => {
+    const nextRgb = hsvToRgb(nextHsv.h, nextHsv.s, nextHsv.v);
+    const nextHex = rgbToHex(nextRgb.r, nextRgb.g, nextRgb.b);
+    const nextComposed =
+      nextAlpha >= 0.999
+        ? nextHex
+        : `rgba(${nextRgb.r}, ${nextRgb.g}, ${nextRgb.b}, ${nextAlpha.toFixed(2)})`;
+    onChange(nextComposed, nextAlpha);
+  };
 
   const applySVFromPointer = (clientX: number, clientY: number, element: HTMLDivElement) => {
     const rect = element.getBoundingClientRect();
     const s = clamp01((clientX - rect.left) / rect.width);
     const v = clamp01(1 - (clientY - rect.top) / rect.height);
-    setHsv((prev) => ({ ...prev, s, v }));
+    setHsv((prev) => {
+      const next = { ...prev, s, v };
+      emitChange(next, localAlpha);
+      return next;
+    });
   };
 
   const panel = (
@@ -244,10 +253,34 @@ export function AdvancedColorPickerPopover({
           }}
           onKeyDown={(e) => {
             const step = e.shiftKey ? 0.05 : 0.02;
-            if (e.key === "ArrowLeft") setHsv((prev) => ({ ...prev, s: clamp01(prev.s - step) }));
-            if (e.key === "ArrowRight") setHsv((prev) => ({ ...prev, s: clamp01(prev.s + step) }));
-            if (e.key === "ArrowUp") setHsv((prev) => ({ ...prev, v: clamp01(prev.v + step) }));
-            if (e.key === "ArrowDown") setHsv((prev) => ({ ...prev, v: clamp01(prev.v - step) }));
+            if (e.key === "ArrowLeft") {
+              setHsv((prev) => {
+                const next = { ...prev, s: clamp01(prev.s - step) };
+                emitChange(next, localAlpha);
+                return next;
+              });
+            }
+            if (e.key === "ArrowRight") {
+              setHsv((prev) => {
+                const next = { ...prev, s: clamp01(prev.s + step) };
+                emitChange(next, localAlpha);
+                return next;
+              });
+            }
+            if (e.key === "ArrowUp") {
+              setHsv((prev) => {
+                const next = { ...prev, v: clamp01(prev.v + step) };
+                emitChange(next, localAlpha);
+                return next;
+              });
+            }
+            if (e.key === "ArrowDown") {
+              setHsv((prev) => {
+                const next = { ...prev, v: clamp01(prev.v - step) };
+                emitChange(next, localAlpha);
+                return next;
+              });
+            }
           }}
         >
           <div
@@ -268,7 +301,14 @@ export function AdvancedColorPickerPopover({
           max={360}
           step={1}
           value={Math.round(hsv.h)}
-          onChange={(e) => setHsv((prev) => ({ ...prev, h: Number(e.target.value) }))}
+          onChange={(e) => {
+            const nextHue = Number(e.target.value);
+            setHsv((prev) => {
+              const next = { ...prev, h: nextHue };
+              emitChange(next, localAlpha);
+              return next;
+            });
+          }}
           className="h-40 sm:h-auto sm:w-[18px]"
           style={{
             writingMode: "vertical-lr",
@@ -289,15 +329,19 @@ export function AdvancedColorPickerPopover({
               setHexInput(hexValue);
               return;
             }
-            setHsv(rgbToHsv(parsed.r, parsed.g, parsed.b));
+            const nextHsv = rgbToHsv(parsed.r, parsed.g, parsed.b);
+            setHsv(nextHsv);
             setHexInput(rgbToHex(parsed.r, parsed.g, parsed.b));
+            emitChange(nextHsv, localAlpha);
           }}
           onKeyDown={(e) => {
             if (e.key !== "Enter") return;
             const parsed = hexToRgb(hexInput);
             if (!parsed) return;
-            setHsv(rgbToHsv(parsed.r, parsed.g, parsed.b));
+            const nextHsv = rgbToHsv(parsed.r, parsed.g, parsed.b);
+            setHsv(nextHsv);
             setHexInput(rgbToHex(parsed.r, parsed.g, parsed.b));
+            emitChange(nextHsv, localAlpha);
           }}
           className="w-full px-2 py-1.5 rounded text-xs"
           style={{ border: "1px solid #d8d8d6" }}
@@ -316,7 +360,11 @@ export function AdvancedColorPickerPopover({
           max={100}
           step={1}
           value={Math.round(localAlpha * 100)}
-          onChange={(e) => setLocalAlpha(Number(e.target.value) / 100)}
+          onChange={(e) => {
+            const nextAlpha = Number(e.target.value) / 100;
+            setLocalAlpha(nextAlpha);
+            emitChange(hsv, nextAlpha);
+          }}
           className="w-full"
         />
       </div>

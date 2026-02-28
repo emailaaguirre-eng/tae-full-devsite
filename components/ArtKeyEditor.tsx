@@ -160,7 +160,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   // Save state: prevent duplicate saves and show result modal
   const [isSaving, setIsSaving] = useState(false);
   const [savedPortalToken, setSavedPortalToken] = useState<string | null>(null);
-  const [saveModal, setSaveModal] = useState<{ show: boolean; url: string; message: string } | null>(null);
+  const [saveModal, setSaveModal] = useState<{ show: boolean; url: string; message: string; hostUrl?: string } | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -708,6 +708,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     try {
       const artKeyDomain = (process.env.NEXT_PUBLIC_ARTKEY_DOMAIN || 'artkey.theartfulexperience.com').replace(/^https?:\/\//, '');
       const buildArtKeyPortalUrl = (publicToken: string) => `https://${artKeyDomain}/${publicToken}`;
+      const buildHostEditUrl = (publicToken: string, ownerToken?: string) =>
+        ownerToken
+          ? `https://${artKeyDomain}/${publicToken}/edit?owner=${encodeURIComponent(ownerToken)}`
+          : `https://${artKeyDomain}/${publicToken}/edit`;
       // QR placement is handled in the Customization Studio canvas, not here
 
       // Include skeleton key and QR position in customizations if product requires QR
@@ -746,7 +750,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       }
 
       // If coming from admin demo builder, save directly to portal API
-      if (fromAdmin && portalToken && ownerTokenParam) {
+      if (fromAdmin && portalToken) {
+        const adminOwnerToken = ownerTokenParam || "__admin_demo__";
         const portalPayload = {
           title: artKeyData.title,
           theme: artKeyData.theme,
@@ -762,17 +767,21 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'X-Owner-Token': ownerTokenParam,
+            'X-Owner-Token': adminOwnerToken,
           },
           body: JSON.stringify(portalPayload),
         });
         const portalData = await portalRes.json();
         if (portalData.success) {
+          if (typeof window !== 'undefined' && ownerTokenParam) {
+            sessionStorage.setItem(`portal_owner_${portalToken}`, ownerTokenParam);
+          }
           const portalUrl = buildArtKeyPortalUrl(portalToken);
+          const hostUrl = buildHostEditUrl(portalToken, ownerTokenParam || undefined);
           if (redirectToShop) {
             router.push('/b_d_admn_tae/artkey-demos');
           } else {
-            setSaveModal({ show: true, url: portalUrl, message: 'ArtKey Portal saved successfully!' });
+            setSaveModal({ show: true, url: portalUrl, hostUrl, message: 'ArtKey Portal saved and published successfully.' });
           }
         } else {
           setSaveModal({ show: true, url: '', message: portalData.error || 'Failed to save portal' });
@@ -823,6 +832,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         }
 
         const portalUrl = buildArtKeyPortalUrl(existingPortalToken);
+        const hostUrl = buildHostEditUrl(existingPortalToken, effectiveOwnerToken || undefined);
 
         if (redirectToShop && fromStudio && studioExport?.productSpec) {
           const spec = studioExport.productSpec;
@@ -880,7 +890,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         }
 
         if (redirectToShop) router.push('/cart');
-        else setSaveModal({ show: true, url: portalUrl, message: 'ArtKey saved!' });
+        else setSaveModal({ show: true, url: portalUrl, hostUrl, message: 'ArtKey saved and published.' });
         return;
       }
 
@@ -910,7 +920,14 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       
       const result = await res.json();
       if (result.token) setSavedPortalToken(result.token);
+      if (typeof window !== 'undefined' && result.token && result.owner_token) {
+        sessionStorage.setItem(`portal_owner_${result.token}`, result.owner_token);
+      }
       const portalUrl = result.share_url || (result.token ? buildArtKeyPortalUrl(result.token) : '');
+      const hostUrl =
+        result.token
+          ? buildHostEditUrl(result.token, result.owner_token || undefined)
+          : undefined;
       
       // If coming from studio, build cart item with design files + ArtKey data
       if (redirectToShop && fromStudio && studioExport?.productSpec) {
@@ -973,7 +990,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       if (redirectToShop) {
         router.push('/cart');
       } else {
-        setSaveModal({ show: true, url: portalUrl, message: 'ArtKey saved!' });
+        setSaveModal({ show: true, url: portalUrl, hostUrl, message: 'ArtKey saved and published.' });
       }
     } catch (err) {
       console.error('Save failed', err);
@@ -983,7 +1000,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     }
   };
 
-  const handleSaveAndContinue = () => handleSave(false);
+  const handleSaveAndContinue = () => handleSave(true);
   const handleSaveAndCheckout = () => handleSave(true);
 
   const toggleFeature = (field: keyof ArtKeyData['features']) => {
@@ -1290,7 +1307,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             <div className="flex items-center gap-3">
               {isAdmin && (
                 <button
-                  onClick={() => router.push('/manage/dashboard')}
+                  onClick={() => router.push('/b_d_admn_tae/dashboard')}
                   className="px-3 py-1.5 rounded-lg font-medium transition-all text-xs hover:bg-white/20"
                   style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.15)' }}
                   title="Back to Admin Dashboard"
@@ -2760,7 +2777,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             <p className="text-sm text-gray-700 mb-4">{saveModal.message}</p>
             {saveModal.url && (
               <div className="mb-4">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Portal URL</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Public Portal URL</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -2782,6 +2799,30 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                 </div>
               </div>
             )}
+            {saveModal.hostUrl && (
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Host Edit URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={saveModal.hostUrl}
+                    className="flex-1 px-3 py-2 rounded-lg border text-sm bg-gray-50 select-all"
+                    style={{ borderColor: '#d8d8d6' }}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(saveModal.hostUrl || '');
+                    }}
+                    className="px-3 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+                    style={{ background: COLOR_ACCENT, color: '#fff' }}
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="flex gap-2 justify-end">
               {saveModal.url && (
                 <a
@@ -2792,6 +2833,17 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   style={{ background: COLOR_ALT, color: COLOR_ACCENT, border: '1px solid #d8d8d6' }}
                 >
                   View Portal
+                </a>
+              )}
+              {saveModal.hostUrl && (
+                <a
+                  href={saveModal.hostUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+                  style={{ background: '#f8fafc', color: COLOR_ACCENT, border: '1px solid #d8d8d6' }}
+                >
+                  Host Settings
                 </a>
               )}
               <button

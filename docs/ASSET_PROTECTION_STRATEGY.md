@@ -65,3 +65,28 @@ Remaining hardening:
    - Proof watermark required pre-payment.
    - Optional branded/creator watermark for guest previews.
 4. Add periodic purge jobs for expired signed-token records.
+
+## Verification Runbook (Pending MUST-DO Tests)
+
+Use this script to run all pending checks in one pass against dev:
+
+`node scripts/verify-asset-protection.mjs --token <REAL_PUBLIC_PORTAL_TOKEN> --base-url https://dev.theartfulexperience.com --replay-count 20`
+
+The script performs:
+
+1. Signed URL extraction from `/api/portal/{token}`.
+2. 20x exact replay loop against the returned signed gallery preview URL.
+3. Proof-generate sanity call to `/api/proof/generate`.
+4. JSON status summary output for easy documentation.
+
+Expected baseline pattern:
+
+- Replay loop should show successful first requests, then rejection once nonce replay threshold is hit (`403` with replay-limit message).
+- Proof sanity should return `200` + `success: true`, with proof files and newly issued portal/owner tokens.
+
+After each run, copy the JSON output into this doc (or a dated verification note) and record:
+
+- replay status counts
+- first rejection attempt index
+- proof endpoint status/success
+- decision: Redis now vs. next phase

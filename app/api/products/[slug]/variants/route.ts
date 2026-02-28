@@ -68,6 +68,13 @@ export async function GET(
         (v: any) => v.id === p.printfulVariantId
       );
 
+      let pfDataForRow: any = {};
+      try {
+        pfDataForRow = p.printfulDataJson ? JSON.parse(p.printfulDataJson) : {};
+      } catch {
+        pfDataForRow = {};
+      }
+
       return {
         id: p.id,
         slug: p.slug,
@@ -76,7 +83,9 @@ export async function GET(
         paperType: p.paperType,
         finishType: p.finishType,
         orientation: p.orientation,
-        heroImage: p.heroImage ? buildProductPreviewUrl(p.id, "hero") : null,
+        heroImage: p.heroImage
+          ? buildProductPreviewUrl(p.id, "hero")
+          : (pfVariant?.image || pfDataForRow?.variant?.image || pfDataForRow?.product?.image || null),
         basePrice: (p.printfulBasePrice || 0) + (p.taeAddOnFee || 0),
         printfulVariantId: p.printfulVariantId,
         printWidth: p.printWidth,

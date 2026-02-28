@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -53,6 +53,8 @@ interface VariantOption {
   pfSize: string | null;
   pfName: string | null;
   inStock: boolean;
+  printWidth?: number | null;
+  printHeight?: number | null;
 }
 
 export default function ProductDetailPage() {
@@ -65,6 +67,7 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [hoverVariant, setHoverVariant] = useState<VariantOption | null>(null);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -134,10 +137,125 @@ export default function ProductDetailPage() {
     ),
   ];
 
+  const variantRows: VariantOption[] = useMemo(() => {
+    if (variants.length > 0) return variants;
+    return [
+      {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        sizeLabel: product.sizeLabel,
+        paperType: product.paperType,
+        finishType: product.finishType,
+        orientation: product.orientation,
+        heroImage: product.heroImage,
+        basePrice: product.basePrice,
+        printfulVariantId: product.printfulVariantId,
+        isCurrent: true,
+        pfColor: null,
+        pfColorCode: null,
+        pfSize: null,
+        pfName: null,
+        inStock: true,
+        printWidth: product.printWidth,
+        printHeight: product.printHeight,
+      },
+    ];
+  }, [product, variants]);
+
+  const currentVariant = useMemo(
+    () => variantRows.find((v) => v.isCurrent) || variantRows[0],
+    [variantRows]
+  );
+
+  const getSizeLabel = (v: VariantOption) =>
+    v.sizeLabel ||
+    v.pfSize ||
+    (v.printWidth && v.printHeight
+      ? `${Math.round((v.printWidth / (product.printDpi || 300)) * 100) / 100}" x ${Math.round((v.printHeight / (product.printDpi || 300)) * 100) / 100}"`
+      : "Standard");
+  const getMaterialLabel = (v: VariantOption) => v.paperType || "Standard Material";
+  const getFrameLabel = (v: VariantOption) => v.finishType || "No Frame";
+  const getOrientationLabel = (v: VariantOption) =>
+    v.orientation ? `${v.orientation.charAt(0).toUpperCase()}${v.orientation.slice(1)}` : "Default";
+
+  const buildOptions = (
+    variantsList: VariantOption[],
+    labelFor: (v: VariantOption) => string,
+    keyFor: (v: VariantOption) => string
+  ) => {
+    const groups = new Map<string, VariantOption[]>();
+    for (const v of variantsList) {
+      const k = keyFor(v);
+      const arr = groups.get(k) || [];
+      arr.push(v);
+      groups.set(k, arr);
+    }
+    const options: { key: string; label: string; variant: VariantOption }[] = [];
+    for (const [key, list] of groups.entries()) {
+      const scored = [...list].sort((a, b) => {
+        const score = (x: VariantOption) => {
+          let s = x.inStock ? 10 : 0;
+          if (currentVariant) {
+            if (getSizeLabel(x) === getSizeLabel(currentVariant)) s += 2;
+            if (getMaterialLabel(x) === getMaterialLabel(currentVariant)) s += 2;
+            if (getFrameLabel(x) === getFrameLabel(currentVariant)) s += 2;
+            if (getOrientationLabel(x) === getOrientationLabel(currentVariant)) s += 1;
+          }
+          return s;
+        };
+        return score(b) - score(a);
+      });
+      options.push({
+        key,
+        label: labelFor(scored[0]),
+        variant: scored[0],
+      });
+    }
+    return options;
+  };
+
+  const sizeOptions = useMemo(
+    () => buildOptions(variantRows, getSizeLabel, getSizeLabel),
+    [variantRows, currentVariant]
+  );
+  const materialOptions = useMemo(
+    () => buildOptions(variantRows, getMaterialLabel, getMaterialLabel),
+    [variantRows, currentVariant]
+  );
+  const frameOptions = useMemo(
+    () => buildOptions(variantRows, getFrameLabel, getFrameLabel),
+    [variantRows, currentVariant]
+  );
+  const orientationOptions = useMemo(
+    () => buildOptions(variantRows, getOrientationLabel, getOrientationLabel),
+    [variantRows, currentVariant]
+  );
+  const colorOptions = useMemo(
+    () =>
+      [...new Map(
+        variantRows
+          .filter((v) => v.pfColorCode || v.pfColor)
+          .map((v) => [v.pfColorCode || v.pfColor || v.id, v])
+      ).values()],
+    [variantRows]
+  );
+
   const handleVariantSelect = (variant: VariantOption) => {
+    setHoverVariant(null);
     if (variant.isCurrent) return;
     router.push(`/shop/${variant.slug}`);
   };
+  const getOptionButtonClass = (isActive: boolean, inStock: boolean) =>
+    `w-full min-h-[58px] text-left rounded-lg border px-3 py-2.5 text-sm font-medium transition-all ${
+      isActive
+        ? "bg-brand-dark text-white border-brand-dark shadow-sm"
+        : inStock
+        ? "bg-white text-brand-darkest border-brand-light hover:border-brand-dark hover:shadow-sm"
+        : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+    }`;
+  const hoveredImage = hoverVariant?.heroImage || null;
+  const mainImageSrc = hoveredImage || allImages[activeImageIndex] || allImages[0] || null;
 
   const handleStartCustomizing = () => {
     const searchParams = new URLSearchParams({
@@ -145,6 +263,11 @@ export default function ProductDetailPage() {
       slug: product.slug,
       product_name: product.name,
     });
+    if (product.requiresQrCode) {
+      // Preserve intent across studio redirects/variant switches.
+      searchParams.set("requires_qr", "1");
+      searchParams.set("force_artkey", "1");
+    }
     if (product.printfulProductId)
       searchParams.set("printful_id", String(product.printfulProductId));
     if (product.printfulVariantId)
@@ -152,20 +275,6 @@ export default function ProductDetailPage() {
 
     router.push(`/studio?${searchParams}`);
   };
-
-  const sizeVariants = variants.filter(
-    (v) => v.sizeLabel || v.pfSize
-  );
-
-  const colorVariants = variants.filter(
-    (v) => v.pfColor && v.pfColorCode
-  );
-
-  const uniqueColors = [
-    ...new Map(
-      colorVariants.map((v) => [v.pfColorCode, v])
-    ).values(),
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -208,9 +317,9 @@ export default function ProductDetailPage() {
           {/* Product Images */}
           <div>
             <div className="relative aspect-square bg-white rounded-2xl shadow-lg overflow-hidden mb-4">
-              {allImages.length > 0 ? (
+              {mainImageSrc ? (
                 <Image
-                  src={allImages[activeImageIndex] || allImages[0]}
+                  src={mainImageSrc}
                   alt={product.name}
                   fill
                   className="object-contain p-8"
@@ -226,6 +335,11 @@ export default function ProductDetailPage() {
               {product.requiresQrCode && (
                 <div className="absolute top-4 right-4 bg-brand-dark text-white text-xs px-3 py-1.5 rounded-full font-semibold">
                   Includes ArtKey Portal
+                </div>
+              )}
+              {hoverVariant && hoverVariant.heroImage && (
+                <div className="absolute top-4 left-4 bg-white/95 text-brand-dark text-[11px] px-2.5 py-1 rounded-full font-semibold border border-brand-light">
+                  Previewing option
                 </div>
               )}
             </div>
@@ -278,64 +392,140 @@ export default function ProductDetailPage() {
               </p>
             )}
 
-            {/* Variant Selectors */}
-            {sizeVariants.length > 1 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
-                  Size
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {sizeVariants.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => handleVariantSelect(v)}
-                      disabled={!v.inStock}
-                      className={`px-4 py-2.5 rounded-lg border text-sm font-medium transition-all ${
-                        v.isCurrent
-                          ? "bg-brand-dark text-white border-brand-dark"
-                          : v.inStock
-                          ? "bg-white text-brand-darkest border-brand-light hover:border-brand-dark"
-                          : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                      }`}
-                    >
-                      {v.sizeLabel || v.pfSize || v.name}
-                      {v.basePrice !== product.basePrice && v.inStock && (
-                        <span className="block text-xs mt-0.5 opacity-70">
-                          ${v.basePrice.toFixed(2)}
-                        </span>
-                      )}
-                      {!v.inStock && (
-                        <span className="block text-xs mt-0.5">Out of stock</span>
-                      )}
-                    </button>
-                  ))}
+            {/* Product Options (ported from older guided option layout) */}
+            <div className="mb-8 space-y-6">
+              {sizeOptions.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
+                    Size
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {sizeOptions.map((opt) => (
+                      <button
+                        key={`size-${opt.key}`}
+                        onClick={() => handleVariantSelect(opt.variant)}
+                        onMouseEnter={() => setHoverVariant(opt.variant)}
+                        onMouseLeave={() => setHoverVariant(null)}
+                        onFocus={() => setHoverVariant(opt.variant)}
+                        onBlur={() => setHoverVariant(null)}
+                        disabled={!opt.variant.inStock || opt.variant.isCurrent}
+                        className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
+                      >
+                        <div>{opt.label}</div>
+                        {opt.variant.basePrice !== product.basePrice && opt.variant.inStock && (
+                          <div className="text-xs mt-0.5 opacity-75">
+                            ${opt.variant.basePrice.toFixed(2)}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Color variants (if product has frame colors, etc.) */}
-            {uniqueColors.length > 1 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
-                  Color
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {uniqueColors.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => handleVariantSelect(v)}
-                      className={`w-10 h-10 rounded-full border-2 transition-all ${
-                        v.isCurrent
-                          ? "border-brand-dark ring-2 ring-brand-dark ring-offset-2"
-                          : "border-brand-light hover:border-brand-dark"
-                      }`}
-                      style={{ backgroundColor: v.pfColorCode || "#ccc" }}
-                      title={v.pfColor || ""}
-                    />
-                  ))}
+              {materialOptions.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
+                    Material
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {materialOptions.map((opt) => (
+                      <button
+                        key={`material-${opt.key}`}
+                        onClick={() => handleVariantSelect(opt.variant)}
+                        onMouseEnter={() => setHoverVariant(opt.variant)}
+                        onMouseLeave={() => setHoverVariant(null)}
+                        onFocus={() => setHoverVariant(opt.variant)}
+                        onBlur={() => setHoverVariant(null)}
+                        disabled={!opt.variant.inStock || opt.variant.isCurrent}
+                        className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {frameOptions.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
+                    Frame / Finish
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {frameOptions.map((opt) => (
+                      <button
+                        key={`frame-${opt.key}`}
+                        onClick={() => handleVariantSelect(opt.variant)}
+                        onMouseEnter={() => setHoverVariant(opt.variant)}
+                        onMouseLeave={() => setHoverVariant(null)}
+                        onFocus={() => setHoverVariant(opt.variant)}
+                        onBlur={() => setHoverVariant(null)}
+                        disabled={!opt.variant.inStock || opt.variant.isCurrent}
+                        className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {orientationOptions.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
+                    Orientation
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {orientationOptions.map((opt) => (
+                      <button
+                        key={`orientation-${opt.key}`}
+                        onClick={() => handleVariantSelect(opt.variant)}
+                        onMouseEnter={() => setHoverVariant(opt.variant)}
+                        onMouseLeave={() => setHoverVariant(null)}
+                        onFocus={() => setHoverVariant(opt.variant)}
+                        onBlur={() => setHoverVariant(null)}
+                        disabled={!opt.variant.inStock || opt.variant.isCurrent}
+                        className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {colorOptions.length > 1 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
+                    Frame Color
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {colorOptions.map((v) => (
+                      <button
+                        key={v.id}
+                        onClick={() => handleVariantSelect(v)}
+                        onMouseEnter={() => setHoverVariant(v)}
+                        onMouseLeave={() => setHoverVariant(null)}
+                        onFocus={() => setHoverVariant(v)}
+                        onBlur={() => setHoverVariant(null)}
+                        disabled={!v.inStock || v.isCurrent}
+                        className={getOptionButtonClass(v.isCurrent, !!v.inStock)}
+                        title={v.pfColor || ""}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="inline-block w-4 h-4 rounded-sm border border-black/15"
+                            style={{ backgroundColor: v.pfColorCode || "#ccc" }}
+                          />
+                          <span>{v.pfColor || "Color option"}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Specs */}
             <div className="grid grid-cols-2 gap-4 mb-8">
