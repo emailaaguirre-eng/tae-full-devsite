@@ -15,6 +15,7 @@ interface ProductDetail {
   basePrice: number;
   printfulBasePrice: number;
   taeAddOnFee: number;
+  artistRoyalty?: number;
   sizeLabel: string | null;
   paperType: string | null;
   finishType: string | null;
@@ -46,6 +47,9 @@ interface VariantOption {
   orientation: string | null;
   heroImage: string | null;
   basePrice: number;
+  printfulBasePrice?: number;
+  taeAddOnFee?: number;
+  artistRoyalty?: number;
   printfulVariantId: number | null;
   isCurrent: boolean;
   pfColor: string | null;
@@ -100,6 +104,46 @@ export default function ProductDetailPage() {
       .catch(() => {});
   }, [slug]);
 
+  const variantRows: VariantOption[] = useMemo(() => {
+    if (variants.length > 0) return variants;
+    if (!product) return [];
+    return [
+      {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        sizeLabel: product.sizeLabel,
+        paperType: product.paperType,
+        finishType: product.finishType,
+        orientation: product.orientation,
+        heroImage: product.heroImage,
+        basePrice: product.basePrice,
+        printfulVariantId: product.printfulVariantId,
+        isCurrent: true,
+        pfColor: null,
+        pfColorCode: null,
+        pfSize: null,
+        pfName: null,
+        inStock: true,
+        printWidth: product.printWidth,
+        printHeight: product.printHeight,
+      },
+    ];
+  }, [product, variants]);
+
+  const currentVariant = useMemo(
+    () => variantRows.find((v) => v.isCurrent) || variantRows[0] || null,
+    [variantRows]
+  );
+
+  const allImages = useMemo(() => {
+    if (!product) return [];
+    return [
+      ...(product.heroImage ? [product.heroImage] : []),
+      ...(product.galleryImages || []).filter((url) => url !== product.heroImage),
+    ];
+  }, [product]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -130,54 +174,34 @@ export default function ProductDetailPage() {
     );
   }
 
-  const allImages = [
-    ...(product.heroImage ? [product.heroImage] : []),
-    ...(product.galleryImages || []).filter(
-      (url) => url !== product.heroImage
-    ),
-  ];
-
-  const variantRows: VariantOption[] = useMemo(() => {
-    if (variants.length > 0) return variants;
-    return [
-      {
-        id: product.id,
-        slug: product.slug,
-        name: product.name,
-        sizeLabel: product.sizeLabel,
-        paperType: product.paperType,
-        finishType: product.finishType,
-        orientation: product.orientation,
-        heroImage: product.heroImage,
-        basePrice: product.basePrice,
-        printfulVariantId: product.printfulVariantId,
-        isCurrent: true,
-        pfColor: null,
-        pfColorCode: null,
-        pfSize: null,
-        pfName: null,
-        inStock: true,
-        printWidth: product.printWidth,
-        printHeight: product.printHeight,
-      },
-    ];
-  }, [product, variants]);
-
-  const currentVariant = useMemo(
-    () => variantRows.find((v) => v.isCurrent) || variantRows[0],
-    [variantRows]
-  );
-
   const getSizeLabel = (v: VariantOption) =>
     v.sizeLabel ||
     v.pfSize ||
     (v.printWidth && v.printHeight
-      ? `${Math.round((v.printWidth / (product.printDpi || 300)) * 100) / 100}" x ${Math.round((v.printHeight / (product.printDpi || 300)) * 100) / 100}"`
+      ? `${Math.round((v.printWidth / (product?.printDpi || 300)) * 100) / 100}" x ${Math.round((v.printHeight / (product?.printDpi || 300)) * 100) / 100}"`
       : "Standard");
   const getMaterialLabel = (v: VariantOption) => v.paperType || "Standard Material";
   const getFrameLabel = (v: VariantOption) => v.finishType || "No Frame";
   const getOrientationLabel = (v: VariantOption) =>
     v.orientation ? `${v.orientation.charAt(0).toUpperCase()}${v.orientation.slice(1)}` : "Default";
+  const formatPrice = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toFixed(2) : "0.00";
+  };
+  const renderOptionPrice = (variant: VariantOption) => {
+    if (!variant.inStock) return null;
+    const currentPrice = Number(currentVariant?.basePrice ?? product.basePrice);
+    const optionPrice = Number(variant.basePrice);
+    if (!Number.isFinite(optionPrice) || !Number.isFinite(currentPrice)) return null;
+    const delta = optionPrice - currentPrice;
+    const deltaAbs = formatPrice(Math.abs(delta));
+    const deltaText = `${delta >= 0 ? "+" : "-"}${deltaAbs}`;
+    return (
+      <div className="text-xs mt-0.5 opacity-75">
+        ${formatPrice(optionPrice)} ({deltaText})
+      </div>
+    );
+  };
 
   const buildOptions = (
     variantsList: VariantOption[],
@@ -215,31 +239,17 @@ export default function ProductDetailPage() {
     return options;
   };
 
-  const sizeOptions = useMemo(
-    () => buildOptions(variantRows, getSizeLabel, getSizeLabel),
-    [variantRows, currentVariant]
-  );
-  const materialOptions = useMemo(
-    () => buildOptions(variantRows, getMaterialLabel, getMaterialLabel),
-    [variantRows, currentVariant]
-  );
-  const frameOptions = useMemo(
-    () => buildOptions(variantRows, getFrameLabel, getFrameLabel),
-    [variantRows, currentVariant]
-  );
-  const orientationOptions = useMemo(
-    () => buildOptions(variantRows, getOrientationLabel, getOrientationLabel),
-    [variantRows, currentVariant]
-  );
-  const colorOptions = useMemo(
-    () =>
-      [...new Map(
-        variantRows
-          .filter((v) => v.pfColorCode || v.pfColor)
-          .map((v) => [v.pfColorCode || v.pfColor || v.id, v])
-      ).values()],
-    [variantRows]
-  );
+  const sizeOptions = buildOptions(variantRows, getSizeLabel, getSizeLabel);
+  const materialOptions = buildOptions(variantRows, getMaterialLabel, getMaterialLabel);
+  const frameOptions = buildOptions(variantRows, getFrameLabel, getFrameLabel);
+  const orientationOptions = buildOptions(variantRows, getOrientationLabel, getOrientationLabel);
+  const colorOptions = [
+    ...new Map(
+      variantRows
+        .filter((v) => v.pfColorCode || v.pfColor)
+        .map((v) => [v.pfColorCode || v.pfColor || v.id, v])
+    ).values(),
+  ];
 
   const handleVariantSelect = (variant: VariantOption) => {
     setHoverVariant(null);
@@ -383,7 +393,7 @@ export default function ProductDetailPage() {
             </h1>
 
             <p className="text-3xl font-bold text-brand-dark mb-6">
-              ${product.basePrice.toFixed(2)}
+              ${formatPrice(product.basePrice)}
             </p>
 
             {product.description && (
@@ -412,11 +422,7 @@ export default function ProductDetailPage() {
                         className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
                       >
                         <div>{opt.label}</div>
-                        {opt.variant.basePrice !== product.basePrice && opt.variant.inStock && (
-                          <div className="text-xs mt-0.5 opacity-75">
-                            ${opt.variant.basePrice.toFixed(2)}
-                          </div>
-                        )}
+                        {renderOptionPrice(opt.variant)}
                       </button>
                     ))}
                   </div>
@@ -440,7 +446,8 @@ export default function ProductDetailPage() {
                         disabled={!opt.variant.inStock || opt.variant.isCurrent}
                         className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
                       >
-                        {opt.label}
+                        <div>{opt.label}</div>
+                        {renderOptionPrice(opt.variant)}
                       </button>
                     ))}
                   </div>
@@ -464,7 +471,8 @@ export default function ProductDetailPage() {
                         disabled={!opt.variant.inStock || opt.variant.isCurrent}
                         className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
                       >
-                        {opt.label}
+                        <div>{opt.label}</div>
+                        {renderOptionPrice(opt.variant)}
                       </button>
                     ))}
                   </div>
@@ -488,7 +496,8 @@ export default function ProductDetailPage() {
                         disabled={!opt.variant.inStock || opt.variant.isCurrent}
                         className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
                       >
-                        {opt.label}
+                        <div>{opt.label}</div>
+                        {renderOptionPrice(opt.variant)}
                       </button>
                     ))}
                   </div>
@@ -520,6 +529,7 @@ export default function ProductDetailPage() {
                           />
                           <span>{v.pfColor || "Color option"}</span>
                         </div>
+                        {renderOptionPrice(v)}
                       </button>
                     ))}
                   </div>

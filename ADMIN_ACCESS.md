@@ -5,7 +5,7 @@
 **Your admin panel is located at:**
 
 ```
-https://your-vercel-site.vercel.app/manage/login
+https://your-domain.com/manage/login
 ```
 
 ## Login Credentials
@@ -34,7 +34,7 @@ ADMIN3_PASSWORD=sales-password-123
 
 ### Option 2: ADMIN_USERS Variable
 
-Set this environment variable in Vercel to support multiple admin users:
+Set this environment variable in your deployment environment to support multiple admin users:
 
 **ADMIN_USERS** - JSON array or comma-separated format:
 

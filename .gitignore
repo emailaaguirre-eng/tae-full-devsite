@@ -56,7 +56,6 @@ dist/
 build/
 coverage/
 .turbo/
-.vercel/
 
 # logs
 *.log

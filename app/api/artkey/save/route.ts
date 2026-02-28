@@ -3,11 +3,21 @@ import { getDb, artKeys, generateId } from '@/lib/db';
 import { saveDatabase } from '@/db';
 import { eq } from 'drizzle-orm';
 import { getArtKeyPortalUrl } from '@/lib/qr';
+import { canAdminAccessDemoPortal } from '@/lib/portal-auth';
+import { validatePortalSession } from '@/lib/portal-session';
+import { enforceRequestRateLimit } from '@/lib/request-rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    const rateLimit = enforceRequestRateLimit(req, {
+      keyPrefix: 'artkey-save',
+      windowMs: 60_000,
+      maxRequests: 20,
+    });
+    if (!rateLimit.ok) return rateLimit.response;
+
     const body = await req.json();
     const { data, product_id } = body;
 
@@ -25,6 +35,20 @@ export async function POST(req: Request) {
     if (data.token) {
       const existing = await db.select().from(artKeys).where(eq(artKeys.publicToken, data.token)).get();
       if (existing) {
+        const ownerToken = (req.headers.get('X-Owner-Token') || body?.owner_token || '').trim();
+        const ownerMatch = !!ownerToken && existing.ownerToken === ownerToken;
+        const adminDemoAccess =
+          ownerToken === "__admin_demo__" && canAdminAccessDemoPortal(req, data.token);
+        const session = validatePortalSession(req, data.token);
+        const cookieOwnerAccess = session.valid && session.mode === "owner";
+        const cookieAdminDemoAccess = session.valid && session.mode === "admin_demo";
+        if (!ownerMatch && !adminDemoAccess && !cookieOwnerAccess && !cookieAdminDemoAccess) {
+          return NextResponse.json(
+            { success: false, error: 'Unauthorized to update this portal' },
+            { status: 403 }
+          );
+        }
+
         await db.update(artKeys).set({
           title: data.title || existing.title,
           theme: JSON.stringify(data.theme || {}),

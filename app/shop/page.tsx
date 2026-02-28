@@ -61,6 +61,11 @@ export default function ShopPage() {
     fetchProducts();
   }, [activeCategory, search]);
 
+  const formatPrice = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toFixed(2) : "0.00";
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Banner */}
@@ -204,7 +209,8 @@ export default function ShopPage() {
                   </p>
                   <div className="flex items-center justify-between">
                     <span className="text-xl font-bold text-brand-dark">
-                      {product.hasMultipleVariants ? "From " : ""}${product.basePrice.toFixed(2)}
+                      {product.hasMultipleVariants ? "From " : ""}$
+                      {formatPrice(product.basePrice)}
                     </span>
                     <span className="text-sm font-semibold text-brand-medium group-hover:text-brand-dark transition-colors">
                       Customize &rarr;

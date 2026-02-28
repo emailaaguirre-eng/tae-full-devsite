@@ -34,6 +34,8 @@ export interface CartItem {
 
   /** Exported design images from the Customization Studio */
   designFiles?: DesignFile[];
+  /** Server-registered studio export reference for traceability/retries */
+  designDraftId?: string;
   /** Lightweight signature to verify render payload integrity through checkout */
   studioRenderSignature?: string;
 
@@ -53,6 +55,15 @@ export interface CartItem {
     templateId?: string;
   };
 
+  /** Proof-stage persisted portal/Qr metadata for regeneration-free reproofs */
+  proofPortal?: {
+    portalToken: string;
+    ownerToken: string;
+    portalUrl: string;
+    editUrl: string;
+    qrCodeDataUrl?: string;
+  };
+
   /** Legacy customization fields */
   customization?: {
     size?: string;
@@ -61,11 +72,19 @@ export interface CartItem {
     frameColor?: string;
     uploadedImage?: string;
   };
+
+  /** Optional paid features selected during buying flow */
+  priceAdjustments?: Array<{
+    code?: string;
+    label?: string;
+    amount: number;
+  }>;
 }
 
 interface CartContextType {
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
+  updateCartItem: (id: string, updates: Partial<CartItem>) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
@@ -77,12 +96,25 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const safeNumber = (value: unknown, fallback = 0) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  };
 
   // Load cart from localStorage on mount
   useEffect(() => {
     const savedCart = localStorage.getItem('artful-cart');
     if (savedCart) {
-      setCart(JSON.parse(savedCart));
+      const parsed = JSON.parse(savedCart);
+      if (Array.isArray(parsed)) {
+        setCart(
+          parsed.map((item) => ({
+            ...item,
+            price: safeNumber(item?.price, 0),
+            quantity: Math.max(1, Math.trunc(safeNumber(item?.quantity, 1))),
+          }))
+        );
+      }
     }
   }, []);
 
@@ -146,7 +178,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const removeFromCart = (id: string) => {
+    try {
+      sessionStorage.removeItem(`tae-design-${id}`);
+      sessionStorage.removeItem(`tae-thumb-${id}`);
+    } catch {}
     setCart((prevCart) => prevCart.filter((item) => item.id !== id));
+  };
+
+  const updateCartItem = (id: string, updates: Partial<CartItem>) => {
+    setCart((prevCart) =>
+      prevCart.map((item) => (item.id === id ? { ...item, ...updates } : item))
+    );
   };
 
   const updateQuantity = (id: string, quantity: number) => {
@@ -162,11 +204,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const clearCart = () => {
+    try {
+      for (const item of cart) {
+        sessionStorage.removeItem(`tae-design-${item.id}`);
+        sessionStorage.removeItem(`tae-thumb-${item.id}`);
+      }
+    } catch {}
     setCart([]);
   };
 
   const getTotalPrice = () => {
-    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
+    return cart.reduce((total, item) => {
+      const price = safeNumber(item?.price, 0);
+      const qty = Math.max(1, Math.trunc(safeNumber(item?.quantity, 1)));
+      return total + price * qty;
+    }, 0);
   };
 
   const getItemCount = () => {
@@ -178,6 +230,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       value={{
         cart,
         addToCart,
+        updateCartItem,
         removeFromCart,
         updateQuantity,
         clearCart,

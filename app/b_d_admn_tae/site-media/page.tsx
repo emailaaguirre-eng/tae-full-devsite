@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Upload, X, ImageIcon, RotateCcw } from "lucide-react";
+import { adminFetchJson, AdminUnauthorizedError } from "@/lib/admin/clientFetch";
 
 interface SiteMediaSlot {
   key: string;
@@ -44,6 +46,7 @@ const SLOTS: SiteMediaSlot[] = [
 ];
 
 export default function SiteMediaPage() {
+  const router = useRouter();
   const [overrides, setOverrides] = useState<Override[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -51,13 +54,25 @@ export default function SiteMediaPage() {
   const [filter, setFilter] = useState("");
 
   const loadOverrides = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch("/api/admin/site-media");
-      const data = await res.json();
-      if (data.success) setOverrides(data.data || []);
-    } catch { /* silent */ }
+      const { res, data } = await adminFetchJson(
+        "/api/admin/site-media",
+        undefined,
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (res.ok && data?.success) {
+        setOverrides(data.data || []);
+      } else {
+        setMessage({ type: "error", text: data?.error || `Failed to load site media (${res.status})` });
+      }
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) {
+        setMessage({ type: "error", text: "Failed to load site media" });
+      }
+    }
     finally { setLoading(false); }
-  }, []);
+  }, [router]);
 
   useEffect(() => { loadOverrides(); }, [loadOverrides]);
 
@@ -71,16 +86,19 @@ export default function SiteMediaPage() {
     fd.append("key", slot.key);
     fd.append("alt", slot.label);
     try {
-      const res = await fetch("/api/admin/site-media", { method: "POST", body: fd });
-      const data = await res.json();
-      if (data.success) {
+      const { res, data } = await adminFetchJson(
+        "/api/admin/site-media",
+        { method: "POST", body: fd },
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (res.ok && data?.success) {
         setMessage({ type: "success", text: `Updated "${slot.label}"` });
         loadOverrides();
       } else {
-        setMessage({ type: "error", text: data.error || "Upload failed" });
+        setMessage({ type: "error", text: data?.error || `Upload failed (${res.status})` });
       }
-    } catch {
-      setMessage({ type: "error", text: "Upload failed" });
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) setMessage({ type: "error", text: "Upload failed" });
     }
     setUploading(null);
   };
@@ -88,16 +106,19 @@ export default function SiteMediaPage() {
   const handleRevert = async (slot: SiteMediaSlot) => {
     setMessage(null);
     try {
-      const res = await fetch(`/api/admin/site-media?key=${encodeURIComponent(slot.key)}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
+      const { res, data } = await adminFetchJson(
+        `/api/admin/site-media?key=${encodeURIComponent(slot.key)}`,
+        { method: "DELETE" },
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (res.ok && data?.success) {
         setMessage({ type: "success", text: `Reverted "${slot.label}" to default` });
         loadOverrides();
       } else {
-        setMessage({ type: "error", text: data.error || "Revert failed" });
+        setMessage({ type: "error", text: data?.error || `Revert failed (${res.status})` });
       }
-    } catch {
-      setMessage({ type: "error", text: "Revert failed" });
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) setMessage({ type: "error", text: "Revert failed" });
     }
   };
 

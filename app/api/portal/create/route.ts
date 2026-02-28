@@ -20,9 +20,28 @@
 import { NextResponse } from "next/server";
 import { getDb, artKeys, generateId, generateOwnerToken } from "@/lib/db";
 import { saveDatabase } from "@/db";
+import { getAdminSession } from "@/lib/admin-auth";
+import { enforceRequestRateLimit } from "@/lib/request-rate-limit";
 
 export async function POST(req: Request) {
   try {
+    const rateLimit = enforceRequestRateLimit(req, {
+      keyPrefix: "portal-create",
+      windowMs: 60_000,
+      maxRequests: 15,
+    });
+    if (!rateLimit.ok) return rateLimit.response;
+
+    const adminSession = await getAdminSession();
+    const apiCreateKey = process.env.PORTAL_CREATE_API_KEY || "";
+    const providedCreateKey = req.headers.get("X-Portal-Create-Key") || "";
+    if (!adminSession.authenticated && (!apiCreateKey || providedCreateKey !== apiCreateKey)) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const { title, ownerEmail, theme, features, links, spotify, featuredVideo } = body;
 

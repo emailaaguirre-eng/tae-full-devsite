@@ -7,6 +7,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 
+const safeNumber = (value: unknown, fallback = 0) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
 function CartItemRow({
   item,
   onUpdateQuantity,
@@ -18,6 +23,8 @@ function CartItemRow({
 }) {
   const frontDesign = item.designFiles?.find((f) => f.placement === "front");
   const thumbnail = frontDesign?.dataUrl || item.imageUrl;
+  const itemPrice = safeNumber(item.price, 0);
+  const itemQty = Math.max(1, Math.trunc(safeNumber(item.quantity, 1)));
 
   return (
     <div className="flex gap-4 sm:gap-6 py-6 border-b border-gray-100 last:border-0">
@@ -70,7 +77,7 @@ function CartItemRow({
             )}
           </div>
           <p className="text-lg font-bold text-brand-dark whitespace-nowrap">
-            ${(item.price * item.quantity).toFixed(2)}
+            ${(itemPrice * itemQty).toFixed(2)}
           </p>
         </div>
 

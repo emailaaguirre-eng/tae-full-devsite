@@ -28,16 +28,32 @@ interface ProofItem {
   ownerToken: string | null;
   portalUrl: string | null;
   editUrl: string | null;
+  qrCodeDataUrl?: string | null;
+  reusedPortal?: boolean;
   proofFiles: { placement: string; dataUrl: string }[];
 }
 
+interface ShippingRate {
+  id: string;
+  name: string;
+  rate: string;
+  currency: string;
+  minDeliveryDays: number;
+  maxDeliveryDays: number;
+}
+
 type CheckoutStep = "shipping" | "proof" | "payment" | "complete";
+
+const safeNumber = (value: unknown, fallback = 0) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
 
 // ─── Checkout Page ───────────────────────────────────────────────────────────
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, getTotalPrice, getItemCount, clearCart } = useCart();
+  const { cart, getTotalPrice, getItemCount, clearCart, updateCartItem } = useCart();
 
   const [step, setStep] = useState<CheckoutStep>("shipping");
   const [shipping, setShipping] = useState<ShippingInfo>({
@@ -56,9 +72,17 @@ export default function CheckoutPage() {
   const [proofLoading, setProofLoading] = useState(false);
   const [proofError, setProofError] = useState<string | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [shippingRatesLoading, setShippingRatesLoading] = useState(false);
+  const [shippingRatesError, setShippingRatesError] = useState<string | null>(null);
+  const [selectedShippingRateId, setSelectedShippingRateId] = useState<string | null>(null);
 
   const subtotal = getTotalPrice();
-  const shippingCost = 0; // Calculated at fulfillment
+  const selectedShippingRate = useMemo(
+    () => shippingRates.find((r) => r.id === selectedShippingRateId) || null,
+    [shippingRates, selectedShippingRateId]
+  );
+  const shippingCost = selectedShippingRate ? safeNumber(selectedShippingRate.rate, 0) : 0;
   const total = subtotal + shippingCost;
   const hasMissingDesignRenders = useMemo(
     () =>
@@ -79,6 +103,72 @@ export default function CheckoutPage() {
   );
 
   const hasQrItems = cart.some((item) => item.requiresQrCode);
+  const hasShippablePrintfulItems = cart.some((item) => !!item.printfulVariantId);
+
+  const fetchShippingRates = useCallback(async () => {
+    if (!hasShippablePrintfulItems) {
+      setShippingRates([]);
+      setSelectedShippingRateId(null);
+      setShippingRatesError(null);
+      return true;
+    }
+
+    setShippingRatesLoading(true);
+    setShippingRatesError(null);
+    try {
+      const res = await fetch("/api/shipping/rates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address: {
+            name: shipping.name,
+            email: shipping.email,
+            phone: shipping.phone,
+            line1: shipping.line1,
+            line2: shipping.line2,
+            city: shipping.city,
+            state: shipping.state,
+            zip: shipping.zip,
+            country: shipping.country,
+          },
+          items: cart
+            .filter((item) => !!item.printfulVariantId)
+            .map((item) => ({
+              variant_id: item.printfulVariantId,
+              quantity: Math.max(1, Math.trunc(safeNumber(item.quantity, 1))),
+            })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setShippingRates([]);
+        setSelectedShippingRateId(null);
+        setShippingRatesError(data.error || "Unable to get shipping rates right now.");
+        return false;
+      }
+
+      const rates = (Array.isArray(data.rates) ? data.rates : [])
+        .filter((r) => Number.isFinite(Number(r?.rate)))
+        .sort((a, b) => safeNumber(a.rate, 0) - safeNumber(b.rate, 0));
+      setShippingRates(rates);
+      if (rates.length === 0) {
+        setSelectedShippingRateId(null);
+        setShippingRatesError("No shipping options returned for this address.");
+        return false;
+      }
+      setSelectedShippingRateId((prev) =>
+        prev && rates.some((r) => r.id === prev) ? prev : rates[0].id
+      );
+      return true;
+    } catch {
+      setShippingRates([]);
+      setSelectedShippingRateId(null);
+      setShippingRatesError("Network error while fetching shipping rates.");
+      return false;
+    } finally {
+      setShippingRatesLoading(false);
+    }
+  }, [cart, hasShippablePrintfulItems, shipping]);
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -92,6 +182,8 @@ export default function CheckoutPage() {
   const handleShippingSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      const shippingOk = await fetchShippingRates();
+      if (!shippingOk) return;
 
       if (hasQrItems) {
         // Generate proofs for QR items
@@ -107,6 +199,7 @@ export default function CheckoutPage() {
               designFiles: item.designFiles || [],
               artKeyData: item.artKeyData || {},
               artKeyTemplatePosition: item.artKeyTemplatePosition || null,
+              existingPortal: item.proofPortal || null,
               requiresQrCode: true,
             }));
 
@@ -122,6 +215,18 @@ export default function CheckoutPage() {
           const data = await res.json();
           if (data.success) {
             setProofs(data.proofs);
+            for (const proof of data.proofs as ProofItem[]) {
+              if (!proof.portalToken || !proof.ownerToken || !proof.portalUrl || !proof.editUrl) continue;
+              updateCartItem(proof.cartItemId, {
+                proofPortal: {
+                  portalToken: proof.portalToken,
+                  ownerToken: proof.ownerToken,
+                  portalUrl: proof.portalUrl,
+                  editUrl: proof.editUrl,
+                  qrCodeDataUrl: proof.qrCodeDataUrl || undefined,
+                },
+              });
+            }
           } else {
             setProofError(data.error || "Failed to generate proofs");
           }
@@ -135,13 +240,42 @@ export default function CheckoutPage() {
         setStep("payment");
       }
     },
-    [cart, hasQrItems]
+    [cart, fetchShippingRates, hasQrItems, shipping.email, updateCartItem]
   );
 
   const handleApproveProofs = () => {
     if (hasInvalidProofRenders) return;
     setStep("payment");
   };
+
+  const handleRejectAndEdit = useCallback((cartItemId: string) => {
+    const shouldEdit = window.confirm(
+      "Would you like to edit your design?"
+    );
+    if (!shouldEdit) return;
+
+    const item = cart.find((c) => c.id === cartItemId);
+    if (!item) return;
+
+    const searchParams = new URLSearchParams({
+      product_id: item.id,
+      product_name: item.name,
+      cart_item_id: item.id,
+      restore_design: "1",
+    });
+    if (item.productSlug) searchParams.set("slug", item.productSlug);
+    if (item.requiresQrCode) {
+      searchParams.set("requires_qr", "1");
+      searchParams.set("force_artkey", "1");
+    }
+    if (item.printfulProductId) {
+      searchParams.set("printful_id", String(item.printfulProductId));
+    }
+    if (item.printfulVariantId) {
+      searchParams.set("variant_id", String(item.printfulVariantId));
+    }
+    router.push(`/studio?${searchParams.toString()}`);
+  }, [cart, router]);
 
   // ─── Payment ────────────────────────────────────────────────────────────
 
@@ -157,11 +291,13 @@ export default function CheckoutPage() {
         return {
           cartItemId: item.id,
           name: item.name,
-          price: item.price,
-          quantity: item.quantity,
+          price: safeNumber(item.price, 0),
+          quantity: Math.max(1, Math.trunc(safeNumber(item.quantity, 1))),
+          priceAdjustments: item.priceAdjustments || [],
           printfulProductId: item.printfulProductId,
           printfulVariantId: item.printfulVariantId,
           productSlug: item.productSlug,
+          designDraftId: item.designDraftId,
           designFiles: proof?.proofFiles || item.designFiles,
           studioRenderSignature: item.studioRenderSignature,
           requiresQrCode: item.requiresQrCode,
@@ -190,6 +326,7 @@ export default function CheckoutPage() {
             zip: shipping.zip,
             country: shipping.country,
           },
+          shippingRate: selectedShippingRate,
           items: orderItems,
           subtotal,
           shippingCost,
@@ -213,7 +350,7 @@ export default function CheckoutPage() {
     } finally {
       setPaymentLoading(false);
     }
-  }, [cart, proofs, shipping, subtotal, shippingCost, total, clearCart]);
+  }, [cart, proofs, shipping, selectedShippingRate, subtotal, shippingCost, total, clearCart]);
 
   // ─── Step Indicator ─────────────────────────────────────────────────────
 
@@ -405,8 +542,69 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {hasShippablePrintfulItems && (
+                <div className="mb-6 rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <h3 className="text-sm font-semibold text-brand-darkest">
+                      Shipping Options (Printful)
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void fetchShippingRates();
+                      }}
+                      disabled={shippingRatesLoading}
+                      className="text-xs px-3 py-1.5 rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {shippingRatesLoading ? "Refreshing..." : "Refresh Rates"}
+                    </button>
+                  </div>
+                  {shippingRatesLoading && (
+                    <p className="text-xs text-brand-darkest/60">Loading shipping rates...</p>
+                  )}
+                  {!shippingRatesLoading && shippingRatesError && (
+                    <p className="text-xs text-red-600">{shippingRatesError}</p>
+                  )}
+                  {!shippingRatesLoading && !shippingRatesError && shippingRates.length > 0 && (
+                    <div className="space-y-2">
+                      {shippingRates.map((rate) => (
+                        <label
+                          key={rate.id}
+                          className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 cursor-pointer ${
+                            selectedShippingRateId === rate.id
+                              ? "border-brand-dark bg-brand-light/30"
+                              : "border-gray-200 hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="shippingRate"
+                              checked={selectedShippingRateId === rate.id}
+                              onChange={() => setSelectedShippingRateId(rate.id)}
+                            />
+                            <div>
+                              <p className="text-sm font-medium text-brand-darkest">{rate.name}</p>
+                              <p className="text-xs text-brand-darkest/60">
+                                {rate.minDeliveryDays && rate.maxDeliveryDays
+                                  ? `${rate.minDeliveryDays}-${rate.maxDeliveryDays} business days`
+                                  : "Estimated delivery shown by Printful"}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-sm font-semibold text-brand-dark">
+                            ${safeNumber(rate.rate, 0).toFixed(2)}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
                 type="submit"
+                disabled={shippingRatesLoading}
                 className="w-full bg-brand-dark text-white py-3 rounded-full font-semibold hover:bg-brand-darkest transition-colors"
               >
                 {hasQrItems ? "Continue to Proof Review" : "Continue to Payment"}
@@ -489,6 +687,11 @@ export default function CheckoutPage() {
                               Portal: {proof.portalUrl}
                             </p>
                           )}
+                          {proof.reusedPortal && (
+                            <p className="text-[11px] text-brand-darkest/60 mb-3">
+                              Reusing your existing portal + QR from a prior proof pass.
+                            </p>
+                          )}
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             {proof.proofFiles.map((pf) => (
                               <div
@@ -506,6 +709,14 @@ export default function CheckoutPage() {
                               </div>
                             ))}
                           </div>
+                          <div className="mt-4 flex justify-end">
+                            <button
+                              onClick={() => handleRejectAndEdit(proof.cartItemId)}
+                              className="text-sm border border-red-200 text-red-700 px-3 py-1.5 rounded-full hover:bg-red-50 transition-colors"
+                            >
+                              Reject &amp; Edit Design
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -518,6 +729,15 @@ export default function CheckoutPage() {
                     >
                       <ArrowLeft className="w-4 h-4" />
                       Edit Shipping
+                    </button>
+                    <button
+                      onClick={() => {
+                        const firstProof = proofs[0];
+                        if (firstProof) handleRejectAndEdit(firstProof.cartItemId);
+                      }}
+                      className="flex-1 border-2 border-red-200 text-red-700 py-3 rounded-full font-semibold hover:bg-red-50 transition-colors"
+                    >
+                      Reject Proof &amp; Edit
                     </button>
                     <button
                       onClick={handleApproveProofs}
@@ -584,10 +804,13 @@ function OrderSummary({
         {cart.map((item) => (
           <div key={item.id} className="flex justify-between text-sm">
             <span className="text-brand-darkest/70 truncate mr-2">
-              {item.name} x{item.quantity}
+              {item.name} x{Math.max(1, Math.trunc(safeNumber(item.quantity, 1)))}
             </span>
             <span className="font-medium text-brand-darkest whitespace-nowrap">
-              ${(item.price * item.quantity).toFixed(2)}
+              ${(
+                safeNumber(item.price, 0) *
+                Math.max(1, Math.trunc(safeNumber(item.quantity, 1)))
+              ).toFixed(2)}
             </span>
           </div>
         ))}

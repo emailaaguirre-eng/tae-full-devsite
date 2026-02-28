@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { adminFetchJson, AdminUnauthorizedError } from "@/lib/admin/clientFetch";
 import {
   Package,
   Grid3X3,
@@ -35,24 +37,38 @@ interface RecentOrder {
 }
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const loadDashboard = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { res, data } = await adminFetchJson(
+        "/api/admin/dashboard",
+        undefined,
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (!res.ok || !data?.success) {
+        setError(data?.error || `Failed to load dashboard (${res.status})`);
+        return;
+      }
+      setStats(data.stats);
+      setRecentOrders(data.recentOrders || []);
+    } catch (err) {
+      if (err instanceof AdminUnauthorizedError) return;
+      setError("Network error while loading dashboard");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetch("/api/admin/dashboard")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success) {
-          setStats(data.stats);
-          setRecentOrders(data.recentOrders || []);
-        } else {
-          setError(data.error || "Failed to load");
-        }
-      })
-      .catch(() => setError("Network error"))
-      .finally(() => setLoading(false));
+    loadDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
@@ -96,6 +112,12 @@ export default function AdminDashboardPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-brand-dark font-playfair">Dashboard</h1>
         <p className="text-sm text-brand-medium mt-1">Overview of your store</p>
+        <button
+          onClick={loadDashboard}
+          className="mt-3 px-3 py-1.5 text-xs border border-brand-light text-brand-dark hover:bg-brand-lightest"
+        >
+          Refresh
+        </button>
       </div>
 
       {/* Stats grid */}

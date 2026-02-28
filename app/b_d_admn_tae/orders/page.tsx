@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { adminFetchJson, AdminUnauthorizedError } from "@/lib/admin/clientFetch";
 import {
   X,
   ShoppingCart,
@@ -45,6 +47,7 @@ interface Order {
 const STATUS_OPTIONS = ["pending", "paid", "processing", "shipped", "delivered", "cancelled"];
 
 export default function AdminOrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -56,18 +59,27 @@ export default function AdminOrdersPage() {
   const [saving, setSaving] = useState(false);
 
   const loadOrders = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
       const url = filterStatus ? `/api/admin/orders?status=${filterStatus}` : "/api/admin/orders";
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.success) setOrders(data.data || []);
-      else setError(data.error);
-    } catch {
+      const { res, data } = await adminFetchJson(
+        url,
+        undefined,
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (res.ok && data.success) {
+        setOrders(data.data || []);
+      } else {
+        setError(data.error || `Failed to load orders (${res.status})`);
+      }
+    } catch (err) {
+      if (err instanceof AdminUnauthorizedError) return;
       setError("Failed to load orders");
     } finally {
       setLoading(false);
     }
-  }, [filterStatus]);
+  }, [filterStatus, router]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
@@ -85,24 +97,28 @@ export default function AdminOrdersPage() {
     if (!viewOrder) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/admin/orders/${viewOrder.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: editStatus,
-          trackingNumber: editTracking.number || null,
-          trackingUrl: editTracking.url || null,
-          carrier: editTracking.carrier || null,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
+      const { res, data } = await adminFetchJson(
+        `/api/admin/orders/${viewOrder.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: editStatus,
+            trackingNumber: editTracking.number || null,
+            trackingUrl: editTracking.url || null,
+            carrier: editTracking.carrier || null,
+          }),
+        },
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (res.ok && data?.success) {
         setViewOrder(null);
         await loadOrders();
       } else {
-        setError(data.error || "Update failed");
+        setError(data?.error || `Update failed (${res.status})`);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof AdminUnauthorizedError) return;
       setError("Network error");
     } finally {
       setSaving(false);
@@ -189,29 +205,50 @@ export default function AdminOrdersPage() {
               <div className="col-span-2">Actions</div>
             </div>
             {filtered.map((o) => (
-              <div key={o.id} className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-brand-lightest/50 transition-colors">
-                <div className="col-span-2">
-                  <div className="text-sm font-medium text-brand-dark">{o.orderNumber}</div>
-                  <div className="text-[10px] text-brand-medium">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : ""}</div>
+              <div key={o.id} className="border-b border-brand-light last:border-b-0">
+                <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-brand-lightest/50 transition-colors">
+                  <div className="col-span-2">
+                    <div className="text-sm font-medium text-brand-dark">{o.orderNumber}</div>
+                    <div className="text-[10px] text-brand-medium">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : ""}</div>
+                  </div>
+                  <div className="col-span-3">
+                    <div className="text-sm text-brand-dark">{o.customerName || "Guest"}</div>
+                    <div className="text-[10px] text-brand-medium">{o.customerEmail}</div>
+                  </div>
+                  <div className="col-span-1 text-sm text-brand-dark">{o.itemCount}</div>
+                  <div className="col-span-2 text-sm font-medium text-brand-dark">
+                    ${(o.total || 0).toFixed(2)}
+                  </div>
+                  <div className="col-span-2">
+                    <span className={`text-[10px] px-2 py-0.5 font-medium uppercase ${statusBadge(o.status || "pending")}`}>
+                      {o.status}
+                    </span>
+                    {o.trackingNumber && <Truck className="w-3 h-3 text-brand-medium ml-1 inline" />}
+                  </div>
+                  <div className="col-span-2 flex items-center gap-1 justify-end">
+                    <button onClick={() => handleView(o)} className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors" title="View / Edit">
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <div className="col-span-3">
-                  <div className="text-sm text-brand-dark">{o.customerName || "Guest"}</div>
-                  <div className="text-[10px] text-brand-medium">{o.customerEmail}</div>
-                </div>
-                <div className="col-span-1 text-sm text-brand-dark">{o.itemCount}</div>
-                <div className="col-span-2 text-sm font-medium text-brand-dark">
-                  ${(o.total || 0).toFixed(2)}
-                </div>
-                <div className="col-span-2">
-                  <span className={`text-[10px] px-2 py-0.5 font-medium uppercase ${statusBadge(o.status || "pending")}`}>
-                    {o.status}
-                  </span>
-                  {o.trackingNumber && <Truck className="w-3 h-3 text-brand-medium ml-1 inline" />}
-                </div>
-                <div className="col-span-2 flex items-center gap-1 justify-end">
-                  <button onClick={() => handleView(o)} className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors" title="View / Edit">
-                    <Eye className="w-3.5 h-3.5" />
-                  </button>
+
+                <div className="md:hidden px-4 py-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-brand-dark">{o.orderNumber}</div>
+                    <span className={`text-[10px] px-2 py-0.5 font-medium uppercase ${statusBadge(o.status || "pending")}`}>
+                      {o.status}
+                    </span>
+                  </div>
+                  <div className="text-xs text-brand-medium">{o.customerName || o.customerEmail || "Guest"}</div>
+                  <div className="flex items-center justify-between text-xs text-brand-medium">
+                    <span>{o.itemCount} item{o.itemCount === 1 ? "" : "s"}</span>
+                    <span className="text-sm font-semibold text-brand-dark">${(o.total || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-end">
+                    <button onClick={() => handleView(o)} className="px-3 py-1.5 text-xs border border-brand-light text-brand-dark">
+                      View / Edit
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

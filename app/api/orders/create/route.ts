@@ -23,14 +23,53 @@
  * }
  */
 import { NextResponse } from "next/server";
-import { getDb, generateId, orders, orderItems, artKeys, customers } from "@/lib/db";
-import { eq } from "drizzle-orm";
+import {
+  getDb,
+  generateId,
+  orders,
+  orderItems,
+  artKeys,
+  customers,
+  shopProducts,
+} from "@/lib/db";
+import { and, eq } from "drizzle-orm";
+import {
+  computeLinePricing,
+  getBasePricingComponents,
+  normalizePriceAdjustments,
+  roundCurrency,
+  sanitizeQuantity,
+} from "@/lib/pricing-engine";
 
 function generateOrderNumber(): string {
   const prefix = "TAE";
   const timestamp = Date.now().toString(36).toUpperCase();
   const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
   return `${prefix}-${timestamp}-${rand}`;
+}
+
+function numOr(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizePlacementForPrintful(placement: unknown): string {
+  const raw = String(placement || "").trim().toLowerCase();
+  if (!raw) return "default";
+  if (raw === "front") return "default";
+  if (raw === "inside1" || raw === "inside2") return "inside";
+  return raw;
+}
+
+function parseRequiredPlacements(raw: unknown): string[] {
+  if (!raw || typeof raw !== "string") return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((p) => normalizePlacementForPrintful(p)).filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 export async function POST(req: Request) {
@@ -42,9 +81,7 @@ export async function POST(req: Request) {
       customer,
       shipping,
       items,
-      subtotal,
       shippingCost,
-      total,
     } = body;
 
     if (!customer?.email || !items?.length) {
@@ -98,6 +135,80 @@ export async function POST(req: Request) {
       });
     }
 
+    const normalizedItems: any[] = [];
+    let computedSubtotal = 0;
+    let computedRoyalties = 0;
+
+    for (const item of items as any[]) {
+      const qty = sanitizeQuantity(item?.quantity);
+      const adjustments = normalizePriceAdjustments(item?.priceAdjustments);
+
+      let productForPricing: any | null = null;
+      if (typeof item?.productSlug === "string" && item.productSlug.trim()) {
+        const rows = await db
+          .select()
+          .from(shopProducts)
+          .where(and(eq(shopProducts.slug, item.productSlug.trim()), eq(shopProducts.active, true)))
+          .limit(1)
+          .all();
+        productForPricing = rows[0] || null;
+      } else if (Number.isFinite(Number(item?.printfulVariantId))) {
+        const rows = await db
+          .select()
+          .from(shopProducts)
+          .where(
+            and(
+              eq(shopProducts.printfulVariantId, Math.trunc(Number(item.printfulVariantId))),
+              eq(shopProducts.active, true)
+            )
+          )
+          .limit(1)
+          .all();
+        productForPricing = rows[0] || null;
+      }
+
+      if (productForPricing) {
+        const base = getBasePricingComponents(productForPricing);
+        const line = computeLinePricing({
+          baseUnitPrice: base.baseUnitPrice,
+          quantity: qty,
+          adjustments,
+        });
+        computedSubtotal = roundCurrency(computedSubtotal + line.lineTotal);
+        computedRoyalties = roundCurrency(computedRoyalties + base.artistRoyalty * line.quantity);
+        normalizedItems.push({
+          ...item,
+          quantity: line.quantity,
+          priceAdjustments: adjustments,
+          price: line.unitPrice,
+          designDraftId: item?.designDraftId || null,
+          productForPricing,
+          pricingBreakdown: {
+            printfulBasePrice: base.printfulBasePrice,
+            taeAddOnFee: base.taeAddOnFee,
+            artistRoyalty: base.artistRoyalty,
+            optionsTotal: line.adjustmentsTotal,
+          },
+        });
+      } else {
+        const fallbackUnit = numOr(item?.price, 0);
+        const fallbackLine = roundCurrency(fallbackUnit * qty);
+        computedSubtotal = roundCurrency(computedSubtotal + fallbackLine);
+        normalizedItems.push({
+          ...item,
+          quantity: qty,
+          priceAdjustments: adjustments,
+          price: fallbackUnit,
+          designDraftId: item?.designDraftId || null,
+          productForPricing: null,
+          pricingBreakdown: null,
+        });
+      }
+    }
+
+    const computedShipping = numOr(shippingCost, 0);
+    const computedTotal = roundCurrency(computedSubtotal + computedShipping);
+
     // Create order
     await db.insert(orders).values({
       id: orderId,
@@ -106,9 +217,10 @@ export async function POST(req: Request) {
       customerId,
       customerEmail: customer.email,
       customerName: customer.name || null,
-      subtotal: subtotal || 0,
-      shippingCost: shippingCost || 0,
-      total: total || 0,
+      subtotal: computedSubtotal,
+      shippingCost: computedShipping,
+      totalRoyalties: computedRoyalties,
+      total: computedTotal,
       createdAt: now,
       updatedAt: now,
     });
@@ -121,7 +233,7 @@ export async function POST(req: Request) {
       portalUrl?: string;
       editUrl: string | null;
     }> = [];
-    for (const item of items) {
+    for (const item of normalizedItems) {
       const itemId = generateId();
 
       // Look up existing portal record created during proof generation
@@ -157,11 +269,15 @@ export async function POST(req: Request) {
         itemName: item.name,
         itemTaeId: item.cartItemId || itemId,
         quantity: item.quantity || 1,
-        basePrice: item.price || 0,
-        taeAddOnFee: 0,
+        basePrice: item.pricingBreakdown?.printfulBasePrice || item.price || 0,
+        taeAddOnFee:
+          (item.pricingBreakdown?.taeAddOnFee || 0) +
+          (item.pricingBreakdown?.optionsTotal || 0),
+        artistRoyalty: item.pricingBreakdown?.artistRoyalty || 0,
         unitPrice: item.price || 0,
         artKeyId: artKeyId || null,
         qrCodeUrl: item.portalUrl || null,
+        designDraftId: item.designDraftId || null,
         createdAt: now,
       });
 
@@ -191,17 +307,25 @@ export async function POST(req: Request) {
 
       // Build Printful order items from cart items that have variant IDs
       const pfItems = [];
-      for (const i of items.filter((x: any) => x.printfulVariantId)) {
+      for (const i of normalizedItems.filter((x: any) => x.printfulVariantId)) {
         const files: { type?: string; url?: string; id?: number }[] = [];
+        const requiredPlacements = new Set(
+          parseRequiredPlacements(i?.productForPricing?.requiredPlacements)
+        );
+        if (requiredPlacements.size === 0) {
+          ["default", "back", "inside", "inside_left", "inside_right"].forEach((p) =>
+            requiredPlacements.add(p)
+          );
+        }
 
         if (i.designFiles?.length) {
           for (const df of i.designFiles) {
-            // The export pipeline produces Printful-native placement names
-            // (default, inside, back, etc.) so use them directly.
-            // Fallback for legacy "front" → "default" mapping.
-            const placementType =
-              df.placement === "front" ? "default" :
-              df.placement || "default";
+            const placementType = normalizePlacementForPrintful(df.placement);
+            if (!requiredPlacements.has(placementType)) {
+              throw new Error(
+                `Invalid design placement "${placementType}" for product "${i.name}".`
+              );
+            }
 
             if (df.dataUrl?.startsWith("http")) {
               files.push({ type: placementType, url: df.dataUrl });
@@ -224,7 +348,7 @@ export async function POST(req: Request) {
           variant_id: i.printfulVariantId,
           quantity: i.quantity || 1,
           name: i.name,
-          retail_price: String(i.price || "0.00"),
+          retail_price: String(numOr(i.price, 0).toFixed(2)),
           files,
         });
       }
@@ -261,6 +385,7 @@ export async function POST(req: Request) {
             console.log(`[Order] Printful order ${pfOrder.id} confirmed for fulfillment`);
           } catch (confirmErr: any) {
             console.error("[Order] Printful confirm failed:", confirmErr?.message);
+            printfulStatus = `confirm_failed:${confirmErr?.message || "unknown"}`;
           }
         }
 
@@ -277,6 +402,15 @@ export async function POST(req: Request) {
       }
     } catch (pfErr: any) {
       console.error("[Order] Printful submission failed:", pfErr?.message);
+      printfulStatus = `submission_failed:${pfErr?.message || "unknown"}`;
+      await db
+        .update(orders)
+        .set({
+          printfulStatus,
+          updatedAt: now,
+        })
+        .where(eq(orders.id, orderId));
+      await saveDatabase();
     }
 
     // Send order confirmation email (best-effort, non-blocking)
@@ -286,8 +420,8 @@ export async function POST(req: Request) {
         orderNumber,
         customerName: customer.name || "",
         customerEmail: customer.email,
-        total: total || 0,
-        items: items.map((i: any) => {
+        total: computedTotal || 0,
+        items: normalizedItems.map((i: any) => {
           const ci = createdItems.find((c) => c.portalToken === i.portalToken);
           return {
             name: i.name,
@@ -308,11 +442,15 @@ export async function POST(req: Request) {
         id: orderId,
         orderNumber,
         status: "paid",
-        total,
+        total: computedTotal,
         customerEmail: customer.email,
         printfulOrderId,
         printfulStatus,
         items: createdItems,
+        fulfillmentWarning:
+          printfulStatus && printfulStatus.startsWith("submission_failed")
+            ? "Order saved, but Printful submission failed. Review in admin orders."
+            : undefined,
       },
     });
   } catch (err: any) {

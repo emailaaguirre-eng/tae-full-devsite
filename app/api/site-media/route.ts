@@ -7,11 +7,13 @@
  */
 import { NextResponse } from "next/server";
 import { getDb, siteMedia } from "@/lib/db";
+import { ensureSiteMediaTable } from "@/lib/site-media";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    await ensureSiteMediaTable();
     const db = await getDb();
     const rows = await db.select().from(siteMedia).all();
     return NextResponse.json({

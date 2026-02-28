@@ -97,8 +97,9 @@ interface ArtKeyData {
 function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { addToCart } = useCart();
+  const { addToCart, updateCartItem } = useCart();
   const productId = searchParams.get('product_id');
+  const cartItemIdParam = searchParams.get('cart_item_id');
   const fromShop = searchParams.get('from_shop') === 'true' || searchParams.get('from_customize') === 'true';
   const fromStudio = searchParams.get('from_studio') === 'true';
   const productNameParam = searchParams.get('product_name');
@@ -838,7 +839,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           const spec = studioExport.productSpec;
           const frontDesign = studioExport.designFiles?.find((f: any) => f.placement === 'front');
           const cartItem: Record<string, any> = {
-            id: `${spec.id}-${artkeyId || Date.now()}`,
+            id: cartItemIdParam || `${spec.id}-${artkeyId || Date.now()}`,
             name: spec.name || productNameParam || 'Custom Product',
             price: spec.basePrice || 0,
             quantity: 1,
@@ -848,6 +849,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             printfulProductId: spec.printfulProductId,
             printfulVariantId: spec.printfulVariantId,
             designFiles: studioExport.designFiles,
+            designDraftId: studioExport.studioExportId || undefined,
             studioRenderSignature: studioExport.studioRenderSignature,
             requiresQrCode: spec.requiresQrCode,
             artKeyData: {
@@ -863,7 +865,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           if (studioExport.artKeyTemplatePosition) {
             cartItem.artKeyTemplatePosition = studioExport.artKeyTemplatePosition;
           }
-          addToCart(cartItem);
+          if (cartItemIdParam) updateCartItem(cartItemIdParam, cartItem);
+          else addToCart(cartItem);
           sessionStorage.removeItem('tae-studio-export');
           router.push('/cart');
           return;
@@ -934,7 +937,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         const spec = studioExport.productSpec;
         const frontDesign = studioExport.designFiles?.find((f: any) => f.placement === 'front');
         const cartItem: Record<string, any> = {
-          id: `${spec.id}-${artkeyId || Date.now()}`,
+          id: cartItemIdParam || `${spec.id}-${artkeyId || Date.now()}`,
           name: spec.name || productNameParam || 'Custom Product',
           price: spec.basePrice || 0,
           quantity: 1,
@@ -944,6 +947,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           printfulProductId: spec.printfulProductId,
           printfulVariantId: spec.printfulVariantId,
           designFiles: studioExport.designFiles,
+          designDraftId: studioExport.studioExportId || undefined,
           studioRenderSignature: studioExport.studioRenderSignature,
           requiresQrCode: spec.requiresQrCode,
           artKeyData: {
@@ -959,7 +963,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         if (studioExport.artKeyTemplatePosition) {
           cartItem.artKeyTemplatePosition = studioExport.artKeyTemplatePosition;
         }
-        addToCart(cartItem);
+        if (cartItemIdParam) updateCartItem(cartItemIdParam, cartItem);
+        else addToCart(cartItem);
         // Clean up sessionStorage
         sessionStorage.removeItem('tae-studio-export');
         router.push('/cart');

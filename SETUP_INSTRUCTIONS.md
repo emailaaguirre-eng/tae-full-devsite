@@ -1,8 +1,8 @@
 # ArtKey Portal Setup Instructions
 
-## Environment Variables (Vercel)
+## Environment Variables
 
-Set these in your Vercel project settings:
+Set these in your deployment environment settings:
 
 1. **WP_API_BASE** or **NEXT_PUBLIC_WORDPRESS_URL**
    - Value: `https://theartfulexperience.com`
@@ -18,19 +18,19 @@ Set these in your Vercel project settings:
 
 After deployment, test the WordPress connection:
 
-1. Visit: `https://your-vercel-site.vercel.app/api/artkey/test-connection`
+1. Visit: `https://your-domain.com/api/artkey/test-connection`
    - This will show which WordPress REST API endpoints are accessible
 
 ## Demo URLs
 
 1. **Sales Demo (Direct):**
-   - `https://your-vercel-site.vercel.app/demo/artkey-691e3d09ef58e`
+   - `https://your-domain.com/demo/artkey-691e3d09ef58e`
 
 2. **Standard Portal:**
-   - `https://your-vercel-site.vercel.app/art-key/691e3d09ef58e`
+   - `https://your-domain.com/art-key/691e3d09ef58e`
 
 3. **Demo Entry Page:**
-   - `https://your-vercel-site.vercel.app/demo`
+   - `https://your-domain.com/demo`
 
 ## How It Works
 
@@ -60,7 +60,7 @@ Your WordPress site needs:
 
 If the portal doesn't load:
 
-1. Check environment variables in Vercel
+1. Check environment variables in your deployment platform
 2. Visit `/api/artkey/test-connection` to see which endpoints work
 3. Verify the token exists in WordPress with the correct format
 4. Check browser console for API errors

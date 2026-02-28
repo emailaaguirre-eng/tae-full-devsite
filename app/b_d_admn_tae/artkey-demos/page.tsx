@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { adminFetchJson, AdminUnauthorizedError } from "@/lib/admin/clientFetch";
 import {
   Plus,
   X,
@@ -56,6 +57,7 @@ const BTN_DANGER_ICON =
   "p-1.5 text-red-500 hover:text-red-700 transition-colors disabled:opacity-50";
 
 export default function AdminArtKeyDemosPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [demos, setDemos] = useState<ArtKeyDemo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,17 +84,23 @@ export default function AdminArtKeyDemosPage() {
   const [exporting, setExporting] = useState(false);
 
   const loadDemos = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const res = await fetch("/api/admin/artkey-demos");
-      const data = await res.json();
-      if (data.success) setDemos(data.data || []);
-      else setError(data.error);
-    } catch {
+      const { res, data } = await adminFetchJson(
+        "/api/admin/artkey-demos",
+        undefined,
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (res.ok && data?.success) setDemos(data.data || []);
+      else setError(data?.error || `Failed to load ArtKey demos (${res.status})`);
+    } catch (err) {
+      if (err instanceof AdminUnauthorizedError) return;
       setError("Failed to load ArtKey demos");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => { loadDemos(); }, [loadDemos]);
 
@@ -113,21 +121,21 @@ export default function AdminArtKeyDemosPage() {
     setSaving(true);
     setError("");
     try {
-      const res = await fetch("/api/admin/artkey-demos", {
+      const { res, data } = await adminFetchJson("/api/admin/artkey-demos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, ownerEmail: ownerEmail || undefined }),
-      });
-      const data = await res.json();
-      if (data.success) {
+      }, () => router.push("/b_d_admn_tae/login"));
+      if (res.ok && data?.success) {
         setNewResult(data.data);
         setTitle("");
         setOwnerEmail("");
         await loadDemos();
       } else {
-        setError(data.error || "Creation failed");
+        setError(data?.error || `Creation failed (${res.status})`);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof AdminUnauthorizedError) return;
       setError("Network error");
     } finally {
       setSaving(false);
@@ -246,19 +254,19 @@ export default function AdminArtKeyDemosPage() {
     setDeletingId(demo.id);
     setError("");
     try {
-      const res = await fetch("/api/admin/artkey-demos", {
+      const { res, data } = await adminFetchJson("/api/admin/artkey-demos", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: demo.id }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        setError(data.error || "Failed to delete demo");
+      }, () => router.push("/b_d_admn_tae/login"));
+      if (!res.ok || !data?.success) {
+        setError(data?.error || `Failed to delete demo (${res.status})`);
       } else {
         if (newResult?.id === demo.id) setNewResult(null);
         await loadDemos();
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof AdminUnauthorizedError) return;
       setError("Network error while deleting demo");
     } finally {
       setDeletingId(null);
@@ -289,7 +297,11 @@ export default function AdminArtKeyDemosPage() {
         params.set("width", String(exportWidth));
       }
       const url = `/api/admin/artkey-demos/export?${params.toString()}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.status === 401) {
+        router.push("/b_d_admn_tae/login");
+        return;
+      }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data?.error || "Failed to export ArtKey template");
@@ -317,14 +329,13 @@ export default function AdminArtKeyDemosPage() {
     setError("");
     setNotice(null);
     try {
-      const res = await fetch("/api/admin/artkey/archive-digests", {
+      const { res, data } = await adminFetchJson("/api/admin/artkey/archive-digests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           token ? { publicToken: token, force: true } : {}
         ),
-      });
-      const data = await res.json().catch(() => ({}));
+      }, () => router.push("/b_d_admn_tae/login"));
       if (!res.ok || !data?.success) {
         setError(data?.error || "Failed to send archive digest");
         return;
@@ -343,7 +354,8 @@ export default function AdminArtKeyDemosPage() {
           `Archive digest run complete: sent ${sentCount}, skipped ${skippedCount}, failed ${failedCount}.`
         );
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof AdminUnauthorizedError) return;
       setError("Network error while sending archive digest");
     } finally {
       setSendingArchiveFor(null);

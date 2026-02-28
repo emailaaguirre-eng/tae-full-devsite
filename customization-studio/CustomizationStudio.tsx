@@ -97,6 +97,10 @@ function parseCssAlpha(color: string | undefined): number {
   return Math.max(0, Math.min(1, rgbaMatch[4] !== undefined ? parseFloat(rgbaMatch[4]) : 1));
 }
 
+function nearlyEqual(a: number, b: number, epsilon = 0.01): boolean {
+  return Math.abs(a - b) <= epsilon;
+}
+
 // ============================================================================
 // DECORATIVE ELEMENTS (SVG assets from /assets/labels/)
 // ============================================================================
@@ -114,6 +118,7 @@ type DecorativeItem = {
   src: string;
   name: string;
   kind: DecorativeKind;
+  linkedTextId?: string;
   x: number;
   y: number;
   width: number;
@@ -121,6 +126,7 @@ type DecorativeItem = {
   rotation: number;
   opacity: number;
 };
+
 
 type UploadedImageAsset = {
   id: string;
@@ -169,6 +175,7 @@ const DECORATIVE_ELEMENTS: {
   ],
   accents: [],
 };
+
 
 function getDecorativeKind(item: { id?: string; src?: string; kind?: DecorativeKind }): DecorativeKind {
   if (item.kind) return item.kind;
@@ -407,6 +414,7 @@ type Props = {
   productSpec: ProductSpec;
   placeholderQrCodeUrl?: string;
   artKeyTemplates?: ArtKeyTemplateDefinition[];
+  initialDesigns?: DesignState;
   onExport?: (
     files: { placement: string; dataUrl: string }[],
     artKeyTemplatePosition?: ArtKeyTemplatePosition
@@ -678,6 +686,7 @@ export function CustomizationStudio({
   productSpec,
   placeholderQrCodeUrl = "/images/placeholder-qr.svg",
   artKeyTemplates = ARTKEY_TEMPLATES,
+  initialDesigns,
   onExport,
   onSave,
 }: Props) {
@@ -717,8 +726,6 @@ export function CustomizationStudio({
     selectedArtKeyTemplate.minCanvasFraction ?? MIN_TEMPLATE_CANVAS_FRACTION;
   const templateMaxCanvasFraction =
     selectedArtKeyTemplate.maxCanvasFraction ?? MAX_TEMPLATE_CANVAS_FRACTION;
-  const previousTemplateIdRef = useRef<string>(selectedArtKeyTemplate.id);
-  const previousQrSizeFractionRef = useRef<number>(qrSizeFraction);
 
   // Normalize default template geometry so each template renders with the
   // correct aspect ratio and keeps a usable visual size.
@@ -785,6 +792,34 @@ export function CustomizationStudio({
         },
       };
     }
+    if (initialDesigns) {
+      const restored: any = {};
+      for (const p of productSpec.placements) {
+        const src = initialDesigns[p];
+        restored[p] = {
+          images: src?.images ? JSON.parse(JSON.stringify(src.images)) : [],
+          texts: src?.texts ? JSON.parse(JSON.stringify(src.texts)) : [],
+          layoutId: src?.layoutId || DEFAULT_LAYOUT_ID,
+        };
+        if (src?.qrCode) restored[p].qrCode = JSON.parse(JSON.stringify(src.qrCode));
+      }
+      if (productSpec.requiresQrCode && normalizedQrDefault) {
+        const hasQr = restored?.[normalizedQrDefault.placement]?.qrCode;
+        if (!hasQr) {
+          restored[normalizedQrDefault.placement] = {
+            ...(restored[normalizedQrDefault.placement] || { images: [], texts: [] }),
+            layoutId: restored[normalizedQrDefault.placement]?.layoutId || DEFAULT_LAYOUT_ID,
+            qrCode: {
+              x: normalizedQrDefault.left,
+              y: normalizedQrDefault.top,
+              width: normalizedQrDefault.width,
+              height: normalizedQrDefault.height,
+            },
+          };
+        }
+      }
+      return restored as DesignState;
+    }
     return initial as DesignState;
   });
 
@@ -827,11 +862,10 @@ export function CustomizationStudio({
   const [textItalic, setTextItalic] = useState(false);
   const [textUnderline, setTextUnderline] = useState(false);
   const [textAlign, setTextAlign] = useState<TextAlign>("left");
-  const [textLabelShape, setTextLabelShape] = useState<TextLabelShape>("none");
   const [textLineHeight, setTextLineHeight] = useState(1.2);
   const [textLetterSpacing, setTextLetterSpacing] = useState(0);
   const [rotationInput, setRotationInput] = useState("0");
-  const [activeColorPicker, setActiveColorPicker] = useState<"text" | "labelFill" | "labelBorder" | "background" | null>(null);
+  const [activeColorPicker, setActiveColorPicker] = useState<"text" | "background" | null>(null);
   const [activeColorAlpha, setActiveColorAlpha] = useState(1);
   const [recentTextColors, setRecentTextColors] = useState<string[]>([]);
 
@@ -981,11 +1015,55 @@ export function CustomizationStudio({
   const currentDecoratives = decoratives[activePlacement] || [];
   const borderDecoratives = currentDecoratives.filter((d) => getDecorativeKind(d) === "border");
   const frontDecoratives = currentDecoratives.filter((d) => getDecorativeKind(d) === "label");
+  const findLinkedTextForDecorative = useCallback(
+    (decorative: DecorativeItem): TextItem | null => {
+      const texts = currentDesign.texts || [];
+      if (decorative.linkedTextId) {
+        return texts.find((t) => t.id === decorative.linkedTextId) || null;
+      }
+      if (texts.length === 0) return null;
+
+      const decCx = decorative.x + decorative.width / 2;
+      const decCy = decorative.y + decorative.height / 2;
+      let best: TextItem | null = null;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (const t of texts) {
+        const textW = Math.max(1, t.width || 120);
+        const textH = Math.max(1, Math.round(t.fontSize * (t.lineHeight ?? 1.2)));
+        const textCx = t.x + textW / 2;
+        const textCy = t.y + textH / 2;
+        const inside =
+          textCx >= decorative.x &&
+          textCx <= decorative.x + decorative.width &&
+          textCy >= decorative.y &&
+          textCy <= decorative.y + decorative.height;
+        if (!inside) continue;
+        const dist = Math.hypot(textCx - decCx, textCy - decCy);
+        if (dist < bestDist) {
+          best = t;
+          bestDist = dist;
+        }
+      }
+      return best;
+    },
+    [currentDesign.texts]
+  );
+  const linkedDecorativeTextIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const dec of currentDecoratives) {
+      const linked = findLinkedTextForDecorative(dec);
+      if (linked) ids.add(linked.id);
+    }
+    return ids;
+  }, [currentDecoratives, findLinkedTextForDecorative]);
   
   const selectedDecorativeItem = 
     selectedType === "decorative" && selectedId
       ? currentDecoratives.find((d) => d.id === selectedId) || null
       : null;
+  const selectedDecorativeLinkedText = selectedDecorativeItem
+    ? findLinkedTextForDecorative(selectedDecorativeItem)
+    : null;
 
   const slotRects = useMemo(() => {
     return buildSlotRects(currentLayout, canvasWidth, canvasHeight);
@@ -1057,14 +1135,10 @@ export function CustomizationStudio({
       const current = prev[qrPlacement];
       if (!current?.qrCode) return prev;
       const { qrCode } = current;
-      const templateChanged = previousTemplateIdRef.current !== selectedArtKeyTemplate.id;
-      const priorQrFraction = Math.max(0.01, previousQrSizeFractionRef.current || qrSizeFraction);
-
-      // When switching templates, preserve physical QR size by scaling template
-      // box width using oldFraction/newFraction instead of keeping old template width.
-      const widthFromQrRatio = templateChanged
-        ? (qrCode.width * priorQrFraction) / Math.max(0.01, qrSizeFraction)
-        : qrCode.width;
+      // Keep QR size physically consistent across templates by deriving
+      // container width directly from the target QR pixel size.
+      const widthFromTargetQr = expectedQrPx / Math.max(0.01, qrSizeFraction);
+      const widthFromQrRatio = widthFromTargetQr;
 
       let nextWidth = clamp(widthFromQrRatio, Math.max(1, minTemplate), maxTemplate);
       let nextHeight = Math.max(1, Math.round(nextWidth / templateAspectRatio));
@@ -1111,8 +1185,6 @@ export function CustomizationStudio({
         },
       };
     });
-    previousTemplateIdRef.current = selectedArtKeyTemplate.id;
-    previousQrSizeFractionRef.current = qrSizeFraction;
   }, [
     productSpec.requiresQrCode,
     productSpec.printDpi,
@@ -1138,13 +1210,11 @@ export function CustomizationStudio({
       ? (currentDesign.images || []).find((img) => img.id === selectedId) || null
       : null;
   const getColorValueForTarget = useCallback(
-    (target: "text" | "labelFill" | "labelBorder" | "background"): string => {
+    (target: "text" | "background"): string => {
       if (target === "text") return textColor || BRAND.dark;
-      if (target === "labelFill") return selectedTextItem?.labelFillColor || BRAND.white;
-      if (target === "background") return currentBackground.color || BRAND.white;
-      return selectedTextItem?.labelBorderColor || BRAND.dark;
+      return currentBackground.color || BRAND.white;
     },
-    [currentBackground.color, selectedTextItem?.labelBorderColor, selectedTextItem?.labelFillColor, textColor]
+    [currentBackground.color, textColor]
   );
 
   const rememberRecentTextColor = useCallback((value: string) => {
@@ -1163,7 +1233,7 @@ export function CustomizationStudio({
   }, [activeColorPicker, getColorValueForTarget, rememberRecentTextColor]);
 
   const openColorPickerFor = useCallback(
-    (target: "text" | "labelFill" | "labelBorder" | "background") => {
+    (target: "text" | "background") => {
       const current = getColorValueForTarget(target);
       setActiveColorAlpha(parseCssAlpha(current));
       setActiveColorPicker(target);
@@ -1209,7 +1279,7 @@ export function CustomizationStudio({
 
   useEffect(() => {
     if (
-      (activeColorPicker === "text" || activeColorPicker === "labelFill" || activeColorPicker === "labelBorder") &&
+      activeColorPicker === "text" &&
       (selectedType !== "text" || !selectedTextItem)
     ) {
       setActiveColorPicker(null);
@@ -1258,6 +1328,13 @@ export function CustomizationStudio({
       return;
     }
 
+    // Transformer handles are currently unstable for text/decorative groups
+    // in this editor. Keep selection active, but suppress handles to avoid jitter.
+    if (selectedType === "text" || selectedType === "decorative") {
+      clear();
+      return;
+    }
+
     // Konva uses CSS-like selectors for `findOne('#id')`. IDs that start with digits
     // can fail selector parsing. We try CSS.escape when available and fall back to
     // a manual node scan.
@@ -1284,7 +1361,8 @@ export function CustomizationStudio({
       try {
         const images = (stage.find("Image") as any)?.toArray?.() || [];
         const texts = (stage.find("Text") as any)?.toArray?.() || [];
-        const candidates = [...images, ...texts];
+        const groups = (stage.find("Group") as any)?.toArray?.() || [];
+        const candidates = [...images, ...texts, ...groups];
         node =
           (candidates.find((n: any) => typeof n?.id === "function" && n.id() === selectedId) as Konva.Node) ||
           null;
@@ -1300,24 +1378,34 @@ export function CustomizationStudio({
 
     transformer.nodes([node]);
     transformer.getLayer()?.batchDraw();
-  }, [selectedId, activePlacement, currentDesign.images, currentDesign.texts, currentDecoratives]);
+  }, [selectedId, selectedType, activePlacement, currentDesign.images, currentDesign.texts, currentDecoratives]);
 
   // Keep text controls in sync when selecting a text item
   useEffect(() => {
     if (!selectedTextItem) return;
 
-    setTextInput(selectedTextItem.text);
-    setTextFont(selectedTextItem.fontFamily);
-    setTextSize(selectedTextItem.fontSize);
-    setTextColor(selectedTextItem.fill);
-    setTextBold(selectedTextItem.fontStyle?.includes("bold") || false);
-    setTextItalic(selectedTextItem.fontStyle?.includes("italic") || false);
-    setTextUnderline(selectedTextItem.textDecoration === "underline");
-    setTextAlign(selectedTextItem.align || "left");
-    setTextLabelShape(selectedTextItem.labelShape || "none");
-    setTextLineHeight(Math.max(0.8, Math.min(3, selectedTextItem.lineHeight ?? 1.2)));
-    setTextLetterSpacing(Math.max(-5, Math.min(40, selectedTextItem.letterSpacing ?? 0)));
-  }, [selectedTextItem]);
+    const nextText = selectedTextItem.text;
+    const nextFont = selectedTextItem.fontFamily;
+    const nextSize = selectedTextItem.fontSize;
+    const nextColor = selectedTextItem.fill;
+    const nextBold = selectedTextItem.fontStyle?.includes("bold") || false;
+    const nextItalic = selectedTextItem.fontStyle?.includes("italic") || false;
+    const nextUnderline = selectedTextItem.textDecoration === "underline";
+    const nextAlign = selectedTextItem.align || "left";
+    const nextLineHeight = Math.max(0.8, Math.min(3, selectedTextItem.lineHeight ?? 1.2));
+    const nextLetterSpacing = Math.max(-5, Math.min(40, selectedTextItem.letterSpacing ?? 0));
+
+    if (textInput !== nextText) setTextInput(nextText);
+    if (textFont !== nextFont) setTextFont(nextFont);
+    if (!nearlyEqual(textSize, nextSize, 0.1)) setTextSize(nextSize);
+    if (textColor !== nextColor) setTextColor(nextColor);
+    if (textBold !== nextBold) setTextBold(nextBold);
+    if (textItalic !== nextItalic) setTextItalic(nextItalic);
+    if (textUnderline !== nextUnderline) setTextUnderline(nextUnderline);
+    if (textAlign !== nextAlign) setTextAlign(nextAlign);
+    if (!nearlyEqual(textLineHeight, nextLineHeight, 0.005)) setTextLineHeight(nextLineHeight);
+    if (!nearlyEqual(textLetterSpacing, nextLetterSpacing, 0.005)) setTextLetterSpacing(nextLetterSpacing);
+  }, [selectedTextItem, textAlign, textBold, textColor, textFont, textInput, textItalic, textLetterSpacing, textLineHeight, textSize, textUnderline]);
 
   // -------------------------------------------------------------------------
   // UNDO / REDO (push history when designs change)
@@ -1405,10 +1493,20 @@ export function CustomizationStudio({
     }
 
     if (selectedType === "decorative") {
+      const linkedTextId = currentDecoratives.find((d) => d.id === selectedId)?.linkedTextId;
       setDecoratives((prev) => ({
         ...prev,
         [activePlacement]: (prev[activePlacement] || []).filter((d) => d.id !== selectedId),
       }));
+      if (linkedTextId) {
+        setDesigns((prev) => ({
+          ...prev,
+          [activePlacement]: {
+            ...prev[activePlacement],
+            texts: (prev[activePlacement]?.texts || []).filter((t) => t.id !== linkedTextId),
+          },
+        }));
+      }
 
       setLoadedDecoratives((prev) => {
         const next = new Map(prev);
@@ -1420,7 +1518,7 @@ export function CustomizationStudio({
     setSelectedId(null);
     setSelectedType(null);
     setContextMenu((cm) => ({ ...cm, visible: false }));
-  }, [activePlacement, selectedId, selectedType]);
+  }, [activePlacement, currentDecoratives, selectedId, selectedType]);
 
   const centerSelected = useCallback(
     (axis: "x" | "y" | "both") => {
@@ -1512,7 +1610,7 @@ export function CustomizationStudio({
       ...prev,
       [activePlacement]: { ...prev[activePlacement], ...updates },
     }));
-  }, [activePlacement]);
+  }, [activePlacement, currentDecoratives, currentDesign.texts]);
 
   // -------------------------------------------------------------------------
   // DECORATIVE ELEMENT HANDLERS
@@ -1586,6 +1684,13 @@ export function CustomizationStudio({
           },
         }));
 
+        setDecoratives((prev) => ({
+          ...prev,
+          [activePlacement]: (prev[activePlacement] || []).map((d) =>
+            d.id === newId ? { ...d, linkedTextId: textId } : d
+          ),
+        }));
+
         setSelectedId(textId);
         setSelectedType("text");
         setTextInput(defaultText);
@@ -1611,23 +1716,54 @@ export function CustomizationStudio({
   ]);
 
   const handleDecorativeDragEnd = useCallback((id: string, node: Konva.Node) => {
+    let nextDecorative: DecorativeItem | null = null;
     setDecoratives((prev) => ({
       ...prev,
-      [activePlacement]: (prev[activePlacement] || []).map((d) =>
-        d.id === id ? { ...d, x: node.x(), y: node.y() } : d
-      ),
+      [activePlacement]: (prev[activePlacement] || []).map((d) => {
+        if (d.id !== id) return d;
+        nextDecorative = { ...d, x: node.x(), y: node.y() };
+        return nextDecorative;
+      }),
+    }));
+
+    if (!nextDecorative?.linkedTextId) return;
+    const linkedTextId = nextDecorative.linkedTextId;
+    const previous = currentDesign.texts.find((t) => t.id === linkedTextId);
+    if (!previous) return;
+    const source = currentDecoratives.find((d) => d.id === id);
+    if (!source) return;
+    const xRatio = (previous.x - source.x) / Math.max(1, source.width);
+    const yRatio = (previous.y - source.y) / Math.max(1, source.height);
+
+    setDesigns((prev) => ({
+      ...prev,
+      [activePlacement]: {
+        ...prev[activePlacement],
+        texts: (prev[activePlacement]?.texts || []).map((t) =>
+          t.id === linkedTextId
+            ? {
+                ...t,
+                x: nextDecorative!.x + nextDecorative!.width * xRatio,
+                y: nextDecorative!.y + nextDecorative!.height * yRatio,
+                rotation: nextDecorative!.rotation,
+              }
+            : t
+        ),
+      },
     }));
   }, [activePlacement]);
 
   const handleDecorativeTransformEnd = useCallback((id: string, node: Konva.Node) => {
     const scaleX = node.scaleX();
     const scaleY = node.scaleY();
+    const source = currentDecoratives.find((d) => d.id === id);
+    let nextDecorative: DecorativeItem | null = null;
 
     setDecoratives((prev) => ({
       ...prev,
       [activePlacement]: (prev[activePlacement] || []).map((d) => {
         if (d.id !== id) return d;
-        return {
+        nextDecorative = {
           ...d,
           x: node.x(),
           y: node.y(),
@@ -1635,12 +1771,41 @@ export function CustomizationStudio({
           height: Math.max(20, d.height * scaleY),
           rotation: snapRotationDegrees(node.rotation()),
         };
+        return nextDecorative;
       }),
     }));
 
+    if (source?.linkedTextId && nextDecorative) {
+      const previous = currentDesign.texts.find((t) => t.id === source.linkedTextId);
+      if (previous) {
+        const widthRatio = (previous.width || Math.max(90, source.width * 0.72)) / Math.max(1, source.width);
+        const xRatio = (previous.x - source.x) / Math.max(1, source.width);
+        const yRatio = (previous.y - source.y) / Math.max(1, source.height);
+        const fontRatio = previous.fontSize / Math.max(1, Math.min(source.width, source.height));
+        setDesigns((prev) => ({
+          ...prev,
+          [activePlacement]: {
+            ...prev[activePlacement],
+            texts: (prev[activePlacement]?.texts || []).map((t) =>
+              t.id === source.linkedTextId
+                ? {
+                    ...t,
+                    x: nextDecorative!.x + nextDecorative!.width * xRatio,
+                    y: nextDecorative!.y + nextDecorative!.height * yRatio,
+                    width: Math.max(60, nextDecorative!.width * widthRatio),
+                    fontSize: Math.max(10, Math.round(Math.min(nextDecorative!.width, nextDecorative!.height) * fontRatio)),
+                    rotation: nextDecorative!.rotation,
+                  }
+                : t
+            ),
+          },
+        }));
+      }
+    }
+
     node.scaleX(1);
     node.scaleY(1);
-  }, [activePlacement]);
+  }, [activePlacement, currentDecoratives, currentDesign.texts]);
 
   const updateDecorativeOpacity = useCallback((id: string, opacity: number) => {
     setDecoratives((prev) => ({
@@ -2224,24 +2389,14 @@ export function CustomizationStudio({
   // TEXT HANDLERS
   // -------------------------------------------------------------------------
   const addText = useCallback(
-    (rawText: string, shapeOverride?: TextLabelShape) => {
+    (rawText: string) => {
       const trimmed = rawText.trim();
       if (!trimmed) return;
 
       const id = generateId();
       const fontStyle = `${textBold ? "bold " : ""}${textItalic ? "italic" : ""}`.trim() || "normal";
       const baseWidth = Math.max(200, Math.round(canvasWidth * 0.6));
-      const effectiveShape = shapeOverride || textLabelShape;
-      const isSquareLike = effectiveShape === "square" || effectiveShape === "circle";
-      const labelPadding = effectiveShape === "none" ? 0 : Math.max(8, Math.round(textSize * 0.45));
-      const labelBoxHeight =
-        effectiveShape === "none"
-          ? undefined
-          : Math.max(56, Math.round(textSize * 2.4));
-      const width =
-        isSquareLike && labelBoxHeight
-          ? Math.max(Math.min(baseWidth, Math.round(canvasWidth * 0.35)), labelBoxHeight)
-          : baseWidth;
+      const width = baseWidth;
 
       const newText: TextItem = {
         id,
@@ -2258,19 +2413,19 @@ export function CustomizationStudio({
         textDecoration: textUnderline ? "underline" : "",
         lineHeight: textLineHeight,
         letterSpacing: textLetterSpacing,
-        labelShape: effectiveShape,
-        labelBoxHeight,
-        labelPadding,
-        labelOuterStrokeWidth: effectiveShape === "none" ? 0 : 4,
-        labelInnerStrokeWidth: effectiveShape === "none" ? 0 : 1.5,
-        labelOuterStrokeColor: effectiveShape === "none" ? undefined : BRAND.dark,
-        labelInnerStrokeColor: effectiveShape === "none" ? undefined : BRAND.medium,
-        labelFillEnabled: effectiveShape !== "none",
+        labelShape: "none",
+        labelBoxHeight: undefined,
+        labelPadding: 0,
+        labelOuterStrokeWidth: 0,
+        labelInnerStrokeWidth: 0,
+        labelOuterStrokeColor: undefined,
+        labelInnerStrokeColor: undefined,
+        labelFillEnabled: false,
         labelFillColor: BRAND.white,
-        labelBorderEnabled: effectiveShape !== "none",
+        labelBorderEnabled: false,
         labelBorderColor: BRAND.dark,
-        labelBorderWidth: effectiveShape === "none" ? 0 : 2,
-        labelCornerRadius: effectiveShape === "rounded" ? Math.max(12, Math.round(textSize * 0.35)) : 0,
+        labelBorderWidth: 0,
+        labelCornerRadius: 0,
       };
 
       setDesigns((prev) => ({
@@ -2294,7 +2449,6 @@ export function CustomizationStudio({
       textColor,
       textFont,
       textItalic,
-      textLabelShape,
       textLetterSpacing,
       textLineHeight,
       textSize,
@@ -2304,13 +2458,31 @@ export function CustomizationStudio({
 
   const updateTextById = useCallback(
     (id: string, updates: Partial<TextItem>) => {
-      setDesigns((prev) => ({
-        ...prev,
-        [activePlacement]: {
-          ...prev[activePlacement],
-          texts: (prev[activePlacement]?.texts || []).map((t) => (t.id === id ? { ...t, ...updates } : t)),
-        },
-      }));
+      setDesigns((prev) => {
+        const placement = prev[activePlacement];
+        if (!placement) return prev;
+
+        let changed = false;
+        const nextTexts = (placement.texts || []).map((t) => {
+          if (t.id !== id) return t;
+          const hasRealChange = Object.entries(updates).some(([key, value]) => {
+            const current = (t as any)[key];
+            return !Object.is(current, value);
+          });
+          if (!hasRealChange) return t;
+          changed = true;
+          return { ...t, ...updates };
+        });
+
+        if (!changed) return prev;
+        return {
+          ...prev,
+          [activePlacement]: {
+            ...placement,
+            texts: nextTexts,
+          },
+        };
+      });
     },
     [activePlacement]
   );
@@ -2327,6 +2499,21 @@ export function CustomizationStudio({
   useEffect(() => {
     if (!selectedTextItem) return;
     const fontStyle = `${textBold ? "bold " : ""}${textItalic ? "italic" : ""}`.trim() || "normal";
+    const nextTextDecoration = textUnderline ? "underline" : "";
+    const nextLineHeight = textLineHeight;
+    const nextLetterSpacing = textLetterSpacing;
+
+    const unchanged =
+      selectedTextItem.text === textInput &&
+      nearlyEqual(selectedTextItem.fontSize, textSize, 0.1) &&
+      selectedTextItem.fontFamily === textFont &&
+      selectedTextItem.fill === textColor &&
+      selectedTextItem.fontStyle === fontStyle &&
+      selectedTextItem.align === textAlign &&
+      (selectedTextItem.textDecoration || "") === nextTextDecoration &&
+      nearlyEqual(selectedTextItem.lineHeight ?? 1.2, nextLineHeight, 0.005) &&
+      nearlyEqual(selectedTextItem.letterSpacing ?? 0, nextLetterSpacing, 0.005);
+    if (unchanged) return;
 
     updateSelectedText({
       text: textInput,
@@ -2335,12 +2522,11 @@ export function CustomizationStudio({
       fill: textColor,
       fontStyle,
       align: textAlign,
-      textDecoration: textUnderline ? "underline" : "",
-      labelShape: textLabelShape,
-      lineHeight: textLineHeight,
-      letterSpacing: textLetterSpacing,
+      textDecoration: nextTextDecoration,
+      lineHeight: nextLineHeight,
+      letterSpacing: nextLetterSpacing,
     });
-  }, [selectedTextItem, textAlign, textBold, textColor, textFont, textInput, textItalic, textLabelShape, textSize, textUnderline, textLineHeight, textLetterSpacing, updateSelectedText]);
+  }, [selectedTextItem, textAlign, textBold, textColor, textFont, textInput, textItalic, textSize, textUnderline, textLineHeight, textLetterSpacing, updateSelectedText]);
 
   const handleTextDragEnd = useCallback(
     (id: string, node: Konva.Node) => {
@@ -2957,8 +3143,7 @@ export function CustomizationStudio({
           </span>
           <button
             onClick={() => {
-              setTextLabelShape("none");
-              addText("Your text here", "none");
+              addText("Your text here");
             }}
             className="flex items-center gap-1.5 px-3 py-2 rounded text-sm"
             style={{ background: BRAND.light, color: BRAND.dark }}
@@ -3404,57 +3589,6 @@ export function CustomizationStudio({
             
             {panelStates.decoratives && (
               <div className="space-y-4">
-                {/* Decorative text labels (SVG assets) */}
-                <div>
-                  <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>Text Labels</p>
-                  <div className="grid grid-cols-4 gap-1">
-                    {DECORATIVE_ELEMENTS.labels.map((el) => (
-                      <button
-                        key={el.id}
-                        onClick={() => addDecorativeElement(el)}
-                        className="aspect-square rounded border p-1 hover:border-gray-400 transition-colors"
-                        style={{ borderColor: BRAND.light, background: BRAND.lightest }}
-                        title={el.name}
-                      >
-                        <img
-                          src={el.src}
-                          alt={el.name}
-                          className="w-full h-full object-contain"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[11px] font-medium mt-3 mb-2" style={{ color: BRAND.medium }}>
-                    Standard Label Shapes
-                  </p>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button
-                      onClick={() => addText("Your text here", "rectangle")}
-                      className="px-2 py-1.5 rounded border text-xs"
-                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
-                      title="Add rectangular text label"
-                    >
-                      Rectangle
-                    </button>
-                    <button
-                      onClick={() => addText("Your text here", "square")}
-                      className="px-2 py-1.5 rounded border text-xs"
-                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
-                      title="Add square text label"
-                    >
-                      Square
-                    </button>
-                    <button
-                      onClick={() => addText("Your text here", "circle")}
-                      className="px-2 py-1.5 rounded border text-xs"
-                      style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
-                      title="Add circle text label"
-                    >
-                      Circle
-                    </button>
-                  </div>
-                </div>
-
                 {/* Borders */}
                 <div>
                   <p className="text-xs font-medium mb-2" style={{ color: BRAND.medium }}>Borders</p>
@@ -3479,7 +3613,7 @@ export function CustomizationStudio({
                 </div>
 
                 <p className="text-xs" style={{ color: BRAND.medium }}>
-                  Borders and text labels can be moved, resized, rotated, and layered.
+                  Borders can be moved, resized, rotated, and layered.
                 </p>
 
                 {/* Active decoratives layer list */}
@@ -3504,10 +3638,20 @@ export function CustomizationStudio({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              const linkedTextId = dec.linkedTextId;
                               setDecoratives((prev) => ({
                                 ...prev,
                                 [activePlacement]: (prev[activePlacement] || []).filter((d) => d.id !== dec.id),
                               }));
+                              if (linkedTextId) {
+                                setDesigns((prev) => ({
+                                  ...prev,
+                                  [activePlacement]: {
+                                    ...prev[activePlacement],
+                                    texts: (prev[activePlacement]?.texts || []).filter((t) => t.id !== linkedTextId),
+                                  },
+                                }));
+                              }
                               if (selectedId === dec.id) {
                                 setSelectedId(null);
                                 setSelectedType(null);
@@ -3573,66 +3717,87 @@ export function CustomizationStudio({
 
               {/* Decorative Opacity Control */}
               {selectedType === "decorative" && selectedDecorativeItem && (
-                <div className="mb-3">
-                  <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                    Opacity
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={Math.round(selectedDecorativeItem.opacity * 100)}
-                      onChange={(e) => updateDecorativeOpacity(selectedDecorativeItem.id, parseInt(e.target.value) / 100)}
-                      className="flex-1"
-                    />
-                    <span className="text-xs w-8" style={{ color: BRAND.medium }}>
-                      {Math.round(selectedDecorativeItem.opacity * 100)}%
-                    </span>
+                <div className="mb-3 space-y-3">
+                  {selectedDecorativeLinkedText && (
+                    <div>
+                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                        Label Text
+                      </label>
+                      <input
+                        type="text"
+                        value={selectedDecorativeLinkedText.text}
+                        onChange={(e) =>
+                          setDesigns((prev) => ({
+                            ...prev,
+                            [activePlacement]: {
+                              ...prev[activePlacement],
+                              texts: (prev[activePlacement]?.texts || []).map((t) =>
+                                t.id === selectedDecorativeLinkedText.id ? { ...t, text: e.target.value } : t
+                              ),
+                            },
+                          }))
+                        }
+                        className="w-full border rounded px-2 py-2 text-sm"
+                        style={{ borderColor: BRAND.light }}
+                        placeholder="Type label text..."
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                      Opacity
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={Math.round(selectedDecorativeItem.opacity * 100)}
+                        onChange={(e) => updateDecorativeOpacity(selectedDecorativeItem.id, parseInt(e.target.value) / 100)}
+                        className="flex-1"
+                      />
+                      <span className="text-xs w-8" style={{ color: BRAND.medium }}>
+                        {Math.round(selectedDecorativeItem.opacity * 100)}%
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
 
               {selectedType === "text" && selectedTextItem && (
                 <div className="mb-3 space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Text Color
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => openColorPickerFor("text")}
-                        className="w-full h-9 border rounded flex items-center justify-between px-2"
-                        style={{ borderColor: BRAND.light, background: BRAND.white }}
-                        title="Open text color picker"
-                      >
-                        <span className="text-xs truncate" style={{ color: BRAND.medium }}>
-                          {textColor}
-                        </span>
-                        <span
-                          className="w-5 h-5 rounded border"
-                          style={{ background: textColor, borderColor: BRAND.light }}
-                        />
-                      </button>
-                    </div>
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Label Shape
-                      </label>
-                      <select
-                        value={selectedTextItem.labelShape || "none"}
-                        onChange={(e) => setTextLabelShape(e.target.value as TextLabelShape)}
-                        className="w-full border rounded px-2 py-2 text-sm"
-                        style={{ borderColor: BRAND.light }}
-                      >
-                        <option value="none">None</option>
-                        <option value="rectangle">Rectangle</option>
-                        <option value="rounded">Rounded</option>
-                        <option value="square">Square</option>
-                        <option value="circle">Circle</option>
-                      </select>
-                    </div>
+                  <div>
+                    <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                      Text Content
+                    </label>
+                    <textarea
+                      value={textInput}
+                      onChange={(e) => setTextInput(e.target.value)}
+                      rows={3}
+                      className="w-full border rounded px-2 py-2 text-sm resize-y"
+                      style={{ borderColor: BRAND.light }}
+                      placeholder="Type your text..."
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
+                      Text Color
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => openColorPickerFor("text")}
+                      className="w-full h-9 border rounded flex items-center justify-between px-2"
+                      style={{ borderColor: BRAND.light, background: BRAND.white }}
+                      title="Open text color picker"
+                    >
+                      <span className="text-xs truncate" style={{ color: BRAND.medium }}>
+                        {textColor}
+                      </span>
+                      <span
+                        className="w-5 h-5 rounded border"
+                        style={{ background: textColor, borderColor: BRAND.light }}
+                      />
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -3668,127 +3833,9 @@ export function CustomizationStudio({
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                      Label Padding
-                    </label>
-                    <input
-                      type="range"
-                      min={0}
-                      max={64}
-                      step={1}
-                      value={Math.round(selectedTextItem.labelPadding ?? 0)}
-                      onChange={(e) => updateSelectedText({ labelPadding: Number(e.target.value) })}
-                      className="w-full"
-                    />
-                  </div>
-
-                  {(selectedTextItem.labelShape || "none") !== "none" && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs" style={{ color: BRAND.medium }}>
-                          Fill
-                        </label>
-                        <input
-                          type="checkbox"
-                          checked={selectedTextItem.labelFillEnabled ?? true}
-                          onChange={(e) => updateSelectedText({ labelFillEnabled: e.target.checked })}
-                        />
-                      </div>
-                      {(selectedTextItem.labelFillEnabled ?? true) && (
-                        <button
-                          type="button"
-                          onClick={() => openColorPickerFor("labelFill")}
-                          className="w-full h-9 border rounded flex items-center justify-between px-2"
-                          style={{ borderColor: BRAND.light, background: BRAND.white }}
-                          title="Open label fill color picker"
-                        >
-                          <span className="text-xs truncate" style={{ color: BRAND.medium }}>
-                            {selectedTextItem.labelFillColor || BRAND.white}
-                          </span>
-                          <span
-                            className="w-5 h-5 rounded border"
-                            style={{
-                              background: selectedTextItem.labelFillColor || BRAND.white,
-                              borderColor: BRAND.light,
-                            }}
-                          />
-                        </button>
-                      )}
-
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs" style={{ color: BRAND.medium }}>
-                          Border
-                        </label>
-                        <input
-                          type="checkbox"
-                          checked={selectedTextItem.labelBorderEnabled ?? true}
-                          onChange={(e) => updateSelectedText({ labelBorderEnabled: e.target.checked })}
-                        />
-                      </div>
-                      {(selectedTextItem.labelBorderEnabled ?? true) && (
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openColorPickerFor("labelBorder")}
-                            className="w-full h-9 border rounded flex items-center justify-between px-2"
-                            style={{ borderColor: BRAND.light, background: BRAND.white }}
-                            title="Open label border color picker"
-                          >
-                            <span className="text-xs truncate" style={{ color: BRAND.medium }}>
-                              {selectedTextItem.labelBorderColor || BRAND.dark}
-                            </span>
-                            <span
-                              className="w-5 h-5 rounded border"
-                              style={{
-                                background: selectedTextItem.labelBorderColor || BRAND.dark,
-                                borderColor: BRAND.light,
-                              }}
-                            />
-                          </button>
-                          <input
-                            type="number"
-                            min={0}
-                            max={16}
-                            step={0.5}
-                            value={selectedTextItem.labelBorderWidth ?? 2}
-                            onChange={(e) => updateSelectedText({ labelBorderWidth: Math.max(0, Number(e.target.value) || 0) })}
-                            className="w-full border rounded px-2 py-2 text-sm"
-                            style={{ borderColor: BRAND.light }}
-                          />
-                        </div>
-                      )}
-
-                      {(selectedTextItem.labelShape || "none") === "rounded" && (
-                        <div>
-                          <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                            Corner Radius
-                          </label>
-                          <input
-                            type="range"
-                            min={0}
-                            max={80}
-                            step={1}
-                            value={Math.round(selectedTextItem.labelCornerRadius ?? Math.round(selectedTextItem.fontSize * 0.3))}
-                            onChange={(e) => updateSelectedText({ labelCornerRadius: Number(e.target.value) })}
-                            className="w-full"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {activeColorPicker && activeColorPicker !== "background" && (
+                  {activeColorPicker === "text" && (
                     <AdvancedColorPickerPopover
-                      title={
-                        activeColorPicker === "text"
-                          ? "Text Color"
-                          : activeColorPicker === "labelFill"
-                            ? "Label Fill Color"
-                            : activeColorPicker === "labelBorder"
-                              ? "Label Border Color"
-                              : "Color"
-                      }
+                      title="Text Color"
                       value={getColorValueForTarget(activeColorPicker)}
                       alpha={activeColorAlpha}
                       recentColors={recentTextColors}
@@ -3799,31 +3846,11 @@ export function CustomizationStudio({
                       }}
                       onChange={(value, alpha) => {
                         setActiveColorAlpha(alpha);
-                        if (activeColorPicker === "text") {
-                          setTextColor(value);
-                          return;
-                        }
-                        if (activeColorPicker === "labelFill") {
-                          updateSelectedText({ labelFillColor: value });
-                          return;
-                        }
-                        if (activeColorPicker === "labelBorder") {
-                          updateSelectedText({ labelBorderColor: value });
-                        }
+                        setTextColor(value);
                       }}
                       onSelectRecent={(value) => {
                         rememberRecentTextColor(value);
-                        if (activeColorPicker === "text") {
-                          setTextColor(value);
-                          return;
-                        }
-                        if (activeColorPicker === "labelFill") {
-                          updateSelectedText({ labelFillColor: value });
-                          return;
-                        }
-                        if (activeColorPicker === "labelBorder") {
-                          updateSelectedText({ labelBorderColor: value });
-                        }
+                        setTextColor(value);
                       }}
                       onClose={closeActiveColorPicker}
                     />
@@ -4109,6 +4136,7 @@ export function CustomizationStudio({
                           setSelectedId(dec.id);
                           setSelectedType("decorative");
                         }}
+                        onDragMove={(e) => handleDecorativeDragMove(dec.id, e.target)}
                         onDragEnd={(e) => handleDecorativeDragEnd(dec.id, e.target)}
                         onTransformEnd={(e) => handleDecorativeTransformEnd(dec.id, e.target)}
                       />
@@ -4183,9 +4211,9 @@ export function CustomizationStudio({
                   })}
 
                   {/* Text (above images) */}
-                  {(currentDesign.texts || []).map((t) => {
+                  {(currentDesign.texts || []).filter((t) => !linkedDecorativeTextIds.has(t.id)).map((t) => {
                     const textWidth = Math.max(1, t.width || Math.round(canvasWidth * 0.6));
-                    const labelShape = t.labelShape || "none";
+                    const labelShape: TextLabelShape = "none";
                     const labelHeight = getLabelBoxHeight(t);
                     const labelPadding = Math.max(0, t.labelPadding ?? 0);
                     const labelFillEnabled = t.labelFillEnabled ?? labelShape !== "none";
@@ -4198,17 +4226,59 @@ export function CustomizationStudio({
                     const labelInnerStrokeWidth = Math.max(0, t.labelInnerStrokeWidth ?? 1.2);
                     const labelCornerRadius = Math.max(0, t.labelCornerRadius ?? Math.round(t.fontSize * 0.3));
                     const textHeight = labelShape === "none" ? undefined : labelHeight;
+                    const hitHeight =
+                      labelShape === "circle" || labelShape === "square"
+                        ? textWidth
+                        : textHeight ?? Math.max(24, Math.round((t.fontSize || 16) * ((t.lineHeight ?? 1.2) + 0.8)));
+
+                    const isActiveText = selectedId === t.id && selectedType === "text";
 
                     return (
-                      <Group key={t.id}>
+                      <Group
+                        key={t.id}
+                        id={t.id}
+                        x={t.x}
+                        y={t.y}
+                        rotation={t.rotation}
+                        draggable={isActiveText}
+                        onClick={() => {
+                          setSelectedId(t.id);
+                          setSelectedType("text");
+                        }}
+                        onTap={() => {
+                          setSelectedId(t.id);
+                          setSelectedType("text");
+                        }}
+                        onDblClick={() => {
+                          const next = window.prompt("Edit text", t.text);
+                          if (next === null) return;
+                          updateTextById(t.id, { text: next });
+                          if (selectedId === t.id) setTextInput(next);
+                        }}
+                        onDblTap={() => {
+                          const next = window.prompt("Edit text", t.text);
+                          if (next === null) return;
+                          updateTextById(t.id, { text: next });
+                          if (selectedId === t.id) setTextInput(next);
+                        }}
+                        onDragEnd={(e) => handleTextDragEnd(t.id, e.target)}
+                        onTransformEnd={(e) => handleTextTransformEnd(t.id, e.target)}
+                      >
+                        <Rect
+                          x={0}
+                          y={0}
+                          width={textWidth}
+                          height={hitHeight}
+                          fill="rgba(0,0,0,0.001)"
+                          strokeEnabled={false}
+                        />
                         {labelShape !== "none" &&
                           (labelShape === "rectangle" || labelShape === "square" || labelShape === "rounded") && (
                             <Rect
-                              x={t.x}
-                              y={t.y}
+                              x={0}
+                              y={0}
                               width={textWidth}
                               height={labelShape === "square" ? textWidth : labelHeight}
-                              rotation={t.rotation}
                               cornerRadius={labelShape === "rounded" ? labelCornerRadius : 0}
                               fill={labelFillEnabled ? labelFillColor : undefined}
                               stroke={labelBorderEnabled ? labelOuterStrokeColor : undefined}
@@ -4221,14 +4291,13 @@ export function CustomizationStudio({
                           labelBorderEnabled &&
                           labelInnerStrokeWidth > 0 && (
                             <Rect
-                              x={t.x + labelOuterStrokeWidth + 2}
-                              y={t.y + labelOuterStrokeWidth + 2}
+                              x={labelOuterStrokeWidth + 2}
+                              y={labelOuterStrokeWidth + 2}
                               width={Math.max(1, textWidth - (labelOuterStrokeWidth + 2) * 2)}
                               height={Math.max(
                                 1,
                                 (labelShape === "square" ? textWidth : labelHeight) - (labelOuterStrokeWidth + 2) * 2
                               )}
-                              rotation={t.rotation}
                               cornerRadius={
                                 labelShape === "rounded"
                                   ? Math.max(0, labelCornerRadius - (labelOuterStrokeWidth + 2))
@@ -4244,8 +4313,8 @@ export function CustomizationStudio({
                         {labelShape !== "none" && labelShape === "circle" && (
                           <>
                             <Circle
-                              x={t.x + textWidth / 2}
-                              y={t.y + textWidth / 2}
+                              x={textWidth / 2}
+                              y={textWidth / 2}
                               radius={textWidth / 2}
                               fill={labelFillEnabled ? labelFillColor : undefined}
                               stroke={labelBorderEnabled ? labelOuterStrokeColor : undefined}
@@ -4253,8 +4322,8 @@ export function CustomizationStudio({
                               listening={false}
                             />
                             <Circle
-                              x={t.x + textWidth / 2}
-                              y={t.y + textWidth / 2}
+                              x={textWidth / 2}
+                              y={textWidth / 2}
                               radius={Math.max(1, textWidth / 2 - labelOuterStrokeWidth - 2)}
                               fillEnabled={false}
                               stroke={labelBorderEnabled ? labelInnerStrokeColor : undefined}
@@ -4266,10 +4335,9 @@ export function CustomizationStudio({
 
                         <KonvaText
                           key={t.id}
-                          id={t.id}
                           text={t.text}
-                          x={t.x}
-                          y={t.y}
+                          x={0}
+                          y={0}
                           width={textWidth}
                           height={labelShape === "circle" || labelShape === "square" ? textWidth : textHeight}
                           padding={labelPadding}
@@ -4282,18 +4350,7 @@ export function CustomizationStudio({
                           textDecoration={t.textDecoration}
                           lineHeight={t.lineHeight ?? 1.2}
                           letterSpacing={t.letterSpacing ?? 0}
-                          rotation={t.rotation}
-                          draggable
-                          onClick={() => {
-                            setSelectedId(t.id);
-                            setSelectedType("text");
-                          }}
-                          onTap={() => {
-                            setSelectedId(t.id);
-                            setSelectedType("text");
-                          }}
-                          onDragEnd={(e) => handleTextDragEnd(t.id, e.target)}
-                          onTransformEnd={(e) => handleTextTransformEnd(t.id, e.target)}
+                          listening={false}
                         />
                       </Group>
                     );
@@ -4305,16 +4362,16 @@ export function CustomizationStudio({
                     if (!loaded) return null;
 
                     const isActive = selectedId === dec.id && selectedType === "decorative";
+                    const linkedText = dec.linkedTextId
+                      ? (currentDesign.texts || []).find((t) => t.id === dec.linkedTextId)
+                      : undefined;
 
                     return (
-                      <KonvaImage
+                      <Group
                         key={dec.id}
                         id={dec.id}
-                        image={loaded}
                         x={dec.x}
                         y={dec.y}
-                        width={dec.width}
-                        height={dec.height}
                         rotation={dec.rotation}
                         opacity={dec.opacity}
                         draggable={isActive}
@@ -4326,9 +4383,63 @@ export function CustomizationStudio({
                           setSelectedId(dec.id);
                           setSelectedType("decorative");
                         }}
+                        onDblClick={() => {
+                          if (!linkedText) return;
+                          const next = window.prompt("Edit label text", linkedText.text);
+                          if (next === null) return;
+                          setDesigns((prev) => ({
+                            ...prev,
+                            [activePlacement]: {
+                              ...prev[activePlacement],
+                              texts: (prev[activePlacement]?.texts || []).map((t) =>
+                                t.id === linkedText.id ? { ...t, text: next } : t
+                              ),
+                            },
+                          }));
+                        }}
+                        onDblTap={() => {
+                          if (!linkedText) return;
+                          const next = window.prompt("Edit label text", linkedText.text);
+                          if (next === null) return;
+                          setDesigns((prev) => ({
+                            ...prev,
+                            [activePlacement]: {
+                              ...prev[activePlacement],
+                              texts: (prev[activePlacement]?.texts || []).map((t) =>
+                                t.id === linkedText.id ? { ...t, text: next } : t
+                              ),
+                            },
+                          }));
+                        }}
                         onDragEnd={(e) => handleDecorativeDragEnd(dec.id, e.target)}
                         onTransformEnd={(e) => handleDecorativeTransformEnd(dec.id, e.target)}
-                      />
+                      >
+                        <KonvaImage
+                          image={loaded}
+                          x={0}
+                          y={0}
+                          width={dec.width}
+                          height={dec.height}
+                        />
+                        {linkedText && (
+                          <KonvaText
+                            text={linkedText.text}
+                            x={Math.max(0, linkedText.x - dec.x)}
+                            y={Math.max(0, linkedText.y - dec.y)}
+                            width={Math.max(1, linkedText.width || Math.round(dec.width * 0.72))}
+                            padding={Math.max(0, linkedText.labelPadding ?? 0)}
+                            fontSize={linkedText.fontSize}
+                            fontFamily={linkedText.fontFamily}
+                            fill={linkedText.fill}
+                            fontStyle={linkedText.fontStyle}
+                            align={linkedText.align}
+                            textDecoration={linkedText.textDecoration}
+                            lineHeight={linkedText.lineHeight ?? 1.2}
+                            letterSpacing={linkedText.letterSpacing ?? 0}
+                            listening={false}
+                          />
+                        )}
+                      </Group>
                     );
                   })}
 
@@ -4378,11 +4489,7 @@ export function CustomizationStudio({
                   rotateAnchorCursor="grab"
                   rotationSnaps={rotationSnaps}
                   rotationSnapTolerance={ROTATION_SNAP_TOLERANCE}
-                  keepRatio={
-                    selectedType === "text" &&
-                    ((selectedTextItem?.labelShape || "none") === "circle" ||
-                      (selectedTextItem?.labelShape || "none") === "square")
-                  }
+                  keepRatio={false}
                   anchorStyleFunc={(anchor) => {
                     if (anchor.hasName("rotater")) {
                       anchor.cornerRadius(20);

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { adminFetchJson, AdminUnauthorizedError } from "@/lib/admin/clientFetch";
 import {
   Plus,
   Pencil,
@@ -116,6 +117,7 @@ const BTN_ICON_DANGER =
   "p-1.5 text-brand-medium hover:text-red-600 transition-colors disabled:opacity-50";
 
 export default function AdminProductsPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -353,8 +355,12 @@ export default function AdminProductsPage() {
     fd.append("file", file);
     fd.append("productId", productId);
     fd.append("kind", kind);
-    const res = await fetch("/api/admin/products/upload-image", { method: "POST", body: fd });
-    return res.json();
+    const { res, data } = await adminFetchJson(
+      "/api/admin/products/upload-image",
+      { method: "POST", body: fd },
+      () => router.push("/b_d_admn_tae/login")
+    );
+    return { success: !!(res.ok && data?.success), data };
   };
 
   const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -363,27 +369,37 @@ export default function AdminProductsPage() {
     setHeroUploading(true);
     setImgError(null);
     try {
-      const data = await uploadProductImage(file, imageEditProduct.id, "hero");
-      if (data.success) {
-        setImageEditProduct({ ...imageEditProduct, heroImage: data.url });
+      const result = await uploadProductImage(file, imageEditProduct.id, "hero");
+      if (result.success) {
+        setImageEditProduct({ ...imageEditProduct, heroImage: result.data.url });
         loadProducts();
       } else {
-        setImgError(data.error || "Upload failed");
+        setImgError(result.data?.error || "Upload failed");
       }
-    } catch { setImgError("Upload failed"); }
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) setImgError("Upload failed");
+    }
     finally { setHeroUploading(false); }
     e.target.value = "";
   };
 
   const handleRemoveHero = async () => {
     if (!imageEditProduct) return;
-    await fetch(`/api/admin/store-products/${imageEditProduct.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroImage: null }),
-    });
-    setImageEditProduct({ ...imageEditProduct, heroImage: null });
-    loadProducts();
+    try {
+      const { res, data } = await adminFetchJson(`/api/admin/store-products/${imageEditProduct.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroImage: null }),
+      }, () => router.push("/b_d_admn_tae/login"));
+      if (!res.ok || !data?.success) {
+        setImgError(data?.error || "Failed to remove hero image");
+        return;
+      }
+      setImageEditProduct({ ...imageEditProduct, heroImage: null });
+      loadProducts();
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) setImgError("Failed to remove hero image");
+    }
   };
 
   const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -396,14 +412,17 @@ export default function AdminProductsPage() {
 
     for (const file of Array.from(files)) {
       try {
-        const data = await uploadProductImage(file, imageEditProduct.id, "gallery");
-        if (data.success) {
-          current.push(data.url);
+        const result = await uploadProductImage(file, imageEditProduct.id, "gallery");
+        if (result.success) {
+          current.push(result.data.url);
         } else {
-          setImgError(data.error || "Upload failed");
+          setImgError(result.data?.error || "Upload failed");
           break;
         }
-      } catch { setImgError("Upload failed"); break; }
+      } catch (err) {
+        if (!(err instanceof AdminUnauthorizedError)) setImgError("Upload failed");
+        break;
+      }
     }
     setImageEditProduct({ ...imageEditProduct, galleryImages: JSON.stringify(current) });
     loadProducts();
@@ -417,13 +436,21 @@ export default function AdminProductsPage() {
     try { gallery = imageEditProduct.galleryImages ? JSON.parse(imageEditProduct.galleryImages) : []; } catch { /* ok */ }
     gallery.splice(idx, 1);
     const json = JSON.stringify(gallery);
-    await fetch(`/api/admin/store-products/${imageEditProduct.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ galleryImages: json }),
-    });
-    setImageEditProduct({ ...imageEditProduct, galleryImages: json });
-    loadProducts();
+    try {
+      const { res, data } = await adminFetchJson(`/api/admin/store-products/${imageEditProduct.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ galleryImages: json }),
+      }, () => router.push("/b_d_admn_tae/login"));
+      if (!res.ok || !data?.success) {
+        setImgError(data?.error || "Failed to remove gallery image");
+        return;
+      }
+      setImageEditProduct({ ...imageEditProduct, galleryImages: json });
+      loadProducts();
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) setImgError("Failed to remove gallery image");
+    }
   };
 
   const handleGalleryReorder = async (fromIdx: number, toIdx: number) => {
@@ -433,13 +460,21 @@ export default function AdminProductsPage() {
     const [moved] = gallery.splice(fromIdx, 1);
     gallery.splice(toIdx, 0, moved);
     const json = JSON.stringify(gallery);
-    await fetch(`/api/admin/store-products/${imageEditProduct.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ galleryImages: json }),
-    });
-    setImageEditProduct({ ...imageEditProduct, galleryImages: json });
-    loadProducts();
+    try {
+      const { res, data } = await adminFetchJson(`/api/admin/store-products/${imageEditProduct.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ galleryImages: json }),
+      }, () => router.push("/b_d_admn_tae/login"));
+      if (!res.ok || !data?.success) {
+        setImgError(data?.error || "Failed to reorder gallery images");
+        return;
+      }
+      setImageEditProduct({ ...imageEditProduct, galleryImages: json });
+      loadProducts();
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) setImgError("Failed to reorder gallery images");
+    }
   };
 
   const openWatermarkEditor = () => {
@@ -482,21 +517,27 @@ export default function AdminProductsPage() {
   const currentMargin = currentRetail > 0 ? currentProfit / currentRetail : 0;
 
   const loadProducts = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const res = await fetch("/api/admin/store-products");
-      const data = await res.json();
-      if (data.success) {
+      const { res, data } = await adminFetchJson(
+        "/api/admin/store-products",
+        undefined,
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (res.ok && data?.success) {
         setProducts(data.data || []);
         setCategories(data.categories || []);
       } else {
-        setError(data.error);
+        setError(data?.error || `Failed to load products (${res.status})`);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof AdminUnauthorizedError) return;
       setError("Failed to load products");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     loadProducts();
@@ -601,30 +642,31 @@ export default function AdminProductsPage() {
       };
 
       let res;
+      let data: any = null;
       if (editId) {
-        res = await fetch(`/api/admin/store-products/${editId}`, {
+        ({ res, data } = await adminFetchJson(`/api/admin/store-products/${editId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        });
+        }, () => router.push("/b_d_admn_tae/login")));
       } else {
-        res = await fetch("/api/admin/store-products", {
+        ({ res, data } = await adminFetchJson("/api/admin/store-products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        });
+        }, () => router.push("/b_d_admn_tae/login")));
       }
 
-      const data = await res.json();
-      if (data.success) {
+      if (res.ok && data?.success) {
         setShowForm(false);
         setEditId(null);
         setForm(EMPTY_FORM);
         await loadProducts();
       } else {
-        setError(data.error || "Save failed");
+        setError(data?.error || `Save failed (${res.status})`);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof AdminUnauthorizedError) return;
       setError("Network error");
     } finally {
       setSaving(false);
@@ -633,15 +675,19 @@ export default function AdminProductsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/admin/store-products/${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
+      const { res, data } = await adminFetchJson(
+        `/api/admin/store-products/${id}`,
+        { method: "DELETE" },
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (res.ok && data?.success) {
         setDeleteId(null);
         await loadProducts();
       } else {
-        setError(data.error || "Delete failed");
+        setError(data?.error || `Delete failed (${res.status})`);
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof AdminUnauthorizedError) return;
       setError("Network error");
     }
   };

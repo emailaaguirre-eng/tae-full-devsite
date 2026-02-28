@@ -32,11 +32,14 @@
  * }
  */
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { generateQRCode } from "@/lib/qr";
 import { compositeQrOntoDesign } from "@/lib/composite";
 import {
   getDb,
   artKeys,
+  eq,
+  and,
   generateId,
   generatePublicToken,
   generateOwnerToken,
@@ -110,6 +113,7 @@ export async function POST(req: Request) {
         designFiles,
         artKeyData,
         artKeyTemplatePosition,
+        existingPortal,
         requiresQrCode,
       } = item;
 
@@ -125,18 +129,7 @@ export async function POST(req: Request) {
         continue;
       }
 
-      // Step 1: Generate unique tokens and create portal in the DB
-      const portalId = generateId();
-      const publicToken = generatePublicToken();
-      const ownerToken = generateOwnerToken();
-      const portalUrl = `https://${ARTKEY_DOMAIN}/${publicToken}`;
-      const editUrl = `/art-key/${publicToken}/edit?owner=${ownerToken}`;
-
-      await db.insert(artKeys).values({
-        id: portalId,
-        publicToken,
-        ownerToken,
-        ownerEmail: customerEmail || null,
+      const payload = {
         title: artKeyData?.title || "My ArtKey Portal",
         theme: JSON.stringify(artKeyData?.theme || {}),
         features: JSON.stringify(
@@ -162,9 +155,63 @@ export async function POST(req: Request) {
         customizations: JSON.stringify(artKeyData?.customizations || {}),
         uploadedImages: JSON.stringify(artKeyData?.uploadedImages || []),
         uploadedVideos: JSON.stringify(artKeyData?.uploadedVideos || []),
-        createdAt: now,
-        updatedAt: now,
-      });
+      };
+
+      // Step 1: Reuse existing portal/tokens if available; otherwise create once.
+      let portalId: string | null = null;
+      let publicToken: string;
+      let ownerToken: string;
+      let reusedPortal = false;
+
+      if (existingPortal?.portalToken && existingPortal?.ownerToken) {
+        const matches = await db
+          .select()
+          .from(artKeys)
+          .where(
+            and(
+              eq(artKeys.publicToken, String(existingPortal.portalToken)),
+              eq(artKeys.ownerToken, String(existingPortal.ownerToken))
+            )
+          )
+          .all();
+        const existing = matches[0];
+        if (existing) {
+          reusedPortal = true;
+          portalId = existing.id;
+          publicToken = existing.publicToken;
+          ownerToken = existing.ownerToken;
+          await db
+            .update(artKeys)
+            .set({
+              ownerEmail: customerEmail || existing.ownerEmail || null,
+              ...payload,
+              updatedAt: now,
+            })
+            .where(eq(artKeys.id, existing.id));
+        } else {
+          publicToken = generatePublicToken();
+          ownerToken = generateOwnerToken();
+        }
+      } else {
+        publicToken = generatePublicToken();
+        ownerToken = generateOwnerToken();
+      }
+
+      if (!reusedPortal) {
+        portalId = generateId();
+        await db.insert(artKeys).values({
+          id: portalId,
+          publicToken,
+          ownerToken,
+          ownerEmail: customerEmail || null,
+          ...payload,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      const portalUrl = `https://${ARTKEY_DOMAIN}/${publicToken}`;
+      const editUrl = `/art-key/${publicToken}/edit?owner=${ownerToken}`;
 
       // Step 2: Generate the real QR code
       // QR fraction constants are template-specific and must match studio rendering.
@@ -181,7 +228,12 @@ export async function POST(req: Request) {
       // Generate at high enough source resolution for quality, but keep final
       // composited dimensions exactly as designed in studio.
       const actualQrSize = Math.max(MIN_QR_PX, designedQrSize);
-      const qrDataUrl = await generateQRCode(portalUrl, actualQrSize, 2);
+      let qrDataUrl = existingPortal?.qrCodeDataUrl
+        ? String(existingPortal.qrCodeDataUrl)
+        : "";
+      if (!qrDataUrl) {
+        qrDataUrl = await generateQRCode(portalUrl, actualQrSize, 2);
+      }
 
       // Step 3: Composite QR onto each design file that has the template
       const proofFiles = [];
@@ -235,6 +287,8 @@ export async function POST(req: Request) {
         ownerToken,
         portalUrl,
         editUrl,
+        qrCodeDataUrl: qrDataUrl,
+        reusedPortal,
         proofFiles: proofFilesWithWatermark,
       });
     }

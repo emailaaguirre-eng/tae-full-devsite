@@ -1,0 +1,94 @@
+[
+  {
+    "exportId": "studio_mm6jifrtgs3jv7ccee",
+    "source": "studio",
+    "shopProductId": "f174a7f1-f707-4831-a539-6df6b8ca5d75",
+    "productSlug": "greeting-card-a7-folded",
+    "productName": "A7 Folded Greeting Card",
+    "studioRenderSignature": "default:158102:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mm6jifrtgs3jv7ccee/default.png"
+      }
+    ],
+    "createdAt": "2026-02-28T16:33:11.513Z"
+  },
+  {
+    "exportId": "studio_mm6jfzg4hnk3gg34v7b",
+    "source": "studio",
+    "shopProductId": "f174a7f1-f707-4831-a539-6df6b8ca5d75",
+    "productSlug": "greeting-card-a7-folded",
+    "productName": "A7 Folded Greeting Card",
+    "studioRenderSignature": "default:158102:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mm6jfzg4hnk3gg34v7b/default.png"
+      }
+    ],
+    "createdAt": "2026-02-28T16:31:17.044Z"
+  },
+  {
+    "exportId": "studio_mm6j4csjznk7m8p76b8",
+    "source": "studio",
+    "shopProductId": "TAE-CARD-MD",
+    "productSlug": null,
+    "productName": "ArtKey Card - Medium (5\" x 7\") (portrait)",
+    "studioRenderSignature": "default:96774:data:image/png;base64,iVBORw0KGg|back:161078:data:image/png;base64,iVBORw0KGg|inside:179094:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mm6j4csjznk7m8p76b8/default.png"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mm6j4csjznk7m8p76b8/back.png"
+      },
+      {
+        "placement": "inside",
+        "relativeUrl": "/uploads/studio-exports/studio_mm6j4csjznk7m8p76b8/inside.png"
+      }
+    ],
+    "createdAt": "2026-02-28T16:22:14.467Z"
+  },
+  {
+    "exportId": "studio_mm6ihcgqs06bloi3ong",
+    "source": "studio",
+    "shopProductId": "TAE-CARD-MD",
+    "productSlug": null,
+    "productName": "ArtKey Card - Medium (5\" x 7\") (portrait)",
+    "studioRenderSignature": "default:96774:data:image/png;base64,iVBORw0KGg|back:161078:data:image/png;base64,iVBORw0KGg|inside:179094:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mm6ihcgqs06bloi3ong/default.png"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mm6ihcgqs06bloi3ong/back.png"
+      },
+      {
+        "placement": "inside",
+        "relativeUrl": "/uploads/studio-exports/studio_mm6ihcgqs06bloi3ong/inside.png"
+      }
+    ],
+    "createdAt": "2026-02-28T16:04:20.954Z"
+  }
+]

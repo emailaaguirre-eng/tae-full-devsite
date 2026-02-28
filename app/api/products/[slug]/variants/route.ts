@@ -8,8 +8,33 @@
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, eq } from "@/lib/db";
 import { buildProductPreviewUrl } from "@/lib/product-watermark";
+import { computeRetailPrice, parsePricingSettings } from "@/lib/product-pricing";
 
 export const dynamic = "force-dynamic";
+
+function toNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function extractSiblingVariantBasePrice(
+  sibling: any,
+  pfDataForRow: any
+): number {
+  const candidates = [
+    sibling?.retail_price,
+    sibling?.price,
+    sibling?.price_usd,
+    sibling?.base_price,
+    pfDataForRow?.variant?.retail_price,
+    pfDataForRow?.variant?.price,
+  ];
+  for (const value of candidates) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return 0;
+}
 
 export async function GET(
   req: Request,
@@ -75,6 +100,13 @@ export async function GET(
         pfDataForRow = {};
       }
 
+      const printfulBasePrice = toNumber(
+        p.printfulBasePrice,
+        extractSiblingVariantBasePrice(pfVariant, pfDataForRow)
+      );
+      const taeAddOnFee = toNumber(p.taeAddOnFee);
+      const pricing = parsePricingSettings(p.printfulDataJson);
+      const artistRoyalty = toNumber(pricing.artistRoyalty);
       return {
         id: p.id,
         slug: p.slug,
@@ -86,7 +118,14 @@ export async function GET(
         heroImage: p.heroImage
           ? buildProductPreviewUrl(p.id, "hero")
           : (pfVariant?.image || pfDataForRow?.variant?.image || pfDataForRow?.product?.image || null),
-        basePrice: (p.printfulBasePrice || 0) + (p.taeAddOnFee || 0),
+        basePrice: computeRetailPrice({
+          printfulBasePrice,
+          taeAddOnFee,
+          artistRoyalty,
+        }),
+        printfulBasePrice,
+        taeAddOnFee,
+        artistRoyalty,
         printfulVariantId: p.printfulVariantId,
         printWidth: p.printWidth,
         printHeight: p.printHeight,

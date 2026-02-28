@@ -9,14 +9,43 @@
  * Client components: use the useSiteMedia() hook (fetches /api/site-media once).
  */
 
+export async function ensureSiteMediaTable(): Promise<void> {
+  const key = "__taeSiteMediaTableReady";
+  const g = globalThis as typeof globalThis & { [key]?: boolean };
+  if (g[key]) return;
+
+  const { executeSql } = await import("@/db");
+  await executeSql(`
+    CREATE TABLE IF NOT EXISTS SiteMedia (
+      id TEXT PRIMARY KEY,
+      key TEXT NOT NULL UNIQUE,
+      url TEXT NOT NULL,
+      alt TEXT,
+      updatedAt TEXT
+    )
+  `);
+  await executeSql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_site_media_key ON SiteMedia(key)`);
+  g[key] = true;
+}
+
 // ---------------------------------------------------------------------------
 // Server-side: direct DB lookup (for server components / API routes)
 // ---------------------------------------------------------------------------
 
 export async function getSiteMediaMap(): Promise<Record<string, { url: string; alt: string | null }>> {
   const { getDb, siteMedia } = await import("@/lib/db");
+  await ensureSiteMediaTable();
   const db = await getDb();
-  const rows = await db.select().from(siteMedia).all();
+  let rows: Array<{ key: string; url: string; alt: string | null }> = [];
+  try {
+    rows = await db.select().from(siteMedia).all();
+  } catch (err: any) {
+    const msg = String(err?.message || "");
+    if (!msg.includes("no such table")) {
+      throw err;
+    }
+    rows = [];
+  }
 
   const map: Record<string, { url: string; alt: string | null }> = {};
   for (const r of rows) {

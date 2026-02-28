@@ -15,7 +15,7 @@ import {
   parseWatermarkSettings,
   parseProductMeta,
 } from '@/lib/product-watermark';
-import { DEFAULT_PRICING, parsePricingSettings } from '@/lib/product-pricing';
+import { DEFAULT_PRICING, computeRetailPrice, parsePricingSettings } from '@/lib/product-pricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +64,7 @@ export async function GET(req: Request) {
 
     const mapped = products.map((p) => {
       const cat = catMap.get(p.categoryId || '');
+      const pricing = parsePricingSettings(p.printfulDataJson);
       return {
         id: p.id,
         slug: p.slug,
@@ -71,7 +72,11 @@ export async function GET(req: Request) {
         description: p.description,
         productType: p.printProvider === 'printful' ? 'printful_print' : 'custom_artwork',
         heroImage: p.heroImage,
-        basePrice: (p.printfulBasePrice || 0) + (p.taeAddOnFee || 0),
+        basePrice: computeRetailPrice({
+          printfulBasePrice: p.printfulBasePrice,
+          taeAddOnFee: p.taeAddOnFee,
+          artistRoyalty: pricing.artistRoyalty,
+        }),
         printfulBasePrice: p.printfulBasePrice || 0,
         taeAddOnFee: p.taeAddOnFee || 0,
         active: p.active ?? false,
@@ -91,7 +96,7 @@ export async function GET(req: Request) {
         proofTerms: getProofTermsFromMeta(p.printfulDataJson),
         requiresQrCode: parseRequiresQrCode(p.printfulDataJson) ?? (cat?.requiresQrCode ?? false),
         watermark: parseWatermarkSettings(p.printfulDataJson),
-        pricing: parsePricingSettings(p.printfulDataJson),
+        pricing,
       };
     });
 
@@ -151,7 +156,7 @@ export async function POST(req: Request) {
       printfulProductId: body.printfulProductId || null,
       printfulVariantId: body.printfulVariantId || null,
       printfulBasePrice: body.printfulBasePrice || 0,
-      taeAddOnFee: body.basePrice || body.taeAddOnFee || 0,
+      taeAddOnFee: body.taeAddOnFee || 0,
       sizeLabel: body.sizeLabel || null,
       paperType: body.paperType || null,
       finishType: body.finishType || null,

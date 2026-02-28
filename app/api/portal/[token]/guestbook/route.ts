@@ -14,6 +14,7 @@ import { saveDatabase } from "@/db";
 import { canAdminAccessDemoPortal } from "@/lib/portal-auth";
 import { validatePortalSession } from "@/lib/portal-session";
 import { sendGuestbookEntryNotification } from "@/lib/email";
+import { enforceRequestRateLimit } from "@/lib/request-rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,13 @@ export async function POST(
   { params }: { params: { token: string } }
 ) {
   try {
+    const rateLimit = enforceRequestRateLimit(req, {
+      keyPrefix: `portal-guestbook-${params.token}`,
+      windowMs: 60_000,
+      maxRequests: 10,
+    });
+    if (!rateLimit.ok) return rateLimit.response;
+
     const db = await getDb();
     const { token } = params;
 

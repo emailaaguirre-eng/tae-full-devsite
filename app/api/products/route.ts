@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, eq, desc, like, and } from "@/lib/db";
 import { buildProductPreviewUrl, parseRequiresQrCode } from "@/lib/product-watermark";
+import { computeRetailPrice, parsePricingSettings } from "@/lib/product-pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -72,15 +73,22 @@ export async function GET(req: Request) {
     }
 
     const grouped = Array.from(groups.values()).map((variants) => {
+      const retailPriceFor = (p: typeof variants[number]) => {
+        const pricing = parsePricingSettings(p.printfulDataJson);
+        return computeRetailPrice({
+          printfulBasePrice: p.printfulBasePrice,
+          taeAddOnFee: p.taeAddOnFee,
+          artistRoyalty: pricing.artistRoyalty,
+        });
+      };
       // Sort by price ascending, pick cheapest as the representative
       variants.sort(
         (a, b) =>
-          ((a.printfulBasePrice || 0) + (a.taeAddOnFee || 0)) -
-          ((b.printfulBasePrice || 0) + (b.taeAddOnFee || 0))
+          retailPriceFor(a) - retailPriceFor(b)
       );
       const rep = variants[0];
       const cat = catMap.get(rep.categoryId || "");
-      const lowestPrice = (rep.printfulBasePrice || 0) + (rep.taeAddOnFee || 0);
+      const lowestPrice = retailPriceFor(rep);
       const requiresQrCode =
         parseRequiresQrCode(rep.printfulDataJson) ??
         (cat?.requiresQrCode ?? false);

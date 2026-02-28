@@ -5,8 +5,31 @@
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, eq } from "@/lib/db";
 import { buildProductPreviewUrl, parseRequiresQrCode } from "@/lib/product-watermark";
+import { computeRetailPrice, parsePricingSettings } from "@/lib/product-pricing";
 
 export const dynamic = "force-dynamic";
+
+function toNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function extractPrintfulVariantBasePrice(printfulData: any): number {
+  const variant = printfulData?.variant ?? {};
+  const candidates = [
+    variant?.retail_price,
+    variant?.price,
+    variant?.price_usd,
+    variant?.base_price,
+    printfulData?.retail_price,
+    printfulData?.price,
+  ];
+  for (const value of candidates) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return 0;
+}
 
 function cleanDescription(desc: string | null): string | null {
   if (!desc) return null;
@@ -59,9 +82,6 @@ export async function GET(
       if (cats.length > 0) category = cats[0];
     }
 
-    const basePrice =
-      (product.printfulBasePrice || 0) + (product.taeAddOnFee || 0);
-
     let gallery: string[] = [];
     try {
       gallery = product.galleryImages ? JSON.parse(product.galleryImages) : [];
@@ -80,6 +100,19 @@ export async function GET(
       printfulData?.variant?.image ||
       printfulData?.product?.image ||
       null;
+
+    const printfulBasePrice = toNumber(
+      product.printfulBasePrice,
+      extractPrintfulVariantBasePrice(printfulData)
+    );
+    const taeAddOnFee = toNumber(product.taeAddOnFee);
+    const pricing = parsePricingSettings(product.printfulDataJson);
+    const artistRoyalty = toNumber(pricing.artistRoyalty);
+    const basePrice = computeRetailPrice({
+      printfulBasePrice,
+      taeAddOnFee,
+      artistRoyalty,
+    });
 
     const fallbackGallery: string[] = Array.isArray(printfulData?.variantImages)
       ? printfulData.variantImages
@@ -110,8 +143,9 @@ export async function GET(
               )
             : finalGallery,
         basePrice,
-        printfulBasePrice: product.printfulBasePrice || 0,
-        taeAddOnFee: product.taeAddOnFee || 0,
+        printfulBasePrice,
+        taeAddOnFee,
+        artistRoyalty,
         sizeLabel: product.sizeLabel,
         paperType: product.paperType,
         finishType: product.finishType,

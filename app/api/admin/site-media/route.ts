@@ -11,6 +11,7 @@ import fs from "fs";
 import { getDb, siteMedia, eq } from "@/lib/db";
 import { generateId } from "@/lib/db";
 import { saveDatabase } from "@/db";
+import { ensureSiteMediaTable } from "@/lib/site-media";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ function sanitizeFilename(name: string): string {
 
 export async function GET() {
   try {
+    await ensureSiteMediaTable();
     const db = await getDb();
     const rows = await db.select().from(siteMedia).all();
     return NextResponse.json({ success: true, data: rows });
@@ -36,6 +38,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    await ensureSiteMediaTable();
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const key = formData.get("key") as string | null;
@@ -96,6 +99,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    await ensureSiteMediaTable();
     const { searchParams } = new URL(req.url);
     const key = searchParams.get("key");
     if (!key) {

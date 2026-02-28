@@ -4,6 +4,8 @@ const COOKIE_NAME = 'tae_admin_session';
 const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 const ADMIN_USERNAME_KEY = 'ADMIN1_USERNAME';
 const ADMIN_PASSWORD_KEY = 'ADMIN1_PASSWORD';
+const LEGACY_ADMIN_USERNAME_KEY = 'ADMIN_USERNAME';
+const LEGACY_ADMIN_PASSWORD_KEY = 'ADMIN_PASSWORD';
 
 export function createAdminToken(email: string): string {
   const payload = {
@@ -29,8 +31,16 @@ export function validateAdminCredentials(username: string, password: string): bo
   const normalizedUsername = username.trim();
   const normalizedUsernameLower = normalizedUsername.toLowerCase();
   const normalizedPassword = password.trim();
-  const adminUser = (process.env[ADMIN_USERNAME_KEY] || '').trim();
-  const adminPass = (process.env[ADMIN_PASSWORD_KEY] || '').trim();
+  const adminUser = (
+    process.env[ADMIN_USERNAME_KEY] ||
+    process.env[LEGACY_ADMIN_USERNAME_KEY] ||
+    ''
+  ).trim();
+  const adminPass = (
+    process.env[ADMIN_PASSWORD_KEY] ||
+    process.env[LEGACY_ADMIN_PASSWORD_KEY] ||
+    ''
+  ).trim();
   if (!adminUser || !adminPass) return false;
 
   const adminUserLower = adminUser.toLowerCase();

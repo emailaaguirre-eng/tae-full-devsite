@@ -36,3 +36,20 @@ export function parsePricingSettings(raw: string | null | undefined): ProductPri
         : null,
   };
 }
+
+function toNumber(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export function computeRetailPrice(input: {
+  printfulBasePrice: unknown;
+  taeAddOnFee?: unknown;
+  artistRoyalty?: unknown;
+}): number {
+  return (
+    toNumber(input.printfulBasePrice, 0) +
+    toNumber(input.taeAddOnFee, 0) +
+    toNumber(input.artistRoyalty, 0)
+  );
+}

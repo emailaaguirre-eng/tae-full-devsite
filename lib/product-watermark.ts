@@ -17,6 +17,11 @@ export interface ProductMeta {
   proofTerms?: string;
   watermark?: ProductWatermarkSettings;
   requiresQrCode?: boolean;
+  pricing?: {
+    marginTarget?: number;
+    artistRoyalty?: number;
+    lastPrintfulSyncAt?: string | null;
+  };
 }
 
 export const DEFAULT_WATERMARK: ProductWatermarkSettings = {
@@ -65,7 +70,7 @@ export function parseWatermarkSettings(raw: string | null | undefined): ProductW
   const input = (meta?.watermark || {}) as Partial<ProductWatermarkSettings> & {
     transform?: Partial<ProductWatermarkTransform>;
   };
-  const transform = input.transform || {};
+  const transform: Partial<ProductWatermarkTransform> = input.transform || {};
   return {
     enabled: !!input.enabled,
     text: typeof input.text === "string" && input.text.trim() ? input.text.trim() : DEFAULT_WATERMARK.text,

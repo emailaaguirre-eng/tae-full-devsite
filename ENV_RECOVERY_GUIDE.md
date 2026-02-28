@@ -1,6 +1,6 @@
 # Environment Variables Recovery Guide
 
-Since your Vercel account was deleted, here's how to recover all your environment variables.
+Use this guide to recover and reconfigure all required environment variables.
 
 ## 🔍 Where to Find Each Variable
 
@@ -62,9 +62,9 @@ Since your Vercel account was deleted, here's how to recover all your environmen
 **For local development:**
 - `NEXT_PUBLIC_SITE_URL=http://localhost:3000`
 
-**For production (when you redeploy):**
-- `NEXT_PUBLIC_SITE_URL=https://your-new-vercel-url.vercel.app`
-- Or leave it blank - Vercel auto-detects it
+**For production:**
+- `NEXT_PUBLIC_SITE_URL=https://your-domain.com`
+- Or leave it blank if your runtime auto-detects the public URL
 
 ---
 
@@ -160,7 +160,5 @@ Since your Vercel account was deleted, here's how to recover all your environmen
 
 ## 🔐 Security Note
 
-Never commit `.env.local` to Git (it's already in `.gitignore`). When you redeploy:
-- If using Vercel: Add variables in Vercel dashboard
-- If using another platform: Add them in that platform's environment variable settings
+Never commit `.env.local` to Git (it's already in `.gitignore`). For deployment, add variables in your hosting platform's environment variable settings.
 

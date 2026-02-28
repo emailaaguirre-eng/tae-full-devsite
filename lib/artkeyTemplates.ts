@@ -24,6 +24,9 @@ export const ARTKEY_TEMPLATES: ArtKeyTemplateDefinition[] = [
     name: "Elegant ArtKey",
     assetUrl: "/images/taeaktemp.svg",
     displayAspectRatio: 2.25,
+    // Allow full canvas-width usage when needed so the Elegant QR can always
+    // reach the same target physical size as KeyCard on narrow/portrait surfaces.
+    maxCanvasFraction: 1,
     // The uploaded SVG contains a large canvas with the key artwork centered
     // in a smaller region. Crop to the actual key area for studio display.
     contentCrop: {
@@ -46,9 +49,10 @@ export const ARTKEY_TEMPLATES: ArtKeyTemplateDefinition[] = [
     name: "KeyCard",
     assetUrl: "/images/tae-keycard.svg",
     displayAspectRatio: 1,
-    // Keep KeyCard visually compact relative to larger key templates.
-    minCanvasFraction: 0.1,
-    maxCanvasFraction: 0.34,
+    // Keep QR geometry true to the KeyCard artwork, then constrain template
+    // size so the container hugs the QR area more closely.
+    minCanvasFraction: 0.19,
+    maxCanvasFraction: 0.26,
     qr: {
       // QR fit area inside template white window:
       // x=49, y=69, w=102 on a 200x200 viewBox.

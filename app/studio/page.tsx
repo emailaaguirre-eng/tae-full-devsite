@@ -2,10 +2,10 @@
 // Customization Studio — loads product spec from URL params or falls back to built-in catalog
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { ProductSpec, Placement } from "@/customization-studio/types";
+import { ProductSpec, Placement, DesignState } from "@/customization-studio/types";
 import Link from "next/link";
 import { ARTKEY_TEMPLATES } from "@/lib/artkeyTemplates";
 
@@ -166,9 +166,14 @@ function buildSpecFromApiProduct(
   apiProduct: any,
   printSpecsData?: PrintSpecsData | null
 ): ProductSpec {
-  const printWidth = apiProduct.printWidth || 2146;
-  const printHeight = apiProduct.printHeight || 1546;
-  const printDpi = apiProduct.printDpi || 300;
+  const numOr = (value: unknown, fallback: number) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+  const printWidth = numOr(apiProduct?.printWidth, 2146);
+  const printHeight = numOr(apiProduct?.printHeight, 1546);
+  const printDpi = numOr(apiProduct?.printDpi, 300);
+  const basePrice = Number(apiProduct?.basePrice);
 
   let placements: Placement[] = ["front"];
   let placementLabels: Record<string, string> | undefined = undefined;
@@ -206,9 +211,9 @@ function buildSpecFromApiProduct(
     for (const [pfPlacement, area] of Object.entries(printAreas)) {
       const a = area as any;
       placementDimensions[pfPlacement] = {
-        width: a.width,
-        height: a.height,
-        dpi: a.dpi,
+        width: numOr(a?.width, printWidth),
+        height: numOr(a?.height, printHeight),
+        dpi: numOr(a?.dpi, printDpi),
         printfulPlacement: pfPlacement,
       };
     }
@@ -243,7 +248,7 @@ function buildSpecFromApiProduct(
     printfulProductId: apiProduct.printfulProductId || undefined,
     printfulVariantId: apiProduct.printfulVariantId || undefined,
     productSlug: apiProduct.slug,
-    basePrice: apiProduct.basePrice,
+    basePrice: Number.isFinite(basePrice) ? basePrice : 0,
     printWidth,
     printHeight,
     printDpi,
@@ -285,6 +290,8 @@ function StudioContent() {
   const productNameParam = searchParams.get("product_name");
   const requiresQrParam = searchParams.get("requires_qr");
   const forceArtKeyParam = searchParams.get("force_artkey");
+  const restoreDesignParam = searchParams.get("restore_design");
+  const cartItemIdParam = searchParams.get("cart_item_id");
 
   // API-loaded product state
   const [apiProduct, setApiProduct] = useState<any>(null);
@@ -361,6 +368,37 @@ function StudioContent() {
     : buildProductSpec(selectedProduct, selectedVariantIndex, orientation);
 
   const productName = isApiMode ? apiProduct.name : selectedProduct.name;
+
+  const initialDesigns: DesignState | undefined = useMemo(() => {
+    if (restoreDesignParam !== "1") return undefined;
+    const restoreKeys = cartItemIdParam
+      ? [`tae-studio-design-${cartItemIdParam}`, `tae-studio-design-${productSpec.id}`]
+      : [`tae-studio-design-${productSpec.id}`];
+    try {
+      for (const key of restoreKeys) {
+        const raw = sessionStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") continue;
+        return parsed as DesignState;
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
+  }, [cartItemIdParam, productSpec.id, restoreDesignParam]);
+
+  const handleStudioSave = useCallback((designs: DesignState) => {
+    const keys = new Set<string>([`tae-studio-design-${productSpec.id}`]);
+    if (cartItemIdParam) keys.add(`tae-studio-design-${cartItemIdParam}`);
+    for (const key of keys) {
+      try {
+        sessionStorage.setItem(key, JSON.stringify(designs));
+      } catch {
+        // Non-fatal: studio editing continues even if session storage is full.
+      }
+    }
+  }, [cartItemIdParam, productSpec.id]);
 
   const computeRenderSignature = useCallback(
     (files: { placement: string; dataUrl: string }[]) =>
@@ -445,13 +483,14 @@ function StudioContent() {
           product_id: productSpec.id,
           product_name: productSpec.name,
         });
+        if (cartItemIdParam) params.set("cart_item_id", cartItemIdParam);
         if (productSpec.productSlug) params.set("slug", productSpec.productSlug);
         router.push(`/artkey-editor?${params}`);
       } else {
         router.push("/cart");
       }
     },
-    [apiProduct?.category?.name, apiProduct?.category?.slug, computeRenderSignature, forceArtKeyParam, productNameParam, productSpec, requiresQrParam, router]
+    [apiProduct?.category?.name, apiProduct?.category?.slug, cartItemIdParam, computeRenderSignature, forceArtKeyParam, productNameParam, productSpec, requiresQrParam, router]
   );
 
   const handleProductChange = (index: number) => {
@@ -534,7 +573,7 @@ function StudioContent() {
                   {apiVariants.map((v) => (
                     <option key={v.id} value={v.slug} disabled={!v.inStock}>
                       {v.sizeLabel || v.pfSize || v.name}
-                      {v.basePrice ? ` — $${v.basePrice.toFixed(2)}` : ""}
+                      {Number.isFinite(Number(v.basePrice)) ? ` — $${Number(v.basePrice).toFixed(2)}` : ""}
                       {!v.inStock ? " (Out of stock)" : ""}
                     </option>
                   ))}
@@ -608,11 +647,13 @@ function StudioContent() {
       {/* Customization Studio */}
       <div className="flex-1">
         <CustomizationStudio
-          key={`${productSpec.id}-${productSpec.printWidth}-${productSpec.printHeight}`}
+          key={`${productSpec.id}-${productSpec.printWidth}-${productSpec.printHeight}-${restoreDesignParam === "1" ? "restore" : "new"}`}
           productSpec={productSpec}
           placeholderQrCodeUrl="/images/placeholder-qr.svg"
           artKeyTemplates={ARTKEY_TEMPLATES}
+          initialDesigns={initialDesigns}
           onExport={handleExport}
+          onSave={handleStudioSave}
         />
       </div>
     </div>
