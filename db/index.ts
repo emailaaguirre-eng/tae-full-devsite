@@ -9,8 +9,8 @@ const getDatabasePath = () => {
   if (process.env.DATABASE_PATH) {
     return process.env.DATABASE_PATH;
   }
-  // Default to prisma/dev.db relative to project root
-  return path.join(process.cwd(), 'prisma', 'dev.db');
+  // Default to dedicated Drizzle runtime DB relative to project root
+  return path.join(process.cwd(), 'db', 'drizzle-runtime.db');
 };
 
 const dbPath = getDatabasePath();

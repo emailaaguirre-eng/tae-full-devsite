@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 
-const dbPath = path.join(__dirname, '../prisma/dev.db');
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../db/drizzle-runtime.db');
 
 // =============================================================================
 // SHOP CATEGORIES - Master product types
