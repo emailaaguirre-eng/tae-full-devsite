@@ -28,7 +28,6 @@ const SHOP_CATEGORIES = [
     name: 'Greeting Cards',
     description: 'Beautiful folded greeting cards for any occasion.',
     icon: '💌',
-    gelatoCatalogUid: 'folded-cards',
     taeBaseFee: 2.00,
     requiresQrCode: true,
     featured: true,
@@ -40,7 +39,6 @@ const SHOP_CATEGORIES = [
     name: 'Invitations',
     description: 'Elegant invitations for weddings, parties, and special events.',
     icon: '🎉',
-    gelatoCatalogUid: 'folded-cards',
     taeBaseFee: 2.50,
     requiresQrCode: true,
     featured: true,
@@ -52,7 +50,6 @@ const SHOP_CATEGORIES = [
     name: 'Announcements',
     description: 'Share your news beautifully - births, graduations, engagements.',
     icon: '📢',
-    gelatoCatalogUid: 'folded-cards',
     taeBaseFee: 2.00,
     requiresQrCode: true,
     featured: false,
@@ -64,7 +61,6 @@ const SHOP_CATEGORIES = [
     name: 'Postcards',
     description: 'Flat postcards perfect for quick notes or save-the-dates.',
     icon: '📮',
-    gelatoCatalogUid: 'cards',
     taeBaseFee: 1.50,
     requiresQrCode: false,
     featured: false,
@@ -76,7 +72,6 @@ const SHOP_CATEGORIES = [
     name: 'Wall Art',
     description: 'Premium prints for your walls in various sizes.',
     icon: '🖼️',
-    gelatoCatalogUid: 'posters',
     taeBaseFee: 5.00,
     requiresQrCode: false,
     featured: true,
@@ -88,7 +83,6 @@ const SHOP_CATEGORIES = [
     name: 'Canvas Prints',
     description: 'Museum-quality canvas prints stretched on wooden frames.',
     icon: '🎨',
-    gelatoCatalogUid: 'canvas',
     taeBaseFee: 10.00,
     requiresQrCode: false,
     featured: true,
@@ -100,7 +94,6 @@ const SHOP_CATEGORIES = [
     name: 'Framed Prints',
     description: 'Ready-to-hang framed prints in classic frame options.',
     icon: '🪟',
-    gelatoCatalogUid: 'framed-posters',
     taeBaseFee: 15.00,
     requiresQrCode: false,
     featured: false,
@@ -125,10 +118,10 @@ function seedShopCategories(db) {
     const now = Date.now();
     db.run(`
       INSERT INTO ShopCategory (
-        id, taeId, slug, name, description, icon, gelatoCatalogUid,
+        id, taeId, slug, name, description, icon,
         taeBaseFee, requiresQrCode, heroImage, active, featured, sortOrder, createdAt, updatedAt
       ) VALUES (
-        '${randomUUID()}', '${cat.taeId}', '${cat.slug}', '${cat.name}', '${cat.description}', '${cat.icon}', '${cat.gelatoCatalogUid}',
+        '${randomUUID()}', '${cat.taeId}', '${cat.slug}', '${cat.name}', '${cat.description}', '${cat.icon}',
         ${cat.taeBaseFee}, ${cat.requiresQrCode ? 1 : 0}, NULL, 1, ${cat.featured ? 1 : 0}, ${cat.sortOrder}, ${now}, ${now}
       )
     `);

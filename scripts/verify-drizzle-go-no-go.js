@@ -151,10 +151,13 @@ async function main() {
   let sourceDb = null;
   let targetDb = null;
   try {
-    targetDb = await openDb(SQL, targetPath);
-    if (report.checks.filesExist.source) {
-      sourceDb = await openDb(SQL, sourcePath);
-    }
+    if (!report.checks.filesExist.target) {
+      // Skip all database checks if target doesn't exist
+    } else {
+      targetDb = await openDb(SQL, targetPath);
+      if (report.checks.filesExist.source) {
+        sourceDb = await openDb(SQL, sourcePath);
+      }
 
     // 1) Integrity check
     const integrity = scalar(targetDb, "PRAGMA integrity_check;");
@@ -214,6 +217,7 @@ async function main() {
           report.result = "FAIL";
         }
       }
+    }
     }
   } finally {
     if (sourceDb) sourceDb.close();
