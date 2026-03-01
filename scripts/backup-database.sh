@@ -8,7 +8,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR" || exit 1
 
 # Database file location
-DB_FILE="prisma/dev.db"
+DB_FILE="${DATABASE_PATH:-db/drizzle-runtime.db}"
 BACKUP_DIR="backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/db_backup_$TIMESTAMP.db"

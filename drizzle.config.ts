@@ -5,6 +5,6 @@ export default {
   out: './drizzle',
   dialect: 'sqlite',
   dbCredentials: {
-    url: './prisma/dev.db',
+    url: './db/drizzle-runtime.db',
   },
 } satisfies Config;

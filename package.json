@@ -13,6 +13,8 @@
     "sync:printful-prices": "powershell -ExecutionPolicy Bypass -File scripts/run-price-sync.ps1",
     "sync:printful-prices:retry-if-failed": "powershell -ExecutionPolicy Bypass -File scripts/run-price-sync-retry-if-failed.ps1",
     "test:e2e:poc": "node scripts/e2e-studio-proof-fulfillment.mjs",
+    "verify:drizzle-go-no-go": "node scripts/verify-drizzle-go-no-go.js",
+    "verify:drizzle-go-no-go:strict": "node scripts/verify-drizzle-go-no-go.js --strict",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",

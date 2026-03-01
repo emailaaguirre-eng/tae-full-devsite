@@ -32,6 +32,8 @@ local.env/
 *.db-journal
 prisma/dev.db
 prisma/dev.db-journal
+db/drizzle-runtime.db
+db/drizzle-runtime.db-journal
 
 # Database backups
 backups/
