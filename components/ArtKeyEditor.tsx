@@ -94,6 +94,14 @@ interface ArtKeyData {
   customizations: Record<string, any>;
 }
 
+type PalettePreset = {
+  name: string;
+  background: string;
+  primary: string;
+  text: string;
+  accent: string;
+};
+
 function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -459,6 +467,28 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     { bg: 'linear-gradient(135deg,#30cfd0,#330867)', color: 'gradient', label: 'Deep Space', type: 'gradient' },
   ]), []);
 
+  const curatedPalettePresets = useMemo<PalettePreset[]>(
+    () => [
+      { name: "Pearl Sky", background: "#F8FAFF", primary: "#4F46E5", text: "#1F2937", accent: "#A78BFA" },
+      { name: "Ivory Gold", background: "#FFF8EB", primary: "#B7791F", text: "#4A3A2A", accent: "#D4AF37" },
+      { name: "Sage Paper", background: "#F4F7F2", primary: "#5E7A62", text: "#243328", accent: "#94B49F" },
+      { name: "Rose Linen", background: "#FFF3F5", primary: "#C05A78", text: "#4A2D37", accent: "#E7A4B8" },
+      { name: "Coastal Mist", background: "#EEF7FA", primary: "#2F7C96", text: "#1D3742", accent: "#69AFC7" },
+      { name: "Slate Glow", background: "#EAF0F8", primary: "#395B8A", text: "#1E293B", accent: "#7AA2D6" },
+      { name: "Midnight Gold", background: "#121826", primary: "#D4AF37", text: "#F5F2E8", accent: "#F0D488" },
+      { name: "Noir Rose", background: "#1E1720", primary: "#D47FA6", text: "#F7EAF0", accent: "#F2A9C7" },
+      { name: "Forest Luxe", background: "#10241B", primary: "#D4AF37", text: "#E7F2EA", accent: "#7DB18F" },
+      { name: "Royal Ink", background: "#0E1A3A", primary: "#8AB4FF", text: "#E6EDFF", accent: "#D4AF37" },
+      { name: "Terracotta Sun", background: "#FFF2EA", primary: "#C65A3D", text: "#4A3127", accent: "#F2A65A" },
+      { name: "Lavender Silk", background: "#F4F0FF", primary: "#7C5ACF", text: "#34264D", accent: "#B9A3F5" },
+      { name: "Monochrome Chic", background: "#F5F5F5", primary: "#262626", text: "#1A1A1A", accent: "#737373" },
+      { name: "Berry Night", background: "#241628", primary: "#C768A3", text: "#F5EAF2", accent: "#8B6AD9" },
+      { name: "Emerald Mist", background: "#EAF7F2", primary: "#2C8C67", text: "#1B3B2F", accent: "#6BC0A3" },
+      { name: "Sunset Peach", background: "#FFF4EE", primary: "#E26A4A", text: "#4F2C22", accent: "#F3A26E" },
+    ],
+    []
+  );
+
   const stockBackgrounds = useMemo(() => [
     { label: 'Cloudy Sky', url: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=1600&q=80&auto=format&fit=crop' },
     { label: 'Golden Sunset', url: 'https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?w=1600&q=80&auto=format&fit=crop' },
@@ -581,6 +611,23 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     const normalized = value.trim();
     if (!normalized) return;
     handleColorSelect({ bg: normalized, color: normalized, label: 'Custom', type: 'solid' }, type, false);
+  };
+
+  const applyPalettePreset = (preset: PalettePreset) => {
+    setArtKeyData((prev) => ({
+      ...prev,
+      theme: {
+        ...prev.theme,
+        bg_color: preset.background,
+        bg_image_url: "",
+        button_color: preset.primary,
+        button_gradient: "",
+        text_color: preset.text,
+        title_color: preset.accent,
+      },
+    }));
+    rememberRecentColor(preset.background);
+    rememberRecentColor(preset.primary);
   };
 
   const resolveUploadAuth = () => {
@@ -1166,8 +1213,16 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           WebkitBackdropFilter: 'blur(10px)',
           color: buttonColor,
           borderRadius,
-          border: `1px solid ${buttonColor}55`,
-          boxShadow: `inset 0 0 0 1px ${buttonColor}22`,
+          border: `1px solid ${buttonColor}88`,
+          boxShadow: `0 8px 18px -12px rgba(15, 23, 42, 0.45), inset 0 0 0 1px ${buttonColor}40`,
+        };
+      case 'raised':
+        return {
+          background: `linear-gradient(180deg, ${buttonColor} 0%, ${buttonColor}DD 100%)`,
+          color: getButtonTextColor(buttonColor),
+          borderRadius,
+          border: `1px solid ${buttonColor}CC`,
+          boxShadow: `0 6px 14px -8px rgba(15, 23, 42, 0.55), 0 2px 0 0 ${buttonColor}AA`,
         };
       default:
         return {
@@ -1176,6 +1231,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           borderRadius,
         };
     }
+  };
+
+  const getBodyFontForTemplate = (category: TemplateCategory) => {
+    if (category === "elegant") return "g:Inter";
+    if (category === "sports") return "g:Montserrat";
+    return "g:Open Sans";
   };
 
   // Load Google Font when font changes
@@ -1625,7 +1686,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       .slice(templatePage * templatesPerPage, (templatePage + 1) * templatesPerPage)
                       .map((tpl) => {
                         const isSelected = artKeyData.theme.template === tpl.value;
-                        const isDark = tpl.bg.includes('#0') || tpl.bg.includes('#1') || tpl.bg.includes('#2') || tpl.text === '#ffffff' || tpl.text === '#E8E8E8' || tpl.text === '#CCCCCC';
+                        const templateButtonStyle = (tpl.buttonStyle || "solid") as ButtonStyle;
+                        const templateButtonShape = (tpl.buttonShape || "pill") as ButtonShape;
+                        const headlineFont = tpl.titleFont || "g:Playfair Display";
+                        const bodyFont = getBodyFontForTemplate(tpl.category);
                         return (
                           <button
                             key={tpl.value}
@@ -1637,20 +1701,44 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                             }}
                           >
                             <div
-                              className="p-3 flex flex-col items-center justify-center"
-                              style={{ background: tpl.bg, minHeight: '100px' }}
+                              className="p-3 flex flex-col justify-between"
+                              style={{ background: tpl.bg, minHeight: '138px' }}
                             >
-                              <div className="text-2xl font-bold mb-1" style={{ color: tpl.title, fontFamily: tpl.titleFont?.replace('g:', '') || 'inherit' }}>Aa</div>
+                              <div>
+                                <div
+                                  className="text-sm font-bold leading-tight"
+                                  style={{ color: tpl.title, fontFamily: getFontFamily(headlineFont) }}
+                                >
+                                  {tpl.name}
+                                </div>
+                                <div
+                                  className="text-[10px] mt-1 line-clamp-2"
+                                  style={{ color: tpl.text, fontFamily: getFontFamily(bodyFont), opacity: 0.95 }}
+                                >
+                                  A mini portal preview with your event details.
+                                </div>
+                              </div>
                               <div
-                                className="w-full max-w-[80%] py-1 px-2 text-[9px] font-semibold text-center mt-1 truncate"
-                                style={{
-                                  background: tpl.buttonStyle === 'outline' ? 'transparent' : (tpl.buttonStyle === 'glass' ? `${tpl.button}20` : tpl.button),
-                                  color: tpl.buttonStyle === 'solid' ? (isDark ? '#000' : '#fff') : tpl.button,
-                                  border: tpl.buttonStyle !== 'solid' ? `1.5px solid ${tpl.button}` : 'none',
-                                  borderRadius: tpl.buttonShape === 'square' ? '0' : tpl.buttonShape === 'rounded' ? '4px' : '9999px',
-                                }}
+                                className="w-full py-1.5 px-2 text-[10px] font-semibold text-center mt-2 truncate"
+                                style={getButtonPreviewStyles(tpl.button, templateButtonStyle, templateButtonShape)}
                               >
-                                Button
+                                View Details
+                              </div>
+                              <div className="w-full mt-1.5 grid grid-cols-2 gap-1 text-[9px]">
+                                <span
+                                  className="px-1.5 py-1 rounded bg-white/70 text-left truncate"
+                                  style={{ color: "#334155", fontFamily: getFontFamily(headlineFont) }}
+                                  title={`Headline: ${headlineFont.replace("g:", "")}`}
+                                >
+                                  H: {headlineFont.replace("g:", "")}
+                                </span>
+                                <span
+                                  className="px-1.5 py-1 rounded bg-white/70 text-left truncate"
+                                  style={{ color: "#334155", fontFamily: getFontFamily(bodyFont) }}
+                                  title={`Body: ${bodyFont.replace("g:", "")}`}
+                                >
+                                  B: {bodyFont.replace("g:", "")}
+                                </span>
                               </div>
                             </div>
                             <div className="px-2 py-2 text-center" style={{ background: '#ffffff' }}>
@@ -1840,6 +1928,37 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             {/* Step 3 Features & Colors */}
             {designMode !== null && (
               <Card title="Choose ArtKey Features and Colors" step="3">
+                <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
+                  <h4 className="text-sm font-semibold mb-3">Curated Palette Presets</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {curatedPalettePresets.map((preset) => {
+                      const isSelected =
+                        artKeyData.theme.bg_color === preset.background &&
+                        artKeyData.theme.button_color === preset.primary;
+                      return (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => applyPalettePreset(preset)}
+                          className={`p-2 rounded-lg border-2 transition-all text-left ${isSelected ? "shadow-md" : "hover:shadow-sm"}`}
+                          style={{ borderColor: isSelected ? preset.primary : "#e2e2e0", background: "#fff" }}
+                          title={preset.name}
+                        >
+                          <div className="text-[11px] font-semibold truncate" style={{ color: "#334155" }}>
+                            {preset.name}
+                          </div>
+                          <div className="mt-1 grid grid-cols-4 gap-1">
+                            <span className="h-5 rounded" style={{ background: preset.background }} title="Background" />
+                            <span className="h-5 rounded" style={{ background: preset.primary }} title="Button" />
+                            <span className="h-5 rounded" style={{ background: preset.text }} title="Text" />
+                            <span className="h-5 rounded" style={{ background: preset.accent }} title="Accent" />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
                   <h4 className="text-sm font-semibold mb-3">Button Color</h4>
                   <ColorPicker
@@ -2949,14 +3068,7 @@ function TactilePreviewButton({
       ? `${style?.boxShadow ? `${style.boxShadow}, ` : ''}0 0 0 2px rgba(26, 26, 46, 0.35)`
       : style?.boxShadow,
     filter: pressed ? 'brightness(0.96)' : hovered ? 'brightness(1.02)' : 'none',
-    border:
-      visualStyle === 'glass'
-        ? focused
-          ? `1px solid rgba(255,255,255,0.72)`
-          : hovered
-          ? `1px solid rgba(255,255,255,0.58)`
-          : `1px solid rgba(255,255,255,0.48)`
-        : style?.border,
+    border: style?.border,
   };
 
   return (
@@ -3104,6 +3216,18 @@ function ColorPicker({ page, setPage, pages, label, colors, selected, onSelect, 
           ‹
         </button>
         <span className="text-xs text-gray-500 flex-1 text-center">{typeof label === 'function' ? label(page) : label}</span>
+        {onCustomColor && (
+          <button
+            type="button"
+            onClick={onCustomColor}
+            className="w-8 h-8 rounded border flex items-center justify-center text-sm"
+            style={{ borderColor: '#d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
+            title="Open color picker"
+            aria-label="Open color picker"
+          >
+            🎨
+          </button>
+        )}
         <button
           onClick={() => setPage(Math.min(maxPage, page + 1))}
           disabled={page >= maxPage}
@@ -3133,15 +3257,6 @@ function ColorPicker({ page, setPage, pages, label, colors, selected, onSelect, 
           );
         })}
       </div>
-      {onCustomColor && (
-        <button
-          onClick={onCustomColor}
-          className="w-full px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
-          style={{ border: '2px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
-        >
-          🎨 More Colors
-        </button>
-      )}
     </div>
   );
 }

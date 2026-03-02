@@ -110,11 +110,21 @@ export function getButtonStyle(theme: PortalData["theme"]): React.CSSProperties 
   if (buttonStyle === "glass") {
     return {
       ...base,
-      backgroundColor: `${buttonColor}33`,
+      backgroundColor: `${buttonColor}26`,
       backdropFilter: "blur(12px)",
       WebkitBackdropFilter: "blur(12px)",
-      border: `1px solid ${buttonColor}66`,
-      color: "#ffffff",
+      border: `1px solid ${buttonColor}99`,
+      boxShadow: `0 8px 18px -12px rgba(15, 23, 42, 0.45), inset 0 0 0 1px ${buttonColor}44`,
+      color: /^#[0-9a-fA-F]{6}$/.test(buttonColor) ? getButtonTextColor(buttonColor) : "#ffffff",
+    };
+  }
+  if (buttonStyle === "raised") {
+    return {
+      ...base,
+      background: `linear-gradient(180deg, ${buttonColor} 0%, ${buttonColor}DD 100%)`,
+      border: `1px solid ${buttonColor}CC`,
+      boxShadow: `0 8px 16px -10px rgba(15, 23, 42, 0.6), 0 2px 0 0 ${buttonColor}AA`,
+      color: /^#[0-9a-fA-F]{6}$/.test(buttonColor) ? getButtonTextColor(buttonColor) : "#ffffff",
     };
   }
   if (theme.button_gradient) {

@@ -351,10 +351,19 @@ export default function PortalEditPage() {
         }
       : previewButtonStyle === "glass"
       ? {
-          backgroundColor: `${previewButtonColor}33`,
-          border: `1px solid ${previewButtonColor}66`,
+          backgroundColor: `${previewButtonColor}26`,
+          border: `1px solid ${previewButtonColor}99`,
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
+          boxShadow: `0 8px 18px -12px rgba(15, 23, 42, 0.45), inset 0 0 0 1px ${previewButtonColor}44`,
+          color: "#ffffff",
+          borderRadius: previewButtonRadius,
+        }
+      : previewButtonStyle === "raised"
+      ? {
+          background: `linear-gradient(180deg, ${previewButtonColor} 0%, ${previewButtonColor}DD 100%)`,
+          border: `1px solid ${previewButtonColor}CC`,
+          boxShadow: `0 8px 16px -10px rgba(15, 23, 42, 0.6), 0 2px 0 0 ${previewButtonColor}AA`,
           color: "#ffffff",
           borderRadius: previewButtonRadius,
         }

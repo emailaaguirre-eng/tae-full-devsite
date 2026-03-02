@@ -8,7 +8,7 @@ export interface ArtKeyTemplate {
   text: string;
   title: string;
   category: 'classic' | 'elegant' | 'sports';
-  buttonStyle?: 'solid' | 'outline' | 'glass';
+  buttonStyle?: 'solid' | 'outline' | 'glass' | 'raised';
   buttonShape?: 'pill' | 'rounded' | 'square';
   headerIcon?: ElegantIconKey;
   titleFont?: string;
@@ -327,6 +327,7 @@ export const BUTTON_STYLES = [
   { id: 'solid', label: 'Solid' },
   { id: 'outline', label: 'Outline' },
   { id: 'glass', label: 'Glass' },
+  { id: 'raised', label: '3D / Raised' },
 ] as const;
 
-export type ButtonStyle = 'solid' | 'outline' | 'glass';
+export type ButtonStyle = 'solid' | 'outline' | 'glass' | 'raised';

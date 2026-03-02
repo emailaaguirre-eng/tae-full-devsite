@@ -322,7 +322,15 @@ export function AdvancedColorPickerPopover({
         <input
           type="text"
           value={hexInput}
-          onChange={(e) => setHexInput(normalizeHexInput(e.target.value))}
+          onChange={(e) => {
+            const nextInput = normalizeHexInput(e.target.value);
+            setHexInput(nextInput);
+            const parsed = hexToRgb(nextInput);
+            if (!parsed) return;
+            const nextHsv = rgbToHsv(parsed.r, parsed.g, parsed.b);
+            setHsv(nextHsv);
+            emitChange(nextHsv, localAlpha);
+          }}
           onBlur={() => {
             const parsed = hexToRgb(hexInput);
             if (!parsed) {
