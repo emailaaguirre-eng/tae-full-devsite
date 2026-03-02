@@ -1,15 +1,5 @@
 "use client";
 
-import { CameraIcon, VideoIcon, MusicIcon, PenIcon, ThoughtIcon } from "@/components/CustomIcons";
-
-const features = [
-  { icon: CameraIcon, label: "Share Pictures" },
-  { icon: VideoIcon, label: "Upload Videos" },
-  { icon: MusicIcon, label: "Music Playlists" },
-  { icon: PenIcon, label: "Guestbook" },
-  { icon: ThoughtIcon, label: "Share Interests" },
-];
-
 export function ArtTechnologySection() {
   return (
     <section className="py-20" style={{ backgroundColor: "#ffffff" }}>
@@ -72,20 +62,6 @@ export function EveryProductIncludesArtKeySection() {
             <p className="text-lg text-white/90 max-w-2xl mx-auto">
               The ArtKey™ works seamlessly with today&apos;s smartphones, turning every piece into an interactive experience. We print ArtKeys™ on cards, invitations, and announcements, and discreetly embed them into commissioned artwork and art prints. The beauty of the piece remains untouched while the technology stays elegantly hidden.
             </p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mt-10">
-            {features.map((feature) => {
-              const IconComponent = feature.icon;
-              return (
-                <div key={feature.label} className="text-center">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-white/30 bg-white/10">
-                    <IconComponent size={28} color="#ffffff" strokeWidth={1.5} />
-                  </div>
-                  <p className="text-white font-semibold">{feature.label}</p>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
