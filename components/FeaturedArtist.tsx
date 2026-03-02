@@ -19,7 +19,7 @@ export default function FeaturedArtist() {
   const kimber = typedCocreators[0];
 
   return (
-    <section className="py-20" style={{ backgroundColor: '#ecece9' }}>
+    <section className="py-20" style={{ backgroundColor: '#ffffff' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Featured Artist */}
@@ -71,7 +71,7 @@ export default function FeaturedArtist() {
         {/* CoCreators */}
         <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
-            CoCreators
+            Featured CoCreator
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
         </div>

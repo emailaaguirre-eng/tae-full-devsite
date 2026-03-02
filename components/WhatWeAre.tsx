@@ -1,21 +1,19 @@
 "use client";
 
-import { KeyIcon, CameraIcon, VideoIcon, MusicIcon, PenIcon, ThoughtIcon } from "@/components/CustomIcons";
+import { CameraIcon, VideoIcon, MusicIcon, PenIcon, ThoughtIcon } from "@/components/CustomIcons";
 
-export default function WhatWeAre() {
-  const features = [
-    { icon: CameraIcon, label: "Share Pictures" },
-    { icon: VideoIcon, label: "Upload Videos" },
-    { icon: MusicIcon, label: "Music Playlists" },
-    { icon: PenIcon, label: "Guestbook" },
-    { icon: ThoughtIcon, label: "Share Interests" },
-  ];
+const features = [
+  { icon: CameraIcon, label: "Share Pictures" },
+  { icon: VideoIcon, label: "Upload Videos" },
+  { icon: MusicIcon, label: "Music Playlists" },
+  { icon: PenIcon, label: "Guestbook" },
+  { icon: ThoughtIcon, label: "Share Interests" },
+];
 
+export function ArtTechnologySection() {
   return (
-    <section className="py-20" style={{ backgroundColor: '#ffffff' }}>
+    <section className="py-20" style={{ backgroundColor: "#ffffff" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-        {/* Art + Technology Banner */}
         <div className="bg-gradient-to-br from-brand-dark to-brand-darkest shadow-2xl p-8 md:p-12 text-white text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4 font-playfair">
             Art + Technology = Living Memories
@@ -25,9 +23,16 @@ export default function WhatWeAre() {
             through the power of ArtKey™ technology. Every piece tells a story, and every story is accessible with a simple scan.
           </p>
         </div>
+      </div>
+    </section>
+  );
+}
 
-        {/* What is The Artful Experience */}
-        <div className="p-8 md:p-12 mb-16" style={{ backgroundColor: '#ecece9' }}>
+export function WhatIsTheArtfulExperienceSection() {
+  return (
+    <section className="py-20" style={{ backgroundColor: "#ecece9" }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="p-8 md:p-12" style={{ backgroundColor: "#ffffff" }}>
           <h3 className="text-3xl md:text-4xl font-bold text-brand-dark mb-4 font-playfair text-center">
             What is The Artful Experience
           </h3>
@@ -50,38 +55,50 @@ export default function WhatWeAre() {
             </p>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
 
-        {/* ArtKey Technology */}
-        <div className="p-8 md:p-12" style={{ backgroundColor: '#ded8d3' }}>
+export function EveryProductIncludesArtKeySection() {
+  return (
+    <section className="py-20" style={{ backgroundColor: "#000000" }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="p-8 md:p-12" style={{ backgroundColor: "#000000" }}>
           <div className="text-center mb-8">
-            <div className="w-24 h-24 bg-brand-dark rounded-full flex items-center justify-center mx-auto mb-6">
-              <KeyIcon size={48} color="white" strokeWidth={1.5} />
-            </div>
-            <h3 className="text-3xl font-bold text-brand-darkest mb-4 font-playfair">
+            <h3 className="text-3xl font-bold text-white mb-4 font-playfair">
               Every Product Includes ArtKey™ Technology
             </h3>
-            <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
+            <p className="text-lg text-white/90 max-w-2xl mx-auto">
               The ArtKey™ works seamlessly with today&apos;s smartphones, turning every piece into an interactive experience. We print ArtKeys™ on cards, invitations, and announcements, and discreetly embed them into commissioned artwork and art prints. The beauty of the piece remains untouched while the technology stays elegantly hidden.
             </p>
           </div>
 
-          {/* ArtKey Features */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mt-10">
             {features.map((feature) => {
               const IconComponent = feature.icon;
               return (
                 <div key={feature.label} className="text-center">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm bg-white">
-                    <IconComponent size={28} color="#918c86" strokeWidth={1.5} />
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-white/30 bg-white/10">
+                    <IconComponent size={28} color="#ffffff" strokeWidth={1.5} />
                   </div>
-                  <p className="text-brand-darkest font-semibold">{feature.label}</p>
+                  <p className="text-white font-semibold">{feature.label}</p>
                 </div>
               );
             })}
           </div>
         </div>
-
       </div>
     </section>
+  );
+}
+
+export default function WhatWeAre() {
+  return (
+    <>
+      <ArtTechnologySection />
+      <WhatIsTheArtfulExperienceSection />
+      <EveryProductIncludesArtKeySection />
+    </>
   );
 }

@@ -2,7 +2,11 @@ export const dynamic = "force-dynamic";
 
 import Hero from "@/components/Hero";
 import ProductCategories from "@/components/ProductCategories";
-import WhatWeAre from "@/components/WhatWeAre";
+import {
+  ArtTechnologySection,
+  EveryProductIncludesArtKeySection,
+  WhatIsTheArtfulExperienceSection,
+} from "@/components/WhatWeAre";
 import HowItWorks from "@/components/HowItWorks";
 import FeaturedArtist from "@/components/FeaturedArtist";
 import CollectorsSection from "@/components/CollectorsSection";
@@ -14,11 +18,13 @@ export default function HomePage() {
     <>
       <Hero />
       <Testimonials />
+      <HowItWorks />
+      <ArtTechnologySection />
+      <WhatIsTheArtfulExperienceSection />
       <ProductCategories />
-      <WhatWeAre />
+      <EveryProductIncludesArtKeySection />
       <FeaturedArtist />
       <CollectorsSection />
-      <HowItWorks />
       <Contact />
     </>
   );

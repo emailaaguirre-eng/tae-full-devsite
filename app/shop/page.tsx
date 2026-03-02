@@ -40,7 +40,7 @@ export default function ShopPage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const params = new URLSearchParams({ limit: "100" });
+        const params = new URLSearchParams({ limit: "200", group: "false" });
         if (activeCategory) params.set("category", activeCategory);
         if (search) params.set("search", search);
 

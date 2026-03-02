@@ -7,7 +7,7 @@ export default function CollectorsSection() {
   const img1 = useSiteMedia("collectors.image1", "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/collectors_commissioned.jpeg");
   const img2 = useSiteMedia("collectors.image2", "https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/6021123e-401a-11f0-8abf-0242ac110002-unnamed-1-1.jpg");
   return (
-    <section className="py-20" style={{ backgroundColor: '#ffffff' }}>
+    <section className="py-20" style={{ backgroundColor: '#ecece9' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">

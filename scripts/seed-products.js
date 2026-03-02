@@ -12,12 +12,25 @@ const path = require('path');
 const fs = require('fs');
 const { randomUUID } = require('crypto');
 
-const DB_PATH = path.join(__dirname, '..', 'prisma', 'dev.db');
+function resolveDbPath() {
+  if (process.env.DATABASE_PATH) return process.env.DATABASE_PATH;
+  const drizzlePath = path.join(__dirname, '..', 'db', 'drizzle-runtime.db');
+  const legacyPrismaPath = path.join(__dirname, '..', 'prisma', 'dev.db');
+  if (fs.existsSync(drizzlePath)) return drizzlePath;
+  if (fs.existsSync(legacyPrismaPath)) return legacyPrismaPath;
+  // Prefer current Drizzle runtime location for new local setups.
+  return drizzlePath;
+}
+
+const DB_PATH = resolveDbPath();
 
 // ---------------------------------------------------------------------------
 // Load Printful token from .env.local or .env
 // ---------------------------------------------------------------------------
 function loadPrintfulToken() {
+  if (process.env.PRINTFUL_TOKEN) return process.env.PRINTFUL_TOKEN.trim();
+  if (process.env.PRINTFUL_API_KEY) return process.env.PRINTFUL_API_KEY.trim();
+
   const envFiles = [
     path.join(__dirname, '..', '.env.local'),
     path.join(__dirname, '..', '.env'),
@@ -26,8 +39,8 @@ function loadPrintfulToken() {
     if (fs.existsSync(f)) {
       const lines = fs.readFileSync(f, 'utf-8').split('\n');
       for (const line of lines) {
-        const match = line.match(/^\s*PRINTFUL_TOKEN\s*=\s*(.+)\s*$/);
-        if (match) return match[1].trim().replace(/^["']|["']$/g, '');
+        const match = line.match(/^\s*(PRINTFUL_TOKEN|PRINTFUL_API_KEY)\s*=\s*(.+)\s*$/);
+        if (match) return match[2].trim().replace(/^["']|["']$/g, '');
       }
     }
   }
@@ -200,21 +213,28 @@ async function main() {
         continue;
       }
 
-      // Insert new — active=0 by default, YOU activate what you want
+      const heroImage = v.image || pfProduct?.thumbnail_url || pfProduct?.image || null;
+      const printfulSnapshot = JSON.stringify({
+        product: pfProduct || null,
+        variant: v || null,
+        siblingVariants: variants || [],
+      });
+
+      // Insert new — active by default so all BYOI products appear on /shop
       const id = randomUUID();
       try {
         db.run(
           `INSERT INTO ShopProduct(
             id, taeId, categoryId, slug, name, description,
             printProvider, printfulProductId, printfulVariantId, printfulBasePrice,
-            taeAddOnFee, sizeLabel, active, sortOrder, printDpi,
+            taeAddOnFee, sizeLabel, heroImage, printfulDataJson, active, sortOrder, printDpi,
             createdAt, updatedAt
-          ) VALUES(?, ?, ?, ?, ?, ?, 'printful', ?, ?, ?, 0, ?, 0, 0, 300, ?, ?)`,
+          ) VALUES(?, ?, ?, ?, ?, ?, 'printful', ?, ?, ?, 0, ?, ?, ?, 1, 0, 300, ?, ?)`,
           [
             id, taeId, catId, slug, displayName,
             `${displayName} — printed by Printful`,
             printfulProductId, v.id, price,
-            size, now, now,
+            size, heroImage, printfulSnapshot, now, now,
           ]
         );
         created++;
@@ -243,8 +263,7 @@ async function main() {
   console.log(`\nTotal categories: ${catCount[0].values[0][0]}`);
   console.log(`Total products:   ${prodCount[0].values[0][0]}`);
   console.log(`Active products:  ${activeCount[0].values[0][0]}`);
-  console.log('\n💡 New products are INACTIVE by default.');
-  console.log('   Go to your admin panel to activate the ones you want to offer.');
+  console.log('\n💡 Products are now seeded ACTIVE by default for Shop visibility.');
 
   // Summary by category
   console.log('\n--- By Category ---');

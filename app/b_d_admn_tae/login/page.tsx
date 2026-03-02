@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ARTKEY_ADMIN_DASHBOARD_PATH } from "@/lib/routes";
 
@@ -10,6 +10,13 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Local-dev convenience: skip manual login form entry.
+    if (process.env.NODE_ENV !== "production") {
+      router.replace(`${ARTKEY_ADMIN_DASHBOARD_PATH}?dev_admin_bypass=1`);
+    }
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

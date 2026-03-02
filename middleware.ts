@@ -7,7 +7,6 @@ const ARTKEY_SUBDOMAIN = 'artkey';
 const STATIC_EXTENSION_REGEX =
   /\.(?:avif|bmp|css|csv|eot|gif|ico|jpeg|jpg|js|json|m4a|m4v|map|mov|mp3|mp4|oga|ogg|ogv|otf|pdf|png|svg|txt|wav|webm|webp|woff|woff2|xml)$/i;
 const TOKEN_PATH_REGEX = /^\/([A-Za-z0-9]{32})(\/edit)?\/?$/;
-const DASHBOARD_GUARD_PREFIXES = ['/dashboard', '/admin', '/art-key/dashboard', '/art-key/admin', '/b_d_admn_tae'];
 
 function isValidToken(token: string): boolean {
   try {
@@ -21,7 +20,6 @@ function isValidToken(token: string): boolean {
 export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
   const hostname = request.headers.get('host') || '';
-  const isDashboardGuardPath = DASHBOARD_GUARD_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const isStaticBypass =
     pathname.startsWith('/uploads/') ||
     pathname.startsWith('/_next/') ||
@@ -30,9 +28,9 @@ export function middleware(request: NextRequest) {
     pathname === '/sitemap.xml' ||
     STATIC_EXTENSION_REGEX.test(pathname);
 
-  if (isStaticBypass || isDashboardGuardPath) {
+  if (isStaticBypass) {
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[MW] bypass', { hostname, pathname, reason: isStaticBypass ? 'static-or-upload' : 'dashboard-admin' });
+      console.log('[MW] bypass', { hostname, pathname, reason: 'static-or-upload' });
     }
     return NextResponse.next();
   }
