@@ -13,6 +13,7 @@ import {
   DollarSign,
   TrendingUp,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 
 interface Stats {
@@ -114,8 +115,9 @@ export default function AdminDashboardPage() {
         <p className="text-sm text-brand-medium mt-1">Overview of your store</p>
         <button
           onClick={loadDashboard}
-          className="mt-3 px-3 py-1.5 text-xs border border-brand-light text-brand-dark hover:bg-brand-lightest"
+          className="mt-3 px-3 py-1.5 text-xs border border-brand-dark text-brand-dark hover:bg-brand-lightest inline-flex items-center gap-1.5"
         >
+          <Sparkles className="w-3 h-3" />
           Refresh
         </button>
       </div>
@@ -148,25 +150,31 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Link
           href="/b_d_admn_tae/catalog/products?action=new"
-          className="bg-brand-dark text-white p-4 hover:bg-brand-dark/90 transition-colors"
+          className="bg-brand-dark text-white p-4 hover:bg-brand-dark/90 transition-colors border border-brand-dark shadow-sm"
         >
-          <Package className="w-5 h-5 mb-2" />
+          <div className="w-8 h-8 bg-white/15 rounded-md flex items-center justify-center mb-2">
+            <Package className="w-4 h-4" />
+          </div>
           <div className="text-sm font-semibold">Add Product</div>
           <div className="text-xs text-white/60 mt-0.5">Create a new shop product</div>
         </Link>
         <Link
           href="/b_d_admn_tae/artkey-demos?action=new"
-          className="bg-brand-dark text-white p-4 hover:bg-brand-dark/90 transition-colors"
+          className="bg-brand-accent text-white p-4 hover:opacity-95 transition-opacity border border-brand-accent shadow-sm"
         >
-          <QrCode className="w-5 h-5 mb-2" />
+          <div className="w-8 h-8 bg-white/15 rounded-md flex items-center justify-center mb-2">
+            <QrCode className="w-4 h-4" />
+          </div>
           <div className="text-sm font-semibold">ArtKey Demo Builder</div>
           <div className="text-xs text-white/60 mt-0.5">Generate a portal URL + QR code</div>
         </Link>
         <Link
           href="/b_d_admn_tae/orders"
-          className="bg-brand-dark text-white p-4 hover:bg-brand-dark/90 transition-colors"
+          className="bg-brand-dark text-white p-4 hover:bg-brand-dark/90 transition-colors border border-brand-dark shadow-sm"
         >
-          <TrendingUp className="w-5 h-5 mb-2" />
+          <div className="w-8 h-8 bg-white/15 rounded-md flex items-center justify-center mb-2">
+            <TrendingUp className="w-4 h-4" />
+          </div>
           <div className="text-sm font-semibold">View Orders</div>
           <div className="text-xs text-white/60 mt-0.5">Manage pending and fulfilled orders</div>
         </Link>

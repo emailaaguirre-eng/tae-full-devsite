@@ -8,11 +8,13 @@
 import { NextResponse } from 'next/server';
 import { getDb, shopCategories, shopProducts, eq, desc, generateId } from '@/lib/db';
 import { saveDatabase } from '@/db';
+import { ensureStoreCategoryHierarchy } from '@/lib/store-category-tree';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    await ensureStoreCategoryHierarchy();
     const db = await getDb();
     const cats = await db
       .select()
@@ -23,6 +25,19 @@ export async function GET() {
     // Get product counts per category
     const products = await db.select().from(shopProducts).all();
 
+    const byId = new Map(cats.map((c) => [c.id, c]));
+    const buildPathLabel = (categoryId: string): string => {
+      const names: string[] = [];
+      const visited = new Set<string>();
+      let current = byId.get(categoryId);
+      while (current && !visited.has(current.id)) {
+        visited.add(current.id);
+        names.unshift(current.name);
+        current = current.parentId ? byId.get(current.parentId) : undefined;
+      }
+      return names.join(" > ");
+    };
+
     const mapped = cats.map((c) => {
       const catProducts = products.filter(p => p.categoryId === c.id);
       const activeCount = catProducts.filter(p => p.active).length;
@@ -31,6 +46,9 @@ export async function GET() {
         taeId: c.taeId,
         slug: c.slug,
         name: c.name,
+        parentId: c.parentId || null,
+        categoryType: c.categoryType || "leaf",
+        pathLabel: buildPathLabel(c.id),
         icon: c.icon,
         taeBaseFee: c.taeBaseFee || 0,
         requiresQrCode: c.requiresQrCode ?? false,
@@ -56,6 +74,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    await ensureStoreCategoryHierarchy();
     const db = await getDb();
     const body = await req.json();
 
@@ -90,6 +109,8 @@ export async function POST(req: Request) {
       taeId,
       slug,
       name: body.name,
+      parentId: body.parentId || null,
+      categoryType: body.categoryType || 'leaf',
       icon: body.icon || '📦',
       taeBaseFee: body.taeBaseFee || 0,
       requiresQrCode: body.requiresQrCode ? 1 : 0,

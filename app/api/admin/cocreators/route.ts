@@ -12,6 +12,7 @@ import fs from "fs";
 import { getDb, coCreators, coCreatorProducts, eq, asc } from "@/lib/db";
 import { generateId } from "@/lib/db";
 import { saveDatabase } from "@/db";
+import cocreatorsData from "@/content/cocreators.json";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,39 @@ function slugify(str: string): string {
 }
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/_{2,}/g, "_").toLowerCase();
+}
+
+async function ensureDefaultCoCreatorsSeeded() {
+  const db = await getDb();
+  const existing = await db.select().from(coCreators).all();
+  if (existing.length > 0) return;
+
+  const defaults = Array.isArray((cocreatorsData as any).cocreators) ? (cocreatorsData as any).cocreators : [];
+  const now = new Date().toISOString();
+
+  for (let i = 0; i < defaults.length; i += 1) {
+    const c = defaults[i] || {};
+    const name = String(c.name || "").trim();
+    const slug = String(c.slug || "").trim();
+    if (!name || !slug) continue;
+    await db.insert(coCreators).values({
+      id: generateId(),
+      slug,
+      name,
+      title: c.title || null,
+      bio: c.bio || null,
+      description: c.description || null,
+      thumbnailImage: c.image || null,
+      heroImage: c.mountainImage || c.image || null,
+      active: true,
+      featured: i === 0,
+      sortOrder: i,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  await saveDatabase();
 }
 
 async function saveUploadedFile(file: File, slug: string): Promise<string> {
@@ -37,6 +71,7 @@ async function saveUploadedFile(file: File, slug: string): Promise<string> {
 
 export async function GET() {
   try {
+    await ensureDefaultCoCreatorsSeeded();
     const db = await getDb();
     const rows = await db.select().from(coCreators).orderBy(asc(coCreators.sortOrder)).all();
     return NextResponse.json({ success: true, data: rows });

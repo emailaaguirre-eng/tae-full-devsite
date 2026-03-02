@@ -9,11 +9,13 @@
 import { NextResponse } from 'next/server';
 import { getDb, shopCategories, shopProducts, eq } from '@/lib/db';
 import { saveDatabase } from '@/db';
+import { ensureStoreCategoryHierarchy } from '@/lib/store-category-tree';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await ensureStoreCategoryHierarchy();
     const { id } = await params;
     const db = await getDb();
     const category = await db.select().from(shopCategories).where(eq(shopCategories.id, id)).get();
@@ -28,12 +30,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await ensureStoreCategoryHierarchy();
     const { id } = await params;
     const db = await getDb();
     const body = await req.json();
 
     const updates: Record<string, any> = {};
-    const allowedFields = ['name', 'slug', 'icon', 'taeBaseFee', 'requiresQrCode', 'active', 'featured', 'sortOrder'];
+    const allowedFields = ['name', 'slug', 'parentId', 'categoryType', 'icon', 'taeBaseFee', 'requiresQrCode', 'active', 'featured', 'sortOrder'];
 
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
@@ -52,6 +55,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await ensureStoreCategoryHierarchy();
     const { id } = await params;
     const db = await getDb();
 
@@ -60,6 +64,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (products.length > 0) {
       return NextResponse.json(
         { success: false, error: `Cannot delete: category has ${products.length} products. Move or delete them first.` },
+        { status: 400 }
+      );
+    }
+
+    const children = await db.select().from(shopCategories).where(eq(shopCategories.parentId, id)).all();
+    if (children.length > 0) {
+      return NextResponse.json(
+        { success: false, error: `Cannot delete: category has ${children.length} child categories.` },
         { status: 400 }
       );
     }

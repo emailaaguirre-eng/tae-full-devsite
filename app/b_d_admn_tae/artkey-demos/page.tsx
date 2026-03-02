@@ -42,6 +42,15 @@ interface NewDemoResult {
   qrCodeDataUrl: string | null;
 }
 
+const BTN_PRIMARY =
+  "bg-brand-dark text-white px-4 py-2 text-sm font-medium inline-flex items-center gap-2 hover:bg-brand-dark/90 transition-colors";
+const BTN_SECONDARY =
+  "border border-brand-dark text-brand-dark px-3 py-2 text-sm font-medium inline-flex items-center gap-2 hover:bg-brand-lightest transition-colors";
+const BTN_SUBTLE =
+  "border border-brand-light text-brand-dark px-3 py-2 text-sm font-medium inline-flex items-center gap-2 hover:bg-brand-lightest transition-colors";
+const BTN_TINY =
+  "px-2 py-1 text-[10px] border border-brand-light text-brand-dark hover:bg-brand-lightest transition-colors inline-flex items-center gap-1";
+
 export default function AdminArtKeyDemosPage() {
   const searchParams = useSearchParams();
   const [demos, setDemos] = useState<ArtKeyDemo[]>([]);
@@ -307,21 +316,21 @@ export default function AdminArtKeyDemosPage() {
           </div>
           <Link
             href={ARTKEY_ADMIN_DASHBOARD_PATH}
-            className="border border-brand-light px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-lightest transition-colors"
+            className={BTN_SUBTLE}
           >
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard
           </Link>
           <button
             onClick={() => handleSendArchiveDigest()}
             disabled={sendingArchiveFor === "__all__"}
-            className="border border-brand-dark px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-lightest transition-colors disabled:opacity-50"
+            className={`${BTN_SECONDARY} disabled:opacity-50`}
             title="Send pre-expiry archive digest emails now"
           >
             {sendingArchiveFor === "__all__" ? "Sending..." : "Send Archive Digests"}
           </button>
           <button
             onClick={() => { setShowForm(true); setNewResult(null); }}
-            className="bg-brand-dark text-white px-4 py-2 text-sm font-medium flex items-center gap-2 hover:bg-brand-dark/90 transition-colors"
+            className={BTN_PRIMARY}
           >
             <Plus className="w-4 h-4" /> New Portal
           </button>
@@ -525,23 +534,29 @@ export default function AdminArtKeyDemosPage() {
               <div className="col-span-2">Actions</div>
             </div>
             {demos.map((d) => (
-              <div key={d.id} className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-brand-lightest/50 transition-colors">
-                <div className="col-span-3">
-                  <div className="text-sm font-medium text-brand-dark flex items-center gap-1.5">
-                    <QrCode className="w-3.5 h-3.5 text-brand-medium flex-shrink-0" />
-                    {d.title}
+              <div key={d.id} className="px-4 py-3 hover:bg-brand-lightest/50 transition-colors">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 md:items-center">
+                  <div className="md:col-span-3">
+                    <div className="text-sm font-medium text-brand-dark flex items-center gap-1.5">
+                      <QrCode className="w-3.5 h-3.5 text-brand-medium flex-shrink-0" />
+                      {d.title}
+                    </div>
                   </div>
-                </div>
-                <div className="col-span-3">
-                  <code className="text-[10px] text-brand-medium break-all">{d.portalUrl}</code>
-                </div>
-                <div className="col-span-2 text-xs text-brand-medium">
-                  {d.ownerEmail || "—"}
-                </div>
-                <div className="col-span-2 text-xs text-brand-medium">
-                  {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "—"}
-                </div>
-                <div className="col-span-2 flex items-center gap-1 justify-end">
+                  <div className="md:col-span-3">
+                    <div className="md:hidden text-[10px] uppercase tracking-wider text-brand-medium font-medium mb-1">Portal URL</div>
+                    <code className="text-[10px] text-brand-medium break-all">{d.portalUrl}</code>
+                  </div>
+                  <div className="md:col-span-2 text-xs text-brand-medium">
+                    <div className="md:hidden text-[10px] uppercase tracking-wider text-brand-medium font-medium mb-1">Owner</div>
+                    {d.ownerEmail || "—"}
+                  </div>
+                  <div className="md:col-span-2 text-xs text-brand-medium">
+                    <div className="md:hidden text-[10px] uppercase tracking-wider text-brand-medium font-medium mb-1">Created</div>
+                    {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "—"}
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="md:hidden text-[10px] uppercase tracking-wider text-brand-medium font-medium mb-1">Actions</div>
+                    <div className="flex flex-wrap items-center gap-1 md:justify-end">
                   <a
                     href={`/artkey-editor?portal_token=${d.publicToken}&owner_token=${d.ownerToken}`}
                     className="px-2 py-1 text-[10px] border border-brand-light text-brand-medium hover:text-brand-dark hover:bg-brand-lightest transition-colors inline-flex items-center gap-1"
@@ -560,58 +575,66 @@ export default function AdminArtKeyDemosPage() {
                   </a>
                   <button
                     onClick={() => copyToClipboard(d.portalUrl, d.id)}
-                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
+                    className={BTN_TINY}
                     title="Copy Portal URL"
                   >
                     {copiedId === d.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedId === d.id ? "Copied" : "Copy"}</span>
                   </button>
                   <button
                     onClick={() => downloadPortalQr(d)}
                     disabled={downloadingQrId === d.id}
-                    className="p-1.5 text-brand-medium hover:text-brand-dark disabled:opacity-50 transition-colors"
+                    className={`${BTN_TINY} disabled:opacity-50`}
                     title={`Download QR Code PNG (${qrDownloadSize}px)`}
                   >
                     <Download className="w-3.5 h-3.5" />
+                    <span>{downloadingQrId === d.id ? "..." : "QR"}</span>
                   </button>
                   <button
                     onClick={() => printPortalQr({ title: d.title, portalUrl: d.portalUrl })}
-                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
+                    className={BTN_TINY}
                     title="Print QR + Portal URL"
                   >
                     <Printer className="w-3.5 h-3.5" />
+                    <span>Print</span>
                   </button>
                   <button
                     onClick={() => openUrlsAndQr(d)}
-                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
+                    className={BTN_TINY}
                     title="View URLs + QR"
                   >
                     <LinkIcon className="w-3.5 h-3.5" />
+                    <span>URLs</span>
                   </button>
                   <a
                     href={d.portalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-1.5 text-brand-medium hover:text-brand-dark transition-colors"
+                    className={BTN_TINY}
                     title="View Portal"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open</span>
                   </a>
                   <button
                     onClick={() => handleDeleteDemo(d)}
                     disabled={deletingId === d.id}
-                    className="p-1.5 text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors"
+                    className="px-2 py-1 text-[10px] border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors inline-flex items-center gap-1"
                     title="Delete Demo"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
                   </button>
                   <button
                     onClick={() => handleSendArchiveDigest(d)}
                     disabled={sendingArchiveFor === d.publicToken}
-                    className="px-2 py-1.5 text-[10px] border border-brand-light text-brand-medium hover:text-brand-dark hover:bg-brand-lightest disabled:opacity-50 transition-colors"
+                    className={`${BTN_TINY} disabled:opacity-50`}
                     title="Send archive digest for this portal"
                   >
-                    {sendingArchiveFor === d.publicToken ? "Sending..." : "Send PDF Digest"}
+                    {sendingArchiveFor === d.publicToken ? "Sending..." : "PDF Digest"}
                   </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}

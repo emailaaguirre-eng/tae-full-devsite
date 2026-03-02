@@ -223,7 +223,7 @@ export default function AdminUsersPage() {
         <div>
           <h1 className="text-2xl font-bold text-brand-dark font-playfair">Admin Users</h1>
           <p className="text-sm text-brand-medium mt-1">
-            Superusers can create, reset, deactivate, and delete admin access.
+            Manage admin account access and credentials.
           </p>
         </div>
       </div>
@@ -235,7 +235,7 @@ export default function AdminUsersPage() {
 
       {!session?.isOwner && (
         <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-3">
-          Owner superuser access is required for admin account management.
+          You do not have permission to manage admin accounts.
         </div>
       )}
 
@@ -291,9 +291,8 @@ export default function AdminUsersPage() {
             <thead>
               <tr className="text-left border-b border-brand-light">
                 <th className="py-2 pr-4">Email</th>
-                <th className="py-2 pr-4">Role</th>
+                <th className="py-2 pr-4">Access</th>
                 <th className="py-2 pr-4">Status</th>
-                <th className="py-2 pr-4">Owner</th>
                 <th className="py-2 pr-4">Last Login</th>
                 <th className="py-2">Actions</th>
               </tr>
@@ -302,9 +301,8 @@ export default function AdminUsersPage() {
               {users.map((user) => (
                 <tr key={user.id} className="border-b border-brand-light/60">
                   <td className="py-2 pr-4">{user.email}</td>
-                  <td className="py-2 pr-4">{user.role}</td>
+                  <td className="py-2 pr-4">admin</td>
                   <td className="py-2 pr-4">{user.isActive ? "active" : "inactive"}</td>
-                  <td className="py-2 pr-4">{user.isOwner ? "yes" : "no"}</td>
                   <td className="py-2 pr-4">{user.lastLoginAt || "never"}</td>
                   <td className="py-2 flex flex-wrap gap-2">
                     {ownerOnly && (
@@ -342,17 +340,6 @@ export default function AdminUsersPage() {
                           Reset Password
                         </button>
                         <button
-                          onClick={() =>
-                            patchUser(user.id, {
-                              role: user.role === "superuser" ? "admin" : "superuser",
-                            })
-                          }
-                          disabled={busyId === user.id}
-                          className="px-2 py-1 border border-brand-light text-xs"
-                        >
-                          Toggle Role
-                        </button>
-                        <button
                           onClick={() => removeUser(user.id)}
                           disabled={busyId === user.id}
                           className="px-2 py-1 border border-red-300 text-red-600 text-xs"
@@ -371,7 +358,7 @@ export default function AdminUsersPage() {
 
       {ownerOnly && (
         <section className="bg-white border border-brand-light p-5 space-y-4">
-          <h2 className="text-lg font-semibold text-brand-dark">Superuser Transfer (Dual Approval)</h2>
+          <h2 className="text-lg font-semibold text-brand-dark">Access Transfer (Dual Approval)</h2>
           <div className="flex flex-wrap gap-3 items-center">
             <select
               value={transferTargetId}
@@ -383,7 +370,7 @@ export default function AdminUsersPage() {
                 .filter((u) => u.id !== session?.userId && u.isActive)
                 .map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.email} ({u.role})
+                    {u.email}
                   </option>
                 ))}
             </select>

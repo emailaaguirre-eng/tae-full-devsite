@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { adminFetchJson, AdminUnauthorizedError } from "@/lib/admin/clientFetch";
 import {
@@ -41,11 +41,16 @@ interface Product {
   categoryId: string;
   categoryName: string;
   categorySlug: string;
+  categoryPathLabel?: string;
   requiresQrCode?: boolean;
   proofTerms?: string | null;
   pricing?: {
     marginTarget: number;
     artistRoyalty: number;
+    variationUpcharge?: number;
+    taePrice?: number;
+    salePrice?: number | null;
+    discountPercent?: number;
     lastPrintfulSyncAt: string | null;
   };
   watermark?: {
@@ -68,6 +73,9 @@ interface Category {
   id: string;
   slug: string;
   name: string;
+  parentId?: string | null;
+  categoryType?: string;
+  pathLabel?: string;
   icon: string;
   taeBaseFee: number;
   requiresQrCode?: boolean;
@@ -83,9 +91,13 @@ const EMPTY_FORM = {
   printfulProductId: "",
   printfulVariantId: "",
   printfulBasePrice: "0",
+  variationUpcharge: "0",
+  taePrice: "0",
   taeAddOnFee: "0",
-  marginTarget: "0.45",
   artistRoyalty: "0",
+  salePrice: "",
+  discountPercent: "0",
+  marginTarget: "0.45",
   sizeLabel: "",
   paperType: "",
   finishType: "",
@@ -154,6 +166,15 @@ export default function AdminProductsPage() {
   const [wmDraft, setWmDraft] = useState<{ x: number; y: number; scale: number; rotation: number } | null>(null);
   const [wmDragging, setWmDragging] = useState(false);
   const [wmResizing, setWmResizing] = useState(false);
+  const [draftHeroFile, setDraftHeroFile] = useState<File | null>(null);
+  const [draftGalleryFiles, setDraftGalleryFiles] = useState<File[]>([]);
+  const leafCategories = useMemo(
+    () => categories.filter((c) => (c.categoryType || "leaf") === "leaf"),
+    [categories]
+  );
+  const getDefaultCategoryId = useCallback(() => {
+    return leafCategories[0]?.id || categories[0]?.id || "";
+  }, [categories, leafCategories]);
 
   const getCategoryRequiresQrDefault = useCallback(
     (categoryId?: string) => categories.find((c) => c.id === categoryId)?.requiresQrCode ?? false,
@@ -506,15 +527,15 @@ export default function AdminProductsPage() {
   };
 
   const providerCost = Math.max(0, parseFloat(form.printfulBasePrice) || 0);
-  const currentRetail = Math.max(0, providerCost + (parseFloat(form.taeAddOnFee) || 0));
-  const marginTarget = Math.max(0, Math.min(0.9, parseFloat(form.marginTarget) || DEFAULT_MARGIN_TARGET));
+  const variationUpcharge = Math.max(0, parseFloat(form.variationUpcharge) || 0);
   const artistRoyalty = Math.max(0, parseFloat(form.artistRoyalty) || DEFAULT_ARTIST_ROYALTY);
-  const suggestedRetailRaw = (providerCost + artistRoyalty) / Math.max(0.1, 1 - marginTarget);
-  const suggestedRetail = Number.isFinite(suggestedRetailRaw) ? suggestedRetailRaw : 0;
-  const suggestedTaeAddon = Math.max(0, suggestedRetail - providerCost);
-  const expectedProfit = Math.max(0, suggestedRetail - providerCost - artistRoyalty);
-  const currentProfit = Math.max(0, currentRetail - providerCost - artistRoyalty);
-  const currentMargin = currentRetail > 0 ? currentProfit / currentRetail : 0;
+  const taePrice = Math.max(0, parseFloat(form.taePrice) || 0);
+  const salePrice = Math.max(0, parseFloat(form.salePrice) || 0);
+  const discountPercent = Math.max(0, Math.min(100, parseFloat(form.discountPercent) || 0));
+  const totalRetail = Math.max(0, providerCost + variationUpcharge + artistRoyalty + taePrice);
+  const discountedRetail = salePrice > 0
+    ? salePrice
+    : Math.max(0, totalRetail * (1 - discountPercent / 100));
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -547,14 +568,16 @@ export default function AdminProductsPage() {
     if (searchParams.get("action") === "new") {
       setShowForm(true);
       setEditId(null);
-      const defaultCategoryId = categories[0]?.id || "";
+      setDraftHeroFile(null);
+      setDraftGalleryFiles([]);
+      const defaultCategoryId = getDefaultCategoryId();
       setForm({
         ...EMPTY_FORM,
         categoryId: defaultCategoryId,
         requiresQrCode: getCategoryRequiresQrDefault(defaultCategoryId),
       });
     }
-  }, [categories, getCategoryRequiresQrDefault, searchParams]);
+  }, [getCategoryRequiresQrDefault, getDefaultCategoryId, searchParams]);
 
   const handleEdit = (p: Product) => {
     const wm = p.watermark || {
@@ -567,9 +590,15 @@ export default function AdminProductsPage() {
     const pricing = p.pricing || {
       marginTarget: DEFAULT_MARGIN_TARGET,
       artistRoyalty: DEFAULT_ARTIST_ROYALTY,
+      variationUpcharge: 0,
+      taePrice: 0,
+      salePrice: null,
+      discountPercent: 0,
       lastPrintfulSyncAt: null,
     };
     setEditId(p.id);
+    setDraftHeroFile(null);
+    setDraftGalleryFiles([]);
     setForm({
       name: p.name,
       description: p.description || "",
@@ -579,9 +608,13 @@ export default function AdminProductsPage() {
       printfulProductId: p.printfulProductId?.toString() || "",
       printfulVariantId: p.printfulVariantId?.toString() || "",
       printfulBasePrice: (p.printfulBasePrice || 0).toString(),
+      variationUpcharge: String(pricing.variationUpcharge ?? 0),
+      taePrice: String(pricing.taePrice ?? (p.taeAddOnFee || 0)),
       taeAddOnFee: (p.taeAddOnFee || 0).toString(),
       marginTarget: String(pricing.marginTarget ?? DEFAULT_MARGIN_TARGET),
       artistRoyalty: String(pricing.artistRoyalty ?? DEFAULT_ARTIST_ROYALTY),
+      salePrice: pricing.salePrice ? String(pricing.salePrice) : "",
+      discountPercent: String(pricing.discountPercent ?? 0),
       sizeLabel: p.sizeLabel || "",
       paperType: p.paperType || "",
       finishType: p.finishType || "",
@@ -605,6 +638,7 @@ export default function AdminProductsPage() {
     setSaving(true);
     setError("");
     try {
+      const mergedTaeAddon = variationUpcharge + taePrice;
       const payload: Record<string, any> = {
         name: form.name,
         description: form.description || null,
@@ -614,10 +648,14 @@ export default function AdminProductsPage() {
         printfulProductId: form.printfulProductId ? parseInt(form.printfulProductId) : null,
         printfulVariantId: form.printfulVariantId ? parseInt(form.printfulVariantId) : null,
         printfulBasePrice: parseFloat(form.printfulBasePrice) || 0,
-        taeAddOnFee: parseFloat(form.taeAddOnFee) || 0,
+        taeAddOnFee: mergedTaeAddon,
         pricing: {
-          marginTarget: Math.max(0, Math.min(0.9, parseFloat(form.marginTarget) || DEFAULT_MARGIN_TARGET)),
           artistRoyalty: Math.max(0, parseFloat(form.artistRoyalty) || DEFAULT_ARTIST_ROYALTY),
+          variationUpcharge,
+          taePrice,
+          salePrice: salePrice > 0 ? salePrice : null,
+          discountPercent,
+          marginTarget: Math.max(0, Math.min(0.9, parseFloat(form.marginTarget) || DEFAULT_MARGIN_TARGET)),
           lastPrintfulSyncAt: null,
         },
         sizeLabel: form.sizeLabel || null,
@@ -658,9 +696,20 @@ export default function AdminProductsPage() {
       }
 
       if (res.ok && data?.success) {
+        const savedId = editId || data?.data?.id;
+        if (savedId && (draftHeroFile || draftGalleryFiles.length > 0)) {
+          if (draftHeroFile) {
+            await uploadProductImage(draftHeroFile, savedId, "hero");
+          }
+          for (const file of draftGalleryFiles) {
+            await uploadProductImage(file, savedId, "gallery");
+          }
+        }
         setShowForm(false);
         setEditId(null);
         setForm(EMPTY_FORM);
+        setDraftHeroFile(null);
+        setDraftGalleryFiles([]);
         await loadProducts();
       } else {
         setError(data?.error || `Save failed (${res.status})`);
@@ -708,7 +757,7 @@ export default function AdminProductsPage() {
         <div>
           <h1 className="text-2xl font-bold text-brand-dark font-playfair">Products</h1>
           <p className="text-sm text-brand-medium mt-1">
-            {products.length} products total. Manage pricing, preview watermarking, and studio mappings.
+            {products.length} products total. Manage category placement, fulfillment, and pricing.
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap justify-end">
@@ -762,9 +811,11 @@ export default function AdminProductsPage() {
           </button>
           <button
             onClick={() => {
-              const defaultCategoryId = categories[0]?.id || "";
+              const defaultCategoryId = getDefaultCategoryId();
               setShowForm(true);
               setEditId(null);
+              setDraftHeroFile(null);
+              setDraftGalleryFiles([]);
               setForm({
                 ...EMPTY_FORM,
                 categoryId: defaultCategoryId,
@@ -831,7 +882,7 @@ export default function AdminProductsPage() {
         >
           <option value="">All Categories</option>
           {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name} ({c.productCount})</option>
+            <option key={c.id} value={c.id}>{c.pathLabel || c.name} ({c.productCount})</option>
           ))}
         </select>
         <span className="text-xs text-brand-medium">
@@ -847,9 +898,11 @@ export default function AdminProductsPage() {
             <div className="text-sm text-brand-medium">No products found</div>
             <button
               onClick={() => {
-                const defaultCategoryId = categories[0]?.id || "";
+                const defaultCategoryId = getDefaultCategoryId();
                 setShowForm(true);
                 setEditId(null);
+                setDraftHeroFile(null);
+                setDraftGalleryFiles([]);
                 setForm({
                   ...EMPTY_FORM,
                   categoryId: defaultCategoryId,
@@ -873,31 +926,43 @@ export default function AdminProductsPage() {
               <div className="col-span-1">Actions</div>
             </div>
             {filtered.map((p) => (
-              <div key={p.id} className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-brand-lightest/50 transition-colors">
-                <div className="col-span-12 md:col-span-4">
+              <div key={p.id} className="px-4 py-3 hover:bg-brand-lightest/50 transition-colors">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 md:items-center">
+                <div className="md:col-span-4">
                   <div className="text-sm font-medium text-brand-dark">{p.name}</div>
                   <div className="text-[10px] text-brand-medium mt-0.5">{p.taeId}</div>
                 </div>
-                <div className="col-span-6 md:col-span-2 text-xs text-brand-medium">
-                  {p.categoryName}
+                <div className="md:col-span-2 text-xs text-brand-medium">
+                  <div className="md:hidden text-[10px] uppercase tracking-wider text-brand-medium font-medium mb-1">Category</div>
+                  {p.categoryPathLabel || p.categoryName}
                 </div>
-                <div className="col-span-6 md:col-span-2 text-sm font-medium text-brand-dark">
+                <div className="md:col-span-2 text-sm font-medium text-brand-dark">
+                  <div className="md:hidden text-[10px] uppercase tracking-wider text-brand-medium font-medium mb-1">Price</div>
                   ${(p.basePrice || 0).toFixed(2)}
                   {p.pricing && (
                     <div className="text-[10px] text-brand-medium mt-0.5">
-                      Target {Math.round((p.pricing.marginTarget || 0) * 100)}% · Royalty ${(p.pricing.artistRoyalty || 0).toFixed(2)}
+                      Royalty ${(p.pricing.artistRoyalty || 0).toFixed(2)}
+                      {typeof p.pricing.salePrice === "number" && p.pricing.salePrice > 0
+                        ? ` · Sale $${p.pricing.salePrice.toFixed(2)}`
+                        : (p.pricing.discountPercent || 0) > 0
+                          ? ` · ${Math.round(p.pricing.discountPercent || 0)}% off`
+                          : ""}
                     </div>
                   )}
                 </div>
-                <div className="col-span-4 md:col-span-1">
+                <div className="md:col-span-1">
+                  <div className="md:hidden text-[10px] uppercase tracking-wider text-brand-medium font-medium mb-1">Status</div>
                   <span className={`text-[10px] px-2 py-0.5 font-medium ${p.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                     {p.active ? "Active" : "Inactive"}
                   </span>
                 </div>
-                <div className="col-span-4 md:col-span-2 text-xs text-brand-medium capitalize">
-                  {p.printProvider === "printful" ? "Print Partner" : (p.printProvider || "Print Partner")}
+                <div className="md:col-span-2 text-xs text-brand-medium capitalize">
+                  <div className="md:hidden text-[10px] uppercase tracking-wider text-brand-medium font-medium mb-1">Fulfillment</div>
+                  {p.printProvider === "printful" ? "Printful" : (p.printProvider || "theAE")}
                 </div>
-                <div className="col-span-4 md:col-span-1 flex items-center gap-1 justify-end">
+                <div className="md:col-span-1">
+                  <div className="md:hidden text-[10px] uppercase tracking-wider text-brand-medium font-medium mb-1">Actions</div>
+                  <div className="flex items-center gap-1 flex-wrap md:justify-end">
                   {p.slug && (
                     <a
                       href={`/studio?slug=${encodeURIComponent(p.slug)}&product_id=${encodeURIComponent(p.id)}${p.printfulVariantId ? `&variant_id=${p.printfulVariantId}` : ""}`}
@@ -930,6 +995,8 @@ export default function AdminProductsPage() {
                   <button onClick={() => setDeleteId(p.id)} className={BTN_ICON_DANGER} title="Delete">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
+                  </div>
+                </div>
                 </div>
               </div>
             ))}
@@ -961,7 +1028,7 @@ export default function AdminProductsPage() {
               <h3 className="text-lg font-semibold text-brand-dark">
                 {editId ? "Edit Product" : "New Product"}
               </h3>
-              <button onClick={() => { setShowForm(false); setEditId(null); }} className="text-brand-medium hover:text-brand-dark">
+              <button onClick={() => { setShowForm(false); setEditId(null); setDraftHeroFile(null); setDraftGalleryFiles([]); }} className="text-brand-medium hover:text-brand-dark">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -985,17 +1052,26 @@ export default function AdminProductsPage() {
                   className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                  Proof Terms &amp; Conditions
-                </label>
-                <textarea
-                  value={form.proofTerms}
-                  onChange={(e) => setForm({ ...form, proofTerms: e.target.value })}
-                  rows={4}
-                  className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                  placeholder="Shown during proof approval before payment for this product."
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Hero Image Upload</label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(e) => setDraftHeroFile(e.target.files?.[0] || null)}
+                    className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Gallery Image Uploads</label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={(e) => setDraftGalleryFiles(Array.from(e.target.files || []))}
+                    className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1006,8 +1082,8 @@ export default function AdminProductsPage() {
                     className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                   >
                     <option value="">Select...</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                    {leafCategories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.pathLabel || c.name}</option>
                     ))}
                   </select>
                 </div>
@@ -1018,102 +1094,34 @@ export default function AdminProductsPage() {
                     onChange={(e) => setForm({ ...form, printProvider: e.target.value })}
                     className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                   >
-                    <option value="printful">Print Partner</option>
-                    <option value="custom">Custom / In-house</option>
+                    <option value="printful">Printful</option>
+                    <option value="custom">theAE</option>
                   </select>
-                </div>
-              </div>
-
-              <div className="border border-brand-light rounded-lg p-3 sm:p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
-                      ArtKey Requirement
-                    </div>
-                    <p className="text-[11px] mt-1 text-brand-medium">
-                      Controls whether studio requires the ArtKey Portal step for this product.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, requiresQrCode: !form.requiresQrCode })}
-                    className={`px-2.5 py-1 text-xs rounded border ${form.requiresQrCode ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
-                    title="Toggle ArtKey requirement for this product"
-                  >
-                    {form.requiresQrCode ? "Required" : "Not Required"}
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Provider Product ID</label>
-                  <input
-                    type="text"
-                    value={form.printfulProductId}
-                    onChange={(e) => setForm({ ...form, printfulProductId: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    placeholder="e.g. 358"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Provider Variant ID</label>
-                  <input
-                    type="text"
-                    value={form.printfulVariantId}
-                    onChange={(e) => setForm({ ...form, printfulVariantId: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    placeholder="e.g. 10163"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Provider Base Price ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={form.printfulBasePrice}
-                    onChange={(e) => setForm({ ...form, printfulBasePrice: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">TAE Add-on Fee ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={form.taeAddOnFee}
-                    onChange={(e) => setForm({ ...form, taeAddOnFee: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Sort Order</label>
-                  <input
-                    type="number"
-                    value={form.sortOrder}
-                    onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                  />
                 </div>
               </div>
 
               <div className="border border-brand-light rounded-lg p-4 space-y-3">
                 <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">Pricing Builder</div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
-                      Margin Target ({Math.round(marginTarget * 100)}%)
-                    </label>
+                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Printful Base Price ($)</label>
                     <input
                       type="number"
                       min="0"
-                      max="0.9"
                       step="0.01"
-                      value={form.marginTarget}
-                      onChange={(e) => setForm({ ...form, marginTarget: e.target.value })}
+                      value={form.printfulBasePrice}
+                      onChange={(e) => setForm({ ...form, printfulBasePrice: e.target.value })}
+                      className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Variation Upcharge ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.variationUpcharge}
+                      onChange={(e) => setForm({ ...form, variationUpcharge: e.target.value })}
                       className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                     />
                   </div>
@@ -1128,174 +1136,239 @@ export default function AdminProductsPage() {
                       className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                     />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="bg-brand-lightest border border-brand-light p-2">
-                    <div className="text-brand-medium">Suggested Retail</div>
-                    <div className="text-brand-dark font-semibold">${suggestedRetail.toFixed(2)}</div>
-                  </div>
-                  <div className="bg-brand-lightest border border-brand-light p-2">
-                    <div className="text-brand-medium">Suggested Add-on</div>
-                    <div className="text-brand-dark font-semibold">${suggestedTaeAddon.toFixed(2)}</div>
-                  </div>
-                  <div className="bg-brand-lightest border border-brand-light p-2">
-                    <div className="text-brand-medium">Expected Profit</div>
-                    <div className="text-brand-dark font-semibold">${expectedProfit.toFixed(2)}</div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="bg-white border border-brand-light p-2">
-                    <div className="text-brand-medium">Current Retail</div>
-                    <div className="text-brand-dark font-semibold">${currentRetail.toFixed(2)}</div>
-                  </div>
-                  <div className="bg-white border border-brand-light p-2">
-                    <div className="text-brand-medium">Current Profit</div>
-                    <div className="text-brand-dark font-semibold">${currentProfit.toFixed(2)}</div>
-                  </div>
-                  <div className="bg-white border border-brand-light p-2">
-                    <div className="text-brand-medium">Current Margin</div>
-                    <div className="text-brand-dark font-semibold">{Math.round(currentMargin * 100)}%</div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, taeAddOnFee: suggestedTaeAddon.toFixed(2) })}
-                    className="px-3 py-1.5 text-xs border border-brand-dark text-brand-dark hover:bg-brand-dark/10"
-                  >
-                    Apply Suggested Add-on
-                  </button>
-                  <span className="text-[11px] text-brand-medium self-center">
-                    Printful cost is source-of-truth; margin/royalty stay editable.
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Size Label</label>
-                  <input
-                    type="text"
-                    value={form.sizeLabel}
-                    onChange={(e) => setForm({ ...form, sizeLabel: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    placeholder='e.g. 5" x 7"'
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Paper Type</label>
-                  <input
-                    type="text"
-                    value={form.paperType}
-                    onChange={(e) => setForm({ ...form, paperType: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    placeholder="e.g. Matte"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Finish Type</label>
-                  <input
-                    type="text"
-                    value={form.finishType}
-                    onChange={(e) => setForm({ ...form, finishType: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    placeholder="e.g. Glossy"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Hero Image URL</label>
-                <input
-                  type="text"
-                  value={form.heroImage}
-                  onChange={(e) => setForm({ ...form, heroImage: e.target.value })}
-                  className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                  placeholder="https://..."
-                />
-              </div>
-
-              <div className="border border-brand-light rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">Watermark</label>
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, watermarkEnabled: !form.watermarkEnabled })}
-                    className={`px-2.5 py-1 text-xs rounded border ${form.watermarkEnabled ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
-                  >
-                    {form.watermarkEnabled ? "On" : "Off"}
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Watermark Text</label>
+                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">theAE Price ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.taePrice}
+                      onChange={(e) => setForm({ ...form, taePrice: e.target.value })}
+                      className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Sale Price ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.salePrice}
+                      onChange={(e) => setForm({ ...form, salePrice: e.target.value })}
+                      className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">% Discount</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={form.discountPercent}
+                      onChange={(e) => setForm({ ...form, discountPercent: e.target.value })}
+                      className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="bg-brand-lightest border border-brand-light p-2">
+                    <div className="text-brand-medium">Total Retail</div>
+                    <div className="text-brand-dark font-semibold">${totalRetail.toFixed(2)}</div>
+                  </div>
+                  <div className="bg-brand-lightest border border-brand-light p-2">
+                    <div className="text-brand-medium">Discounted Price</div>
+                    <div className="text-brand-dark font-semibold">${discountedRetail.toFixed(2)}</div>
+                  </div>
+                  <div className="bg-brand-lightest border border-brand-light p-2">
+                    <div className="text-brand-medium">Printful + Variation</div>
+                    <div className="text-brand-dark font-semibold">${(providerCost + variationUpcharge).toFixed(2)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <details className="border border-brand-light rounded-lg p-3">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-brand-dark/70">
+                  Advanced (Optional)
+                </summary>
+                <div className="space-y-4 mt-3">
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                      Proof Terms &amp; Conditions
+                    </label>
+                    <textarea
+                      value={form.proofTerms}
+                      onChange={(e) => setForm({ ...form, proofTerms: e.target.value })}
+                      rows={4}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      placeholder="Shown during proof approval before payment for this product."
+                    />
+                  </div>
+                  <div className="border border-brand-light rounded-lg p-3 sm:p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
+                          ArtKey Requirement
+                        </div>
+                        <p className="text-[11px] mt-1 text-brand-medium">
+                          Controls whether studio requires the ArtKey Portal step for this product.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, requiresQrCode: !form.requiresQrCode })}
+                        className={`px-2.5 py-1 text-xs rounded border ${form.requiresQrCode ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
+                        title="Toggle ArtKey requirement for this product"
+                      >
+                        {form.requiresQrCode ? "Required" : "Not Required"}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Printful Product ID</label>
+                      <input
+                        type="text"
+                        value={form.printfulProductId}
+                        onChange={(e) => setForm({ ...form, printfulProductId: e.target.value })}
+                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                        placeholder="e.g. 358"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Printful Variant ID</label>
+                      <input
+                        type="text"
+                        value={form.printfulVariantId}
+                        onChange={(e) => setForm({ ...form, printfulVariantId: e.target.value })}
+                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                        placeholder="e.g. 10163"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Size Label</label>
+                      <input
+                        type="text"
+                        value={form.sizeLabel}
+                        onChange={(e) => setForm({ ...form, sizeLabel: e.target.value })}
+                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                        placeholder='e.g. 5" x 7"'
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Paper Type</label>
+                      <input
+                        type="text"
+                        value={form.paperType}
+                        onChange={(e) => setForm({ ...form, paperType: e.target.value })}
+                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                        placeholder="e.g. Matte"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Finish Type</label>
+                      <input
+                        type="text"
+                        value={form.finishType}
+                        onChange={(e) => setForm({ ...form, finishType: e.target.value })}
+                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                        placeholder="e.g. Glossy"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Hero Image URL</label>
                     <input
                       type="text"
-                      value={form.watermarkText}
-                      onChange={(e) => setForm({ ...form, watermarkText: e.target.value })}
-                      className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
-                      placeholder="tAE"
+                      value={form.heroImage}
+                      onChange={(e) => setForm({ ...form, heroImage: e.target.value })}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      placeholder="https://..."
                     />
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Color</label>
-                    <input
-                      type="color"
-                      value={form.watermarkColor}
-                      onChange={(e) => setForm({ ...form, watermarkColor: e.target.value })}
-                      className="w-full h-10 border border-brand-light bg-brand-lightest"
-                    />
+                  <div className="border border-brand-light rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">Watermark</label>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, watermarkEnabled: !form.watermarkEnabled })}
+                        className={`px-2.5 py-1 text-xs rounded border ${form.watermarkEnabled ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
+                      >
+                        {form.watermarkEnabled ? "On" : "Off"}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Watermark Text</label>
+                        <input
+                          type="text"
+                          value={form.watermarkText}
+                          onChange={(e) => setForm({ ...form, watermarkText: e.target.value })}
+                          className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
+                          placeholder="tAE"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Color</label>
+                        <input
+                          type="color"
+                          value={form.watermarkColor}
+                          onChange={(e) => setForm({ ...form, watermarkColor: e.target.value })}
+                          className="w-full h-10 border border-brand-light bg-brand-lightest"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                        Opacity ({Math.round((parseFloat(form.watermarkOpacity) || 0.12) * 100)}%)
+                      </label>
+                      <input
+                        type="range"
+                        min="0.03"
+                        max="0.30"
+                        step="0.01"
+                        value={form.watermarkOpacity}
+                        onChange={(e) => setForm({ ...form, watermarkOpacity: e.target.value })}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={openWatermarkEditor}
+                        className="px-3 py-1.5 text-xs border border-brand-dark text-brand-dark hover:bg-brand-dark/10"
+                      >
+                        Edit Placement
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            watermarkX: "0.5",
+                            watermarkY: "0.5",
+                            watermarkScale: "0.12",
+                            watermarkRotation: "-18",
+                          })
+                        }
+                        className="px-3 py-1.5 text-xs border border-brand-light text-brand-dark hover:bg-brand-lightest"
+                      >
+                        Reset Placement
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, watermarkEnabled: false })}
+                        className="px-3 py-1.5 text-xs border border-red-200 text-red-700 hover:bg-red-50"
+                      >
+                        Remove Watermark
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
-                    Opacity ({Math.round((parseFloat(form.watermarkOpacity) || 0.12) * 100)}%)
-                  </label>
-                  <input
-                    type="range"
-                    min="0.03"
-                    max="0.30"
-                    step="0.01"
-                    value={form.watermarkOpacity}
-                    onChange={(e) => setForm({ ...form, watermarkOpacity: e.target.value })}
-                    className="w-full"
-                  />
+              </details>
                 </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={openWatermarkEditor}
-                    className="px-3 py-1.5 text-xs border border-brand-dark text-brand-dark hover:bg-brand-dark/10"
-                  >
-                    Edit Placement
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        watermarkX: "0.5",
-                        watermarkY: "0.5",
-                        watermarkScale: "0.12",
-                        watermarkRotation: "-18",
-                      })
-                    }
-                    className="px-3 py-1.5 text-xs border border-brand-light text-brand-dark hover:bg-brand-lightest"
-                  >
-                    Reset Placement
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, watermarkEnabled: false })}
-                    className="px-3 py-1.5 text-xs border border-red-200 text-red-700 hover:bg-red-50"
-                  >
-                    Remove Watermark
-                  </button>
-                </div>
-              </div>
 
               <div className="flex items-center gap-2">
                 <button
@@ -1312,7 +1385,7 @@ export default function AdminProductsPage() {
 
             <div className="px-6 py-4 border-t border-brand-light flex items-center justify-end gap-2">
               <button
-                onClick={() => { setShowForm(false); setEditId(null); }}
+                onClick={() => { setShowForm(false); setEditId(null); setDraftHeroFile(null); setDraftGalleryFiles([]); }}
                 className={BTN_SUBTLE}
               >
                 Cancel

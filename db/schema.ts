@@ -48,6 +48,8 @@ export const shopCategories = sqliteTable('ShopCategory', {
   taeId: text('taeId').unique().notNull(),
   slug: text('slug').unique().notNull(),
   name: text('name').notNull(),
+  parentId: text('parentId'),
+  categoryType: text('categoryType').default('leaf'),
   description: text('description'),
   icon: text('icon'),
   taeBaseFee: real('taeBaseFee').default(0),

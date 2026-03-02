@@ -12,6 +12,7 @@ import fs from "fs";
 import { getDb, artists, artistArtworks, eq, asc } from "@/lib/db";
 import { generateId } from "@/lib/db";
 import { saveDatabase } from "@/db";
+import galleryData from "@/content/gallery.json";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,39 @@ function slugify(str: string): string {
 }
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/_{2,}/g, "_").toLowerCase();
+}
+
+async function ensureDefaultArtistsSeeded() {
+  const db = await getDb();
+  const existing = await db.select().from(artists).all();
+  if (existing.length > 0) return;
+
+  const defaults = Array.isArray((galleryData as any).artists) ? (galleryData as any).artists : [];
+  const now = new Date().toISOString();
+
+  for (let i = 0; i < defaults.length; i += 1) {
+    const a = defaults[i] || {};
+    const name = String(a.name || "").trim();
+    const slug = String(a.slug || "").trim();
+    if (!name || !slug) continue;
+    await db.insert(artists).values({
+      id: generateId(),
+      slug,
+      name,
+      title: a.title || null,
+      bio: a.bio || null,
+      description: a.description || null,
+      thumbnailImage: a.image || null,
+      bioImage: a.bioImage || null,
+      active: true,
+      featured: i === 0,
+      sortOrder: i,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  await saveDatabase();
 }
 
 async function saveUploadedFile(file: File, slug: string): Promise<string> {
@@ -37,6 +71,7 @@ async function saveUploadedFile(file: File, slug: string): Promise<string> {
 
 export async function GET() {
   try {
+    await ensureDefaultArtistsSeeded();
     const db = await getDb();
     const rows = await db.select().from(artists).orderBy(asc(artists.sortOrder)).all();
     return NextResponse.json({ success: true, data: rows });

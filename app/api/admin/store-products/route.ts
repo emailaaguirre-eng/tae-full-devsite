@@ -16,6 +16,7 @@ import {
   parseProductMeta,
 } from '@/lib/product-watermark';
 import { DEFAULT_PRICING, computeRetailPrice, parsePricingSettings } from '@/lib/product-pricing';
+import { ensureStoreCategoryHierarchy } from '@/lib/store-category-tree';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,7 @@ function withProofTermsMeta(
 
 export async function GET(req: Request) {
   try {
+    await ensureStoreCategoryHierarchy();
     const db = await getDb();
     const { searchParams } = new URL(req.url);
     const categorySlug = searchParams.get('category');
@@ -61,6 +63,19 @@ export async function GET(req: Request) {
         .orderBy(desc(shopProducts.active), desc(shopProducts.sortOrder))
         .all();
     }
+
+    const buildPathLabel = (categoryId: string | null | undefined): string => {
+      if (!categoryId) return "";
+      const names: string[] = [];
+      const visited = new Set<string>();
+      let current = catMap.get(categoryId);
+      while (current && !visited.has(current.id)) {
+        visited.add(current.id);
+        names.unshift(current.name);
+        current = current.parentId ? catMap.get(current.parentId) : undefined;
+      }
+      return names.join(" > ");
+    };
 
     const mapped = products.map((p) => {
       const cat = catMap.get(p.categoryId || '');
@@ -93,6 +108,7 @@ export async function GET(req: Request) {
         categoryId: p.categoryId,
         categoryName: cat?.name || 'Uncategorized',
         categorySlug: cat?.slug || '',
+        categoryPathLabel: buildPathLabel(p.categoryId),
         proofTerms: getProofTermsFromMeta(p.printfulDataJson),
         requiresQrCode: parseRequiresQrCode(p.printfulDataJson) ?? (cat?.requiresQrCode ?? false),
         watermark: parseWatermarkSettings(p.printfulDataJson),
@@ -107,6 +123,9 @@ export async function GET(req: Request) {
         id: c.id,
         slug: c.slug,
         name: c.name,
+        parentId: c.parentId || null,
+        categoryType: c.categoryType || "leaf",
+        pathLabel: buildPathLabel(c.id),
         icon: c.icon,
         taeBaseFee: c.taeBaseFee,
         requiresQrCode: c.requiresQrCode ?? false,
@@ -124,6 +143,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    await ensureStoreCategoryHierarchy();
     const db = await getDb();
     const body = await req.json();
 
@@ -134,8 +154,9 @@ export async function POST(req: Request) {
 
     let categoryId = body.categoryId;
     if (!categoryId) {
-      const cats = await db.select().from(shopCategories).limit(1).all();
-      categoryId = cats.length > 0 ? cats[0].id : null;
+      const cats = await db.select().from(shopCategories).all();
+      const defaultLeaf = cats.find((c) => (c.categoryType || "leaf") === "leaf");
+      categoryId = defaultLeaf?.id || cats[0]?.id || null;
     }
 
     if (!categoryId) {

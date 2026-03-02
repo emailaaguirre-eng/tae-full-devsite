@@ -15,6 +15,9 @@ interface Category {
   taeId: string;
   slug: string;
   name: string;
+  parentId?: string | null;
+  categoryType?: string;
+  pathLabel?: string;
   icon: string;
   taeBaseFee: number;
   requiresQrCode: boolean;
@@ -29,6 +32,8 @@ interface Category {
 
 const EMPTY_FORM = {
   name: "",
+  parentId: "",
+  categoryType: "leaf",
   icon: "",
   taeBaseFee: "0",
   requiresQrCode: false,
@@ -66,6 +71,8 @@ export default function AdminCategoriesPage() {
     setEditId(c.id);
     setForm({
       name: c.name,
+      parentId: c.parentId || "",
+      categoryType: c.categoryType || "leaf",
       icon: c.icon || "",
       taeBaseFee: (c.taeBaseFee || 0).toString(),
       requiresQrCode: c.requiresQrCode,
@@ -82,6 +89,8 @@ export default function AdminCategoriesPage() {
     try {
       const payload = {
         name: form.name,
+        parentId: form.parentId || null,
+        categoryType: form.categoryType || "leaf",
         icon: form.icon || undefined,
         taeBaseFee: parseFloat(form.taeBaseFee) || 0,
         requiresQrCode: form.requiresQrCode,
@@ -189,7 +198,7 @@ export default function AdminCategoriesPage() {
               <div key={c.id} className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-brand-lightest/50 transition-colors">
                 <div className="col-span-1 text-lg">{c.icon || "📦"}</div>
                 <div className="col-span-3">
-                  <div className="text-sm font-medium text-brand-dark">{c.name}</div>
+                  <div className="text-sm font-medium text-brand-dark">{c.pathLabel || c.name}</div>
                   <div className="text-[10px] text-brand-medium">{c.slug}</div>
                 </div>
                 <div className="col-span-2 text-xs text-brand-medium">{c.taeId}</div>
@@ -250,6 +259,37 @@ export default function AdminCategoriesPage() {
                   className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                   placeholder="e.g. Greeting Cards"
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Parent</label>
+                  <select
+                    value={form.parentId}
+                    onChange={(e) => setForm({ ...form, parentId: e.target.value })}
+                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                  >
+                    <option value="">None (Top level)</option>
+                    {categories
+                      .filter((c) => c.id !== editId)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.pathLabel || c.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Type</label>
+                  <select
+                    value={form.categoryType}
+                    onChange={(e) => setForm({ ...form, categoryType: e.target.value })}
+                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                  >
+                    <option value="root">Top Category</option>
+                    <option value="group">Subcategory Group</option>
+                    <option value="leaf">Sellable Category</option>
+                  </select>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
