@@ -1368,7 +1368,6 @@ export default function AdminProductsPage() {
                   </div>
                 </div>
               </details>
-                </div>
 
               <div className="flex items-center gap-2">
                 <button
