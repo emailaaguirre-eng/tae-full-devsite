@@ -1,0 +1,87 @@
+import { NextResponse } from 'next/server';
+import {
+  createAdminUser,
+  listAdminUsers,
+  requireSuperuserSession,
+  writeAdminAuditLog,
+} from '@/lib/admin-auth';
+
+export async function GET(req: Request) {
+  const session = await requireSuperuserSession(req);
+  if (!session.authenticated) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!session.isOwner) {
+    return NextResponse.json(
+      { success: false, error: 'An error has occured, please contact program administrator.' },
+      { status: 403 }
+    );
+  }
+
+  const users = await listAdminUsers();
+  return NextResponse.json({
+    success: true,
+    data: users.map((u) => ({
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      isOwner: !!u.isOwner,
+      isActive: !!u.isActive,
+      mustResetPassword: !!u.mustResetPassword,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+      lastLoginAt: u.lastLoginAt,
+    })),
+  });
+}
+
+export async function POST(req: Request) {
+  const session = await requireSuperuserSession(req);
+  if (!session.authenticated) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!session.isOwner) {
+    return NextResponse.json(
+      { success: false, error: 'An error has occured, please contact program administrator.' },
+      { status: 403 }
+    );
+  }
+
+  try {
+    const body = await req.json();
+    const email = String(body?.email || '').trim();
+    const password = String(body?.password || '').trim();
+    const role = body?.role === 'superuser' ? 'superuser' : 'admin';
+    const mustResetPassword = !!body?.mustResetPassword;
+
+    if (!email || !password) {
+      return NextResponse.json(
+        { success: false, error: 'Email and password are required' },
+        { status: 400 }
+      );
+    }
+
+    const createdId = await createAdminUser({
+      email,
+      password,
+      role,
+      mustResetPassword,
+    });
+
+    await writeAdminAuditLog({
+      actorAdminId: session.userId,
+      actorEmail: session.email,
+      action: 'admin_user_create',
+      targetAdminId: createdId,
+      targetEmail: email.toLowerCase(),
+      detailsJson: JSON.stringify({ role, mustResetPassword }),
+    });
+
+    return NextResponse.json({ success: true, data: { id: createdId } });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Failed to create admin user' },
+      { status: 500 }
+    );
+  }
+}

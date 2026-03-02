@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
+import { spawn } from 'child_process';
 import { canAdminAccessDemoPortal, hasValidAdminSession, validateOwnerToken } from '@/lib/portal-auth';
 import { validatePortalSession } from '@/lib/portal-session';
 
@@ -12,6 +13,7 @@ export const maxDuration = 120;
 
 
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'artkey');
+const FFMPEG_BIN = process.env.FFMPEG_PATH || 'ffmpeg';
 
 function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) {
@@ -24,6 +26,55 @@ function generateFilename(originalName: string): string {
   const timestamp = Date.now().toString(36);
   const rand = Math.random().toString(36).substring(2, 8);
   return `${timestamp}-${rand}${ext}`;
+}
+
+function ensurePathWithinDir(filePath: string, dirPath: string) {
+  const resolvedFile = path.resolve(filePath);
+  const resolvedDir = path.resolve(dirPath);
+  if (resolvedFile !== resolvedDir && !resolvedFile.startsWith(`${resolvedDir}${path.sep}`)) {
+    throw new Error('Invalid upload file path');
+  }
+}
+
+async function convertMovToMp4(inputPath: string, outputPath: string): Promise<void> {
+  ensurePathWithinDir(inputPath, UPLOAD_DIR);
+  ensurePathWithinDir(outputPath, UPLOAD_DIR);
+
+  await new Promise<void>((resolve, reject) => {
+    const args = [
+      '-i',
+      inputPath,
+      '-c:v',
+      'libx264',
+      '-preset',
+      'fast',
+      '-crf',
+      '23',
+      '-c:a',
+      'aac',
+      '-movflags',
+      '+faststart',
+      outputPath,
+    ];
+
+    const child = spawn(FFMPEG_BIN, args, {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+
+    let stderr = '';
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', (err) => reject(err));
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(stderr || `ffmpeg exited with code ${code}`));
+      }
+    });
+  });
 }
 
 export async function POST(req: Request) {
@@ -120,19 +171,49 @@ export async function POST(req: Request) {
 
     const filename = generateFilename(file.name);
     const filepath = path.join(UPLOAD_DIR, filename);
+    ensurePathWithinDir(filepath, UPLOAD_DIR);
     const bytes = await file.arrayBuffer();
     fs.writeFileSync(filepath, Buffer.from(bytes));
 
-    const url = `/uploads/artkey/${filename}`;
+    let finalFilename = filename;
+    let finalFilePath = filepath;
+    let finalType = effectiveType;
+
+    const shouldConvertMov = isVideo && ext.toLowerCase() === '.mov';
+    if (shouldConvertMov) {
+      const mp4Filename = `${path.basename(filename, path.extname(filename))}.mp4`;
+      const mp4FilePath = path.join(UPLOAD_DIR, mp4Filename);
+      ensurePathWithinDir(mp4FilePath, UPLOAD_DIR);
+
+      try {
+        await convertMovToMp4(filepath, mp4FilePath);
+      } catch (conversionError: any) {
+        console.error('MOV to MP4 conversion failed:', conversionError);
+        return NextResponse.json(
+          { success: false, error: 'Video conversion failed. Please contact support.' },
+          { status: 500 }
+        );
+      }
+
+      // Delete original only after successful conversion.
+      fs.unlinkSync(filepath);
+      finalFilename = mp4Filename;
+      finalFilePath = mp4FilePath;
+      finalType = 'video/mp4';
+    }
+
+    const finalSize = fs.statSync(finalFilePath).size;
+    const url = `/uploads/artkey/${finalFilename}`;
 
     return NextResponse.json({
       success: true,
       url,
       fileUrl: url,
       id: Date.now(),
-      filename,
-      size: file.size,
-      type: effectiveType,
+      filename: finalFilename,
+      size: finalSize,
+      type: finalType,
+      converted: shouldConvertMov,
     });
   } catch (err: any) {
     console.error('File upload failed:', err);

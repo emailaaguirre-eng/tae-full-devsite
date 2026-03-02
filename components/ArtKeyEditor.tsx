@@ -158,6 +158,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [savedPortalToken, setSavedPortalToken] = useState<string | null>(null);
   const [saveModal, setSaveModal] = useState<{ show: boolean; url: string; message: string } | null>(null);
+  const [videoUploadStatus, setVideoUploadStatus] = useState<{
+    state: 'idle' | 'uploading' | 'complete' | 'error';
+    message: string;
+  }>({ state: 'idle', message: '' });
 
   // ArtKey data
   const [artKeyData, setArtKeyData] = useState<ArtKeyData>({
@@ -596,17 +600,37 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     formData.append('file', file);
     formData.append('publicToken', auth.publicToken);
     if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
+    const isMovUpload = file.name.toLowerCase().endsWith('.mov');
+    setVideoUploadStatus({
+      state: 'uploading',
+      message: isMovUpload
+        ? 'Uploading video and converting to MP4...'
+        : 'Uploading video...',
+    });
     try {
       const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
       if (res.ok) {
         const result = await res.json();
         const videoUrl = result.url || result.fileUrl;
         setArtKeyData((prev) => ({ ...prev, uploadedVideos: [...prev.uploadedVideos, videoUrl] }));
+        const wasConverted = !!result?.converted || (isMovUpload && String(result?.filename || '').toLowerCase().endsWith('.mp4'));
+        setVideoUploadStatus({
+          state: 'complete',
+          message: wasConverted ? 'Upload complete. MOV converted to MP4.' : 'Upload complete.',
+        });
       } else {
         const err = await res.json().catch(() => ({}));
+        setVideoUploadStatus({
+          state: 'error',
+          message: err?.error || 'Video upload failed',
+        });
         notifyUploadError(err?.error || 'Video upload failed');
       }
     } catch (err) {
+      setVideoUploadStatus({
+        state: 'error',
+        message: 'Video upload failed',
+      });
       notifyUploadError('Video upload failed');
     }
   };
@@ -2284,6 +2308,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                           featuredVideoUrl={artKeyData.featured_video?.video_url || null}
                           onSetFeatured={handleSetFeaturedVideo}
                           featuredVideoLabel={artKeyData.featured_video?.button_label}
+                          uploadStatus={videoUploadStatus}
                           onUpdateFeaturedLabel={(label) => {
                             if (artKeyData.featured_video) {
                               setArtKeyData((prev) => ({
@@ -2894,7 +2919,7 @@ function ColorPicker({ page, setPage, pages, label, colors, selected, onSelect, 
   );
 }
 
-function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, buttonLabel, isVideo, featuredVideoUrl, onSetFeatured, featuredVideoLabel, onUpdateFeaturedLabel }: {
+function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, buttonLabel, isVideo, featuredVideoUrl, onSetFeatured, featuredVideoLabel, onUpdateFeaturedLabel, uploadStatus }: {
   title: string;
   items: string[];
   onRemove: (idx: number) => void;
@@ -2907,6 +2932,10 @@ function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, button
   onSetFeatured?: (url: string, isFeatured: boolean) => void;
   featuredVideoLabel?: string;
   onUpdateFeaturedLabel?: (label: string) => void;
+  uploadStatus?: {
+    state: 'idle' | 'uploading' | 'complete' | 'error';
+    message: string;
+  };
 }) {
   return (
     <div>
@@ -2970,6 +2999,35 @@ function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, button
           {buttonLabel}
         </label>
       </div>
+      {isVideo && uploadStatus && uploadStatus.state !== 'idle' && (
+        <div
+          className="mt-2 text-xs px-2 py-1.5 rounded-lg"
+          style={{
+            background:
+              uploadStatus.state === 'uploading'
+                ? '#eff6ff'
+                : uploadStatus.state === 'complete'
+                ? '#ecfdf5'
+                : '#fef2f2',
+            color:
+              uploadStatus.state === 'uploading'
+                ? '#1d4ed8'
+                : uploadStatus.state === 'complete'
+                ? '#166534'
+                : '#b91c1c',
+            border: `1px solid ${
+              uploadStatus.state === 'uploading'
+                ? '#bfdbfe'
+                : uploadStatus.state === 'complete'
+                ? '#bbf7d0'
+                : '#fecaca'
+            }`,
+          }}
+        >
+          {uploadStatus.state === 'uploading' ? '⏳ ' : uploadStatus.state === 'complete' ? '✅ ' : '⚠️ '}
+          {uploadStatus.message}
+        </div>
+      )}
     </div>
   );
 }

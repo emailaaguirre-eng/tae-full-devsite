@@ -14,6 +14,7 @@ import {
   ImageIcon,
   Palette,
   Handshake,
+  ShieldCheck,
   Menu,
   X,
   LogOut,
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { href: "/b_d_admn_tae/customers", label: "Customers", icon: Users },
   { href: "/b_d_admn_tae/orders", label: "Orders", icon: ShoppingCart },
   { href: "/b_d_admn_tae/artkey-demos", label: "ArtKey Demos", icon: QrCode },
+  { href: "/b_d_admn_tae/admin-users", label: "Admin Users", icon: ShieldCheck },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

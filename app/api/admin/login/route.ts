@@ -9,12 +9,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Email and password required' }, { status: 400 });
     }
 
-    if (!validateAdminCredentials(email, password)) {
+    const authResult = await validateAdminCredentials(email, password);
+    if (!authResult) {
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const token = createAdminToken(email);
-    const response = NextResponse.json({ success: true });
+    const token = createAdminToken({
+      userId: authResult.userId,
+      email: authResult.email,
+      role: authResult.role,
+      isOwner: authResult.isOwner,
+    });
+    const response = NextResponse.json({
+      success: true,
+      user: {
+        email: authResult.email,
+        role: authResult.role,
+        isOwner: authResult.isOwner,
+        mustResetPassword: authResult.mustResetPassword,
+      },
+    });
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

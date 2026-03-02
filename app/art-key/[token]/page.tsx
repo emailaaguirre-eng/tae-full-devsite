@@ -47,9 +47,15 @@ export default function ArtKeyPortalPage() {
               if (linkIndex < 0) return null;
               return {
                 key: `${f.key}-${linkIndex}`,
+<<<<<<< HEAD
                 href: normalizeExternalUrl(f.linkData.url),
                 label: f.label || f.linkData.label || `Link ${linkIndex + 1}`,
                 external: true,
+=======
+                href: f.linkData.url,
+                label: f.label || f.linkData.label || `Link ${linkIndex + 1}`,
+                isExternal: true,
+>>>>>>> 8542f76 (Add owner-only admin controls and improve ArtKey media UX.)
               };
             }
 
@@ -139,9 +145,15 @@ export default function ArtKeyPortalPage() {
           ...(features.enable_custom_links
             ? customLinks.map((link, idx) => ({
                 key: `${link.label}-${idx}`,
+<<<<<<< HEAD
                 href: normalizeExternalUrl(link.url),
                 label: link.label || `Link ${idx + 1}`,
                 external: true,
+=======
+                href: link.url,
+                label: link.label || `Link ${idx + 1}`,
+                isExternal: true,
+>>>>>>> 8542f76 (Add owner-only admin controls and improve ArtKey media UX.)
               }))
             : []),
         ].flatMap((button: any) => (Array.isArray(button) ? button : button ? [button] : []));
@@ -149,11 +161,21 @@ export default function ArtKeyPortalPage() {
   return (
     <PortalScaffold token={token} portal={portal} pageTitle="Portal Home">
       <div className="space-y-3">
+<<<<<<< HEAD
         {buttons.map((button: any) => (
           button.external ? (
             <a
               key={button.key}
               href={button.href}
+=======
+        {buttons.map((button: any) =>
+          button.isExternal ? (
+            <a
+              key={button.key}
+              href={button.href}
+              target="_blank"
+              rel="noopener noreferrer"
+>>>>>>> 8542f76 (Add owner-only admin controls and improve ArtKey media UX.)
               className="block w-full text-center py-3.5 px-4 font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
               style={btnStyle}
             >
@@ -169,7 +191,11 @@ export default function ArtKeyPortalPage() {
               {button.label}
             </Link>
           )
+<<<<<<< HEAD
         ))}
+=======
+        )}
+>>>>>>> 8542f76 (Add owner-only admin controls and improve ArtKey media UX.)
       </div>
     </PortalScaffold>
   );

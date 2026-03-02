@@ -1,36 +1,241 @@
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
+import { executeSql, querySql, saveDatabase } from '@/lib/db';
 
 const COOKIE_NAME = 'tae_admin_session';
 const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+<<<<<<< HEAD
 const ADMIN_USERNAME_KEY = 'ADMIN1_USERNAME';
 const ADMIN_PASSWORD_KEY = 'ADMIN1_PASSWORD';
 const LEGACY_ADMIN_USERNAME_KEY = 'ADMIN_USERNAME';
 const LEGACY_ADMIN_PASSWORD_KEY = 'ADMIN_PASSWORD';
+=======
+const OWNER_USERNAME_KEYS = ['ADMIN1_USERNAME', 'ADMIN2_USERNAME'] as const;
+const OWNER_PASSWORD_KEYS = ['ADMIN1_PASSWORD', 'ADMIN2_PASSWORD'] as const;
+const HASH_PREFIX = 'scrypt';
+const HASH_KEYLEN = 64;
+>>>>>>> 8542f76 (Add owner-only admin controls and improve ArtKey media UX.)
 
-export function createAdminToken(email: string): string {
-  const payload = {
-    email,
+type AdminRole = 'superuser' | 'admin';
+
+interface AdminSessionToken {
+  userId: string;
+  email: string;
+  role: AdminRole;
+  isOwner: boolean;
+  iat: number;
+  exp: number;
+}
+
+interface DbAdminUser {
+  id: string;
+  email: string;
+  passwordHash: string;
+  role: AdminRole;
+  isOwner: number;
+  isActive: number;
+  mustResetPassword: number;
+}
+
+interface AdminSession {
+  authenticated: boolean;
+  userId?: string;
+  email?: string;
+  role?: AdminRole;
+  isOwner?: boolean;
+}
+
+let ensurePromise: Promise<void> | null = null;
+
+function normalizeEmail(input: string): string {
+  return input.trim().toLowerCase();
+}
+
+function randomHex(bytes: number): string {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
+function createPasswordHash(password: string): string {
+  const salt = randomHex(16);
+  const hash = crypto.scryptSync(password, salt, HASH_KEYLEN).toString('hex');
+  return `${HASH_PREFIX}$${salt}$${hash}`;
+}
+
+function verifyPasswordHash(password: string, storedHash: string): boolean {
+  const [prefix, salt, hash] = storedHash.split('$');
+  if (prefix !== HASH_PREFIX || !salt || !hash) return false;
+  const candidate = crypto.scryptSync(password, salt, HASH_KEYLEN).toString('hex');
+  const a = Buffer.from(candidate, 'hex');
+  const b = Buffer.from(hash, 'hex');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+async function ensureAdminSchema(): Promise<void> {
+  await executeSql(`
+    CREATE TABLE IF NOT EXISTS AdminUser (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      passwordHash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'admin',
+      isOwner INTEGER NOT NULL DEFAULT 0,
+      isActive INTEGER NOT NULL DEFAULT 1,
+      mustResetPassword INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT,
+      updatedAt TEXT,
+      lastLoginAt TEXT
+    )
+  `);
+
+  await executeSql(`
+    CREATE TABLE IF NOT EXISTS AdminAuditLog (
+      id TEXT PRIMARY KEY,
+      actorAdminId TEXT,
+      actorEmail TEXT,
+      action TEXT NOT NULL,
+      targetAdminId TEXT,
+      targetEmail TEXT,
+      detailsJson TEXT,
+      createdAt TEXT
+    )
+  `);
+
+  await executeSql(`
+    CREATE TABLE IF NOT EXISTS SuperuserTransferRequest (
+      id TEXT PRIMARY KEY,
+      targetAdminId TEXT NOT NULL,
+      initiatedByAdminId TEXT NOT NULL,
+      approvedByAdminId TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      expiresAt TEXT NOT NULL,
+      createdAt TEXT,
+      updatedAt TEXT,
+      completedAt TEXT
+    )
+  `);
+
+  await saveDatabase();
+}
+
+function getOwnerEnvPairs(): Array<{ email: string; password: string }> {
+  const pairs: Array<{ email: string; password: string }> = [];
+  for (let i = 0; i < OWNER_USERNAME_KEYS.length; i += 1) {
+    const email = normalizeEmail(process.env[OWNER_USERNAME_KEYS[i]] || '');
+    const password = (process.env[OWNER_PASSWORD_KEYS[i]] || '').trim();
+    if (email && password) {
+      pairs.push({ email, password });
+    }
+  }
+  return pairs;
+}
+
+async function seedOwnerAdminsFromEnv(): Promise<void> {
+  const now = new Date().toISOString();
+  const ownerPairs = getOwnerEnvPairs();
+  for (const owner of ownerPairs) {
+    const existing = await querySql<DbAdminUser>(
+      'SELECT id, email, passwordHash, role, isOwner, isActive, mustResetPassword FROM AdminUser WHERE lower(email) = ? LIMIT 1',
+      [owner.email]
+    );
+
+    if (existing.length === 0) {
+      await executeSql(
+        `INSERT INTO AdminUser (id, email, passwordHash, role, isOwner, isActive, mustResetPassword, createdAt, updatedAt)
+         VALUES (?, ?, ?, 'superuser', 1, 1, 0, ?, ?)`,
+        [randomHex(12), owner.email, createPasswordHash(owner.password), now, now]
+      );
+    } else {
+      const user = existing[0];
+      const needsHashUpgrade = !user.passwordHash.startsWith(`${HASH_PREFIX}$`);
+      const nextHash = needsHashUpgrade ? createPasswordHash(owner.password) : user.passwordHash;
+      await executeSql(
+        `UPDATE AdminUser
+         SET role = 'superuser',
+             isOwner = 1,
+             isActive = 1,
+             passwordHash = ?,
+             updatedAt = ?
+         WHERE id = ?`,
+        [nextHash, now, user.id]
+      );
+    }
+  }
+  await saveDatabase();
+}
+
+async function ensureAdminSystemReady(): Promise<void> {
+  if (!ensurePromise) {
+    ensurePromise = (async () => {
+      await ensureAdminSchema();
+      await seedOwnerAdminsFromEnv();
+    })();
+  }
+  await ensurePromise;
+}
+
+export function createAdminToken(payload: {
+  userId: string;
+  email: string;
+  role: AdminRole;
+  isOwner: boolean;
+}): string {
+  const tokenPayload: AdminSessionToken = {
+    userId: payload.userId,
+    email: normalizeEmail(payload.email),
+    role: payload.role,
+    isOwner: payload.isOwner,
     iat: Date.now(),
     exp: Date.now() + SESSION_DURATION,
   };
-  return Buffer.from(JSON.stringify(payload)).toString('base64');
+  return Buffer.from(JSON.stringify(tokenPayload)).toString('base64');
 }
 
-export function validateAdminToken(token: string): { valid: boolean; email?: string } {
+export function validateAdminToken(token: string): { valid: boolean; session?: AdminSessionToken } {
   try {
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
+    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf-8')) as Partial<AdminSessionToken>;
     if (!decoded.email || !decoded.exp) return { valid: false };
     if (Date.now() > decoded.exp) return { valid: false };
-    return { valid: true, email: decoded.email };
+
+    // Backward compatibility for pre-DB session tokens.
+    if (!decoded.userId || !decoded.role) {
+      return {
+        valid: true,
+        session: {
+          userId: `legacy:${normalizeEmail(decoded.email)}`,
+          email: normalizeEmail(decoded.email),
+          role: 'admin',
+          isOwner: false,
+          iat: decoded.iat || Date.now(),
+          exp: decoded.exp,
+        },
+      };
+    }
+
+    return {
+      valid: true,
+      session: {
+        userId: decoded.userId,
+        email: normalizeEmail(decoded.email),
+        role: decoded.role,
+        isOwner: !!decoded.isOwner,
+        iat: decoded.iat || Date.now(),
+        exp: decoded.exp,
+      },
+    };
   } catch {
     return { valid: false };
   }
 }
 
-export function validateAdminCredentials(username: string, password: string): boolean {
-  const normalizedUsername = username.trim();
-  const normalizedUsernameLower = normalizedUsername.toLowerCase();
+export async function validateAdminCredentials(
+  username: string,
+  password: string
+): Promise<null | { userId: string; email: string; role: AdminRole; isOwner: boolean; mustResetPassword: boolean }> {
+  await ensureAdminSystemReady();
+
+  const normalizedUsername = normalizeEmail(username);
   const normalizedPassword = password.trim();
+<<<<<<< HEAD
   const adminUser = (
     process.env[ADMIN_USERNAME_KEY] ||
     process.env[LEGACY_ADMIN_USERNAME_KEY] ||
@@ -42,31 +247,372 @@ export function validateAdminCredentials(username: string, password: string): bo
     ''
   ).trim();
   if (!adminUser || !adminPass) return false;
+=======
+  if (!normalizedUsername || !normalizedPassword) return null;
+>>>>>>> 8542f76 (Add owner-only admin controls and improve ArtKey media UX.)
 
-  const adminUserLower = adminUser.toLowerCase();
-  const inputLocal = normalizedUsernameLower.split("@")[0];
-  const adminLocal = adminUserLower.split("@")[0];
-
-  return (
-    normalizedPassword === adminPass &&
-    (
-      normalizedUsername === adminUser ||
-      normalizedUsernameLower === adminUserLower ||
-      inputLocal === adminLocal
-    )
+  const rows = await querySql<DbAdminUser>(
+    `SELECT id, email, passwordHash, role, isOwner, isActive, mustResetPassword
+     FROM AdminUser
+     WHERE lower(email) = ? AND isActive = 1
+     LIMIT 1`,
+    [normalizedUsername]
   );
+
+  if (rows.length === 0) return null;
+  const user = rows[0];
+  const validPassword = verifyPasswordHash(normalizedPassword, user.passwordHash);
+  if (!validPassword) return null;
+
+  await executeSql('UPDATE AdminUser SET lastLoginAt = ?, updatedAt = ? WHERE id = ?', [
+    new Date().toISOString(),
+    new Date().toISOString(),
+    user.id,
+  ]);
+  await saveDatabase();
+
+  return {
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    isOwner: !!user.isOwner,
+    mustResetPassword: !!user.mustResetPassword,
+  };
 }
 
-export async function getAdminSession(): Promise<{ authenticated: boolean; email?: string }> {
+export async function getAdminSessionFromRequest(req: Request): Promise<AdminSession> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
-    if (!token) return { authenticated: false };
-    const result = validateAdminToken(token);
-    return { authenticated: result.valid, email: result.email };
+    await ensureAdminSystemReady();
+
+    const cookieHeader = req.headers.get('cookie') || '';
+    const tokenPair = cookieHeader
+      .split(';')
+      .map((p) => p.trim())
+      .find((p) => p.startsWith(`${COOKIE_NAME}=`));
+
+    if (!tokenPair) return { authenticated: false };
+    const token = decodeURIComponent(tokenPair.slice(COOKIE_NAME.length + 1));
+    const parsed = validateAdminToken(token);
+    if (!parsed.valid || !parsed.session) return { authenticated: false };
+
+    const rows = await querySql<DbAdminUser>(
+      `SELECT id, email, role, isOwner, isActive
+       FROM AdminUser
+       WHERE id = ? AND isActive = 1
+       LIMIT 1`,
+      [parsed.session.userId]
+    );
+    if (rows.length === 0) return { authenticated: false };
+
+    const row = rows[0];
+    return {
+      authenticated: true,
+      userId: row.id,
+      email: row.email,
+      role: row.role,
+      isOwner: !!row.isOwner,
+    };
   } catch {
     return { authenticated: false };
   }
+}
+
+export async function requireSuperuserSession(req: Request): Promise<AdminSession> {
+  const session = await getAdminSessionFromRequest(req);
+  if (!session.authenticated || session.role !== 'superuser') {
+    return { authenticated: false };
+  }
+  return session;
+}
+
+export async function getAdminSession(): Promise<AdminSession> {
+  try {
+    await ensureAdminSystemReady();
+    const cookieStore = await cookies();
+    const token = cookieStore.get(COOKIE_NAME)?.value;
+    if (!token) return { authenticated: false };
+
+    const parsed = validateAdminToken(token);
+    if (!parsed.valid || !parsed.session) return { authenticated: false };
+
+    const rows = await querySql<DbAdminUser>(
+      `SELECT id, email, role, isOwner, isActive
+       FROM AdminUser
+       WHERE id = ? AND isActive = 1
+       LIMIT 1`,
+      [parsed.session.userId]
+    );
+    if (rows.length === 0) return { authenticated: false };
+    const row = rows[0];
+
+    return {
+      authenticated: true,
+      userId: row.id,
+      email: row.email,
+      role: row.role,
+      isOwner: !!row.isOwner,
+    };
+  } catch {
+    return { authenticated: false };
+  }
+}
+
+export async function listAdminUsers() {
+  await ensureAdminSystemReady();
+  return querySql<{
+    id: string;
+    email: string;
+    role: AdminRole;
+    isOwner: number;
+    isActive: number;
+    mustResetPassword: number;
+    createdAt: string | null;
+    updatedAt: string | null;
+    lastLoginAt: string | null;
+  }>(
+    `SELECT id, email, role, isOwner, isActive, mustResetPassword, createdAt, updatedAt, lastLoginAt
+     FROM AdminUser
+     ORDER BY isOwner DESC, role DESC, email ASC`
+  );
+}
+
+export async function createAdminUser(params: {
+  email: string;
+  password: string;
+  role?: AdminRole;
+  mustResetPassword?: boolean;
+}) {
+  await ensureAdminSystemReady();
+  const email = normalizeEmail(params.email);
+  const password = params.password.trim();
+  if (!email || !password) {
+    throw new Error('Email and password are required');
+  }
+
+  const existing = await querySql<{ id: string }>(
+    'SELECT id FROM AdminUser WHERE lower(email) = ? LIMIT 1',
+    [email]
+  );
+  if (existing.length > 0) {
+    throw new Error('Admin user already exists');
+  }
+
+  const now = new Date().toISOString();
+  const id = randomHex(12);
+  await executeSql(
+    `INSERT INTO AdminUser (id, email, passwordHash, role, isOwner, isActive, mustResetPassword, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, 0, 1, ?, ?, ?)`,
+    [
+      id,
+      email,
+      createPasswordHash(password),
+      params.role || 'admin',
+      params.mustResetPassword ? 1 : 0,
+      now,
+      now,
+    ]
+  );
+  await saveDatabase();
+  return id;
+}
+
+export async function updateAdminUserById(
+  userId: string,
+  updates: { email?: string; password?: string; role?: AdminRole; isActive?: boolean; mustResetPassword?: boolean }
+) {
+  await ensureAdminSystemReady();
+  const now = new Date().toISOString();
+
+  if (updates.email) {
+    const existing = await querySql<{ id: string }>(
+      'SELECT id FROM AdminUser WHERE lower(email) = ? AND id != ? LIMIT 1',
+      [normalizeEmail(updates.email), userId]
+    );
+    if (existing.length > 0) {
+      throw new Error('Email already in use');
+    }
+    await executeSql('UPDATE AdminUser SET email = ?, updatedAt = ? WHERE id = ?', [
+      normalizeEmail(updates.email),
+      now,
+      userId,
+    ]);
+  }
+
+  if (updates.password) {
+    await executeSql('UPDATE AdminUser SET passwordHash = ?, updatedAt = ? WHERE id = ?', [
+      createPasswordHash(updates.password.trim()),
+      now,
+      userId,
+    ]);
+  }
+
+  if (updates.role) {
+    await executeSql('UPDATE AdminUser SET role = ?, updatedAt = ? WHERE id = ?', [updates.role, now, userId]);
+  }
+
+  if (typeof updates.isActive === 'boolean') {
+    await executeSql('UPDATE AdminUser SET isActive = ?, updatedAt = ? WHERE id = ?', [
+      updates.isActive ? 1 : 0,
+      now,
+      userId,
+    ]);
+  }
+
+  if (typeof updates.mustResetPassword === 'boolean') {
+    await executeSql('UPDATE AdminUser SET mustResetPassword = ?, updatedAt = ? WHERE id = ?', [
+      updates.mustResetPassword ? 1 : 0,
+      now,
+      userId,
+    ]);
+  }
+
+  await saveDatabase();
+}
+
+export async function getAdminUserById(userId: string) {
+  await ensureAdminSystemReady();
+  const rows = await querySql<DbAdminUser>(
+    'SELECT id, email, passwordHash, role, isOwner, isActive, mustResetPassword FROM AdminUser WHERE id = ? LIMIT 1',
+    [userId]
+  );
+  return rows[0] || null;
+}
+
+export async function deleteAdminUserById(userId: string) {
+  await ensureAdminSystemReady();
+  await executeSql('DELETE FROM AdminUser WHERE id = ?', [userId]);
+  await saveDatabase();
+}
+
+export async function countActiveSuperusers() {
+  await ensureAdminSystemReady();
+  const rows = await querySql<{ count: number }>(
+    `SELECT COUNT(*) AS count
+     FROM AdminUser
+     WHERE role = 'superuser' AND isActive = 1`
+  );
+  return Number(rows[0]?.count || 0);
+}
+
+export async function countActiveOwnerSuperusers() {
+  await ensureAdminSystemReady();
+  const rows = await querySql<{ count: number }>(
+    `SELECT COUNT(*) AS count
+     FROM AdminUser
+     WHERE role = 'superuser' AND isOwner = 1 AND isActive = 1`
+  );
+  return Number(rows[0]?.count || 0);
+}
+
+export async function createTransferRequest(params: {
+  targetAdminId: string;
+  initiatedByAdminId: string;
+  expiresAt: string;
+}) {
+  await ensureAdminSystemReady();
+  const now = new Date().toISOString();
+  const id = randomHex(12);
+  await executeSql(
+    `INSERT INTO SuperuserTransferRequest (id, targetAdminId, initiatedByAdminId, status, expiresAt, createdAt, updatedAt)
+     VALUES (?, ?, ?, 'pending', ?, ?, ?)`,
+    [id, params.targetAdminId, params.initiatedByAdminId, params.expiresAt, now, now]
+  );
+  await saveDatabase();
+  return id;
+}
+
+export async function listPendingTransferRequests() {
+  await ensureAdminSystemReady();
+  return querySql<{
+    id: string;
+    targetAdminId: string;
+    initiatedByAdminId: string;
+    approvedByAdminId: string | null;
+    status: string;
+    expiresAt: string;
+    createdAt: string | null;
+    updatedAt: string | null;
+  }>(
+    `SELECT id, targetAdminId, initiatedByAdminId, approvedByAdminId, status, expiresAt, createdAt, updatedAt
+     FROM SuperuserTransferRequest
+     WHERE status = 'pending'
+     ORDER BY createdAt DESC`
+  );
+}
+
+export async function getTransferRequestById(id: string) {
+  await ensureAdminSystemReady();
+  const rows = await querySql<{
+    id: string;
+    targetAdminId: string;
+    initiatedByAdminId: string;
+    approvedByAdminId: string | null;
+    status: string;
+    expiresAt: string;
+  }>(
+    `SELECT id, targetAdminId, initiatedByAdminId, approvedByAdminId, status, expiresAt
+     FROM SuperuserTransferRequest
+     WHERE id = ?
+     LIMIT 1`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+export async function approveTransferRequest(params: { transferId: string; approvedByAdminId: string }) {
+  await ensureAdminSystemReady();
+  const now = new Date().toISOString();
+  await executeSql(
+    `UPDATE SuperuserTransferRequest
+     SET approvedByAdminId = ?, status = 'completed', completedAt = ?, updatedAt = ?
+     WHERE id = ?`,
+    [params.approvedByAdminId, now, now, params.transferId]
+  );
+  await saveDatabase();
+}
+
+export async function writeAdminAuditLog(params: {
+  actorAdminId?: string;
+  actorEmail?: string;
+  action: string;
+  targetAdminId?: string;
+  targetEmail?: string;
+  detailsJson?: string;
+}) {
+  await ensureAdminSystemReady();
+  const now = new Date().toISOString();
+  await executeSql(
+    `INSERT INTO AdminAuditLog (id, actorAdminId, actorEmail, action, targetAdminId, targetEmail, detailsJson, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      randomHex(12),
+      params.actorAdminId || null,
+      params.actorEmail || null,
+      params.action,
+      params.targetAdminId || null,
+      params.targetEmail || null,
+      params.detailsJson || null,
+      now,
+    ]
+  );
+  await saveDatabase();
+}
+
+// Backward-compatible client helpers used by legacy admin components.
+export function isAdminAuthenticated(): boolean {
+  if (typeof document === 'undefined') return false;
+  const tokenPair = document.cookie
+    .split(';')
+    .map((p) => p.trim())
+    .find((p) => p.startsWith(`${COOKIE_NAME}=`));
+  if (!tokenPair) return false;
+  const token = decodeURIComponent(tokenPair.slice(COOKIE_NAME.length + 1));
+  return validateAdminToken(token).valid;
+}
+
+export function removeAdminToken(): void {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${COOKIE_NAME}=; Max-Age=0; path=/`;
 }
 
 export { COOKIE_NAME };
