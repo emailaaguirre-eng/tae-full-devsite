@@ -1,6 +1,7 @@
 import "./globals.css"
 import { CartProvider } from "@/contexts/CartContext"
 import { LayoutShell } from "@/components/LayoutShell"
+import { headers } from "next/headers"
 
 export const metadata = {
   title: 'The Artful Experience — Custom Prints, Cards & Digital Portals',
@@ -12,6 +13,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const requestHeaders = headers()
+  const hostHeader =
+    requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || ""
+  const hostname = hostHeader.toLowerCase().split(":")[0]
+  const suppressSiteChrome = hostname === "artkey.theartfulexperience.com"
+
   return (
     <html lang="en">
       <head>
@@ -22,7 +29,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen flex flex-col">
         <CartProvider>
-          <LayoutShell>{children}</LayoutShell>
+          <LayoutShell suppressSiteChrome={suppressSiteChrome}>
+            {children}
+          </LayoutShell>
         </CartProvider>
       </body>
     </html>
