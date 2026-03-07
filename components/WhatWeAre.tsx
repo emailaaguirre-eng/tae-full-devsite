@@ -1,17 +1,38 @@
 "use client";
 
 export function ArtTechnologySection() {
+  const artKeyReveals = [
+    "Videos",
+    "Music and playlists",
+    "Photos and memories",
+    "Personal messages",
+    "Gift cards and surprises",
+    "Social media links",
+    "Favorite places and recommendations",
+    "Updates added over time",
+  ];
+
   return (
     <section className="py-20" style={{ backgroundColor: "#ffffff" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-gradient-to-br from-brand-dark to-brand-darkest shadow-2xl p-8 md:p-12 text-white text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4 font-playfair">
-            Art + Technology = Living Memories
+        <div className="bg-gradient-to-br from-brand-dark to-brand-darkest shadow-2xl p-8 md:p-12 text-white mb-16">
+          <h2 className="text-3xl md:text-5xl font-bold mb-4 font-playfair text-center">
+            Turn a Meaningful Image Into a Living Experience
           </h2>
-          <p className="text-xl max-w-2xl mx-auto opacity-90">
-            We don&apos;t just sell art products—we create interactive experiences that bring your memories to life
-            through the power of ArtKey™ technology. Every piece tells a story, and every story is accessible with a simple scan.
+          <p className="text-lg md:text-xl max-w-3xl mx-auto opacity-90 text-center">
+            Each piece includes an ArtKey™ that unlocks videos, music, messages, photos, and surprises when scanned.
           </p>
+          <p className="text-base md:text-lg mt-6 mb-4 max-w-3xl mx-auto opacity-90 text-center">
+            When scanned, the ArtKey™ can reveal:
+          </p>
+          <ul className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-left">
+            {artKeyReveals.map((item) => (
+              <li key={item} className="text-sm md:text-base opacity-95 flex items-start">
+                <span className="mr-2 mt-[2px]">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </section>

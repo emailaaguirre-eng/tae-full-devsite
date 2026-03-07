@@ -30,7 +30,7 @@ export default function Testimonials() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
-            What our Clients & Friends Say
+            How Our Friends & Clients Use the ArtKey™
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
           <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
@@ -39,7 +39,7 @@ export default function Testimonials() {
         </div>
 
         {/* Testimonials Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-12">
           {testimonials.map((testimonial, index) => (
             <div 
               key={index} 

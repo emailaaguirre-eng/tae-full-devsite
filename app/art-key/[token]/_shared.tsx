@@ -40,6 +40,63 @@ export interface PortalData {
   media: { id: string; type: string; url: string; caption?: string }[];
 }
 
+export interface PortalFavoriteItem {
+  url: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  buttonLabel?: string;
+  // Host/editor compatibility aliases
+  link?: string;
+  href?: string;
+  thumbnail?: string;
+  imageUrl?: string;
+  writeup?: string;
+  button_label?: string;
+}
+
+export function getPortalFavorites(portal: PortalData): PortalFavoriteItem[] {
+  const customizations = portal?.customizations || {};
+  const raw =
+    customizations.favorites ||
+    customizations.favoriteItems ||
+    customizations.favorite_items ||
+    [];
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((item: any) => {
+      const url = String(item?.url || item?.link || item?.href || "").trim();
+      if (!url) return null;
+      return {
+        ...item,
+        url,
+      } as PortalFavoriteItem;
+    })
+    .filter((item): item is PortalFavoriteItem => !!item)
+    .slice(0, 6);
+}
+
+export function normalizeExternalUrl(url?: string | null): string {
+  const trimmed = String(url || "").trim();
+  if (!trimmed) return "#";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+export function getUrlDisplayFallback(url?: string | null): string {
+  const normalized = normalizeExternalUrl(url);
+  if (normalized === "#") return "Untitled";
+  try {
+    const parsed = new URL(normalized);
+    const host = parsed.hostname.replace(/^www\./i, "");
+    if (host) return host;
+  } catch {
+    // Fall back to a cleaned URL label when URL parsing fails.
+  }
+  return normalized.replace(/^https?:\/\//i, "").split("/")[0] || "Untitled";
+}
+
 export function usePortal(token: string) {
   const [portal, setPortal] = useState<PortalData | null>(null);
   const [loading, setLoading] = useState(true);

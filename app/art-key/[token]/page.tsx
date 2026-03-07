@@ -5,17 +5,12 @@ import Link from "next/link";
 import {
   ErrorScreen,
   getButtonStyle,
+  getPortalFavorites,
   LoadingScreen,
+  normalizeExternalUrl,
   PortalScaffold,
   usePortal,
 } from "./_shared";
-
-function normalizeExternalUrl(url: string): string {
-  const trimmed = String(url || "").trim();
-  if (!trimmed) return "#";
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
-}
 
 export default function ArtKeyPortalPage() {
   const params = useParams();
@@ -30,11 +25,13 @@ export default function ArtKeyPortalPage() {
   const customLinks = portal.links || [];
   const uploadedVideos = Array.isArray(portal.uploadedVideos) ? portal.uploadedVideos : [];
   const featuredVideoUrl = portal.featuredVideo?.video_url || null;
+  const favorites = getPortalFavorites(portal);
+  const hasFavorites = favorites.length > 0;
   const rawFeatureDefs = Array.isArray(portal.customizations?.featureDefs)
     ? portal.customizations.featureDefs
     : [];
 
-  const buttons =
+  let buttons =
     rawFeatureDefs.length > 0
       ? rawFeatureDefs
           .filter((f: any) => f?.enabled !== false)
@@ -91,6 +88,9 @@ export default function ArtKeyPortalPage() {
             if (f.key === "guestbook" && features.show_guestbook) {
               return { key: "guestbook", href: `/art-key/${token}/guestbook`, label: f.label || "Guestbook" };
             }
+            if (f.key === "favorites" && hasFavorites) {
+              return { key: "favorites", href: `/art-key/${token}/favorites`, label: f.label || "Favorites" };
+            }
 
             return null;
           })
@@ -136,6 +136,9 @@ export default function ArtKeyPortalPage() {
           features.show_guestbook
             ? { key: "guestbook", href: `/art-key/${token}/guestbook`, label: "Guestbook" }
             : null,
+          hasFavorites
+            ? { key: "favorites", href: `/art-key/${token}/favorites`, label: "Favorites" }
+            : null,
           ...(features.enable_custom_links
             ? customLinks.map((link, idx) => ({
                 key: `${link.label}-${idx}`,
@@ -145,6 +148,10 @@ export default function ArtKeyPortalPage() {
               }))
             : []),
         ].flatMap((button: any) => (Array.isArray(button) ? button : button ? [button] : []));
+
+  if (hasFavorites && !buttons.some((button: any) => button.key === "favorites")) {
+    buttons = [...buttons, { key: "favorites", href: `/art-key/${token}/favorites`, label: "Favorites" }];
+  }
 
   return (
     <PortalScaffold token={token} portal={portal} pageTitle="Portal Home">
