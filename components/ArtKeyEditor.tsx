@@ -30,6 +30,7 @@ import {
   ELEGANT_ICONS, 
   type ElegantIconKey 
 } from './artkey/ElegantIcons';
+import { AdvancedColorPickerPopover } from './artkey/AdvancedColorPickerPopover';
 import { CustomIcon } from './CustomIcons';
 
 function isElegantIconKey(value: string): value is ElegantIconKey {
@@ -109,6 +110,16 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [studioExport, setStudioExport] = useState<any>(null);
   const [portalLoaded, setPortalLoaded] = useState(false);
+  const editorMode = useMemo<'customer' | 'host' | 'demo'>(() => {
+    if (fromAdmin && isAdmin) return 'demo';
+    if (ownerTokenParam || fromAdmin) return 'host';
+    return 'customer';
+  }, [fromAdmin, isAdmin, ownerTokenParam]);
+  const modeHeading = {
+    customer: 'Build Your ArtKey Portal',
+    host: 'Edit Your ArtKey Portal',
+    demo: 'ArtKey Demo Builder',
+  }[editorMode];
 
   // Check if user is logged in as admin
   useEffect(() => {
@@ -146,7 +157,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [editLinkLabel, setEditLinkLabel] = useState('');
   const [editLinkUrl, setEditLinkUrl] = useState('');
   const [showColorPicker, setShowColorPicker] = useState<{ type: 'button' | 'title' | 'background' | null }>({ type: null });
-  const [customColor, setCustomColor] = useState<string>('#000000');
+  const [recentColors, setRecentColors] = useState<string[]>([]);
+  const [colorAlpha, setColorAlpha] = useState<{ background: number; title: number; button: number }>({
+    background: 1,
+    title: 1,
+    button: 1,
+  });
   const [openedGallery, setOpenedGallery] = useState<'images' | 'videos' | null>(null); // Track which gallery is opened
   
   // QR Code & Skeleton Key state (only for cards/invitations/postcards)
@@ -159,6 +175,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [savedPortalToken, setSavedPortalToken] = useState<string | null>(null);
   const [saveModal, setSaveModal] = useState<{ show: boolean; url: string; message: string } | null>(null);
   const [videoUploadStatus, setVideoUploadStatus] = useState<{
+    state: 'idle' | 'uploading' | 'complete' | 'error';
+    message: string;
+  }>({ state: 'idle', message: '' });
+  const [imageUploadStatus, setImageUploadStatus] = useState<{
     state: 'idle' | 'uploading' | 'complete' | 'error';
     message: string;
   }>({ state: 'idle', message: '' });
@@ -541,6 +561,34 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
   const getColorsForPage = (page: number, arr: typeof buttonColors) => arr.slice(page * 12, page * 12 + 12);
 
+  const pushRecentColor = (value: string) => {
+    setRecentColors((prev) => [value, ...prev.filter((c) => c !== value)].slice(0, 10));
+  };
+
+  const getColorTargetValue = (target: 'button' | 'title' | 'background') => {
+    if (target === 'button') return artKeyData.theme.button_color || '#4f46e5';
+    if (target === 'title') return artKeyData.theme.title_color || '#4f46e5';
+    return artKeyData.theme.bg_color || '#F6F7FB';
+  };
+
+  const handleAdvancedColorChange = (
+    target: 'button' | 'title' | 'background',
+    value: string,
+    alpha: number
+  ) => {
+    setColorAlpha((prev) => ({ ...prev, [target]: alpha }));
+    pushRecentColor(value);
+    if (target === 'button') {
+      setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, button_color: value, button_gradient: '' } }));
+      return;
+    }
+    if (target === 'title') {
+      setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, title_color: value } }));
+      return;
+    }
+    setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_color: value, bg_image_url: '' } }));
+  };
+
   const resolveUploadAuth = () => {
     const publicToken = (portalToken || savedPortalToken || artkeyId || '').trim();
     if (!publicToken) return { publicToken: '', ownerToken: '' };
@@ -566,6 +614,8 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       notifyUploadError('Upload requires a saved portal token. Save the portal first, then upload.');
       return;
     }
+    setImageUploadStatus({ state: 'uploading', message: `Uploading ${files.length} image${files.length > 1 ? 's' : ''}...` });
+    let successCount = 0;
     for (const file of Array.from(files)) {
       const formData = new FormData();
       formData.append('file', file);
@@ -576,13 +626,22 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         if (res.ok) {
           const result = await res.json();
           setArtKeyData((prev) => ({ ...prev, uploadedImages: [...prev.uploadedImages, result.url] }));
+          successCount += 1;
         } else {
           const err = await res.json().catch(() => ({}));
+          setImageUploadStatus({ state: 'error', message: err?.error || 'Image upload failed' });
           notifyUploadError(err?.error || 'Image upload failed');
         }
       } catch (err) {
+        setImageUploadStatus({ state: 'error', message: 'Image upload failed' });
         notifyUploadError('Image upload failed');
       }
+    }
+    if (successCount > 0) {
+      setImageUploadStatus({
+        state: 'complete',
+        message: `${successCount} image${successCount > 1 ? 's' : ''} uploaded and ready.`,
+      });
     }
   };
 
@@ -1069,10 +1128,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   };
 
   const getButtonTextColor = (color: string) => {
-    if (!color) return '#fff';
-    const c = color.toLowerCase();
-    if (c === '#ffffff' || c === '#fefefe' || c === '#fef3c7' || c === '#fde047' || c === '#fffff0') return '#000000';
-    return '#ffffff';
+    if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) return '#ffffff';
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
+    const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    return luminance > 0.6 ? '#111111' : '#ffffff';
   };
 
   const getButtonPreviewStyles = (
@@ -1099,12 +1160,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         };
       case 'glass':
         return {
-          background: `${buttonColor}15`,
+          background: `${buttonColor}26`,
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
           color: buttonColor,
           borderRadius,
-          border: `1px solid ${buttonColor}30`,
+          border: `1.5px solid ${buttonColor}99`,
+          boxShadow: `0 6px 14px -10px rgba(15, 23, 42, 0.55), inset 0 0 0 1px ${buttonColor}44`,
         };
       default:
         return {
@@ -1235,8 +1297,15 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               <div>
                 <h1 className="text-lg sm:text-xl font-bold font-playfair text-white flex items-center gap-2">
                   <span className="text-amber-400">✦</span>
-                  theAE ArtKey Portal Page Editor
+                  {modeHeading}
                 </h1>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  {editorMode === 'customer'
+                    ? 'Design your ArtKey Portal, then continue your purchase flow.'
+                    : editorMode === 'host'
+                    ? 'Update your live ArtKey Portal experience for guests.'
+                    : 'Create and polish demo portal experiences for review.'}
+                </p>
                 {customizationData && (
                   <p className="text-xs text-slate-400 mt-0.5">
                     Customizing: {customizationData.productName} - ${customizationData.totalPrice}
@@ -1470,15 +1539,15 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           <div className="space-y-6">
             {/* Step 1 chooser */}
             {designMode === null && (
-              <Card title="Choose a Template or Design Your Own ArtKey" step="1">
+              <Card title="Start Style" step="1">
                 <div className="grid md:grid-cols-2 gap-4">
                   <PrimaryButton onClick={() => setDesignMode('template')} icon={<CustomIcon name="art" size={40} color={COLOR_ACCENT} />} accent>
-                    Choose a Template
-                    <div className="text-sm text-[#444] mt-1">Pick from 40 templates</div>
+                    Start with a Style
+                    <div className="text-sm text-[#444] mt-1">Pick a mini portal preview, then personalize it</div>
                   </PrimaryButton>
                   <PrimaryButton onClick={() => setDesignMode('custom')} icon={<CustomIcon name="sparkle" size={40} color={COLOR_ACCENT} />}>
-                    Design Your Own
-                    <div className="text-sm text-[#444] mt-1">Start from scratch</div>
+                    Start Blank
+                    <div className="text-sm text-[#444] mt-1">Begin with a clean ArtKey Portal canvas</div>
                   </PrimaryButton>
                 </div>
               </Card>
@@ -1486,7 +1555,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Template selection */}
             {designMode === 'template' && (
-              <Card title="Choose Template" step="1" onBack={() => setDesignMode(null)}>
+              <Card title="Start Style" step="1" onBack={() => setDesignMode(null)}>
                 {/* Category Tabs */}
                 <div className="flex gap-1.5 mb-5 p-1 rounded-xl bg-gray-100">
                   {TEMPLATE_CATEGORIES.map((cat) => (
@@ -1523,36 +1592,72 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       .slice(templatePage * templatesPerPage, (templatePage + 1) * templatesPerPage)
                       .map((tpl) => {
                         const isSelected = artKeyData.theme.template === tpl.value;
-                        const isDark = tpl.bg.includes('#0') || tpl.bg.includes('#1') || tpl.bg.includes('#2') || tpl.text === '#ffffff' || tpl.text === '#E8E8E8' || tpl.text === '#CCCCCC';
+                        const buttonPreviewColor =
+                          tpl.buttonStyle === 'solid' ? getButtonTextColor(tpl.button) : tpl.button;
                         return (
                           <button
                             key={tpl.value}
                             onClick={() => handleTemplateSelect(tpl)}
-                            className={`group rounded-xl border-2 transition-all overflow-hidden ${isSelected ? 'shadow-lg ring-2 ring-offset-2' : 'hover:shadow-md hover:-translate-y-0.5'}`}
+                            className={`group rounded-xl border-2 overflow-hidden ${isSelected ? 'shadow-lg ring-2 ring-offset-2' : 'hover:shadow-md hover:-translate-y-0.5'}`}
                             style={{
                               borderColor: isSelected ? tpl.button : 'transparent',
                               ringColor: isSelected ? tpl.button : undefined,
                             }}
                           >
-                            <div
-                              className="p-3 flex flex-col items-center justify-center"
-                              style={{ background: tpl.bg, minHeight: '100px' }}
-                            >
-                              <div className="text-2xl font-bold mb-1" style={{ color: tpl.title, fontFamily: tpl.titleFont?.replace('g:', '') || 'inherit' }}>Aa</div>
+                            <div className="p-2.5" style={{ background: tpl.bg, minHeight: '128px' }}>
                               <div
-                                className="w-full max-w-[80%] py-1 px-2 text-[9px] font-semibold text-center mt-1 truncate"
+                                className="h-full w-full rounded-lg p-2.5 flex flex-col"
                                 style={{
-                                  background: tpl.buttonStyle === 'outline' ? 'transparent' : (tpl.buttonStyle === 'glass' ? `${tpl.button}20` : tpl.button),
-                                  color: tpl.buttonStyle === 'solid' ? (isDark ? '#000' : '#fff') : tpl.button,
-                                  border: tpl.buttonStyle !== 'solid' ? `1.5px solid ${tpl.button}` : 'none',
-                                  borderRadius: tpl.buttonShape === 'square' ? '0' : tpl.buttonShape === 'rounded' ? '4px' : '9999px',
+                                  background: 'linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0.08))',
+                                  border: `1px solid ${tpl.buttonBorder || tpl.button}66`,
+                                  backdropFilter: 'blur(1.5px)',
                                 }}
                               >
-                                Button
+                                <div className="w-full flex items-center justify-between mb-1.5">
+                                  <div className="text-[9px] font-semibold tracking-[0.06em] uppercase" style={{ color: tpl.text }}>
+                                    Portal Style
+                                  </div>
+                                  {(tpl.headerIcon && tpl.headerIcon !== 'none') && (
+                                    <ElegantIcon icon={tpl.headerIcon as ElegantIconKey} size={13} color={tpl.title} />
+                                  )}
+                                </div>
+                                <div className="text-[13px] font-bold leading-tight line-clamp-2 min-h-[2.2em]" style={{ color: tpl.title, fontFamily: tpl.titleFont?.replace('g:', '') || 'inherit' }}>
+                                  {tpl.name}
+                                </div>
+                                <div className="text-[8px] mt-1.5 mb-2 line-clamp-2" style={{ color: tpl.text }}>
+                                  {tpl.description || 'Distinct visual starting point with editable style controls.'}
+                                </div>
+                                <div className="mt-auto space-y-1">
+                                  <div
+                                    className="w-full py-1 px-2 text-[8px] font-semibold text-center truncate"
+                                    style={{
+                                      background: tpl.buttonStyle === 'outline' ? 'transparent' : (tpl.buttonStyle === 'glass' ? `${tpl.button}26` : tpl.button),
+                                      color: tpl.buttonStyle === 'solid' ? buttonPreviewColor : tpl.button,
+                                      border: tpl.buttonStyle !== 'solid' ? `1.5px solid ${tpl.buttonBorder || tpl.button}` : 'none',
+                                      borderRadius: tpl.buttonShape === 'square' ? '0' : tpl.buttonShape === 'rounded' ? '4px' : '9999px',
+                                    }}
+                                  >
+                                    Open Guestbook
+                                  </div>
+                                  <div
+                                    className="w-full py-1 px-2 text-[8px] font-semibold text-center truncate"
+                                    style={{
+                                      background: tpl.buttonStyle === 'glass' ? `${tpl.button}20` : `${tpl.button}15`,
+                                      color: tpl.buttonStyle === 'solid' ? buttonPreviewColor : tpl.button,
+                                      border: `1px solid ${tpl.buttonBorder || tpl.button}`,
+                                      borderRadius: tpl.buttonShape === 'square' ? '0' : tpl.buttonShape === 'rounded' ? '4px' : '9999px',
+                                    }}
+                                  >
+                                    View Gallery
+                                  </div>
+                                </div>
                               </div>
                             </div>
                             <div className="px-2 py-2 text-center" style={{ background: '#ffffff' }}>
                               <div className="text-[11px] font-semibold leading-tight" style={{ color: '#353535' }}>{tpl.name}</div>
+                              <div className="text-[10px] mt-1 leading-tight text-gray-500 min-h-[26px]">
+                                {tpl.description || 'A polished starting point you can fully customize.'}
+                              </div>
                               {isSelected && <div className="text-[8px] mt-0.5 font-medium" style={{ color: tpl.button }}>Selected</div>}
                             </div>
                           </button>
@@ -1565,7 +1670,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Custom background */}
             {designMode === 'custom' && (
-              <Card title="Design Your Own - Choose Background" step="1" onBack={() => setDesignMode(null)}>
+              <Card title="Start Style" step="1" onBack={() => setDesignMode(null)}>
                 <Tabs value={bgTab} onChange={setBgTab} tabs={[
                   { id: 'solid', label: 'Solid Color' },
                   { id: 'stock', label: 'Stock Photos' },
@@ -1583,48 +1688,20 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       selected={artKeyData.theme.bg_color}
                       onSelect={(c) => handleColorSelect(c, 'background')}
                       onCustomColor={() => {
-                        const currentColor = artKeyData.theme.bg_color?.startsWith('#') ? artKeyData.theme.bg_color : '#000000';
-                        setCustomColor(currentColor);
                         setShowColorPicker({ type: 'background' });
                       }}
                     />
                     {showColorPicker.type === 'background' && (
-                      <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
-                          <input
-                            type="color"
-                            value={customColor}
-                            onChange={(e) => {
-                              setCustomColor(e.target.value);
-                              handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'background');
-                            }}
-                            className="h-8 w-16 rounded border"
-                            style={{ borderColor: '#d8d8d6' }}
-                          />
-                          <input
-                            type="text"
-                            value={customColor}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-                                setCustomColor(val);
-                                handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'background');
-                              }
-                            }}
-                            className="flex-1 px-2 py-1 rounded text-xs"
-                            style={{ border: '1px solid #d8d8d6' }}
-                            placeholder="#000000"
-                          />
-                          <button
-                            onClick={() => setShowColorPicker({ type: null })}
-                            className="px-2 py-1 rounded text-xs"
-                            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
-                          >
-                            ✓
-                          </button>
-                        </div>
-                      </div>
+                      <AdvancedColorPickerPopover
+                        title="Background Color"
+                        value={getColorTargetValue('background')}
+                        alpha={colorAlpha.background}
+                        recentColors={recentColors}
+                        onChange={(value, alpha) => handleAdvancedColorChange('background', value, alpha)}
+                        onSelectRecent={(value) => handleAdvancedColorChange('background', value, 1)}
+                        onClose={() => setShowColorPicker({ type: null })}
+                        palette={{ primary: COLOR_PRIMARY, alt: COLOR_ALT, accent: COLOR_ACCENT }}
+                      />
                     )}
                   </>
                 )}
@@ -1681,7 +1758,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Step 2 Title */}
             {designMode !== null && (
-              <Card title={designMode === 'template' ? 'Add Your Title' : 'Add Your Title and Title Color'} step="2">
+              <Card title="Portal Branding" step="2">
                 <input
                   type="text"
                   value={artKeyData.title}
@@ -1702,48 +1779,20 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       selected={artKeyData.theme.title_color}
                       onSelect={(c) => handleColorSelect(c, 'title')}
                       onCustomColor={() => {
-                        const currentColor = artKeyData.theme.title_color?.startsWith('#') ? artKeyData.theme.title_color : '#000000';
-                        setCustomColor(currentColor);
                         setShowColorPicker({ type: 'title' });
                       }}
                     />
                     {showColorPicker.type === 'title' && (
-                      <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
-                          <input
-                            type="color"
-                            value={customColor}
-                            onChange={(e) => {
-                              setCustomColor(e.target.value);
-                              handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'title');
-                            }}
-                            className="h-8 w-16 rounded border"
-                            style={{ borderColor: '#d8d8d6' }}
-                          />
-                          <input
-                            type="text"
-                            value={customColor}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-                                setCustomColor(val);
-                                handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'title');
-                              }
-                            }}
-                            className="flex-1 px-2 py-1 rounded text-xs"
-                            style={{ border: '1px solid #d8d8d6' }}
-                            placeholder="#000000"
-                          />
-                          <button
-                            onClick={() => setShowColorPicker({ type: null })}
-                            className="px-2 py-1 rounded text-xs"
-                            style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
-                          >
-                            ✓
-                          </button>
-                        </div>
-                      </div>
+                      <AdvancedColorPickerPopover
+                        title="Title Color"
+                        value={getColorTargetValue('title')}
+                        alpha={colorAlpha.title}
+                        recentColors={recentColors}
+                        onChange={(value, alpha) => handleAdvancedColorChange('title', value, alpha)}
+                        onSelectRecent={(value) => handleAdvancedColorChange('title', value, 1)}
+                        onClose={() => setShowColorPicker({ type: null })}
+                        palette={{ primary: COLOR_PRIMARY, alt: COLOR_ALT, accent: COLOR_ACCENT }}
+                      />
                     )}
                   </div>
                 )}
@@ -1763,7 +1812,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Step 3 Features & Colors */}
             {designMode !== null && (
-              <Card title="Choose ArtKey Features and Colors" step="3">
+              <Card title="Button Styling" step="3">
                 <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
                   <h4 className="text-sm font-semibold mb-3">Button Color</h4>
                   <ColorPicker
@@ -1775,48 +1824,20 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     selected={artKeyData.theme.button_color}
                     onSelect={(c) => handleColorSelect(c, 'button')}
                     onCustomColor={() => {
-                      const currentColor = artKeyData.theme.button_color?.startsWith('#') ? artKeyData.theme.button_color : '#000000';
-                      setCustomColor(currentColor);
                       setShowColorPicker({ type: 'button' });
                     }}
                   />
                   {showColorPicker.type === 'button' && (
-                    <div className="mt-3 p-3 rounded-lg border-2" style={{ borderColor: COLOR_ACCENT, background: COLOR_ALT }}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <label className="text-xs font-medium" style={{ color: COLOR_ACCENT }}>Custom Color:</label>
-                        <input
-                          type="color"
-                          value={customColor}
-                          onChange={(e) => {
-                            setCustomColor(e.target.value);
-                            handleColorSelect({ bg: e.target.value, color: e.target.value, label: 'Custom', type: 'solid' }, 'button');
-                          }}
-                          className="h-8 w-16 rounded border"
-                          style={{ borderColor: '#d8d8d6' }}
-                        />
-                        <input
-                          type="text"
-                          value={customColor}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-                              setCustomColor(val);
-                              handleColorSelect({ bg: val, color: val, label: 'Custom', type: 'solid' }, 'button');
-                            }
-                          }}
-                          className="flex-1 px-2 py-1 rounded text-xs"
-                          style={{ border: '1px solid #d8d8d6' }}
-                          placeholder="#000000"
-                        />
-                        <button
-                          onClick={() => setShowColorPicker({ type: null })}
-                          className="px-2 py-1 rounded text-xs"
-                          style={{ border: '1px solid #d8d8d6', background: COLOR_PRIMARY, color: COLOR_ACCENT }}
-                        >
-                          ✓
-                        </button>
-                      </div>
-                    </div>
+                    <AdvancedColorPickerPopover
+                      title="Button Color"
+                      value={getColorTargetValue('button')}
+                      alpha={colorAlpha.button}
+                      recentColors={recentColors}
+                      onChange={(value, alpha) => handleAdvancedColorChange('button', value, alpha)}
+                      onSelectRecent={(value) => handleAdvancedColorChange('button', value, 1)}
+                      onClose={() => setShowColorPicker({ type: null })}
+                      palette={{ primary: COLOR_PRIMARY, alt: COLOR_ALT, accent: COLOR_ACCENT }}
+                    />
                   )}
                 </div>
 
@@ -2156,7 +2177,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Add New Link Button - Simplified */}
             {designMode !== null && (
-              <Card title="Add New Link Button">
+              <Card title="Add Content">
                 <div className="space-y-3">
                   <div>
                     <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wide" style={{ color: '#888' }}>Button Name</label>
@@ -2197,7 +2218,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Step 5 Spotify */}
             {designMode !== null && artKeyData.features.enable_spotify && (
-              <Card title="Share Your Playlist">
+              <Card title="Add Content">
                 <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Playlist URL</label>
                 <div className="flex items-center gap-2">
                   <span className="text-xl">🔗</span>
@@ -2223,7 +2244,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Step 6 Media */}
             {designMode !== null && (artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
-              <Card title="Media Gallery">
+              <Card title="Add Content">
                 <div className="grid grid-cols-2 gap-4">
                   <div 
                     className={`p-4 rounded-lg border-2 transition-all ${
@@ -2259,6 +2280,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                           accept="image/*"
                           inputId="image-upload"
                           buttonLabel="+ Upload"
+                          uploadStatus={imageUploadStatus}
                         />
                       </div>
                     )}
@@ -2327,7 +2349,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 
             {/* Step 7 Settings */}
             {designMode !== null && (artKeyData.features.show_guestbook || artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
-              <Card title="ArtKey Settings">
+              <Card title="Review / Actions">
                 {artKeyData.features.show_guestbook && (
                   <SettingsBlock title="📖 Guestbook Settings">
                     <label className="flex items-center gap-2 text-sm">
@@ -2999,7 +3021,7 @@ function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, button
           {buttonLabel}
         </label>
       </div>
-      {isVideo && uploadStatus && uploadStatus.state !== 'idle' && (
+      {uploadStatus && uploadStatus.state !== 'idle' && (
         <div
           className="mt-2 text-xs px-2 py-1.5 rounded-lg"
           style={{
