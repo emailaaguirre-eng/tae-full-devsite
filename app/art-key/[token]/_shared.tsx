@@ -136,6 +136,7 @@ export function parseFontFamily(fontValue?: string): string {
   if (fontValue.startsWith("g:")) return `"${fontValue.replace("g:", "")}", sans-serif`;
   if (fontValue === "system") return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   if (fontValue === "serif") return 'Georgia, "Times New Roman", serif';
+  if (fontValue === "mono") return '"Courier New", Courier, monospace';
   return fontValue;
 }
 
@@ -220,6 +221,8 @@ export function PortalScaffold({
   children: React.ReactNode;
 }) {
   const theme = portal.theme || {};
+  const rawBgColor = theme.bg_color || "#1a1a2e";
+  const hasGradientBg = typeof rawBgColor === "string" && rawBgColor.includes("gradient(");
   const textColor = theme.text_color || "#ffffff";
   const titleColor = theme.title_color || "#ffffff";
   const buttonColor = theme.button_color || "#3b82f6";
@@ -231,7 +234,8 @@ export function PortalScaffold({
     <div
       className="min-h-screen w-full flex flex-col items-center"
       style={{
-        backgroundColor: theme.bg_color || "#1a1a2e",
+        background: !previewBg && hasGradientBg ? rawBgColor : undefined,
+        backgroundColor: !hasGradientBg ? rawBgColor : undefined,
         backgroundImage: previewBg ? `url(${previewBg})` : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",
