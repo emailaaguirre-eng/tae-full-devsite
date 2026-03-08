@@ -18,6 +18,9 @@ const HERO_BG_DEFAULT = mediaUrl(
 const HERO_COLLAGE_IMAGE = mediaUrl(
   "https://theartfulexperience.com/wp-content/uploads/2026/03/collage.png"
 );
+const HERO_BIRTH_ANNOUNCEMENT_IMAGE = mediaUrl(
+  "https://theartfulexperience.com/wp-content/uploads/2026/03/Bazaart_D14E06B0-F137-4F23-911C-FA13D1A65D58.jpeg"
+);
 
 export default function Hero() {
   const heroBackground = useSiteMedia("hero.background", HERO_BG_DEFAULT);
@@ -30,7 +33,7 @@ export default function Hero() {
   
   const [heroContent, setHeroContent] = useState<HeroContent>(heroData);
   
-  const totalSlides = 3;
+  const totalSlides = 4;
   const autoPlayInterval = 8000; // 8 seconds per slide
 
   // Fetch hero content from WordPress
@@ -295,6 +298,31 @@ export default function Hero() {
                 </div>
               </div>
             </div>
+
+            {/* SLIDE 4: Birth Announcement */}
+            <div className="w-full flex-shrink-0 px-4 sm:px-6 lg:px-8">
+              <div className="max-w-6xl mx-auto">
+                <div className="bg-white p-8 shadow-lg">
+                  <div className="grid lg:grid-cols-2 gap-8 items-center">
+                    <div>
+                      <h2 className="text-2xl md:text-3xl font-bold text-brand-darkest mb-4 font-playfair">
+                        An elevated birth announcement turned legacy.
+                      </h2>
+                      <p className="text-base md:text-lg text-brand-dark leading-relaxed">
+                        Birth announcements designed to be revisited, shared, and remembered.
+                      </p>
+                    </div>
+                    <div className="w-full bg-white/80 flex items-center justify-center overflow-hidden shadow-xl border border-brand-light/60">
+                      <img
+                        src={HERO_BIRTH_ANNOUNCEMENT_IMAGE}
+                        alt="Birth announcement concept"
+                        className="w-full h-auto object-contain"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -313,7 +341,7 @@ export default function Hero() {
 
           {/* Dots */}
           <div className="flex gap-3">
-            {[0, 1, 2].map((index) => (
+            {[0, 1, 2, 3].map((index) => (
               <button
                 key={index}
                 onClick={() => goToSlide(index)}
