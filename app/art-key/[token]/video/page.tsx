@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import {
   ErrorScreen,
@@ -49,7 +49,7 @@ export default function ArtKeyVideoPage() {
     );
   }
 
-  const youtubeEmbed = useMemo(() => toYoutubeEmbed(source), [source]);
+  const youtubeEmbed = toYoutubeEmbed(source);
   const directVideo = isDirectVideo(source);
 
   return (
