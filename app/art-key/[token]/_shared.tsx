@@ -149,6 +149,36 @@ function getButtonTextColor(bgColor: string): string {
   return brightness > 150 ? "#111111" : "#ffffff";
 }
 
+function getRelativeLuminance(hexColor: string): number {
+  const r = parseInt(hexColor.slice(1, 3), 16) / 255;
+  const g = parseInt(hexColor.slice(3, 5), 16) / 255;
+  const b = parseInt(hexColor.slice(5, 7), 16) / 255;
+  const toLinear = (channel: number) =>
+    channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+  const rl = toLinear(r);
+  const gl = toLinear(g);
+  const bl = toLinear(b);
+  return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
+}
+
+function getContrastRatio(hexA: string, hexB: string): number {
+  const l1 = getRelativeLuminance(hexA);
+  const l2 = getRelativeLuminance(hexB);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function getGradientButtonTextColor(gradient: string, fallbackButtonColor: string): string {
+  const gradientHexes = gradient.match(/#[0-9a-fA-F]{6}/g) || [];
+  const backgroundStops = gradientHexes.length ? gradientHexes : [fallbackButtonColor];
+  const black = "#111111";
+  const white = "#ffffff";
+  const blackMinContrast = Math.min(...backgroundStops.map((stop) => getContrastRatio(black, stop)));
+  const whiteMinContrast = Math.min(...backgroundStops.map((stop) => getContrastRatio(white, stop)));
+  return blackMinContrast >= whiteMinContrast ? black : white;
+}
+
 export function getButtonStyle(theme: PortalData["theme"]): React.CSSProperties {
   const buttonColor = theme.button_color || "#3b82f6";
   const buttonShape = theme.button_shape || "pill";
@@ -179,7 +209,7 @@ export function getButtonStyle(theme: PortalData["theme"]): React.CSSProperties 
     return {
       ...base,
       background: theme.button_gradient,
-      color: /^#[0-9a-fA-F]{6}$/.test(buttonColor) ? getButtonTextColor(buttonColor) : "#ffffff",
+      color: getGradientButtonTextColor(theme.button_gradient, buttonColor),
     };
   }
   return { ...base, backgroundColor: buttonColor, color: getButtonTextColor(buttonColor) };
