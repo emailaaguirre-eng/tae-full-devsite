@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import Hero from "@/components/Hero";
 import ProductCategories from "@/components/ProductCategories";
 import {
-  ArtTechnologySection,
   EveryProductIncludesArtKeySection,
   WhatIsTheArtfulExperienceSection,
 } from "@/components/WhatWeAre";
@@ -19,7 +18,6 @@ export default function HomePage() {
       <Hero />
       <Testimonials />
       <HowItWorks />
-      <ArtTechnologySection />
       <WhatIsTheArtfulExperienceSection />
       <ProductCategories />
       <EveryProductIncludesArtKeySection />
