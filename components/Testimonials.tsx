@@ -19,7 +19,7 @@ const TESTIMONIAL_DATA = [
 function TestimonialImage({ mediaKey, defaultImage, alt }: { mediaKey: string; defaultImage: string; alt: string }) {
   const src = useSiteMedia(mediaKey, mediaUrl(defaultImage));
   if (!src) return null;
-  return <Image src={src} alt={alt} fill className="object-cover object-center" />;
+  return <Image src={src} alt={alt} fill className="object-contain" />;
 }
 
 export default function Testimonials() {
