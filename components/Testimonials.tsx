@@ -5,8 +5,8 @@ import { mediaUrl } from "@/lib/media";
 import { useSiteMedia } from "@/hooks/useSiteMedia";
 
 const TESTIMONIAL_DATA = [
-  { name: "Deanna Lankin", location: "Testimonial details coming soon", mediaKey: "testimonials.8", defaultImage: "https://theartfulexperience.com/wp-content/uploads/2025/12/bctestimonial.png", text: "Final approved testimonial copy for Deanna Lankin is pending and will be added in this same format." },
-  { name: "Katelyn", location: "Testimonial details coming soon", mediaKey: "testimonials.9", defaultImage: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/river-1.jpg", text: "Final approved testimonial copy for Katelyn is pending and will be added in this same format." },
+  { name: "Deanna Lankin", location: "Testimonial details coming soon", mediaKey: "testimonials.8", defaultImage: "", text: "Final approved testimonial copy for Deanna Lankin is pending and will be added in this same format." },
+  { name: "Katelyn", location: "Testimonial details coming soon", mediaKey: "testimonials.9", defaultImage: "", text: "Final approved testimonial copy for Katelyn is pending and will be added in this same format." },
   { name: "Bryant Colman", location: "Founder - The Artful Experience | Entrepreneur | Global Explorer | Innovator", mediaKey: "testimonials.7", defaultImage: "https://theartfulexperience.com/wp-content/uploads/2025/12/bctestimonial.png", text: "For twenty years I\u2019ve sent holiday cards to stay connected with family, friends, and clients. This year I reimagined the tradition through The Artful Experience, sharing an interactive experience with a personal video, favorite discoveries from the year, and a guestbook for friends to reconnect. What began as a holiday greeting became a living, shared experience." },
   { name: "River", location: "Coach & Founder, Madinah\u2019s Living Farmacy", mediaKey: "testimonials.1", defaultImage: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/river-1.jpg", text: "As a coach, I love how TheAE reinforces the power of imagery, affirmations, and interactive reflection. It transforms a single moment into a living reminder of the mindset where anything is possible. I would recommend theAE platform to any coach at any level." },
   { name: "Grant", location: "Russ Lyon's Sotheby's International", mediaKey: "testimonials.3", defaultImage: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/IMG_0814.jpeg", text: "I wanted memorable gifts for my real estate clients. The art was amazing and the ArtKeys\u2122 let me deliver time-released messages and e-gift cards\u2014perfect for VIPs. The customization options and the ability to add personalized content made each gift truly special." },
@@ -18,6 +18,7 @@ const TESTIMONIAL_DATA = [
 
 function TestimonialImage({ mediaKey, defaultImage, alt }: { mediaKey: string; defaultImage: string; alt: string }) {
   const src = useSiteMedia(mediaKey, mediaUrl(defaultImage));
+  if (!src) return null;
   return <Image src={src} alt={alt} fill className="object-cover object-top" />;
 }
 
@@ -41,7 +42,7 @@ export default function Testimonials() {
         </div>
 
         {/* Testimonials Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
           {testimonials.map((testimonial, index) => (
             <div 
               key={index} 
