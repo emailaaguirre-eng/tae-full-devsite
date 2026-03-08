@@ -15,6 +15,9 @@ interface HeroContent {
 const HERO_BG_DEFAULT = mediaUrl(
   "https://theartfulexperience.com/wp-content/uploads/2026/01/herowedding.png"
 );
+const HERO_COLLAGE_IMAGE = mediaUrl(
+  "https://theartfulexperience.com/wp-content/uploads/2026/03/collage.png"
+);
 
 export default function Hero() {
   const heroBackground = useSiteMedia("hero.background", HERO_BG_DEFAULT);
@@ -127,39 +130,39 @@ export default function Hero() {
             className="flex transition-transform duration-700 ease-in-out"
             style={{ transform: `translateX(-${currentSlide * 100}%)` }}
           >
-            {/* SLIDE 1: Coming Soon */}
+            {/* SLIDE 1: ArtKey Living Experience */}
             <div className="w-full flex-shrink-0 px-4 sm:px-6 lg:px-8">
               <div className="max-w-6xl mx-auto">
                 <div className="bg-white p-8 shadow-lg">
-                  <h2 className="text-2xl md:text-3xl font-bold text-brand-darkest mb-6 font-playfair text-center">
-                    We&apos;re Building Something Special
-                  </h2>
-                  <div className="text-lg text-brand-darkest max-w-4xl mx-auto mb-6 text-left space-y-4">
-                    <p>
-                      A destination where art comes to life. From original paintings and photography (even from your phone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
-                    </p>
-                    <p>
-                      Through our proprietary ArtKey™ technology, any artwork, image, or card becomes an interactive experience. Upload a personal video, curated playlist, heartfelt message, or e-gift card, and transform what you give into something that speaks, evolves, and endures.
-                    </p>
-                    <p>
-                      Every piece becomes more than an object.
-                    </p>
-                    <p>
-                      It becomes a story.<br />
-                      A memory.<br />
-                      An experience that&apos;s meant to be returned to, not tucked away.
-                    </p>
-                    <p className="font-bold">
-                      We invite you to explore, and look forward to our official launch in early 2026.
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <button
-                      onClick={() => setShowSignUpModal(true)}
-                      className="inline-block bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg"
-                    >
-                      Sign up for updates
-                    </button>
+                  <div className="grid lg:grid-cols-2 gap-8 items-center">
+                    <div>
+                      <h2 className="text-2xl md:text-3xl font-bold text-brand-darkest mb-4 font-playfair">
+                        Turn a Meaningful Image Into a Living Experience
+                      </h2>
+                      <p className="text-lg text-brand-darkest mb-4">
+                        Each piece includes an ArtKey™ that unlocks videos, music, messages, photos, and surprises when scanned.
+                      </p>
+                      <p className="text-base text-brand-dark mb-3">
+                        When scanned, the ArtKey™ can reveal:
+                      </p>
+                      <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-brand-darkest text-sm md:text-base">
+                        <li>• Videos</li>
+                        <li>• Music and playlists</li>
+                        <li>• Photos and memories</li>
+                        <li>• Personal messages</li>
+                        <li>• Gift cards and surprises</li>
+                        <li>• Social media links</li>
+                        <li>• Favorite places and recommendations</li>
+                        <li>• Updates added over time</li>
+                      </ul>
+                    </div>
+                    <div className="w-full bg-white/80 flex items-center justify-center overflow-hidden shadow-xl border border-brand-light/60">
+                      <img
+                        src={HERO_COLLAGE_IMAGE}
+                        alt="ArtKey living experience collage"
+                        className="w-full h-auto object-contain"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
