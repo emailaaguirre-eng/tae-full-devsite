@@ -12,7 +12,6 @@ import {
   DEFAULT_WATERMARK,
   mergeProductMeta,
   parseRequiresQrCode,
-  parseCustomizable,
   parseWatermarkSettings,
   parseProductMeta,
 } from '@/lib/product-watermark';
@@ -112,7 +111,6 @@ export async function GET(req: Request) {
         categoryPathLabel: buildPathLabel(p.categoryId),
         proofTerms: getProofTermsFromMeta(p.printfulDataJson),
         requiresQrCode: parseRequiresQrCode(p.printfulDataJson) ?? (cat?.requiresQrCode ?? false),
-        customizable: parseCustomizable(p.printfulDataJson) ?? false,
         watermark: parseWatermarkSettings(p.printfulDataJson),
         pricing,
       };
@@ -194,7 +192,6 @@ export async function POST(req: Request) {
         withProofTermsMeta(null, body.proofTerms || ''),
         {
           requiresQrCode: typeof body.requiresQrCode === 'boolean' ? body.requiresQrCode : undefined,
-          customizable: typeof body.customizable === 'boolean' ? body.customizable : undefined,
           watermark: body.watermark || DEFAULT_WATERMARK,
           pricing: body.pricing || DEFAULT_PRICING,
         }

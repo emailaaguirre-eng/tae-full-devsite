@@ -1405,7 +1405,7 @@ export function CustomizationStudio({
     if (textAlign !== nextAlign) setTextAlign(nextAlign);
     if (!nearlyEqual(textLineHeight, nextLineHeight, 0.005)) setTextLineHeight(nextLineHeight);
     if (!nearlyEqual(textLetterSpacing, nextLetterSpacing, 0.005)) setTextLetterSpacing(nextLetterSpacing);
-  }, [selectedId, selectedType, selectedTextItem]);
+  }, [selectedTextItem, textAlign, textBold, textColor, textFont, textInput, textItalic, textLetterSpacing, textLineHeight, textSize, textUnderline]);
 
   // -------------------------------------------------------------------------
   // UNDO / REDO (push history when designs change)

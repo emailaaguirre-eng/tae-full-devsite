@@ -3,53 +3,43 @@ import { createAdminToken, validateAdminCredentials, COOKIE_NAME } from '@/lib/a
 
 export async function POST(req: Request) {
   try {
-    const { username, password } = await req.json();
+    const { email, password } = await req.json();
 
-    if (!username || !password) {
-      return NextResponse.json(
-        { success: false, error: 'Username and password required' },
-        { status: 400 }
-      );
+    if (!email || !password) {
+      return NextResponse.json({ success: false, error: 'Email and password required' }, { status: 400 });
     }
 
-    const authResult = await validateAdminCredentials(username, password);
+    const authResult = await validateAdminCredentials(email, password);
     if (!authResult) {
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
     }
 
     const token = createAdminToken({
       userId: authResult.userId,
-      username: authResult.username,
       email: authResult.email,
       role: authResult.role,
       isOwner: authResult.isOwner,
     });
-
     const response = NextResponse.json({
       success: true,
       user: {
-        username: authResult.username,
         email: authResult.email,
         role: authResult.role,
         isOwner: authResult.isOwner,
         mustResetPassword: authResult.mustResetPassword,
       },
     });
-
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24,
+      maxAge: 60 * 60 * 24, // 24 hours
       path: '/',
     });
 
     return response;
   } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: err?.message || 'Login failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: err?.message || 'Login failed' }, { status: 500 });
   }
 }
 

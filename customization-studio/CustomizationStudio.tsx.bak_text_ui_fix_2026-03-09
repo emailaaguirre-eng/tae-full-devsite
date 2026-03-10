@@ -1405,7 +1405,7 @@ export function CustomizationStudio({
     if (textAlign !== nextAlign) setTextAlign(nextAlign);
     if (!nearlyEqual(textLineHeight, nextLineHeight, 0.005)) setTextLineHeight(nextLineHeight);
     if (!nearlyEqual(textLetterSpacing, nextLetterSpacing, 0.005)) setTextLetterSpacing(nextLetterSpacing);
-  }, [selectedId, selectedType, selectedTextItem]);
+  }, [selectedTextItem, textAlign, textBold, textColor, textFont, textInput, textItalic, textLetterSpacing, textLineHeight, textSize, textUnderline]);
 
   // -------------------------------------------------------------------------
   // UNDO / REDO (push history when designs change)
@@ -3799,129 +3799,6 @@ export function CustomizationStudio({
                       />
                     </button>
                   </div>
-
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Font
-                      </label>
-                      <select
-                        value={textFont}
-                        onChange={(e) => setTextFont(e.target.value)}
-                        className="w-full border rounded px-2 py-2 text-sm"
-                        style={{ borderColor: BRAND.light }}
-                      >
-                        {FONT_OPTIONS.map((option) => (
-                          <option key={option.family} value={option.family}>
-                            {option.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Text Size
-                      </label>
-                      <input
-                        type="number"
-                        min={8}
-                        max={300}
-                        step={1}
-                        value={textSize}
-                        onChange={(e) => setTextSize(Math.max(8, Math.min(300, Number(e.target.value) || 48)))}
-                        className="w-full border rounded px-2 py-2 text-sm"
-                        style={{ borderColor: BRAND.light }}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Style
-                      </label>
-                      <div className="grid grid-cols-3 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setTextBold((prev) => !prev)}
-                          className="px-2 py-2 rounded text-sm font-semibold"
-                          style={{
-                            background: textBold ? BRAND.accent : BRAND.light,
-                            color: textBold ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Bold"
-                        >
-                          B
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTextItalic((prev) => !prev)}
-                          className="px-2 py-2 rounded text-sm italic"
-                          style={{
-                            background: textItalic ? BRAND.accent : BRAND.light,
-                            color: textItalic ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Italic"
-                        >
-                          I
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTextUnderline((prev) => !prev)}
-                          className="px-2 py-2 rounded text-sm underline"
-                          style={{
-                            background: textUnderline ? BRAND.accent : BRAND.light,
-                            color: textUnderline ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Underline"
-                        >
-                          U
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Alignment
-                      </label>
-                      <div className="grid grid-cols-3 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setTextAlign("left")}
-                          className="px-2 py-2 rounded text-sm"
-                          style={{
-                            background: textAlign === "left" ? BRAND.accent : BRAND.light,
-                            color: textAlign === "left" ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Align left"
-                        >
-                          Left
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTextAlign("center")}
-                          className="px-2 py-2 rounded text-sm"
-                          style={{
-                            background: textAlign === "center" ? BRAND.accent : BRAND.light,
-                            color: textAlign === "center" ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Align center"
-                        >
-                          Center
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTextAlign("right")}
-                          className="px-2 py-2 rounded text-sm"
-                          style={{
-                            background: textAlign === "right" ? BRAND.accent : BRAND.light,
-                            color: textAlign === "right" ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Align right"
-                        >
-                          Right
-                        </button>
-                      </div>
-                    </div>
-
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>

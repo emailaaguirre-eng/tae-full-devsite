@@ -10,7 +10,7 @@
  *   Accent: #353535
  */
 import React, { useEffect, useMemo, useState, Suspense } from 'react';
-import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { ARTKEY_ADMIN_DASHBOARD_PATH } from '@/lib/routes';
 import { 
@@ -97,7 +97,6 @@ interface ArtKeyData {
 
 function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const searchParams = useSearchParams();
-  const pathname = usePathname();
   const router = useRouter();
   const { addToCart } = useCart();
   const productId = searchParams.get('product_id');
@@ -112,11 +111,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const [studioExport, setStudioExport] = useState<any>(null);
   const [portalLoaded, setPortalLoaded] = useState(false);
   const editorMode = useMemo<'customer' | 'host' | 'demo'>(() => {
-    const isDemoRoute = pathname.startsWith('/artkey-editor');
-    if (fromAdmin && ownerTokenParam && isDemoRoute) return 'demo';
+    if (fromAdmin && isAdmin) return 'demo';
     if (ownerTokenParam || fromAdmin) return 'host';
     return 'customer';
-  }, [fromAdmin, ownerTokenParam, pathname]);
+  }, [fromAdmin, isAdmin, ownerTokenParam]);
   const modeHeading = {
     customer: 'Build Your ArtKey Portal',
     host: 'Edit Your ArtKey Portal',
@@ -768,13 +766,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         artKeyData.features.enable_custom_links = true;
       }
       
-      const resolvedPortalToken = (
-        portalToken ||
-        savedPortalToken ||
-        (artKeyData as any)?.portal_token ||
-        ''
-      ).trim();
-
       const dataToSave = {
         ...artKeyData,
         links: rebuiltCustomLinks.length > 0 ? rebuiltCustomLinks : customLinks,
@@ -793,7 +784,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       }
 
       // If coming from admin demo builder, save directly to portal API
-      if (fromAdmin && resolvedPortalToken && ownerTokenParam) {
+      if (fromAdmin && portalToken && ownerTokenParam) {
         const portalPayload = {
           title: artKeyData.title,
           theme: artKeyData.theme,
@@ -805,7 +796,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           uploadedImages: artKeyData.uploadedImages,
           uploadedVideos: artKeyData.uploadedVideos,
         };
-        const portalRes = await fetch(`/api/portal/${resolvedPortalToken}`, {
+        const portalRes = await fetch(`/api/portal/${portalToken}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -815,7 +806,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         });
         const portalData = await portalRes.json();
         if (portalData.success) {
-          const portalUrl = buildArtKeyPortalUrl(resolvedPortalToken);
+          const portalUrl = buildArtKeyPortalUrl(portalToken);
           if (redirectToShop) {
             router.push('/b_d_admn_tae/artkey-demos');
           } else {
@@ -828,10 +819,11 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       }
 
       // For existing portals, always use protected portal update API.
-      if (resolvedPortalToken) {
+      const existingPortalToken = (savedPortalToken || artkeyId || '').trim();
+      if (existingPortalToken) {
         const sessionOwnerToken =
           typeof window !== 'undefined'
-            ? sessionStorage.getItem(`portal_owner_${resolvedPortalToken}`) || ''
+            ? sessionStorage.getItem(`portal_owner_${existingPortalToken}`) || ''
             : '';
         const effectiveOwnerToken = (ownerTokenParam || sessionOwnerToken || '').trim();
         const headers: Record<string, string> = {
@@ -853,7 +845,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           uploadedVideos: artKeyData.uploadedVideos,
         };
 
-        const portalRes = await fetch(`/api/portal/${resolvedPortalToken}`, {
+        const portalRes = await fetch(`/api/portal/${existingPortalToken}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(portalPayload),
@@ -868,7 +860,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           return;
         }
 
-        const portalUrl = buildArtKeyPortalUrl(resolvedPortalToken);
+        const portalUrl = buildArtKeyPortalUrl(existingPortalToken);
 
         if (redirectToShop && fromStudio && studioExport?.productSpec) {
           const spec = studioExport.productSpec;
@@ -918,7 +910,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               frame: customizationData.customizations?.frame,
               frameColor: customizationData.customizations?.frameColor,
               uploadedImage: customizationData.designData?.imageDataUrl,
-              artkeyId: artkeyId || resolvedPortalToken,
+              artkeyId: artkeyId || existingPortalToken,
               artkeyUrl: portalUrl,
             },
           };
@@ -931,7 +923,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       }
 
       const savePayload = {
-        data: { ...dataToSave, token: resolvedPortalToken || undefined },
+        data: { ...dataToSave, token: savedPortalToken || dataToSave.token },
         product_id: productId,
       };
       const res = await fetch('/api/artkey/save', {
@@ -1287,7 +1279,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex justify-between items-center flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              {editorMode === 'demo' && (
+              {isAdmin && (
                 <button
                   onClick={() => {
                     if (process.env.NODE_ENV !== 'production') {
@@ -1321,36 +1313,32 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                 )}
               </div>
             </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleSave(false)}
-                  disabled={isSaving}
-                  className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:bg-white/20 disabled:opacity-50"
-                  style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.2)' }}
-                >
-                  {isSaving ? 'Saving...' : editorMode === 'customer' ? 'Save Draft' : 'Save'}
-                </button>
-                {editorMode === 'customer' && (
-                  <>
-                    <button
-                      onClick={handleSaveAndContinue}
-                      disabled={isSaving}
-                      className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50"
-                      style={{ background: 'rgba(255,255,255,0.95)', color: '#1a1a2e' }}
-                    >
-                      {isSaving ? 'Saving...' : 'Save & Continue →'}
-                    </button>
-                    <button
-                      onClick={handleSaveAndCheckout}
-                      disabled={isSaving}
-                      className="px-4 py-2 rounded-lg font-semibold text-sm transition-all hover:opacity-90 disabled:opacity-50"
-                      style={{ background: 'linear-gradient(135deg, #C9A962, #D4AF37)', color: '#1a1a2e' }}
-                    >
-                      {isSaving ? 'Saving...' : 'Save & Checkout'}
-                    </button>
-                  </>
-                )}
-              </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleSave(false)}
+                disabled={isSaving}
+                className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:bg-white/20 disabled:opacity-50"
+                style={{ background: 'rgba(255,255,255,0.1)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.2)' }}
+              >
+                {isSaving ? 'Saving...' : 'Save Draft'}
+              </button>
+              <button
+                onClick={handleSaveAndContinue}
+                disabled={isSaving}
+                className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50"
+                style={{ background: 'rgba(255,255,255,0.95)', color: '#1a1a2e' }}
+              >
+                {isSaving ? 'Saving...' : 'Save & Continue →'}
+              </button>
+              <button
+                onClick={handleSaveAndCheckout}
+                disabled={isSaving}
+                className="px-4 py-2 rounded-lg font-semibold text-sm transition-all hover:opacity-90 disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #C9A962, #D4AF37)', color: '#1a1a2e' }}
+              >
+                {isSaving ? 'Saving...' : 'Save & Checkout'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

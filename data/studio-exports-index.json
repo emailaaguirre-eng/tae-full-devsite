@@ -1,5 +1,33 @@
 [
   {
+    "exportId": "studio_mmk62izlcyng9nsqe3s",
+    "source": "studio",
+    "shopProductId": "cmkuhb85g0006itxu6scdazl1",
+    "productSlug": "greeting-card-large",
+    "productName": "Greeting Card - Large (5.83\" x 8.27\" / A5)",
+    "studioRenderSignature": "default:256422:data:image/png;base64,iVBORw0KGg|back:124818:data:image/png;base64,iVBORw0KGg|inside:236222:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mmk62izlcyng9nsqe3s/default.png"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mmk62izlcyng9nsqe3s/back.png"
+      },
+      {
+        "placement": "inside",
+        "relativeUrl": "/uploads/studio-exports/studio_mmk62izlcyng9nsqe3s/inside.png"
+      }
+    ],
+    "createdAt": "2026-03-10T05:25:40.641Z"
+  },
+  {
     "exportId": "studio_mm6jifrtgs3jv7ccee",
     "source": "studio",
     "shopProductId": "f174a7f1-f707-4831-a539-6df6b8ca5d75",

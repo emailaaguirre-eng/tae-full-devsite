@@ -20,7 +20,6 @@ export interface PortalData {
     header_icon?: string;
     button_shape?: string;
     button_style?: string;
-    button_border?: string;
   };
   features: {
     enable_gallery?: boolean;
@@ -182,7 +181,6 @@ function getGradientButtonTextColor(gradient: string, fallbackButtonColor: strin
 
 export function getButtonStyle(theme: PortalData["theme"]): React.CSSProperties {
   const buttonColor = theme.button_color || "#3b82f6";
-  const buttonBorder = theme.button_border || buttonColor;
   const buttonShape = theme.button_shape || "pill";
   const buttonStyle = theme.button_style || "solid";
   const buttonBorderRadius =
@@ -193,7 +191,7 @@ export function getButtonStyle(theme: PortalData["theme"]): React.CSSProperties 
     return {
       ...base,
       backgroundColor: "transparent",
-      border: `2px solid ${buttonBorder}`,
+      border: `2px solid ${buttonColor}`,
       color: buttonColor,
     };
   }
@@ -266,14 +264,11 @@ export function PortalScaffold({
     <div
       className="min-h-screen w-full flex flex-col items-center"
       style={{
-        backgroundImage: previewBg
-          ? `url(${previewBg})`
-          : hasGradientBg
-            ? rawBgColor
-            : undefined,
-        backgroundColor: !previewBg && !hasGradientBg ? rawBgColor : undefined,
-        backgroundSize: previewBg || hasGradientBg ? "cover" : undefined,
-        backgroundPosition: previewBg || hasGradientBg ? "center" : undefined,
+        background: !previewBg && hasGradientBg ? rawBgColor : undefined,
+        backgroundColor: !hasGradientBg ? rawBgColor : undefined,
+        backgroundImage: previewBg ? `url(${previewBg})` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
         fontFamily: parseFontFamily(theme.font),
       }}
     >

@@ -17,6 +17,7 @@ export interface ProductMeta {
   proofTerms?: string;
   watermark?: ProductWatermarkSettings;
   requiresQrCode?: boolean;
+  customizable?: boolean;
   pricing?: {
     marginTarget?: number;
     artistRoyalty?: number;
@@ -103,6 +104,13 @@ export function parseRequiresQrCode(
 ): boolean | undefined {
   const meta = parseProductMeta(raw);
   return typeof meta.requiresQrCode === "boolean" ? meta.requiresQrCode : undefined;
+}
+
+export function parseCustomizable(
+  raw: string | null | undefined
+): boolean | undefined {
+  const meta = parseProductMeta(raw);
+  return typeof meta.customizable === "boolean" ? meta.customizable : undefined;
 }
 
 export function buildProductPreviewUrl(

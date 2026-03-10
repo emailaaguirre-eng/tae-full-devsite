@@ -27,10 +27,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body
-        className="min-h-screen flex flex-col"
-        style={suppressSiteChrome ? { backgroundColor: "#1a1a2e" } : undefined}
-      >
+      <body className="min-h-screen flex flex-col">
         <CartProvider>
           <LayoutShell suppressSiteChrome={suppressSiteChrome}>
             {children}

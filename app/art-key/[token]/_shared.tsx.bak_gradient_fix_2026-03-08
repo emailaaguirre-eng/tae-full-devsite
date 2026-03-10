@@ -266,14 +266,11 @@ export function PortalScaffold({
     <div
       className="min-h-screen w-full flex flex-col items-center"
       style={{
-        backgroundImage: previewBg
-          ? `url(${previewBg})`
-          : hasGradientBg
-            ? rawBgColor
-            : undefined,
-        backgroundColor: !previewBg && !hasGradientBg ? rawBgColor : undefined,
-        backgroundSize: previewBg || hasGradientBg ? "cover" : undefined,
-        backgroundPosition: previewBg || hasGradientBg ? "center" : undefined,
+        background: !previewBg && hasGradientBg ? rawBgColor : undefined,
+        backgroundColor: !hasGradientBg ? rawBgColor : undefined,
+        backgroundImage: previewBg ? `url(${previewBg})` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
         fontFamily: parseFontFamily(theme.font),
       }}
     >

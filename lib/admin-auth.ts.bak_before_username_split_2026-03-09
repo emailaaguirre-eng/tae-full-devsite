@@ -13,7 +13,6 @@ type AdminRole = 'superuser' | 'admin';
 
 interface AdminSessionToken {
   userId: string;
-  username: string;
   email: string;
   role: AdminRole;
   isOwner: boolean;
@@ -23,7 +22,6 @@ interface AdminSessionToken {
 
 interface DbAdminUser {
   id: string;
-  username: string;
   email: string;
   firstName: string | null;
   lastName: string | null;
@@ -37,7 +35,6 @@ interface DbAdminUser {
 interface AdminSession {
   authenticated: boolean;
   userId?: string;
-  username?: string;
   email?: string;
   role?: AdminRole;
   isOwner?: boolean;
@@ -46,10 +43,6 @@ interface AdminSession {
 let ensurePromise: Promise<void> | null = null;
 
 function normalizeEmail(input: string): string {
-  return input.trim().toLowerCase();
-}
-
-function normalizeUsername(input: string): string {
   return input.trim().toLowerCase();
 }
 
@@ -77,7 +70,6 @@ async function ensureAdminSchema(): Promise<void> {
   await executeSql(`
     CREATE TABLE IF NOT EXISTS AdminUser (
       id TEXT PRIMARY KEY,
-      username TEXT UNIQUE,
       email TEXT UNIQUE NOT NULL,
       firstName TEXT,
       lastName TEXT,
@@ -93,12 +85,6 @@ async function ensureAdminSchema(): Promise<void> {
   `);
 
   try {
-    await executeSql('ALTER TABLE AdminUser ADD COLUMN username TEXT');
-  } catch (err: any) {
-    if (!String(err?.message || err).toLowerCase().includes('duplicate column name')) throw err;
-  }
-
-  try {
     await executeSql('ALTER TABLE AdminUser ADD COLUMN firstName TEXT');
   } catch (err: any) {
     if (!String(err?.message || err).toLowerCase().includes('duplicate column name')) throw err;
@@ -109,17 +95,6 @@ async function ensureAdminSchema(): Promise<void> {
   } catch (err: any) {
     if (!String(err?.message || err).toLowerCase().includes('duplicate column name')) throw err;
   }
-
-  await executeSql(`
-    UPDATE AdminUser
-    SET username = lower(trim(email))
-    WHERE username IS NULL OR trim(username) = ''
-  `);
-
-  await executeSql(`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_adminuser_username_lower
-    ON AdminUser(lower(username))
-  `);
 
   await executeSql(`
     CREATE TABLE IF NOT EXISTS AdminAuditLog (
@@ -151,13 +126,13 @@ async function ensureAdminSchema(): Promise<void> {
   await saveDatabase();
 }
 
-function getOwnerEnvPairs(): Array<{ username: string; password: string }> {
-  const pairs: Array<{ username: string; password: string }> = [];
+function getOwnerEnvPairs(): Array<{ email: string; password: string }> {
+  const pairs: Array<{ email: string; password: string }> = [];
   for (let i = 0; i < OWNER_USERNAME_KEYS.length; i += 1) {
-    const username = normalizeUsername(process.env[OWNER_USERNAME_KEYS[i]] || '');
+    const email = normalizeEmail(process.env[OWNER_USERNAME_KEYS[i]] || '');
     const password = (process.env[OWNER_PASSWORD_KEYS[i]] || '').trim();
-    if (username && password) {
-      pairs.push({ username, password });
+    if (email && password) {
+      pairs.push({ email, password });
     }
   }
   return pairs;
@@ -166,52 +141,34 @@ function getOwnerEnvPairs(): Array<{ username: string; password: string }> {
 async function seedOwnerAdminsFromEnv(): Promise<void> {
   const now = new Date().toISOString();
   const ownerPairs = getOwnerEnvPairs();
-
   for (const owner of ownerPairs) {
     const existing = await querySql<DbAdminUser>(
-      `SELECT id, username, email, passwordHash, role, isOwner, isActive, mustResetPassword
-       FROM AdminUser
-       WHERE lower(username) = ? OR lower(email) = ?
-       LIMIT 1`,
-      [owner.username, owner.username]
+      'SELECT id, email, passwordHash, role, isOwner, isActive, mustResetPassword FROM AdminUser WHERE lower(email) = ? LIMIT 1',
+      [owner.email]
     );
 
     if (existing.length === 0) {
       await executeSql(
-        `INSERT INTO AdminUser (
-          id,
-          username,
-          email,
-          passwordHash,
-          role,
-          isOwner,
-          isActive,
-          mustResetPassword,
-          createdAt,
-          updatedAt
-        )
-        VALUES (?, ?, ?, ?, 'superuser', 1, 1, 0, ?, ?)`,
-        [randomHex(12), owner.username, owner.username, createPasswordHash(owner.password), now, now]
+        `INSERT INTO AdminUser (id, email, passwordHash, role, isOwner, isActive, mustResetPassword, createdAt, updatedAt)
+         VALUES (?, ?, ?, 'superuser', 1, 1, 0, ?, ?)`,
+        [randomHex(12), owner.email, createPasswordHash(owner.password), now, now]
       );
     } else {
       const user = existing[0];
       const needsHashUpgrade = !user.passwordHash.startsWith(`${HASH_PREFIX}$`);
       const nextHash = needsHashUpgrade ? createPasswordHash(owner.password) : user.passwordHash;
-
       await executeSql(
         `UPDATE AdminUser
-         SET username = ?,
-             role = 'superuser',
+         SET role = 'superuser',
              isOwner = 1,
              isActive = 1,
              passwordHash = ?,
              updatedAt = ?
          WHERE id = ?`,
-        [owner.username, nextHash, now, user.id]
+        [nextHash, now, user.id]
       );
     }
   }
-
   await saveDatabase();
 }
 
@@ -227,45 +184,34 @@ async function ensureAdminSystemReady(): Promise<void> {
 
 export function createAdminToken(payload: {
   userId: string;
-  username: string;
   email: string;
   role: AdminRole;
   isOwner: boolean;
 }): string {
   const tokenPayload: AdminSessionToken = {
     userId: payload.userId,
-    username: normalizeUsername(payload.username),
     email: normalizeEmail(payload.email),
     role: payload.role,
     isOwner: payload.isOwner,
     iat: Date.now(),
     exp: Date.now() + SESSION_DURATION,
   };
-
   return Buffer.from(JSON.stringify(tokenPayload)).toString('base64');
 }
 
 export function validateAdminToken(token: string): { valid: boolean; session?: AdminSessionToken } {
   try {
     const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf-8')) as Partial<AdminSessionToken>;
-    if (!decoded?.exp) return { valid: false };
+    if (!decoded.email || !decoded.exp) return { valid: false };
     if (Date.now() > decoded.exp) return { valid: false };
-
-    const username = normalizeUsername(decoded.username || decoded.email || '');
-    const email = normalizeEmail(decoded.email || decoded.username || '');
-
-    if (!username || !email) {
-      return { valid: false };
-    }
 
     // Backward compatibility for pre-DB session tokens.
     if (!decoded.userId || !decoded.role) {
       return {
         valid: true,
         session: {
-          userId: `legacy:${username}`,
-          username,
-          email,
+          userId: `legacy:${normalizeEmail(decoded.email)}`,
+          email: normalizeEmail(decoded.email),
           role: 'admin',
           isOwner: false,
           iat: decoded.iat || Date.now(),
@@ -278,8 +224,7 @@ export function validateAdminToken(token: string): { valid: boolean; session?: A
       valid: true,
       session: {
         userId: decoded.userId,
-        username,
-        email,
+        email: normalizeEmail(decoded.email),
         role: decoded.role,
         isOwner: !!decoded.isOwner,
         iat: decoded.iat || Date.now(),
@@ -292,36 +237,24 @@ export function validateAdminToken(token: string): { valid: boolean; session?: A
 }
 
 export async function validateAdminCredentials(
-  usernameOrEmail: string,
+  username: string,
   password: string
-): Promise<
-  | null
-  | {
-      userId: string;
-      username: string;
-      email: string;
-      role: AdminRole;
-      isOwner: boolean;
-      mustResetPassword: boolean;
-    }
-> {
+): Promise<null | { userId: string; email: string; role: AdminRole; isOwner: boolean; mustResetPassword: boolean }> {
   await ensureAdminSystemReady();
 
-  const normalizedIdentifier = normalizeUsername(usernameOrEmail);
+  const normalizedUsername = normalizeEmail(username);
   const normalizedPassword = password.trim();
-
-  if (!normalizedIdentifier || !normalizedPassword) return null;
+  if (!normalizedUsername || !normalizedPassword) return null;
 
   const rows = await querySql<DbAdminUser>(
-    `SELECT id, username, email, passwordHash, role, isOwner, isActive, mustResetPassword
+    `SELECT id, email, passwordHash, role, isOwner, isActive, mustResetPassword
      FROM AdminUser
-     WHERE (lower(username) = ? OR lower(email) = ?) AND isActive = 1
+     WHERE lower(email) = ? AND isActive = 1
      LIMIT 1`,
-    [normalizedIdentifier, normalizedIdentifier]
+    [normalizedUsername]
   );
 
   if (rows.length === 0) return null;
-
   const user = rows[0];
   const validPassword = verifyPasswordHash(normalizedPassword, user.passwordHash);
   if (!validPassword) return null;
@@ -335,7 +268,6 @@ export async function validateAdminCredentials(
 
   return {
     userId: user.id,
-    username: user.username,
     email: user.email,
     role: user.role,
     isOwner: !!user.isOwner,
@@ -354,26 +286,23 @@ export async function getAdminSessionFromRequest(req: Request): Promise<AdminSes
       .find((p) => p.startsWith(`${COOKIE_NAME}=`));
 
     if (!tokenPair) return { authenticated: false };
-
     const token = decodeURIComponent(tokenPair.slice(COOKIE_NAME.length + 1));
     const parsed = validateAdminToken(token);
     if (!parsed.valid || !parsed.session) return { authenticated: false };
 
     const rows = await querySql<DbAdminUser>(
-      `SELECT id, username, email, role, isOwner, isActive
+      `SELECT id, email, role, isOwner, isActive
        FROM AdminUser
        WHERE id = ? AND isActive = 1
        LIMIT 1`,
       [parsed.session.userId]
     );
-
     if (rows.length === 0) return { authenticated: false };
 
     const row = rows[0];
     return {
       authenticated: true,
       userId: row.id,
-      username: row.username,
       email: row.email,
       role: row.role,
       isOwner: !!row.isOwner,
@@ -394,7 +323,6 @@ export async function requireSuperuserSession(req: Request): Promise<AdminSessio
 export async function getAdminSession(): Promise<AdminSession> {
   try {
     await ensureAdminSystemReady();
-
     const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
     if (!token) return { authenticated: false };
@@ -403,20 +331,18 @@ export async function getAdminSession(): Promise<AdminSession> {
     if (!parsed.valid || !parsed.session) return { authenticated: false };
 
     const rows = await querySql<DbAdminUser>(
-      `SELECT id, username, email, role, isOwner, isActive
+      `SELECT id, email, role, isOwner, isActive
        FROM AdminUser
        WHERE id = ? AND isActive = 1
        LIMIT 1`,
       [parsed.session.userId]
     );
-
     if (rows.length === 0) return { authenticated: false };
-
     const row = rows[0];
+
     return {
       authenticated: true,
       userId: row.id,
-      username: row.username,
       email: row.email,
       role: row.role,
       isOwner: !!row.isOwner,
@@ -428,10 +354,8 @@ export async function getAdminSession(): Promise<AdminSession> {
 
 export async function listAdminUsers() {
   await ensureAdminSystemReady();
-
   return querySql<{
     id: string;
-    username: string;
     email: string;
     firstName: string | null;
     lastName: string | null;
@@ -443,14 +367,13 @@ export async function listAdminUsers() {
     updatedAt: string | null;
     lastLoginAt: string | null;
   }>(
-    `SELECT id, username, email, firstName, lastName, role, isOwner, isActive, mustResetPassword, createdAt, updatedAt, lastLoginAt
+    `SELECT id, email, firstName, lastName, role, isOwner, isActive, mustResetPassword, createdAt, updatedAt, lastLoginAt
      FROM AdminUser
-     ORDER BY isOwner DESC, role DESC, username ASC`
+     ORDER BY isOwner DESC, role DESC, email ASC`
   );
 }
 
 export async function createAdminUser(params: {
-  username: string;
   email: string;
   firstName?: string;
   lastName?: string;
@@ -459,53 +382,27 @@ export async function createAdminUser(params: {
   mustResetPassword?: boolean;
 }) {
   await ensureAdminSystemReady();
-
-  const username = normalizeUsername(params.username);
   const email = normalizeEmail(params.email);
   const password = params.password.trim();
-
-  if (!username || !email || !password) {
-    throw new Error('Username, email, and password are required');
+  if (!email || !password) {
+    throw new Error('Email and password are required');
   }
 
-  const existingUsername = await querySql<{ id: string }>(
-    'SELECT id FROM AdminUser WHERE lower(username) = ? LIMIT 1',
-    [username]
-  );
-  if (existingUsername.length > 0) {
-    throw new Error('Username already in use');
-  }
-
-  const existingEmail = await querySql<{ id: string }>(
+  const existing = await querySql<{ id: string }>(
     'SELECT id FROM AdminUser WHERE lower(email) = ? LIMIT 1',
     [email]
   );
-  if (existingEmail.length > 0) {
-    throw new Error('Email already in use');
+  if (existing.length > 0) {
+    throw new Error('Admin user already exists');
   }
 
   const now = new Date().toISOString();
   const id = randomHex(12);
-
   await executeSql(
-    `INSERT INTO AdminUser (
-      id,
-      username,
-      email,
-      firstName,
-      lastName,
-      passwordHash,
-      role,
-      isOwner,
-      isActive,
-      mustResetPassword,
-      createdAt,
-      updatedAt
-    )
-     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?, ?)`,
+    `INSERT INTO AdminUser (id, email, firstName, lastName, passwordHash, role, isOwner, isActive, mustResetPassword, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, 0, 1, ?, ?, ?)`,
     [
       id,
-      username,
       email,
       params.firstName?.trim() || null,
       params.lastName?.trim() || null,
@@ -516,7 +413,6 @@ export async function createAdminUser(params: {
       now,
     ]
   );
-
   await saveDatabase();
   return id;
 }
@@ -524,7 +420,6 @@ export async function createAdminUser(params: {
 export async function updateAdminUserById(
   userId: string,
   updates: {
-    username?: string;
     email?: string;
     firstName?: string | null;
     lastName?: string | null;
@@ -537,35 +432,16 @@ export async function updateAdminUserById(
   await ensureAdminSystemReady();
   const now = new Date().toISOString();
 
-  if (updates.username) {
-    const normalizedUsername = normalizeUsername(updates.username);
-    const existing = await querySql<{ id: string }>(
-      'SELECT id FROM AdminUser WHERE lower(username) = ? AND id != ? LIMIT 1',
-      [normalizedUsername, userId]
-    );
-    if (existing.length > 0) {
-      throw new Error('Username already in use');
-    }
-
-    await executeSql('UPDATE AdminUser SET username = ?, updatedAt = ? WHERE id = ?', [
-      normalizedUsername,
-      now,
-      userId,
-    ]);
-  }
-
   if (updates.email) {
-    const normalizedEmail = normalizeEmail(updates.email);
     const existing = await querySql<{ id: string }>(
       'SELECT id FROM AdminUser WHERE lower(email) = ? AND id != ? LIMIT 1',
-      [normalizedEmail, userId]
+      [normalizeEmail(updates.email), userId]
     );
     if (existing.length > 0) {
       throw new Error('Email already in use');
     }
-
     await executeSql('UPDATE AdminUser SET email = ?, updatedAt = ? WHERE id = ?', [
-      normalizedEmail,
+      normalizeEmail(updates.email),
       now,
       userId,
     ]);
@@ -596,11 +472,7 @@ export async function updateAdminUserById(
   }
 
   if (updates.role) {
-    await executeSql('UPDATE AdminUser SET role = ?, updatedAt = ? WHERE id = ?', [
-      updates.role,
-      now,
-      userId,
-    ]);
+    await executeSql('UPDATE AdminUser SET role = ?, updatedAt = ? WHERE id = ?', [updates.role, now, userId]);
   }
 
   if (typeof updates.isActive === 'boolean') {
@@ -624,15 +496,10 @@ export async function updateAdminUserById(
 
 export async function getAdminUserById(userId: string) {
   await ensureAdminSystemReady();
-
   const rows = await querySql<DbAdminUser>(
-    `SELECT id, username, email, firstName, lastName, passwordHash, role, isOwner, isActive, mustResetPassword
-     FROM AdminUser
-     WHERE id = ?
-     LIMIT 1`,
+    'SELECT id, email, firstName, lastName, passwordHash, role, isOwner, isActive, mustResetPassword FROM AdminUser WHERE id = ? LIMIT 1',
     [userId]
   );
-
   return rows[0] || null;
 }
 
@@ -644,25 +511,21 @@ export async function deleteAdminUserById(userId: string) {
 
 export async function countActiveSuperusers() {
   await ensureAdminSystemReady();
-
   const rows = await querySql<{ count: number }>(
     `SELECT COUNT(*) AS count
      FROM AdminUser
      WHERE role = 'superuser' AND isActive = 1`
   );
-
   return Number(rows[0]?.count || 0);
 }
 
 export async function countActiveOwnerSuperusers() {
   await ensureAdminSystemReady();
-
   const rows = await querySql<{ count: number }>(
     `SELECT COUNT(*) AS count
      FROM AdminUser
      WHERE role = 'superuser' AND isOwner = 1 AND isActive = 1`
   );
-
   return Number(rows[0]?.count || 0);
 }
 
@@ -672,23 +535,19 @@ export async function createTransferRequest(params: {
   expiresAt: string;
 }) {
   await ensureAdminSystemReady();
-
   const now = new Date().toISOString();
   const id = randomHex(12);
-
   await executeSql(
     `INSERT INTO SuperuserTransferRequest (id, targetAdminId, initiatedByAdminId, status, expiresAt, createdAt, updatedAt)
      VALUES (?, ?, ?, 'pending', ?, ?, ?)`,
     [id, params.targetAdminId, params.initiatedByAdminId, params.expiresAt, now, now]
   );
-
   await saveDatabase();
   return id;
 }
 
 export async function listPendingTransferRequests() {
   await ensureAdminSystemReady();
-
   return querySql<{
     id: string;
     targetAdminId: string;
@@ -708,7 +567,6 @@ export async function listPendingTransferRequests() {
 
 export async function getTransferRequestById(id: string) {
   await ensureAdminSystemReady();
-
   const rows = await querySql<{
     id: string;
     targetAdminId: string;
@@ -723,22 +581,18 @@ export async function getTransferRequestById(id: string) {
      LIMIT 1`,
     [id]
   );
-
   return rows[0] || null;
 }
 
 export async function approveTransferRequest(params: { transferId: string; approvedByAdminId: string }) {
   await ensureAdminSystemReady();
-
   const now = new Date().toISOString();
-
   await executeSql(
     `UPDATE SuperuserTransferRequest
      SET approvedByAdminId = ?, status = 'completed', completedAt = ?, updatedAt = ?
      WHERE id = ?`,
     [params.approvedByAdminId, now, now, params.transferId]
   );
-
   await saveDatabase();
 }
 
@@ -751,9 +605,7 @@ export async function writeAdminAuditLog(params: {
   detailsJson?: string;
 }) {
   await ensureAdminSystemReady();
-
   const now = new Date().toISOString();
-
   await executeSql(
     `INSERT INTO AdminAuditLog (id, actorAdminId, actorEmail, action, targetAdminId, targetEmail, detailsJson, createdAt)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -768,21 +620,17 @@ export async function writeAdminAuditLog(params: {
       now,
     ]
   );
-
   await saveDatabase();
 }
 
 // Backward-compatible client helpers used by legacy admin components.
 export function isAdminAuthenticated(): boolean {
   if (typeof document === 'undefined') return false;
-
   const tokenPair = document.cookie
     .split(';')
     .map((p) => p.trim())
     .find((p) => p.startsWith(`${COOKIE_NAME}=`));
-
   if (!tokenPair) return false;
-
   const token = decodeURIComponent(tokenPair.slice(COOKIE_NAME.length + 1));
   return validateAdminToken(token).valid;
 }

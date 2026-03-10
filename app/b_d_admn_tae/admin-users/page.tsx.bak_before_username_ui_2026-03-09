@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 
 type AdminUser = {
   id: string;
-  username: string;
   email: string;
   firstName: string;
   lastName: string;
@@ -17,7 +16,6 @@ type AdminUser = {
 
 type AdminProfile = {
   id: string;
-  username: string;
   email: string;
   firstName: string;
   lastName: string;
@@ -40,7 +38,6 @@ type TransferRequest = {
 
 type SessionData = {
   userId: string;
-  username?: string;
   email: string;
   role: "superuser" | "admin";
   isOwner: boolean;
@@ -64,7 +61,6 @@ export default function AdminUsersPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const [newUsername, setNewUsername] = useState("");
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -73,7 +69,6 @@ export default function AdminUsersPage() {
   const [newMustReset, setNewMustReset] = useState(true);
   const [transferTargetId, setTransferTargetId] = useState("");
 
-  const [profileUsername, setProfileUsername] = useState("");
   const [profileFirstName, setProfileFirstName] = useState("");
   const [profileLastName, setProfileLastName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -115,7 +110,6 @@ export default function AdminUsersPage() {
         const nextProfile = profileRes.data as AdminProfile;
 
         setProfile(nextProfile);
-        setProfileUsername(nextProfile.username || "");
         setProfileFirstName(nextProfile.firstName || "");
         setProfileLastName(nextProfile.lastName || "");
         setProfileEmail(nextProfile.email || "");
@@ -146,7 +140,6 @@ export default function AdminUsersPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            username: newUsername,
             firstName: newFirstName,
             lastName: newLastName,
             email: newEmail,
@@ -158,7 +151,6 @@ export default function AdminUsersPage() {
       );
 
       setMessage("Admin user created.");
-      setNewUsername("");
       setNewFirstName("");
       setNewLastName("");
       setNewEmail("");
@@ -208,7 +200,6 @@ export default function AdminUsersPage() {
 
     try {
       const body: Record<string, unknown> = {
-        username: profileUsername,
         firstName: profileFirstName,
         lastName: profileLastName,
         email: profileEmail,
@@ -242,16 +233,10 @@ export default function AdminUsersPage() {
     await patchUser(userId, { password: next, mustResetPassword: true }, "Password reset.");
   }
 
-  async function changeUsername(userId: string, currentUsername: string) {
-    const next = prompt("Enter a new username for this admin:", currentUsername);
-    if (!next || next.trim() === currentUsername) return;
-    await patchUser(userId, { username: next.trim() }, "Username updated.");
-  }
-
-  async function changeEmail(userId: string, currentEmail: string) {
-    const next = prompt("Enter a new email for this admin:", currentEmail);
+  async function changeUsername(userId: string, currentEmail: string) {
+    const next = prompt("Enter a new username/email for this admin:", currentEmail);
     if (!next || next.trim() === currentEmail) return;
-    await patchUser(userId, { email: next.trim() }, "Email updated.");
+    await patchUser(userId, { email: next.trim() }, "Username/email updated.");
   }
 
   async function changeFirstName(userId: string, currentFirstName: string) {
@@ -384,20 +369,6 @@ export default function AdminUsersPage() {
             <div className="grid md:grid-cols-2 gap-4">
               <input
                 type="text"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value)}
-                placeholder="username"
-                className="border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
-              />
-              <input
-                type="text"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="email"
-                className="border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
-              />
-              <input
-                type="text"
                 value={newFirstName}
                 onChange={(e) => setNewFirstName(e.target.value)}
                 placeholder="first name"
@@ -408,6 +379,13 @@ export default function AdminUsersPage() {
                 value={newLastName}
                 onChange={(e) => setNewLastName(e.target.value)}
                 placeholder="last name"
+                className="border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
+              />
+              <input
+                type="text"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="username or email"
                 className="border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
               />
               <input
@@ -426,7 +404,7 @@ export default function AdminUsersPage() {
                 <option value="superuser">superuser</option>
               </select>
 
-              <label className="flex items-center gap-2 text-sm text-brand-dark md:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-brand-dark">
                 <input
                   type="checkbox"
                   checked={newMustReset}
@@ -438,7 +416,7 @@ export default function AdminUsersPage() {
 
             <button
               onClick={createUser}
-              disabled={busyId === "create" || !newUsername || !newEmail || !newPassword}
+              disabled={busyId === "create" || !newEmail || !newPassword}
               className="px-4 py-2 bg-brand-dark text-white text-sm disabled:opacity-50"
             >
               {busyId === "create" ? "Creating..." : "Create Admin"}
@@ -452,10 +430,9 @@ export default function AdminUsersPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left border-b border-brand-light">
-                    <th className="py-2 pr-4">Username</th>
-                    <th className="py-2 pr-4">Email</th>
                     <th className="py-2 pr-4">First Name</th>
                     <th className="py-2 pr-4">Last Name</th>
+                    <th className="py-2 pr-4">Email</th>
                     <th className="py-2 pr-4">Access</th>
                     <th className="py-2 pr-4">Status</th>
                     <th className="py-2 pr-4">Last Login</th>
@@ -465,10 +442,9 @@ export default function AdminUsersPage() {
                 <tbody>
                   {users.map((user) => (
                     <tr key={user.id} className="border-b border-brand-light/60">
-                      <td className="py-2 pr-4">{user.username}</td>
-                      <td className="py-2 pr-4">{user.email}</td>
                       <td className="py-2 pr-4">{user.firstName || "—"}</td>
                       <td className="py-2 pr-4">{user.lastName || "—"}</td>
+                      <td className="py-2 pr-4">{user.email}</td>
                       <td className="py-2 pr-4">{user.isOwner ? "owner" : user.role}</td>
                       <td className="py-2 pr-4">{user.isActive ? "active" : "inactive"}</td>
                       <td className="py-2 pr-4">{user.lastLoginAt || "never"}</td>
@@ -507,22 +483,6 @@ export default function AdminUsersPage() {
                           )}
 
                           <button
-                            onClick={() => changeUsername(user.id, user.username)}
-                            disabled={busyId === user.id}
-                            className="px-2 py-1 border border-brand-light text-xs"
-                          >
-                            Change Username
-                          </button>
-
-                          <button
-                            onClick={() => changeEmail(user.id, user.email)}
-                            disabled={busyId === user.id}
-                            className="px-2 py-1 border border-brand-light text-xs"
-                          >
-                            Change Email
-                          </button>
-
-                          <button
                             onClick={() => changeFirstName(user.id, user.firstName || "")}
                             disabled={busyId === user.id}
                             className="px-2 py-1 border border-brand-light text-xs"
@@ -536,6 +496,14 @@ export default function AdminUsersPage() {
                             className="px-2 py-1 border border-brand-light text-xs"
                           >
                             Change Last Name
+                          </button>
+
+                          <button
+                            onClick={() => changeUsername(user.id, user.email)}
+                            disabled={busyId === user.id}
+                            className="px-2 py-1 border border-brand-light text-xs"
+                          >
+                            Change Username
                           </button>
 
                           <button
@@ -578,8 +546,8 @@ export default function AdminUsersPage() {
                     .map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.firstName || u.lastName
-                          ? `${u.firstName || ""} ${u.lastName || ""}`.trim() + ` (${u.username})`
-                          : u.username}
+                          ? `${u.firstName || ""} ${u.lastName || ""}`.trim() + ` (${u.email})`
+                          : u.email}
                       </option>
                     ))}
                 </select>
@@ -615,16 +583,16 @@ export default function AdminUsersPage() {
                         <div>
                           <span className="font-semibold">Target:</span>{" "}
                           {targetUser
-                            ? `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() || targetUser.username
+                            ? `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() || targetUser.email
                             : transfer.targetAdminId}
-                          {targetUser ? ` (${targetUser.username})` : ""}
+                          {targetUser ? ` (${targetUser.email})` : ""}
                         </div>
                         <div>
                           <span className="font-semibold">Initiated by:</span>{" "}
                           {initiatedBy
-                            ? `${initiatedBy.firstName || ""} ${initiatedBy.lastName || ""}`.trim() || initiatedBy.username
+                            ? `${initiatedBy.firstName || ""} ${initiatedBy.lastName || ""}`.trim() || initiatedBy.email
                             : transfer.initiatedByAdminId}
-                          {initiatedBy ? ` (${initiatedBy.username})` : ""}
+                          {initiatedBy ? ` (${initiatedBy.email})` : ""}
                         </div>
                         <div>
                           <span className="font-semibold">Expires:</span> {transfer.expiresAt}
@@ -650,17 +618,6 @@ export default function AdminUsersPage() {
           <h2 className="text-lg font-semibold text-brand-dark">Admin Profile</h2>
 
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-1 md:col-span-2">
-              <label className="block text-sm font-medium text-brand-dark">Username</label>
-              <input
-                type="text"
-                value={profileUsername}
-                onChange={(e) => setProfileUsername(e.target.value)}
-                placeholder="username"
-                className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
-              />
-            </div>
-
             <div className="space-y-1">
               <label className="block text-sm font-medium text-brand-dark">First Name</label>
               <input
@@ -711,7 +668,7 @@ export default function AdminUsersPage() {
 
           <button
             onClick={saveProfile}
-            disabled={busyId === "profile" || !profileUsername.trim() || !profileEmail.trim()}
+            disabled={busyId === "profile" || !profileEmail.trim()}
             className="px-4 py-2 bg-brand-dark text-white text-sm disabled:opacity-50"
           >
             {busyId === "profile" ? "Saving..." : "Save Profile"}
