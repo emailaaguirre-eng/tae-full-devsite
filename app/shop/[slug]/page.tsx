@@ -35,6 +35,7 @@ interface ProductDetail {
     icon: string;
     description: string | null;
   } | null;
+  printfulDataJson?: string | null;
 }
 
 interface VariantOption {
@@ -59,6 +60,30 @@ interface VariantOption {
   inStock: boolean;
   printWidth?: number | null;
   printHeight?: number | null;
+}
+
+type VariantImageMeta = {
+  id?: number | string | null;
+  printfulVariantId?: number | string | null;
+  image?: string | null;
+  size?: string | null;
+  material?: string | null;
+  paperType?: string | null;
+  frame?: string | null;
+  frameColor?: string | null;
+  color?: string | null;
+  active?: boolean;
+};
+
+function toVariantIdCandidates(row: VariantImageMeta): number[] {
+  const ids = [row?.id, row?.printfulVariantId]
+    .map((value) => Math.trunc(Number(value)))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  return [...new Set(ids)];
+}
+
+function isActiveRow(row: VariantImageMeta): boolean {
+  return row?.active !== false;
 }
 
 export default function ProductDetailPage() {
@@ -136,13 +161,122 @@ export default function ProductDetailPage() {
     [variantRows]
   );
 
-  const allImages = useMemo(() => {
+  const normalizeValue = (value: unknown) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase();
+
+  const parsedImageMeta = useMemo(() => {
+    try {
+      const rawMeta = product?.printfulDataJson;
+      const parsed =
+        typeof rawMeta === "string"
+          ? JSON.parse(rawMeta || "{}")
+          : rawMeta && typeof rawMeta === "object"
+          ? rawMeta
+          : {};
+      return {
+        variantMatrix: Array.isArray(parsed?.variantMatrix)
+          ? (parsed.variantMatrix as VariantImageMeta[])
+          : [],
+        variantImages: Array.isArray(parsed?.variantImages)
+          ? (parsed.variantImages as VariantImageMeta[])
+          : [],
+        siblingVariants: Array.isArray(parsed?.siblingVariants)
+          ? (parsed.siblingVariants as VariantImageMeta[])
+          : [],
+      };
+    } catch {
+      return { variantMatrix: [], variantImages: [], siblingVariants: [] };
+    }
+  }, [product?.printfulDataJson]);
+
+  const selectedPrintfulVariantId = useMemo(() => {
+    const n = Number(currentVariant?.printfulVariantId);
+    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+  }, [currentVariant?.printfulVariantId]);
+
+  const exactVariantImages = useMemo(() => {
+    if (!selectedPrintfulVariantId) return [];
+    const urls: string[] = [];
+    const push = (url?: string | null) => {
+      if (!url || urls.includes(url)) return;
+      urls.push(url);
+    };
+
+    for (const row of parsedImageMeta.variantMatrix) {
+      if (!isActiveRow(row)) continue;
+      if (toVariantIdCandidates(row).includes(selectedPrintfulVariantId)) {
+        push(row?.image);
+      }
+    }
+    for (const row of parsedImageMeta.variantImages) {
+      if (!isActiveRow(row)) continue;
+      if (toVariantIdCandidates(row).includes(selectedPrintfulVariantId)) {
+        push(row?.image);
+      }
+    }
+    for (const row of parsedImageMeta.siblingVariants) {
+      if (!isActiveRow(row)) continue;
+      if (toVariantIdCandidates(row).includes(selectedPrintfulVariantId)) {
+        push(row?.image);
+      }
+    }
+    return urls;
+  }, [parsedImageMeta, selectedPrintfulVariantId]);
+
+  const formatSpecificImages = useMemo(() => {
+    const selectedSize = normalizeValue(currentVariant?.sizeLabel || currentVariant?.pfSize);
+    const selectedMaterial = normalizeValue(currentVariant?.paperType);
+    const selectedFrame = normalizeValue(currentVariant?.finishType);
+    const selectedColor = normalizeValue(currentVariant?.pfColor);
+    const urls: string[] = [];
+    const push = (url?: string | null) => {
+      if (!url || urls.includes(url)) return;
+      urls.push(url);
+    };
+
+    for (const row of parsedImageMeta.variantMatrix) {
+      if (row?.active === false || !row?.image) continue;
+      const rowSize = normalizeValue(row?.size);
+      const rowMaterial = normalizeValue(row?.paperType || row?.material);
+      const rowFrame = normalizeValue(row?.frame);
+      const rowColor = normalizeValue(row?.frameColor || row?.color);
+
+      const matchesSize = !selectedSize || !rowSize || rowSize === selectedSize;
+      const matchesMaterial = !selectedMaterial || !rowMaterial || rowMaterial === selectedMaterial;
+      const matchesFrame = !selectedFrame || !rowFrame || rowFrame === selectedFrame;
+      const matchesColor = !selectedColor || !rowColor || rowColor === selectedColor;
+
+      if (matchesSize && matchesMaterial && matchesFrame && matchesColor) {
+        push(row.image);
+      }
+    }
+
+    return urls;
+  }, [
+    currentVariant?.finishType,
+    currentVariant?.paperType,
+    currentVariant?.pfColor,
+    currentVariant?.pfSize,
+    currentVariant?.sizeLabel,
+    parsedImageMeta.variantMatrix,
+  ]);
+
+  const displayImages = useMemo(() => {
     if (!product) return [];
-    return [
+    if (exactVariantImages.length > 0) return exactVariantImages;
+    if (formatSpecificImages.length > 0) return formatSpecificImages;
+    const fallback = [
       ...(product.heroImage ? [product.heroImage] : []),
-      ...(product.galleryImages || []).filter((url) => url !== product.heroImage),
+      ...(product.galleryImages || []).filter((url) => !!url && url !== product.heroImage),
     ];
-  }, [product]);
+    return [...new Set(fallback)];
+  }, [exactVariantImages, formatSpecificImages, product]);
+
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [currentVariant?.id]);
 
   if (loading) {
     return (
@@ -265,7 +399,11 @@ export default function ProductDetailPage() {
         : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
     }`;
   const hoveredImage = hoverVariant?.heroImage || null;
-  const mainImageSrc = hoveredImage || allImages[activeImageIndex] || allImages[0] || null;
+  const mainImageSrc =
+    hoveredImage ||
+    displayImages[activeImageIndex] ||
+    displayImages[0] ||
+    null;
 
   const handleStartCustomizing = () => {
     const searchParams = new URLSearchParams({
@@ -355,9 +493,9 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Thumbnail strip */}
-            {allImages.length > 1 && (
+            {displayImages.length > 1 && (
               <div className="flex gap-2 overflow-x-auto pb-2">
-                {allImages.map((url, i) => (
+                {displayImages.map((url, i) => (
                   <button
                     key={i}
                     onClick={() => setActiveImageIndex(i)}
