@@ -744,17 +744,35 @@ export default function ProductDetailPage() {
             )}
 
             {/* CTA */}
-            <button
-              onClick={handleStartCustomizing}
-              className="w-full bg-brand-dark text-white py-4 rounded-full text-lg font-semibold hover:bg-brand-darkest transition-colors shadow-lg hover:shadow-xl"
-            >
-              Start Customizing
-            </button>
+            {product.customizable !== false ? (
+              <>
+                <button
+                  onClick={handleStartCustomizing}
+                  className="w-full bg-brand-dark text-white py-4 rounded-full text-lg font-semibold hover:bg-brand-darkest transition-colors shadow-lg hover:shadow-xl"
+                >
+                  Start Customizing
+                </button>
 
-            <p className="text-center text-xs text-brand-darkest/40 mt-3">
-              You&apos;ll upload your image and design your ArtKey portal in the
-              next step.
-            </p>
+                <p className="text-center text-xs text-brand-darkest/40 mt-3">
+                  You&apos;ll upload your image and design your ArtKey portal in the
+                  next step.
+                </p>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled
+                  className="w-full bg-brand-darkest/15 text-brand-darkest/60 py-4 rounded-full text-lg font-semibold cursor-not-allowed"
+                >
+                  Customization Not Required
+                </button>
+
+                <p className="text-center text-xs text-brand-darkest/40 mt-3">
+                  This product is ready without customization or an ArtKey portal.
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
