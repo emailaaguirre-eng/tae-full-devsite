@@ -420,6 +420,7 @@ type Props = {
     artKeyTemplatePosition?: ArtKeyTemplatePosition
   ) => void;
   onSave?: (designs: DesignState) => void;
+  onPreviewPrintProof?: (files: { placement: string; dataUrl: string }[]) => void | Promise<void>;
 };
 
 function buildSlotRects(
@@ -689,6 +690,7 @@ export function CustomizationStudio({
   initialDesigns,
   onExport,
   onSave,
+  onPreviewPrintProof,
 }: Props) {
   // -------------------------------------------------------------------------
   // BASIC STATE
@@ -878,6 +880,7 @@ export function CustomizationStudio({
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
   const zoomLevel = ZOOM_LEVELS[zoomIndex];
   const [isExporting, setIsExporting] = useState(false);
+  const [isPreviewingProof, setIsPreviewingProof] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ tone: "info" | "success" | "error"; message: string } | null>(null);
 
   // Crop
@@ -2879,6 +2882,26 @@ export function CustomizationStudio({
     }
   }, [activePlacement, exportCurrentPlacement, getArtKeyTemplatePosition, isExporting, onExport, productSpec]);
 
+  const handlePreviewPrintProof = useCallback(async () => {
+    if (!onPreviewPrintProof || isPreviewingProof || isExporting) return;
+    setIsPreviewingProof(true);
+    setExportStatus({ tone: "info", message: "Generating print proof preview..." });
+    try {
+      const dataUrl = await exportCurrentPlacement();
+      if (!dataUrl) {
+        setExportStatus({ tone: "error", message: "Preview export failed. Please try again." });
+        return;
+      }
+      const pfPlacement = resolvePrintfulPlacement(productSpec, activePlacement);
+      await Promise.resolve(onPreviewPrintProof([{ placement: pfPlacement, dataUrl }]));
+      setExportStatus({ tone: "success", message: "Print proof preview ready." });
+    } catch {
+      setExportStatus({ tone: "error", message: "Failed to generate print proof preview." });
+    } finally {
+      setIsPreviewingProof(false);
+    }
+  }, [activePlacement, exportCurrentPlacement, isExporting, isPreviewingProof, onPreviewPrintProof, productSpec]);
+
   /**
    * Generic compositor: loads N images and composites them into a single
    * canvas using the specified strategy. Driven by ExportRule.composite.
@@ -3253,6 +3276,17 @@ export function CustomizationStudio({
 
           {/* Export */}
           <div className="mx-1 h-6 w-px hidden sm:block" style={{ background: BRAND.light }} />
+          {onPreviewPrintProof && (
+            <button
+              onClick={handlePreviewPrintProof}
+              disabled={isExporting || isPreviewingProof}
+              className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium disabled:opacity-60"
+              style={{ background: BRAND.light, color: BRAND.dark }}
+              title="Generate Printful proof preview for current surface"
+            >
+              {isPreviewingProof ? "Proof..." : "Preview Print Proof"}
+            </button>
+          )}
           {productSpec.placements.length > 1 ? (
             <>
               <button

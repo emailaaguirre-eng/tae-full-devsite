@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { ProductSpec, Placement, DesignState } from "@/customization-studio/types";
 import Link from "next/link";
 import { ARTKEY_TEMPLATES } from "@/lib/artkeyTemplates";
+import { parseVariantMatrix } from "@/lib/product-watermark";
 
 const CustomizationStudio = dynamic(
   () => import("@/customization-studio").then((m) => m.CustomizationStudio),
@@ -164,8 +165,76 @@ interface PrintSpecsData {
 
 function buildSpecFromApiProduct(
   apiProduct: any,
-  printSpecsData?: PrintSpecsData | null
+  printSpecsData?: PrintSpecsData | null,
+  selectedPrintfulVariantId?: number | null
 ): ProductSpec {
+  const resolvePrintfulProductId = (productInput: any): number | undefined => {
+    const direct = Math.trunc(Number(productInput?.printfulProductId));
+    if (Number.isFinite(direct) && direct > 0) return direct;
+
+    const rows = parseVariantMatrix(productInput?.printfulDataJson);
+    const selectedVariantId = Math.trunc(
+      Number(selectedPrintfulVariantId ?? productInput?.printfulVariantId)
+    );
+
+    if (Number.isFinite(selectedVariantId) && selectedVariantId > 0) {
+      const matchedRow = rows.find((row: any) => {
+        const rowVariantId = Math.trunc(Number(row?.printfulVariantId));
+        const rowProductId = Math.trunc(Number(row?.printfulProductId));
+        return (
+          row?.active !== false &&
+          Number.isFinite(rowVariantId) &&
+          rowVariantId === selectedVariantId &&
+          Number.isFinite(rowProductId) &&
+          rowProductId > 0
+        );
+      });
+      if (matchedRow?.printfulProductId) {
+        return Math.trunc(Number(matchedRow.printfulProductId));
+      }
+    }
+
+    const fallbackRow = rows.find((row: any) => {
+      const rowProductId = Math.trunc(Number(row?.printfulProductId));
+      return row?.active !== false && Number.isFinite(rowProductId) && rowProductId > 0;
+    });
+    if (fallbackRow?.printfulProductId) {
+      return Math.trunc(Number(fallbackRow.printfulProductId));
+    }
+    return undefined;
+  };
+  const resolvePrintfulVariantId = (productInput: any): number | undefined => {
+    const direct = Math.trunc(Number(productInput?.printfulVariantId));
+    if (Number.isFinite(direct) && direct > 0) return direct;
+
+    const rows = parseVariantMatrix(productInput?.printfulDataJson);
+    const selectedVariantId = Math.trunc(
+      Number(selectedPrintfulVariantId ?? productInput?.printfulVariantId)
+    );
+
+    if (Number.isFinite(selectedVariantId) && selectedVariantId > 0) {
+      const matchedRow = rows.find((row: any) => {
+        const rowVariantId = Math.trunc(Number(row?.printfulVariantId));
+        return (
+          row?.active !== false &&
+          Number.isFinite(rowVariantId) &&
+          rowVariantId === selectedVariantId
+        );
+      });
+      if (matchedRow?.printfulVariantId) {
+        return Math.trunc(Number(matchedRow.printfulVariantId));
+      }
+    }
+
+    const fallbackRow = rows.find((row: any) => {
+      const rowVariantId = Math.trunc(Number(row?.printfulVariantId));
+      return row?.active !== false && Number.isFinite(rowVariantId) && rowVariantId > 0;
+    });
+    if (fallbackRow?.printfulVariantId) {
+      return Math.trunc(Number(fallbackRow.printfulVariantId));
+    }
+    return undefined;
+  };
   const numOr = (value: unknown, fallback: number) => {
     const n = Number(value);
     return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -245,8 +314,8 @@ function buildSpecFromApiProduct(
   return {
     id: apiProduct.id,
     name: apiProduct.name,
-    printfulProductId: apiProduct.printfulProductId || undefined,
-    printfulVariantId: apiProduct.printfulVariantId || undefined,
+    printfulProductId: resolvePrintfulProductId(apiProduct),
+    printfulVariantId: resolvePrintfulVariantId(apiProduct),
     productSlug: apiProduct.slug,
     basePrice: Number.isFinite(basePrice) ? basePrice : 0,
     printWidth,
@@ -292,6 +361,7 @@ function StudioContent() {
   const forceArtKeyParam = searchParams.get("force_artkey");
   const restoreDesignParam = searchParams.get("restore_design");
   const cartItemIdParam = searchParams.get("cart_item_id");
+  const variantIdParam = searchParams.get("variant_id");
 
   // API-loaded product state
   const [apiProduct, setApiProduct] = useState<any>(null);
@@ -299,6 +369,12 @@ function StudioContent() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiVariants, setApiVariants] = useState<ApiVariant[]>([]);
   const [printSpecsData, setPrintSpecsData] = useState<PrintSpecsData | null>(null);
+  const [proofPreview, setProofPreview] = useState<{
+    url: string;
+    placement: string;
+  } | null>(null);
+  const [proofPreviewKey, setProofPreviewKey] = useState<string | null>(null);
+  const [proofPreviewError, setProofPreviewError] = useState<string | null>(null);
 
   // Fallback catalog state
   const [selectedProductIndex, setSelectedProductIndex] = useState(() =>
@@ -364,7 +440,11 @@ function StudioContent() {
   const selectedProduct = PRODUCTS[selectedProductIndex];
 
   const productSpec: ProductSpec = isApiMode
-    ? buildSpecFromApiProduct(apiProduct, printSpecsData)
+    ? buildSpecFromApiProduct(
+        apiProduct,
+        printSpecsData,
+        variantIdParam ? Math.trunc(Number(variantIdParam)) : null
+      )
     : buildProductSpec(selectedProduct, selectedVariantIndex, orientation);
 
   const productName = isApiMode ? apiProduct.name : selectedProduct.name;
@@ -406,6 +486,75 @@ function StudioContent() {
         .map((f) => `${f.placement}:${f.dataUrl?.length || 0}:${(f.dataUrl || "").slice(0, 32)}`)
         .join("|"),
     []
+  );
+
+  useEffect(() => {
+    setProofPreview(null);
+    setProofPreviewKey(null);
+    setProofPreviewError(null);
+  }, [productSpec.printfulProductId, productSpec.printfulVariantId]);
+
+  const handlePreviewPrintProof = useCallback(
+    async (files: { placement: string; dataUrl: string }[]) => {
+      const first = files[0];
+      if (!first) throw new Error("No exported surface available for preview.");
+      if (!productSpec.printfulProductId) {
+        throw new Error("Missing Printful product mapping for this studio item.");
+      }
+      if (!productSpec.printfulVariantId) {
+        throw new Error("Missing Printful variant mapping for this studio item.");
+      }
+      const previewKey = [
+        productSpec.printfulProductId,
+        productSpec.printfulVariantId,
+        first.placement,
+        computeRenderSignature(files),
+      ].join("|");
+
+      if (proofPreview && proofPreviewKey === previewKey) {
+        setProofPreviewError(null);
+        return;
+      }
+
+      setProofPreviewError(null);
+      const registerRes = await fetch("/api/studio/exports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shopProductId: productSpec.id,
+          productSlug: productSpec.productSlug || null,
+          productName: productSpec.name,
+          studioRenderSignature: computeRenderSignature(files),
+          designFiles: files,
+        }),
+      });
+      const registerData = await registerRes.json().catch(() => ({}));
+      if (!registerRes.ok || !registerData?.success || !registerData?.export?.exportId) {
+        throw new Error(registerData?.error || "Failed to register studio export for proof preview.");
+      }
+
+      const previewRes = await fetch("/api/studio/proof-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          printfulProductId: productSpec.printfulProductId,
+          printfulVariantId: productSpec.printfulVariantId,
+          studioExportId: registerData.export.exportId,
+          placement: first.placement,
+        }),
+      });
+      const previewData = await previewRes.json().catch(() => ({}));
+      if (!previewRes.ok || !previewData?.success || !previewData?.previewUrl) {
+        throw new Error(previewData?.error || "Failed to generate print proof preview.");
+      }
+
+      setProofPreview({
+        url: previewData.previewUrl,
+        placement: previewData.placement || first.placement,
+      });
+      setProofPreviewKey(previewKey);
+    },
+    [computeRenderSignature, productSpec, proofPreview, proofPreviewKey]
   );
 
   // Handle export: save design files to sessionStorage, then navigate to ArtKey editor
@@ -644,6 +793,34 @@ function StudioContent() {
         </div>
       </div>
 
+      {proofPreviewError && (
+        <div className="px-4 py-2 bg-red-50 border-b border-red-200 text-sm text-red-700">
+          {proofPreviewError}
+        </div>
+      )}
+      {proofPreview && (
+        <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-200">
+          <p className="text-sm text-emerald-800">
+            Print proof preview ready ({proofPreview.placement}).{" "}
+            <a
+              href={proofPreview.url}
+              target="_blank"
+              rel="noreferrer"
+              className="underline break-all"
+            >
+              {proofPreview.url}
+            </a>
+          </p>
+          <div className="mt-2">
+            <img
+              src={proofPreview.url}
+              alt="Print proof preview"
+              className="max-h-48 rounded border border-emerald-200 bg-white object-contain"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Customization Studio */}
       <div className="flex-1">
         <CustomizationStudio
@@ -652,6 +829,13 @@ function StudioContent() {
           placeholderQrCodeUrl="/images/placeholder-qr.svg"
           artKeyTemplates={ARTKEY_TEMPLATES}
           initialDesigns={initialDesigns}
+          onPreviewPrintProof={async (files) => {
+            try {
+              await handlePreviewPrintProof(files);
+            } catch (err: any) {
+              setProofPreviewError(err?.message || "Failed to generate print proof preview.");
+            }
+          }}
           onExport={handleExport}
           onSave={handleStudioSave}
         />
