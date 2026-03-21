@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useCart } from "@/contexts/CartContext";
 
 interface ProductDetail {
   id: string;
@@ -27,6 +28,7 @@ interface ProductDetail {
   printHeight: number | null;
   printDpi: number;
   requiresQrCode: boolean;
+  customizable?: boolean;
   requiredPlacements: string | null;
   category: {
     id: string;
@@ -89,6 +91,7 @@ function isActiveRow(row: VariantImageMeta): boolean {
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { addToCart } = useCart();
   const slug = params.slug as string;
 
   const [product, setProduct] = useState<ProductDetail | null>(null);
@@ -406,6 +409,7 @@ export default function ProductDetailPage() {
     null;
 
   const handleStartCustomizing = () => {
+    if (product.customizable === false) return;
     const searchParams = new URLSearchParams({
       product_id: product.id,
       slug: product.slug,
@@ -422,6 +426,21 @@ export default function ProductDetailPage() {
       searchParams.set("variant_id", String(product.printfulVariantId));
 
     router.push(`/studio?${searchParams}`);
+  };
+
+  const handleAddToCart = () => {
+    addToCart({
+      id: `${product.id}:${currentVariant?.printfulVariantId ?? "default"}`,
+      name: product.name,
+      price: Number(currentVariant?.basePrice ?? product.basePrice),
+      quantity: 1,
+      imageUrl: currentVariant?.heroImage || product.heroImage || undefined,
+      source: "shop",
+      productSlug: product.slug,
+      printfulProductId: product.printfulProductId ?? undefined,
+      printfulVariantId: currentVariant?.printfulVariantId ?? product.printfulVariantId ?? undefined,
+    });
+    router.push("/cart");
   };
 
   return (
@@ -743,9 +762,9 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* CTA */}
             {product.customizable !== false ? (
               <>
+                {/* CTA */}
                 <button
                   onClick={handleStartCustomizing}
                   className="w-full bg-brand-dark text-white py-4 rounded-full text-lg font-semibold hover:bg-brand-darkest transition-colors shadow-lg hover:shadow-xl"
@@ -761,15 +780,14 @@ export default function ProductDetailPage() {
             ) : (
               <>
                 <button
-                  type="button"
-                  disabled
-                  className="w-full bg-brand-darkest/15 text-brand-darkest/60 py-4 rounded-full text-lg font-semibold cursor-not-allowed"
+                  onClick={handleAddToCart}
+                  className="w-full bg-brand-dark text-white py-4 rounded-full text-lg font-semibold hover:bg-brand-darkest transition-colors shadow-lg hover:shadow-xl"
                 >
-                  Customization Not Required
+                  Add to Cart
                 </button>
 
                 <p className="text-center text-xs text-brand-darkest/40 mt-3">
-                  This product is ready without customization or an ArtKey portal.
+                  This product is ready to add to cart without customization.
                 </p>
               </>
             )}
