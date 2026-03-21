@@ -387,7 +387,8 @@ export default function ProductDetailPage() {
   const sizeOptions = buildOptions(variantRows, getSizeLabel, getSizeLabel);
   const materialOptions = buildOptions(variantRows, getMaterialLabel, getMaterialLabel);
   const frameOptions = buildOptions(variantRows, getFrameLabel, getFrameLabel);
-  const orientationOptions = buildOptions(variantRows, getOrientationLabel, getOrientationLabel);
+  const orientationOptions = buildOptions(variantRows, getOrientationLabel, getOrientationLabel)
+    .filter((opt) => opt.label !== "Default");
   const colorOptions = [
     ...new Map(
       variantRows
@@ -573,7 +574,7 @@ export default function ProductDetailPage() {
 
             {/* Product Options (ported from older guided option layout) */}
             <div className="mb-8 space-y-6">
-              {sizeOptions.length > 0 && (
+              {sizeOptions.length > 1 && (
                 <div>
                   <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
                     Size
@@ -598,7 +599,7 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {materialOptions.length > 0 && (
+              {materialOptions.length > 1 && (
                 <div>
                   <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
                     Material
@@ -623,7 +624,7 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {frameOptions.length > 0 && (
+              {frameOptions.length > 1 && (
                 <div>
                   <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
                     Frame / Finish
@@ -648,7 +649,7 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {orientationOptions.length > 0 && (
+              {product.customizable !== false && orientationOptions.length > 1 && (
                 <div>
                   <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
                     Orientation
@@ -735,26 +736,6 @@ export default function ProductDetailPage() {
                   </p>
                   <p className="font-semibold text-brand-darkest">
                     {product.finishType}
-                  </p>
-                </div>
-              )}
-              {product.orientation && (
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <p className="text-xs text-brand-darkest/50 uppercase tracking-wide mb-1">
-                    Orientation
-                  </p>
-                  <p className="font-semibold text-brand-darkest capitalize">
-                    {product.orientation}
-                  </p>
-                </div>
-              )}
-              {product.printDpi && (
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <p className="text-xs text-brand-darkest/50 uppercase tracking-wide mb-1">
-                    Print Quality
-                  </p>
-                  <p className="font-semibold text-brand-darkest">
-                    {product.printDpi} DPI
                   </p>
                 </div>
               )}

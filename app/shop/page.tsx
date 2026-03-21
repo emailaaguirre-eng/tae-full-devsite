@@ -209,7 +209,7 @@ export default function ShopPage() {
                   </p>
                   <div className="flex items-center justify-between">
                     <span className="text-xl font-bold text-brand-dark">
-                      {product.hasMultipleVariants ? "From " : ""}$
+                      $
                       {formatPrice(product.basePrice)}
                     </span>
                     <span className="text-sm font-semibold text-brand-medium group-hover:text-brand-dark transition-colors">
