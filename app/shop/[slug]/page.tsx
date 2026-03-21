@@ -99,6 +99,7 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [hoverVariant, setHoverVariant] = useState<VariantOption | null>(null);
 
   useEffect(() => {
@@ -159,10 +160,17 @@ export default function ProductDetailPage() {
     ];
   }, [product, variants]);
 
-  const currentVariant = useMemo(
-    () => variantRows.find((v) => v.isCurrent) || variantRows[0] || null,
-    [variantRows]
-  );
+  useEffect(() => {
+    setSelectedVariantId(variantRows.find((v) => v.isCurrent)?.id || variantRows[0]?.id || null);
+  }, [variantRows]);
+
+  const currentVariant = useMemo(() => {
+    if (selectedVariantId) {
+      const selected = variantRows.find((v) => v.id === selectedVariantId);
+      if (selected) return selected;
+    }
+    return variantRows.find((v) => v.isCurrent) || variantRows[0] || null;
+  }, [variantRows, selectedVariantId]);
 
   const normalizeValue = (value: unknown) =>
     String(value ?? "")
@@ -390,7 +398,11 @@ export default function ProductDetailPage() {
 
   const handleVariantSelect = (variant: VariantOption) => {
     setHoverVariant(null);
-    if (variant.isCurrent) return;
+    if (variant.id === currentVariant?.id) return;
+    if (variant.slug === slug) {
+      setSelectedVariantId(variant.id);
+      return;
+    }
     router.push(`/shop/${variant.slug}`);
   };
   const getOptionButtonClass = (isActive: boolean, inStock: boolean) =>
@@ -422,8 +434,8 @@ export default function ProductDetailPage() {
     }
     if (product.printfulProductId)
       searchParams.set("printful_id", String(product.printfulProductId));
-    if (product.printfulVariantId)
-      searchParams.set("variant_id", String(product.printfulVariantId));
+    if (currentVariant?.printfulVariantId)
+      searchParams.set("variant_id", String(currentVariant.printfulVariantId));
 
     router.push(`/studio?${searchParams}`);
   };
@@ -550,7 +562,7 @@ export default function ProductDetailPage() {
             </h1>
 
             <p className="text-3xl font-bold text-brand-dark mb-6">
-              ${formatPrice(product.basePrice)}
+              ${formatPrice(currentVariant?.basePrice ?? product.basePrice)}
             </p>
 
             {product.description && (
@@ -575,8 +587,8 @@ export default function ProductDetailPage() {
                         onMouseLeave={() => setHoverVariant(null)}
                         onFocus={() => setHoverVariant(opt.variant)}
                         onBlur={() => setHoverVariant(null)}
-                        disabled={!opt.variant.inStock || opt.variant.isCurrent}
-                        className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
+                        disabled={!opt.variant.inStock || currentVariant?.id === opt.variant.id}
+                        className={getOptionButtonClass(currentVariant?.id === opt.variant.id, !!opt.variant.inStock)}
                       >
                         <div>{opt.label}</div>
                         {renderOptionPrice(opt.variant)}
@@ -600,8 +612,8 @@ export default function ProductDetailPage() {
                         onMouseLeave={() => setHoverVariant(null)}
                         onFocus={() => setHoverVariant(opt.variant)}
                         onBlur={() => setHoverVariant(null)}
-                        disabled={!opt.variant.inStock || opt.variant.isCurrent}
-                        className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
+                        disabled={!opt.variant.inStock || currentVariant?.id === opt.variant.id}
+                        className={getOptionButtonClass(currentVariant?.id === opt.variant.id, !!opt.variant.inStock)}
                       >
                         <div>{opt.label}</div>
                         {renderOptionPrice(opt.variant)}
@@ -625,8 +637,8 @@ export default function ProductDetailPage() {
                         onMouseLeave={() => setHoverVariant(null)}
                         onFocus={() => setHoverVariant(opt.variant)}
                         onBlur={() => setHoverVariant(null)}
-                        disabled={!opt.variant.inStock || opt.variant.isCurrent}
-                        className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
+                        disabled={!opt.variant.inStock || currentVariant?.id === opt.variant.id}
+                        className={getOptionButtonClass(currentVariant?.id === opt.variant.id, !!opt.variant.inStock)}
                       >
                         <div>{opt.label}</div>
                         {renderOptionPrice(opt.variant)}
@@ -650,8 +662,8 @@ export default function ProductDetailPage() {
                         onMouseLeave={() => setHoverVariant(null)}
                         onFocus={() => setHoverVariant(opt.variant)}
                         onBlur={() => setHoverVariant(null)}
-                        disabled={!opt.variant.inStock || opt.variant.isCurrent}
-                        className={getOptionButtonClass(opt.variant.isCurrent, !!opt.variant.inStock)}
+                        disabled={!opt.variant.inStock || currentVariant?.id === opt.variant.id}
+                        className={getOptionButtonClass(currentVariant?.id === opt.variant.id, !!opt.variant.inStock)}
                       >
                         <div>{opt.label}</div>
                         {renderOptionPrice(opt.variant)}
@@ -675,8 +687,8 @@ export default function ProductDetailPage() {
                         onMouseLeave={() => setHoverVariant(null)}
                         onFocus={() => setHoverVariant(v)}
                         onBlur={() => setHoverVariant(null)}
-                        disabled={!v.inStock || v.isCurrent}
-                        className={getOptionButtonClass(v.isCurrent, !!v.inStock)}
+                        disabled={!v.inStock || currentVariant?.id === v.id}
+                        className={getOptionButtonClass(currentVariant?.id === v.id, !!v.inStock)}
                         title={v.pfColor || ""}
                       >
                         <div className="flex items-center gap-2">
