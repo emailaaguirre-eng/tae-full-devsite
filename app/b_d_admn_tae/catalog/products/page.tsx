@@ -26,6 +26,7 @@ interface Product {
   description: string | null;
   heroImage: string | null;
   galleryImages: string | null;
+  artworkSourceUrl?: string | null;
   basePrice: number;
   printfulBasePrice: number;
   taeAddOnFee: number;
@@ -44,6 +45,8 @@ interface Product {
   categoryPathLabel?: string;
   requiresQrCode?: boolean;
   customizable?: boolean;
+  artistSlug?: string | null;
+  coCreatorSlug?: string | null;
   proofTerms?: string | null;
   pricing?: {
     marginTarget: number;
@@ -83,6 +86,12 @@ interface Category {
   productCount: number;
 }
 
+interface CreatorOption {
+  slug: string;
+  name: string;
+  sourceImageUrl?: string | null;
+}
+
 const EMPTY_FORM = {
   name: "",
   description: "",
@@ -103,6 +112,7 @@ const EMPTY_FORM = {
   paperType: "",
   finishType: "",
   heroImage: "",
+  artworkSourceUrl: "",
   watermarkEnabled: false,
   watermarkText: "tAE",
   watermarkColor: "#ffffff",
@@ -135,6 +145,8 @@ export default function AdminProductsPage() {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [artists, setArtists] = useState<CreatorOption[]>([]);
+  const [coCreators, setCoCreators] = useState<CreatorOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -162,6 +174,7 @@ export default function AdminProductsPage() {
   const [imageEditProduct, setImageEditProduct] = useState<Product | null>(null);
   const [heroUploading, setHeroUploading] = useState(false);
   const [galleryUploading, setGalleryUploading] = useState(false);
+  const [artworkSourceUploading, setArtworkSourceUploading] = useState(false);
   const [imgError, setImgError] = useState<string | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [showWatermarkEditor, setShowWatermarkEditor] = useState(false);
@@ -182,6 +195,48 @@ export default function AdminProductsPage() {
     (categoryId?: string) => categories.find((c) => c.id === categoryId)?.requiresQrCode ?? false,
     [categories]
   );
+  const currentEditProduct = useMemo(
+    () => products.find((p) => p.id === editId) || null,
+    [products, editId]
+  );
+
+  const loadCreatorOptions = useCallback(async () => {
+    try {
+      const [artistsRes, coCreatorsRes] = await Promise.all([
+        fetch("/api/gallery"),
+        fetch("/api/cocreators"),
+      ]);
+
+      const artistsJson = await artistsRes.json().catch(() => null);
+      const coCreatorsJson = await coCreatorsRes.json().catch(() => null);
+
+      if (artistsJson?.data && Array.isArray(artistsJson.data)) {
+        setArtists(
+          artistsJson.data
+            .filter((item: any) => item?.slug && item?.name)
+            .map((item: any) => ({
+              slug: item.slug,
+              name: item.name,
+              sourceImageUrl: item?.portfolio?.[0]?.image || null,
+            }))
+        );
+      }
+
+      if (coCreatorsJson?.data && Array.isArray(coCreatorsJson.data)) {
+        setCoCreators(
+          coCreatorsJson.data
+            .filter((item: any) => item?.slug && item?.name)
+            .map((item: any) => ({
+              slug: item.slug,
+              name: item.name,
+              sourceImageUrl: item?.heroImage || null,
+            }))
+        );
+      }
+    } catch {
+      // Convenience fill buttons remain hidden if source lists cannot be loaded.
+    }
+  }, []);
 
   const handleBackfillImages = async () => {
     setBackfilling(true);
@@ -373,7 +428,7 @@ export default function AdminProductsPage() {
   };
 
   // Image upload helpers
-  const uploadProductImage = async (file: File, productId: string, kind: "hero" | "gallery") => {
+  const uploadProductImage = async (file: File, productId: string, kind: "hero" | "gallery" | "artworkSource") => {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("productId", productId);
@@ -451,6 +506,52 @@ export default function AdminProductsPage() {
     loadProducts();
     setGalleryUploading(false);
     e.target.value = "";
+  };
+
+  const handleArtworkSourceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !imageEditProduct) return;
+    setArtworkSourceUploading(true);
+    setImgError(null);
+    try {
+      const result = await uploadProductImage(file, imageEditProduct.id, "artworkSource");
+      if (result.success) {
+        setImageEditProduct({ ...imageEditProduct, artworkSourceUrl: result.data.url });
+        if (editId === imageEditProduct.id) {
+          setForm((prev) => ({ ...prev, artworkSourceUrl: result.data.url || "" }));
+        }
+        loadProducts();
+      } else {
+        setImgError(result.data?.error || "Upload failed");
+      }
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) setImgError("Upload failed");
+    } finally {
+      setArtworkSourceUploading(false);
+    }
+    e.target.value = "";
+  };
+
+  const handleRemoveArtworkSource = async () => {
+    if (!imageEditProduct) return;
+    try {
+      const { res, data } = await adminFetchJson(`/api/admin/store-products/${imageEditProduct.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ artworkSourceUrl: null }),
+      }, () => router.push("/b_d_admn_tae/login"));
+      if (!res.ok || !data?.success) {
+        setImgError(data?.error || "Failed to remove artwork source");
+        return;
+      }
+      setImageEditProduct({ ...imageEditProduct, artworkSourceUrl: null });
+      if (editId === imageEditProduct.id) {
+        setForm((prev) => ({ ...prev, artworkSourceUrl: "" }));
+      }
+      loadProducts();
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) setImgError("Failed to remove artwork source");
+    }
   };
 
   const handleRemoveGalleryImage = async (idx: number) => {
@@ -567,6 +668,10 @@ export default function AdminProductsPage() {
   }, [loadProducts]);
 
   useEffect(() => {
+    loadCreatorOptions();
+  }, [loadCreatorOptions]);
+
+  useEffect(() => {
     if (searchParams.get("action") === "new") {
       setShowForm(true);
       setEditId(null);
@@ -621,6 +726,7 @@ export default function AdminProductsPage() {
       paperType: p.paperType || "",
       finishType: p.finishType || "",
       heroImage: p.heroImage || "",
+      artworkSourceUrl: p.artworkSourceUrl || "",
       watermarkEnabled: !!wm.enabled,
       watermarkText: wm.text || "tAE",
       watermarkColor: wm.color || "#ffffff",
@@ -665,6 +771,7 @@ export default function AdminProductsPage() {
         paperType: form.paperType || null,
         finishType: form.finishType || null,
         heroImage: form.heroImage || null,
+        artworkSourceUrl: form.artworkSourceUrl || null,
         watermark: {
           enabled: !!form.watermarkEnabled,
           text: (form.watermarkText || "tAE").trim() || "tAE",
@@ -1312,6 +1419,50 @@ export default function AdminProductsPage() {
                       placeholder="https://..."
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Artwork Source URL</label>
+                    <input
+                      type="text"
+                      value={form.artworkSourceUrl}
+                      onChange={(e) => setForm({ ...form, artworkSourceUrl: e.target.value })}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      placeholder="Canonical non-Printful artwork asset used for future mockup generation"
+                    />
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {currentEditProduct?.artistSlug && artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              artworkSourceUrl:
+                                artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl ||
+                                prev.artworkSourceUrl,
+                            }))
+                          }
+                          className={BTN_SUBTLE}
+                        >
+                          Use First Artist Portfolio Image
+                        </button>
+                      )}
+                      {currentEditProduct?.coCreatorSlug && coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)?.sourceImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              artworkSourceUrl:
+                                coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)?.sourceImageUrl ||
+                                prev.artworkSourceUrl,
+                            }))
+                          }
+                          className={BTN_SUBTLE}
+                        >
+                          Use Co-Creator Hero Image
+                        </button>
+                      )}
+                    </div>
+                  </div>
                   <div className="border border-brand-light rounded-lg p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">Watermark</label>
@@ -1554,6 +1705,51 @@ export default function AdminProductsPage() {
               )}
 
               <div className="p-6 space-y-6">
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-2 uppercase tracking-wider">Artwork Source (Canonical)</label>
+                  <div className="flex items-start gap-4">
+                    {imageEditProduct.artworkSourceUrl ? (
+                      <div className="relative group">
+                        <img
+                          src={imageEditProduct.artworkSourceUrl}
+                          alt="Artwork source"
+                          className="w-40 h-28 object-cover border border-brand-light"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "";
+                          }}
+                        />
+                        <button
+                          onClick={handleRemoveArtworkSource}
+                          className="absolute top-1 right-1 bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-40 h-28 border-2 border-dashed border-brand-light flex items-center justify-center text-brand-medium">
+                        <ImageIcon className="w-8 h-8 opacity-30" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <label className="inline-flex items-center gap-2 px-4 py-2 text-sm border border-brand-dark text-brand-dark cursor-pointer hover:bg-brand-dark/10 transition-colors">
+                        <Upload className="w-4 h-4" />
+                        {artworkSourceUploading ? "Uploading..." : imageEditProduct.artworkSourceUrl ? "Replace" : "Upload Artwork Source"}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={handleArtworkSourceUpload}
+                          disabled={artworkSourceUploading}
+                          className="hidden"
+                        />
+                      </label>
+                      <p className="text-[10px] text-brand-medium mt-2">
+                        Use a non-Printful artwork asset here. This is the canonical source for future mockup generation.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Hero image */}
                 <div>
                   <label className="block text-xs font-medium text-brand-dark/70 mb-2 uppercase tracking-wider">Hero Image</label>
