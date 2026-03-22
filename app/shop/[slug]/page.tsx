@@ -341,6 +341,61 @@ export default function ProductDetailPage() {
     const n = Number(value);
     return Number.isFinite(n) ? n.toFixed(2) : "0.00";
   };
+  const pickVariantForOptionGroup = (
+    list: VariantOption[],
+    base: VariantOption | null,
+    contextDimension: "size" | "material" | "frame" | "orientation" | "color"
+  ): VariantOption => {
+    if (list.length === 0) {
+      return base as VariantOption;
+    }
+    if (!base) {
+      return list[0];
+    }
+    const colorKey = (x: VariantOption) =>
+      (x.pfColorCode || x.pfColor || "").trim().toLowerCase();
+    const matchesContext = (v: VariantOption) => {
+      if (contextDimension !== "size" && getSizeLabel(v) !== getSizeLabel(base)) {
+        return false;
+      }
+      if (contextDimension !== "material" && getMaterialLabel(v) !== getMaterialLabel(base)) {
+        return false;
+      }
+      if (contextDimension !== "frame" && getFrameLabel(v) !== getFrameLabel(base)) {
+        return false;
+      }
+      if (
+        contextDimension !== "orientation" &&
+        getOrientationLabel(v) !== getOrientationLabel(base)
+      ) {
+        return false;
+      }
+      if (contextDimension !== "color") {
+        const a = colorKey(v);
+        const b = colorKey(base);
+        if (a || b) {
+          if (a !== b) return false;
+        }
+      }
+      return true;
+    };
+    const pool = list.filter(matchesContext);
+    if (pool.length > 0) {
+      return pool.find((v) => v.inStock) ?? pool[0];
+    }
+    const scored = [...list].sort((a, b) => {
+      const score = (x: VariantOption) => {
+        let s = x.inStock ? 10 : 0;
+        if (getSizeLabel(x) === getSizeLabel(base)) s += 2;
+        if (getMaterialLabel(x) === getMaterialLabel(base)) s += 2;
+        if (getFrameLabel(x) === getFrameLabel(base)) s += 2;
+        if (getOrientationLabel(x) === getOrientationLabel(base)) s += 1;
+        return s;
+      };
+      return score(b) - score(a);
+    });
+    return scored[0];
+  };
   const renderOptionPrice = (variant: VariantOption) => {
     if (!variant.inStock) return null;
     const currentPrice = Number(currentVariant?.basePrice ?? product.basePrice);
@@ -359,7 +414,8 @@ export default function ProductDetailPage() {
   const buildOptions = (
     variantsList: VariantOption[],
     labelFor: (v: VariantOption) => string,
-    keyFor: (v: VariantOption) => string
+    keyFor: (v: VariantOption) => string,
+    contextDimension: "size" | "material" | "frame" | "orientation" | "color"
   ) => {
     const groups = new Map<string, VariantOption[]>();
     for (const v of variantsList) {
@@ -370,40 +426,37 @@ export default function ProductDetailPage() {
     }
     const options: { key: string; label: string; variant: VariantOption }[] = [];
     for (const [key, list] of groups.entries()) {
-      const scored = [...list].sort((a, b) => {
-        const score = (x: VariantOption) => {
-          let s = x.inStock ? 10 : 0;
-          if (currentVariant) {
-            if (getSizeLabel(x) === getSizeLabel(currentVariant)) s += 2;
-            if (getMaterialLabel(x) === getMaterialLabel(currentVariant)) s += 2;
-            if (getFrameLabel(x) === getFrameLabel(currentVariant)) s += 2;
-            if (getOrientationLabel(x) === getOrientationLabel(currentVariant)) s += 1;
-          }
-          return s;
-        };
-        return score(b) - score(a);
-      });
+      const variant = pickVariantForOptionGroup(list, currentVariant, contextDimension);
       options.push({
         key,
-        label: labelFor(scored[0]),
-        variant: scored[0],
+        label: labelFor(variant),
+        variant,
       });
     }
     return options;
   };
 
-  const sizeOptions = buildOptions(variantRows, getSizeLabel, getSizeLabel);
-  const materialOptions = buildOptions(variantRows, getMaterialLabel, getMaterialLabel);
-  const frameOptions = buildOptions(variantRows, getFrameLabel, getFrameLabel);
-  const orientationOptions = buildOptions(variantRows, getOrientationLabel, getOrientationLabel)
+  const sizeOptions = buildOptions(variantRows, getSizeLabel, getSizeLabel, "size");
+  const materialOptions = buildOptions(
+    variantRows,
+    getMaterialLabel,
+    getMaterialLabel,
+    "material"
+  );
+  const frameOptions = buildOptions(variantRows, getFrameLabel, getFrameLabel, "frame");
+  const orientationOptions = buildOptions(
+    variantRows,
+    getOrientationLabel,
+    getOrientationLabel,
+    "orientation"
+  )
     .filter((opt) => opt.label !== "Default");
-  const colorOptions = [
-    ...new Map(
-      variantRows
-        .filter((v) => v.pfColorCode || v.pfColor)
-        .map((v) => [v.pfColorCode || v.pfColor || v.id, v])
-    ).values(),
-  ];
+  const colorOptions = buildOptions(
+    variantRows.filter((v) => v.pfColorCode || v.pfColor),
+    (v) => v.pfColor || "Color option",
+    (v) => String(v.pfColorCode || v.pfColor || v.id),
+    "color"
+  );
 
   const handleVariantSelect = (variant: VariantOption) => {
     setHoverVariant(null);
