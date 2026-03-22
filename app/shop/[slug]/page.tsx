@@ -774,8 +774,17 @@ export default function ProductDetailPage() {
                 </button>
 
                 <p className="text-center text-xs text-brand-darkest/40 mt-3">
-                  You&apos;ll upload your image and design your ArtKey portal in the
-                  next step.
+                  {product.requiresQrCode ? (
+                    <>
+                      You&apos;ll upload your image and design your ArtKey portal in
+                      the next step.
+                    </>
+                  ) : (
+                    <>
+                      You&apos;ll upload your image and finish customizing in the next
+                      step.
+                    </>
+                  )}
                 </p>
               </>
             ) : (
