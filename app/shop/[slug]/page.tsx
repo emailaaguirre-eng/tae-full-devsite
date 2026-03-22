@@ -304,6 +304,7 @@ export default function ProductDetailPage() {
         : [...new Set(fallback)];
     const vh = currentVariant?.heroImage;
     if (!vh) return base;
+    if (exactVariantImages.length > 0) return base;
     return [vh, ...base.filter((u) => u !== vh)];
   }, [exactVariantImages, formatSpecificImages, product, currentVariant?.heroImage]);
 
