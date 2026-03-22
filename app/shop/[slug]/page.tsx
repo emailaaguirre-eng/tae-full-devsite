@@ -208,33 +208,49 @@ export default function ProductDetailPage() {
   }, [currentVariant?.printfulVariantId]);
 
   const exactVariantImages = useMemo(() => {
-    if (!selectedPrintfulVariantId) return [];
+    if (!selectedPrintfulVariantId && !currentVariant?.id) return [];
     const urls: string[] = [];
     const push = (url?: string | null) => {
       if (!url || urls.includes(url)) return;
       urls.push(url);
     };
+    const rowMatchesSelectedVariant = (row: VariantImageMeta) => {
+      if (
+        currentVariant?.id != null &&
+        row?.id != null &&
+        String(row.id) === String(currentVariant.id)
+      ) {
+        return true;
+      }
+      if (
+        selectedPrintfulVariantId &&
+        toVariantIdCandidates(row).includes(selectedPrintfulVariantId)
+      ) {
+        return true;
+      }
+      return false;
+    };
 
     for (const row of parsedImageMeta.variantMatrix) {
       if (!isActiveRow(row)) continue;
-      if (toVariantIdCandidates(row).includes(selectedPrintfulVariantId)) {
+      if (rowMatchesSelectedVariant(row)) {
         push(row?.image);
       }
     }
     for (const row of parsedImageMeta.variantImages) {
       if (!isActiveRow(row)) continue;
-      if (toVariantIdCandidates(row).includes(selectedPrintfulVariantId)) {
+      if (rowMatchesSelectedVariant(row)) {
         push(row?.image);
       }
     }
     for (const row of parsedImageMeta.siblingVariants) {
       if (!isActiveRow(row)) continue;
-      if (toVariantIdCandidates(row).includes(selectedPrintfulVariantId)) {
+      if (rowMatchesSelectedVariant(row)) {
         push(row?.image);
       }
     }
     return urls;
-  }, [parsedImageMeta, selectedPrintfulVariantId]);
+  }, [parsedImageMeta, selectedPrintfulVariantId, currentVariant?.id]);
 
   const formatSpecificImages = useMemo(() => {
     const selectedSize = normalizeValue(currentVariant?.sizeLabel || currentVariant?.pfSize);
