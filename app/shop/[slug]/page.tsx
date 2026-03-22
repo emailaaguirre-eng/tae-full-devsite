@@ -325,6 +325,8 @@ export default function ProductDetailPage() {
     );
   }
 
+  const canCustomize = product.customizable !== false;
+
   const getSizeLabel = (v: VariantOption) =>
     v.sizeLabel ||
     v.pfSize ||
@@ -428,7 +430,7 @@ export default function ProductDetailPage() {
     null;
 
   const handleStartCustomizing = () => {
-    if (product.customizable === false) return;
+    if (!canCustomize) return;
     const searchParams = new URLSearchParams({
       product_id: product.id,
       slug: product.slug,
@@ -655,7 +657,7 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {product.customizable !== false && orientationOptions.length > 1 && (
+              {canCustomize && orientationOptions.length > 1 && (
                 <div>
                   <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
                     Orientation
@@ -761,7 +763,7 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {product.customizable !== false ? (
+            {canCustomize ? (
               <>
                 {/* CTA */}
                 <button
