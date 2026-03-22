@@ -276,14 +276,20 @@ export default function ProductDetailPage() {
 
   const displayImages = useMemo(() => {
     if (!product) return [];
-    if (exactVariantImages.length > 0) return exactVariantImages;
-    if (formatSpecificImages.length > 0) return formatSpecificImages;
     const fallback = [
       ...(product.heroImage ? [product.heroImage] : []),
       ...(product.galleryImages || []).filter((url) => !!url && url !== product.heroImage),
     ];
-    return [...new Set(fallback)];
-  }, [exactVariantImages, formatSpecificImages, product]);
+    const base =
+      exactVariantImages.length > 0
+        ? exactVariantImages
+        : formatSpecificImages.length > 0
+        ? formatSpecificImages
+        : [...new Set(fallback)];
+    const vh = currentVariant?.heroImage;
+    if (!vh) return base;
+    return [vh, ...base.filter((u) => u !== vh)];
+  }, [exactVariantImages, formatSpecificImages, product, currentVariant?.heroImage]);
 
   useEffect(() => {
     setActiveImageIndex(0);
