@@ -19,6 +19,23 @@ import {
   GripVertical,
 } from "lucide-react";
 
+interface ProductVariantMatrixRow {
+  id: string;
+  paperType?: string | null;
+  size?: string | null;
+  frame?: string | null;
+  frameColor?: string | null;
+  printfulProductId?: number | null;
+  printfulVariantId?: number | null;
+  providerCost?: number | null;
+  variationUpcharge?: number | null;
+  artistRoyalty?: number | null;
+  taeAddOnFee?: number | null;
+  sellPrice?: number | null;
+  image?: string | null;
+  active?: boolean;
+}
+
 interface Product {
   id: string;
   slug: string;
@@ -47,6 +64,9 @@ interface Product {
   customizable?: boolean;
   artistSlug?: string | null;
   coCreatorSlug?: string | null;
+  familyKey?: string | null;
+  productType?: string | null;
+  variantMatrix?: ProductVariantMatrixRow[];
   proofTerms?: string | null;
   pricing?: {
     marginTarget: number;
@@ -92,10 +112,269 @@ interface CreatorOption {
   sourceImageUrl?: string | null;
 }
 
+interface PrintfulCatalogProduct {
+  id: number;
+  title: string;
+  type?: string;
+  variantCount?: number;
+}
+
+interface PrintfulVariantOption {
+  id: number;
+  name: string;
+  size?: string | null;
+  retailPrice?: string | null;
+}
+
+const PRINTFUL_FALLBACK_PRODUCTS: PrintfulCatalogProduct[] = [
+  { id: 568, title: "Greeting Card", type: "Greeting Cards", variantCount: 3 },
+  { id: 433, title: "Postcard", type: "Postcards / Invitations / Announcements", variantCount: 1 },
+  { id: 3, title: "Canvas", type: "Canvas Prints" },
+  { id: 614, title: "Framed Canvas", type: "Framed Canvas Prints" },
+  { id: 1, title: "Enhanced Matte Paper Poster", type: "Wall Art / Posters" },
+  { id: 2, title: "Enhanced Matte Paper Framed Poster", type: "Framed Prints" },
+  { id: 171, title: "Premium Luster Paper Poster", type: "Wall Art / Posters" },
+  { id: 172, title: "Premium Luster Paper Framed Poster", type: "Framed Prints" },
+];
+
+const PRINTFUL_FALLBACK_VARIANTS: Record<number, PrintfulVariantOption[]> = {
+  1: [
+    { id: 4463, name: "Enhanced Matte Paper Poster", size: '8" x 10"' },
+    { id: 14125, name: "Enhanced Matte Paper Poster", size: '11" x 14"' },
+    { id: 3876, name: "Enhanced Matte Paper Poster", size: '12" x 18"' },
+    { id: 3877, name: "Enhanced Matte Paper Poster", size: '16" x 20"' },
+    { id: 1, name: "Enhanced Matte Paper Poster", size: '18" x 24"' },
+    { id: 2, name: "Enhanced Matte Paper Poster", size: '24" x 36"' },
+  ],
+  171: [
+    { id: 6871, name: "Premium Luster Paper Poster", size: '8" x 10"' },
+    { id: 14028, name: "Premium Luster Paper Poster", size: '11" x 14"' },
+    { id: 6876, name: "Premium Luster Paper Poster", size: '12" x 18"' },
+    { id: 6878, name: "Premium Luster Paper Poster", size: '16" x 20"' },
+    { id: 6880, name: "Premium Luster Paper Poster", size: '18" x 24"' },
+    { id: 7845, name: "Premium Luster Paper Poster", size: '24" x 36"' },
+  ],
+  568: [
+    { id: 14457, name: "Greeting Card - Small", size: '4.25" x 5.5"' },
+    { id: 14458, name: "Greeting Card - Medium", size: '5" x 7"' },
+    { id: 14460, name: "Greeting Card - Large", size: '5.83" x 8.27" / A5' },
+  ],
+  433: [{ id: 11513, name: "Postcard", size: '5" x 7"' }],
+};
+
+const PRINTFUL_FRAMED_FALLBACK_VARIANTS: Record<number, Record<string, PrintfulVariantOption[]>> = {
+  2: {
+    Black: [
+      { id: 4651, name: "Enhanced Matte Paper Framed Poster - Black", size: '8" x 10"' },
+      { id: 14292, name: "Enhanced Matte Paper Framed Poster - Black", size: '11" x 14"' },
+      { id: 4398, name: "Enhanced Matte Paper Framed Poster - Black", size: '12" x 18"' },
+      { id: 4399, name: "Enhanced Matte Paper Framed Poster - Black", size: '16" x 20"' },
+      { id: 3, name: "Enhanced Matte Paper Framed Poster - Black", size: '18" x 24"' },
+      { id: 4, name: "Enhanced Matte Paper Framed Poster - Black", size: '24" x 36"' },
+    ],
+    Oak: [
+      { id: 15021, name: "Enhanced Matte Paper Framed Poster - Oak", size: '8" x 10"' },
+      { id: 15023, name: "Enhanced Matte Paper Framed Poster - Oak", size: '11" x 14"' },
+      { id: 15026, name: "Enhanced Matte Paper Framed Poster - Oak", size: '12" x 18"' },
+      { id: 15029, name: "Enhanced Matte Paper Framed Poster - Oak", size: '16" x 20"' },
+      { id: 15031, name: "Enhanced Matte Paper Framed Poster - Oak", size: '18" x 24"' },
+      { id: 15032, name: "Enhanced Matte Paper Framed Poster - Oak", size: '24" x 36"' },
+    ],
+    White: [
+      { id: 10754, name: "Enhanced Matte Paper Framed Poster - White", size: '8" x 10"' },
+      { id: 14293, name: "Enhanced Matte Paper Framed Poster - White", size: '11" x 14"' },
+      { id: 10752, name: "Enhanced Matte Paper Framed Poster - White", size: '12" x 18"' },
+      { id: 10753, name: "Enhanced Matte Paper Framed Poster - White", size: '16" x 20"' },
+      { id: 10749, name: "Enhanced Matte Paper Framed Poster - White", size: '18" x 24"' },
+      { id: 10750, name: "Enhanced Matte Paper Framed Poster - White", size: '24" x 36"' },
+    ],
+  },
+  172: {
+    Black: [
+      { id: 6882, name: "Premium Luster Paper Framed Poster - Black", size: '8" x 10"' },
+      { id: 14290, name: "Premium Luster Paper Framed Poster - Black", size: '11" x 14"' },
+      { id: 6887, name: "Premium Luster Paper Framed Poster - Black", size: '12" x 18"' },
+      { id: 6889, name: "Premium Luster Paper Framed Poster - Black", size: '16" x 20"' },
+      { id: 6891, name: "Premium Luster Paper Framed Poster - Black", size: '18" x 24"' },
+      { id: 7846, name: "Premium Luster Paper Framed Poster - Black", size: '24" x 36"' },
+    ],
+    Oak: [
+      { id: 15006, name: "Premium Luster Paper Framed Poster - Oak", size: '8" x 10"' },
+      { id: 15008, name: "Premium Luster Paper Framed Poster - Oak", size: '11" x 14"' },
+      { id: 15011, name: "Premium Luster Paper Framed Poster - Oak", size: '12" x 18"' },
+      { id: 15014, name: "Premium Luster Paper Framed Poster - Oak", size: '16" x 20"' },
+      { id: 15017, name: "Premium Luster Paper Framed Poster - Oak", size: '18" x 24"' },
+      { id: 15018, name: "Premium Luster Paper Framed Poster - Oak", size: '24" x 36"' },
+    ],
+    White: [
+      { id: 10760, name: "Premium Luster Paper Framed Poster - White", size: '8" x 10"' },
+      { id: 14291, name: "Premium Luster Paper Framed Poster - White", size: '11" x 14"' },
+      { id: 10765, name: "Premium Luster Paper Framed Poster - White", size: '12" x 18"' },
+      { id: 10767, name: "Premium Luster Paper Framed Poster - White", size: '16" x 20"' },
+      { id: 10769, name: "Premium Luster Paper Framed Poster - White", size: '18" x 24"' },
+      { id: 10770, name: "Premium Luster Paper Framed Poster - White", size: '24" x 36"' },
+    ],
+  },
+};
+
+const VARIANT_DROPDOWN_OPTIONS: Record<
+  string,
+  {
+    sizes?: string[];
+    paperTypes?: string[];
+    frames?: string[];
+    frameColors?: string[];
+    printfulProducts?: Array<{ id: number; label: string }>;
+  }
+> = {
+  "art-print": {
+    sizes: ['8″×10″', '11″×14″', '12″×18″', '16″×20″', '18″×24″', '24″×36″'],
+    paperTypes: ["Enhanced Matte Paper", "Premium Luster Paper"],
+    frames: ["Unframed", "Framed"],
+    frameColors: ["Black", "White", "Oak"],
+    printfulProducts: [
+      { id: 1, label: "Enhanced Matte Paper Poster" },
+      { id: 2, label: "Enhanced Matte Paper Framed Poster" },
+      { id: 171, label: "Premium Luster Paper Poster" },
+      { id: 172, label: "Premium Luster Paper Framed Poster" },
+    ],
+  },
+  "greeting-card": {
+    sizes: ['4″×6″', '5″×7″', '5.83″×8.27″'],
+    paperTypes: ["Greeting Card Stock"],
+    printfulProducts: [{ id: 568, label: "Greeting Card" }],
+  },
+  "postcard": {
+    sizes: ['4″×6″'],
+    paperTypes: ["Matte Postcard Stock"],
+    printfulProducts: [{ id: 433, label: "Standard Postcard" }],
+  },
+  "invitation": {
+    sizes: ['4″×6″'],
+    paperTypes: ["Matte Postcard Stock"],
+    printfulProducts: [{ id: 433, label: "Standard Postcard" }],
+  },
+  "announcement": {
+    sizes: ['4″×6″'],
+    paperTypes: ["Matte Postcard Stock"],
+    printfulProducts: [{ id: 433, label: "Standard Postcard" }],
+  },
+};
+
+const PRODUCT_TYPE_MATRIX_FIELDS: Record<
+  string,
+  {
+    label: string;
+    fields: Array<
+      | "size"
+      | "paperType"
+      | "frame"
+      | "frameColor"
+      | "printfulProductId"
+      | "printfulVariantId"
+      | "providerCost"
+      | "variationUpcharge"
+      | "artistRoyalty"
+      | "taeAddOnFee"
+      | "sellPrice"
+    >;
+  }
+> = {
+  "art-print": {
+    label: "Art Prints / Posters",
+    fields: [
+      "size",
+      "paperType",
+      "frame",
+      "frameColor",
+      "printfulProductId",
+      "printfulVariantId",
+      "providerCost",
+      "variationUpcharge",
+      "artistRoyalty",
+      "taeAddOnFee",
+      "sellPrice",
+    ],
+  },
+  "canvas-print": {
+    label: "Canvas Prints",
+    fields: [
+      "size",
+      "frame",
+      "frameColor",
+      "printfulProductId",
+      "printfulVariantId",
+      "providerCost",
+      "variationUpcharge",
+      "artistRoyalty",
+      "taeAddOnFee",
+      "sellPrice",
+    ],
+  },
+  "greeting-card": {
+    label: "Greeting Cards",
+    fields: [
+      "size",
+      "paperType",
+      "printfulProductId",
+      "printfulVariantId",
+      "providerCost",
+      "variationUpcharge",
+      "artistRoyalty",
+      "taeAddOnFee",
+      "sellPrice",
+    ],
+  },
+  "postcard": {
+    label: "Postcards",
+    fields: [
+      "size",
+      "paperType",
+      "printfulProductId",
+      "printfulVariantId",
+      "providerCost",
+      "variationUpcharge",
+      "artistRoyalty",
+      "taeAddOnFee",
+      "sellPrice",
+    ],
+  },
+  "invitation": {
+    label: "Invitations",
+    fields: [
+      "size",
+      "paperType",
+      "printfulProductId",
+      "printfulVariantId",
+      "providerCost",
+      "variationUpcharge",
+      "artistRoyalty",
+      "taeAddOnFee",
+      "sellPrice",
+    ],
+  },
+  "announcement": {
+    label: "Announcements",
+    fields: [
+      "size",
+      "paperType",
+      "printfulProductId",
+      "printfulVariantId",
+      "providerCost",
+      "variationUpcharge",
+      "artistRoyalty",
+      "taeAddOnFee",
+      "sellPrice",
+    ],
+  },
+};
+
 const EMPTY_FORM = {
   name: "",
   description: "",
   proofTerms: "",
+  productType: "art-print",
+  variantMatrix: [] as ProductVariantMatrixRow[],
   categoryId: "",
   printProvider: "printful",
   printfulProductId: "",
@@ -111,6 +390,9 @@ const EMPTY_FORM = {
   sizeLabel: "",
   paperType: "",
   finishType: "",
+  artistSlug: "",
+  coCreatorSlug: "",
+  familyKey: "",
   heroImage: "",
   artworkSourceUrl: "",
   watermarkEnabled: false,
@@ -183,6 +465,98 @@ export default function AdminProductsPage() {
   const [wmResizing, setWmResizing] = useState(false);
   const [draftHeroFile, setDraftHeroFile] = useState<File | null>(null);
   const [draftGalleryFiles, setDraftGalleryFiles] = useState<File[]>([]);
+  const [rowPrintfulVariants, setRowPrintfulVariants] = useState<Record<string, PrintfulVariantOption[]>>({});
+  const [rowPrintfulLoadingVariants, setRowPrintfulLoadingVariants] = useState<Record<string, boolean>>({});
+
+  const selectedProductTypeConfig =
+    PRODUCT_TYPE_MATRIX_FIELDS[form.productType || "art-print"] ||
+    PRODUCT_TYPE_MATRIX_FIELDS["art-print"];
+
+  const variantFieldEnabled = (
+    field:
+      | "size"
+      | "paperType"
+      | "frame"
+      | "frameColor"
+      | "printfulProductId"
+      | "printfulVariantId"
+      | "providerCost"
+      | "variationUpcharge"
+      | "artistRoyalty"
+      | "taeAddOnFee"
+      | "sellPrice"
+  ) => selectedProductTypeConfig.fields.includes(field);
+
+  const variantDropdownConfig =
+    VARIANT_DROPDOWN_OPTIONS[form.productType || "art-print"] || null;
+
+  const variantPrintfulProducts =
+    Array.isArray(variantDropdownConfig?.printfulProducts) && variantDropdownConfig.printfulProducts.length > 0
+      ? variantDropdownConfig.printfulProducts
+      : form.productType === "art-print"
+        ? PRINTFUL_FALLBACK_PRODUCTS.filter(
+            (product) =>
+              product.id === 1 ||
+              product.id === 2 ||
+              product.id === 171 ||
+              product.id === 172
+          ).map((product) => ({ id: product.id, label: product.title }))
+        : [];
+
+  const getVariantPrintfulProductsForRow = (row: ProductVariantMatrixRow) => {
+    if (form.productType !== "art-print") return variantPrintfulProducts;
+
+    return variantPrintfulProducts.filter((product) => {
+      const label = product.label.toLowerCase();
+      const paperType = (row.paperType || "").trim();
+      const frame = (row.frame || "").trim();
+
+      if (paperType === "Enhanced Matte Paper" && !label.includes("enhanced matte")) {
+        return false;
+      }
+
+      if (paperType === "Premium Luster Paper" && !label.includes("premium luster")) {
+        return false;
+      }
+
+      if (frame === "Framed" && !label.includes("framed")) {
+        return false;
+      }
+
+      if (frame === "Unframed" && label.includes("framed")) {
+        return false;
+      }
+
+      return true;
+    });
+  };
+
+  const getVariantOptionsForRow = (row: ProductVariantMatrixRow) => {
+    const productId = row.printfulProductId;
+    if (!productId) return [];
+
+    const frameColor = row.frameColor || "Black";
+    const liveVariants = rowPrintfulVariants[row.id];
+
+    if (liveVariants?.length) {
+      if (row.frame === "Framed") {
+        const filteredLiveVariants = liveVariants.filter((variant) =>
+          (variant.name || "").toLowerCase().includes(frameColor.toLowerCase())
+        );
+
+        if (filteredLiveVariants.length) return filteredLiveVariants;
+      }
+
+      return liveVariants;
+    }
+
+    if (row.frame === "Framed") {
+      return PRINTFUL_FRAMED_FALLBACK_VARIANTS[productId]?.[frameColor] || [];
+    }
+
+    return PRINTFUL_FALLBACK_VARIANTS[productId] || [];
+  };
+
   const leafCategories = useMemo(
     () => categories.filter((c) => (c.categoryType || "leaf") === "leaf"),
     [categories]
@@ -663,6 +1037,76 @@ export default function AdminProductsPage() {
     }
   }, [router]);
 
+  const loadRowPrintfulVariants = useCallback(async (rowId: string, productId: number) => {
+    const fallbackVariants = PRINTFUL_FALLBACK_VARIANTS[productId] || [];
+
+    setRowPrintfulLoadingVariants((prev) => ({ ...prev, [rowId]: true }));
+    setRowPrintfulVariants((prev) => ({ ...prev, [rowId]: [] }));
+    setError("");
+
+    try {
+      const res = await fetch(
+        `/api/admin/test-printful?action=product&productId=${productId}`,
+        { credentials: "same-origin" }
+      );
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || data?.error) {
+        if (fallbackVariants.length > 0) {
+          setRowPrintfulVariants((prev) => ({ ...prev, [rowId]: fallbackVariants }));
+          return;
+        }
+        throw new Error(data?.error || `Variant load failed (${res.status})`);
+      }
+
+      const body = data?.body?.result || {};
+      const variants = Array.isArray(body?.sync_variants)
+        ? body.sync_variants
+        : Array.isArray(body?.variants)
+          ? body.variants
+          : [];
+
+      const mappedVariants = variants
+        .map((variant: any) => {
+          const id = Number(
+            variant?.id ??
+            variant?.variant_id ??
+            variant?.sync_variant_id ??
+            0
+          );
+          if (!id) return null;
+
+          return {
+            id,
+            name:
+              variant?.name ||
+              variant?.size ||
+              variant?.sku ||
+              `Variant ${id}`,
+            size: variant?.size || null,
+            retailPrice:
+              variant?.retail_price ??
+              variant?.price ??
+              null,
+          };
+        })
+        .filter(Boolean) as PrintfulVariantOption[];
+
+      setRowPrintfulVariants((prev) => ({
+        ...prev,
+        [rowId]: mappedVariants.length > 0 ? mappedVariants : fallbackVariants,
+      }));
+    } catch (err: any) {
+      if (fallbackVariants.length > 0) {
+        setRowPrintfulVariants((prev) => ({ ...prev, [rowId]: fallbackVariants }));
+      } else {
+        setError(err?.message || "Failed to load Printful variants");
+      }
+    } finally {
+      setRowPrintfulLoadingVariants((prev) => ({ ...prev, [rowId]: false }));
+    }
+  }, []);
+
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
@@ -677,6 +1121,8 @@ export default function AdminProductsPage() {
       setEditId(null);
       setDraftHeroFile(null);
       setDraftGalleryFiles([]);
+      setRowPrintfulVariants({});
+      setRowPrintfulLoadingVariants({});
       const defaultCategoryId = getDefaultCategoryId();
       setForm({
         ...EMPTY_FORM,
@@ -706,10 +1152,14 @@ export default function AdminProductsPage() {
     setEditId(p.id);
     setDraftHeroFile(null);
     setDraftGalleryFiles([]);
+    setRowPrintfulVariants({});
+    setRowPrintfulLoadingVariants({});
     setForm({
       name: p.name,
       description: p.description || "",
       proofTerms: p.proofTerms || "",
+      productType: p.productType || "art-print",
+      variantMatrix: Array.isArray(p.variantMatrix) ? p.variantMatrix.map((r) => ({ ...r })) : [],
       categoryId: p.categoryId || "",
       printProvider: p.printProvider || "printful",
       printfulProductId: p.printfulProductId?.toString() || "",
@@ -725,6 +1175,9 @@ export default function AdminProductsPage() {
       sizeLabel: p.sizeLabel || "",
       paperType: p.paperType || "",
       finishType: p.finishType || "",
+      artistSlug: p.artistSlug || "",
+      coCreatorSlug: p.coCreatorSlug || "",
+      familyKey: p.familyKey || "",
       heroImage: p.heroImage || "",
       artworkSourceUrl: p.artworkSourceUrl || "",
       watermarkEnabled: !!wm.enabled,
@@ -752,6 +1205,8 @@ export default function AdminProductsPage() {
         name: form.name,
         description: form.description || null,
         proofTerms: form.proofTerms || "",
+        productType: form.productType || "art-print",
+        variantMatrix: Array.isArray(form.variantMatrix) ? form.variantMatrix : [],
         categoryId: form.categoryId || undefined,
         printProvider: form.printProvider,
         printfulProductId: form.printfulProductId ? parseInt(form.printfulProductId) : null,
@@ -770,6 +1225,9 @@ export default function AdminProductsPage() {
         sizeLabel: form.sizeLabel || null,
         paperType: form.paperType || null,
         finishType: form.finishType || null,
+        artistSlug: form.artistSlug.trim() || null,
+        coCreatorSlug: form.coCreatorSlug.trim() || null,
+        familyKey: form.familyKey.trim() || null,
         heroImage: form.heroImage || null,
         artworkSourceUrl: form.artworkSourceUrl || null,
         watermark: {
@@ -821,6 +1279,8 @@ export default function AdminProductsPage() {
         setForm(EMPTY_FORM);
         setDraftHeroFile(null);
         setDraftGalleryFiles([]);
+        setRowPrintfulVariants({});
+        setRowPrintfulLoadingVariants({});
         await loadProducts();
       } else {
         setError(data?.error || `Save failed (${res.status})`);
@@ -927,6 +1387,8 @@ export default function AdminProductsPage() {
               setEditId(null);
               setDraftHeroFile(null);
               setDraftGalleryFiles([]);
+              setRowPrintfulVariants({});
+              setRowPrintfulLoadingVariants({});
               setForm({
                 ...EMPTY_FORM,
                 categoryId: defaultCategoryId,
@@ -1014,6 +1476,8 @@ export default function AdminProductsPage() {
                 setEditId(null);
                 setDraftHeroFile(null);
                 setDraftGalleryFiles([]);
+                setRowPrintfulVariants({});
+                setRowPrintfulLoadingVariants({});
                 setForm({
                   ...EMPTY_FORM,
                   categoryId: defaultCategoryId,
@@ -1139,7 +1603,17 @@ export default function AdminProductsPage() {
               <h3 className="text-lg font-semibold text-brand-dark">
                 {editId ? "Edit Product" : "New Product"}
               </h3>
-              <button onClick={() => { setShowForm(false); setEditId(null); setDraftHeroFile(null); setDraftGalleryFiles([]); }} className="text-brand-medium hover:text-brand-dark">
+              <button
+                onClick={() => {
+                  setShowForm(false);
+                  setEditId(null);
+                  setDraftHeroFile(null);
+                  setDraftGalleryFiles([]);
+                  setRowPrintfulVariants({});
+                  setRowPrintfulLoadingVariants({});
+                }}
+                className="text-brand-medium hover:text-brand-dark"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1164,6 +1638,21 @@ export default function AdminProductsPage() {
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Product Type</label>
+                  <select
+                    value={form.productType || "art-print"}
+                    onChange={(e) => setForm({ ...form, productType: e.target.value })}
+                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                  >
+                    <option value="art-print">Art Prints / Posters</option>
+                    <option value="canvas-print">Canvas Prints</option>
+                    <option value="greeting-card">Greeting Cards</option>
+                    <option value="postcard">Postcards</option>
+                    <option value="invitation">Invitations</option>
+                    <option value="announcement">Announcements</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Hero Image Upload</label>
                   <input
@@ -1209,6 +1698,529 @@ export default function AdminProductsPage() {
                     <option value="custom">theAE</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="border border-brand-light rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
+                    Variant Matrix · {selectedProductTypeConfig.label}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        variantMatrix: [
+                          ...(Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []),
+                          {
+                            id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                            paperType: "",
+                            size: "",
+                            frame: "",
+                            frameColor: "",
+                            printfulProductId: null,
+                            printfulVariantId: null,
+                            providerCost: null,
+                            variationUpcharge: null,
+                            artistRoyalty: null,
+                            taeAddOnFee: null,
+                            sellPrice: null,
+                            image: "",
+                            active: true,
+                          },
+                        ],
+                      }))
+                    }
+                    className="border border-brand-dark text-brand-dark px-3 py-1.5 text-xs font-medium hover:bg-brand-dark/10 transition-colors"
+                  >
+                    Add Variant Row
+                  </button>
+                </div>
+
+                <div className="text-sm text-brand-medium">
+                  Configure valid option rows for this {selectedProductTypeConfig.label.toLowerCase()} parent product.
+                </div>
+
+                {Array.isArray(form.variantMatrix) && form.variantMatrix.length > 0 ? (
+                  <div className="space-y-4">
+                    {form.variantMatrix.map((row, index) => (
+                      <div
+                        key={row.id || index}
+                        className="border border-brand-light/70 rounded-lg p-4 space-y-3 bg-brand-lightest/40"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-xs font-semibold text-brand-dark">Variant Row {index + 1}</div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).filter(
+                                  (item) => item.id !== row.id
+                                ),
+                              }))
+                            }
+                            className="text-xs text-red-600 hover:text-red-700"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Size</label>
+                            {variantDropdownConfig?.sizes?.length ? (
+                              <select
+                                value={row.size || ""}
+                                onChange={(e) =>
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                      (item) => (item.id === row.id ? { ...item, size: e.target.value } : item)
+                                    ),
+                                  }))
+                                }
+                                className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                              >
+                                <option value="">Select size...</option>
+                                {variantDropdownConfig.sizes.map((size) => (
+                                  <option key={size} value={size}>
+                                    {size}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                value={row.size || ""}
+                                onChange={(e) =>
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                      (item) => (item.id === row.id ? { ...item, size: e.target.value } : item)
+                                    ),
+                                  }))
+                                }
+                                className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                              Material / Paper Type
+                            </label>
+                            {variantDropdownConfig?.paperTypes?.length ? (
+                              <select
+                                value={row.paperType || ""}
+                                onChange={(e) =>
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                      (item) => (item.id === row.id ? { ...item, paperType: e.target.value } : item)
+                                    ),
+                                  }))
+                                }
+                                className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                              >
+                                <option value="">Select material...</option>
+                                {variantDropdownConfig.paperTypes.map((paperType) => (
+                                  <option key={paperType} value={paperType}>
+                                    {paperType}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                value={row.paperType || ""}
+                                onChange={(e) =>
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                      (item) => (item.id === row.id ? { ...item, paperType: e.target.value } : item)
+                                    ),
+                                  }))
+                                }
+                                className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                              />
+                            )}
+                          </div>
+                          {variantFieldEnabled("frame") && (
+                            <div>
+                              <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Frame</label>
+                              {variantDropdownConfig?.frames?.length ? (
+                                <select
+                                  value={row.frame || ""}
+                                  onChange={(e) =>
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                        (item) =>
+                                          item.id === row.id
+                                            ? {
+                                                ...item,
+                                                frame: e.target.value,
+                                                frameColor: e.target.value === "Framed" ? item.frameColor : "",
+                                              }
+                                            : item
+                                      ),
+                                    }))
+                                  }
+                                  className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                                >
+                                  <option value="">Select frame option...</option>
+                                  {variantDropdownConfig.frames.map((frameOption) => (
+                                    <option key={frameOption} value={frameOption}>
+                                      {frameOption}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={row.frame || ""}
+                                  onChange={(e) =>
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                        (item) => (item.id === row.id ? { ...item, frame: e.target.value } : item)
+                                      ),
+                                    }))
+                                  }
+                                  className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                                />
+                              )}
+                            </div>
+                          )}
+                          {variantFieldEnabled("frameColor") && row.frame === "Framed" && (
+                            <div>
+                              <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                                Frame Color
+                              </label>
+                              {variantDropdownConfig?.frameColors?.length ? (
+                                <select
+                                  value={row.frameColor || ""}
+                                  onChange={(e) =>
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                        (item) => (item.id === row.id ? { ...item, frameColor: e.target.value } : item)
+                                      ),
+                                    }))
+                                  }
+                                  className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                                >
+                                  <option value="">Select frame color...</option>
+                                  {variantDropdownConfig.frameColors.map((frameColor) => (
+                                    <option key={frameColor} value={frameColor}>
+                                      {frameColor}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={row.frameColor || ""}
+                                  onChange={(e) =>
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                        (item) => (item.id === row.id ? { ...item, frameColor: e.target.value } : item)
+                                      ),
+                                    }))
+                                  }
+                                  className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                                />
+                              )}
+                            </div>
+                          )}
+                          <div>
+                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                              Printful Product
+                            </label>
+                            {getVariantPrintfulProductsForRow(row).length ? (
+                              <select
+                                value={row.printfulProductId ?? ""}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const pid = raw ? parseInt(raw, 10) : null;
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                      (item) =>
+                                        item.id === row.id
+                                          ? {
+                                              ...item,
+                                              printfulProductId: pid,
+                                              printfulVariantId: null,
+                                            }
+                                          : item
+                                    ),
+                                  }));
+                                  if (pid) {
+                                    loadRowPrintfulVariants(row.id, pid);
+                                  } else {
+                                    setRowPrintfulVariants((prev) => {
+                                      const next = { ...prev };
+                                      delete next[row.id];
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                              >
+                                <option value="">Select Printful product...</option>
+                                {getVariantPrintfulProductsForRow(row).map((product) => (
+                                  <option key={product.id} value={product.id}>
+                                    {product.label} ({product.id})
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="number"
+                                value={row.printfulProductId ?? ""}
+                                onChange={(e) => {
+                                  const pid = e.target.value ? parseInt(e.target.value, 10) : null;
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                      (item) =>
+                                        item.id === row.id
+                                          ? {
+                                              ...item,
+                                              printfulProductId: Number.isFinite(pid as number) ? pid : null,
+                                              printfulVariantId: null,
+                                            }
+                                          : item
+                                    ),
+                                  }));
+                                  if (pid && Number.isFinite(pid)) {
+                                    loadRowPrintfulVariants(row.id, pid);
+                                  } else {
+                                    setRowPrintfulVariants((prev) => {
+                                      const next = { ...prev };
+                                      delete next[row.id];
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                              Printful Variant
+                              {rowPrintfulLoadingVariants[row.id] ? (
+                                <span className="ml-2 text-brand-medium font-normal">(loading…)</span>
+                              ) : null}
+                            </label>
+                            {getVariantOptionsForRow(row).length ? (
+                              <select
+                                value={row.printfulVariantId ?? ""}
+                                onChange={(e) =>
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                      (item) =>
+                                        item.id === row.id
+                                          ? {
+                                              ...item,
+                                              printfulVariantId: e.target.value ? parseInt(e.target.value, 10) : null,
+                                            }
+                                          : item
+                                    ),
+                                  }))
+                                }
+                                className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                              >
+                                <option value="">Select Printful variant...</option>
+                                {getVariantOptionsForRow(row).map((variant) => (
+                                  <option key={variant.id} value={variant.id}>
+                                    {variant.name}
+                                    {variant.size ? ` (${variant.size})` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="number"
+                                value={row.printfulVariantId ?? ""}
+                                onChange={(e) =>
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                      (item) =>
+                                        item.id === row.id
+                                          ? {
+                                              ...item,
+                                              printfulVariantId: e.target.value
+                                                ? parseInt(e.target.value, 10)
+                                                : null,
+                                            }
+                                          : item
+                                    ),
+                                  }))
+                                }
+                                className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                              Provider Cost ($)
+                            </label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={row.providerCost ?? ""}
+                              onChange={(e) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                    (item) =>
+                                      item.id === row.id
+                                        ? {
+                                            ...item,
+                                            providerCost: e.target.value ? parseFloat(e.target.value) : null,
+                                          }
+                                        : item
+                                  ),
+                                }))
+                              }
+                              className="w-full border border-brand-light px-3 py-2 text-sm bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                              Variation upcharge ($)
+                            </label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={row.variationUpcharge ?? ""}
+                              onChange={(e) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                    (item) =>
+                                      item.id === row.id
+                                        ? {
+                                            ...item,
+                                            variationUpcharge: e.target.value ? parseFloat(e.target.value) : null,
+                                          }
+                                        : item
+                                  ),
+                                }))
+                              }
+                              className="w-full border border-brand-light px-3 py-2 text-sm bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                              Artist royalty ($)
+                            </label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={row.artistRoyalty ?? ""}
+                              onChange={(e) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                    (item) =>
+                                      item.id === row.id
+                                        ? {
+                                            ...item,
+                                            artistRoyalty: e.target.value ? parseFloat(e.target.value) : null,
+                                          }
+                                        : item
+                                  ),
+                                }))
+                              }
+                              className="w-full border border-brand-light px-3 py-2 text-sm bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                              theAE add-on ($)
+                            </label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={row.taeAddOnFee ?? ""}
+                              onChange={(e) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                    (item) =>
+                                      item.id === row.id
+                                        ? {
+                                            ...item,
+                                            taeAddOnFee: e.target.value ? parseFloat(e.target.value) : null,
+                                          }
+                                        : item
+                                  ),
+                                }))
+                              }
+                              className="w-full border border-brand-light px-3 py-2 text-sm bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Sell Price ($)</label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={row.sellPrice ?? ""}
+                              onChange={(e) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                    (item) =>
+                                      item.id === row.id
+                                        ? {
+                                            ...item,
+                                            sellPrice: e.target.value ? parseFloat(e.target.value) : null,
+                                          }
+                                        : item
+                                  ),
+                                }))
+                              }
+                              className="w-full border border-brand-light px-3 py-2 text-sm bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                              Row Image URL
+                            </label>
+                            <input
+                              type="text"
+                              value={row.image ?? ""}
+                              onChange={(e) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                    (item) =>
+                                      item.id === row.id
+                                        ? { ...item, image: e.target.value || null }
+                                        : item
+                                  ),
+                                }))
+                              }
+                              className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                              placeholder="https://..."
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-brand-medium">
+                    No variant rows yet. Add one to start building valid option combinations for this parent product.
+                  </div>
+                )}
               </div>
 
               <div className="border border-brand-light rounded-lg p-4 space-y-3">
@@ -1315,6 +2327,66 @@ export default function AdminProductsPage() {
                       placeholder="Shown during proof approval before payment for this product."
                     />
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                        Artist
+                      </label>
+                      <select
+                        value={form.artistSlug}
+                        onChange={(e) => setForm({ ...form, artistSlug: e.target.value })}
+                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      >
+                        <option value="">None</option>
+                        {artists.map((artist) => (
+                          <option key={artist.slug} value={artist.slug}>
+                            {artist.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] mt-1 text-brand-medium">
+                        Optional. Link this product to an artist page without typing the slug manually.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                        CoCreator
+                      </label>
+                      <select
+                        value={form.coCreatorSlug}
+                        onChange={(e) => setForm({ ...form, coCreatorSlug: e.target.value })}
+                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      >
+                        <option value="">None</option>
+                        {coCreators.map((creator) => (
+                          <option key={creator.slug} value={creator.slug}>
+                            {creator.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] mt-1 text-brand-medium">
+                        Optional. Link this product to a co-creator page without typing the slug manually.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                      Product Family Key
+                    </label>
+                    <input
+                      type="text"
+                      value={form.familyKey}
+                      onChange={(e) => setForm({ ...form, familyKey: e.target.value })}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      placeholder="e.g. desert-bloom-art-print"
+                    />
+                    <p className="text-[11px] mt-1 text-brand-medium">
+                      Use the same family key on related variants so one art print can offer multiple materials, sizes,
+                      and frame options together.
+                    </p>
+                  </div>
+
                   <div className="border border-brand-light rounded-lg p-3 sm:p-4 space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -1432,14 +2504,12 @@ export default function AdminProductsPage() {
                       {currentEditProduct?.artistSlug && artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl && (
                         <button
                           type="button"
-                          onClick={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              artworkSourceUrl:
-                                artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl ||
-                                prev.artworkSourceUrl,
-                            }))
-                          }
+                          onClick={() => setForm((prev) => ({
+                            ...prev,
+                            artworkSourceUrl:
+                              artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl ||
+                              prev.artworkSourceUrl,
+                          }))}
                           className={BTN_SUBTLE}
                         >
                           Use First Artist Portfolio Image
@@ -1448,14 +2518,12 @@ export default function AdminProductsPage() {
                       {currentEditProduct?.coCreatorSlug && coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)?.sourceImageUrl && (
                         <button
                           type="button"
-                          onClick={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              artworkSourceUrl:
-                                coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)?.sourceImageUrl ||
-                                prev.artworkSourceUrl,
-                            }))
-                          }
+                          onClick={() => setForm((prev) => ({
+                            ...prev,
+                            artworkSourceUrl:
+                              coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)?.sourceImageUrl ||
+                              prev.artworkSourceUrl,
+                          }))}
                           className={BTN_SUBTLE}
                         >
                           Use Co-Creator Hero Image
@@ -1559,7 +2627,14 @@ export default function AdminProductsPage() {
 
             <div className="px-6 py-4 border-t border-brand-light flex items-center justify-end gap-2">
               <button
-                onClick={() => { setShowForm(false); setEditId(null); setDraftHeroFile(null); setDraftGalleryFiles([]); }}
+                onClick={() => {
+                  setShowForm(false);
+                  setEditId(null);
+                  setDraftHeroFile(null);
+                  setDraftGalleryFiles([]);
+                  setRowPrintfulVariants({});
+                  setRowPrintfulLoadingVariants({});
+                }}
                 className={BTN_SUBTLE}
               >
                 Cancel
@@ -1714,9 +2789,7 @@ export default function AdminProductsPage() {
                           src={imageEditProduct.artworkSourceUrl}
                           alt="Artwork source"
                           className="w-40 h-28 object-cover border border-brand-light"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = "";
-                          }}
+                          onError={(e) => { (e.target as HTMLImageElement).src = ""; }}
                         />
                         <button
                           onClick={handleRemoveArtworkSource}
@@ -1743,9 +2816,7 @@ export default function AdminProductsPage() {
                           className="hidden"
                         />
                       </label>
-                      <p className="text-[10px] text-brand-medium mt-2">
-                        Use a non-Printful artwork asset here. This is the canonical source for future mockup generation.
-                      </p>
+                      <p className="text-[10px] text-brand-medium mt-2">Use a non-Printful artwork asset here. This is the canonical source for future mockup generation.</p>
                     </div>
                   </div>
                 </div>
