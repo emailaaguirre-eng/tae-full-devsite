@@ -18,6 +18,20 @@ interface CoCreator {
   thumbnailImage?: string;
 }
 
+function firstNonEmpty(...candidates: Array<string | undefined | null>): string {
+  for (const c of candidates) {
+    if (c != null && String(c).trim() !== "") return String(c).trim();
+  }
+  return "";
+}
+
+function firstNonEmptyOptional(
+  ...candidates: Array<string | undefined | null>
+): string | undefined {
+  const s = firstNonEmpty(...candidates);
+  return s || undefined;
+}
+
 export default function CoCreatorDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -34,15 +48,29 @@ export default function CoCreatorDetailPage() {
         if (res.source === "db" && res.data.length > 0) {
           const dbMatch = res.data.find((c: any) => c.slug === slug);
           if (dbMatch) {
+            const s = staticMatch;
             setCreator({
-              name: dbMatch.name,
-              title: dbMatch.title || "",
-              image: dbMatch.thumbnailImage || dbMatch.heroImage || "",
-              mountainImage: dbMatch.heroImage || "",
-              heroImage: dbMatch.heroImage || "",
-              bio: dbMatch.bio || "",
-              description: dbMatch.description || "",
-              slug: dbMatch.slug,
+              name: firstNonEmpty(dbMatch.name, s?.name),
+              title: firstNonEmpty(dbMatch.title, s?.title),
+              image: firstNonEmpty(
+                dbMatch.thumbnailImage,
+                dbMatch.heroImage,
+                s?.image
+              ),
+              mountainImage: firstNonEmptyOptional(
+                dbMatch.mountainImage,
+                dbMatch.heroImage,
+                s?.mountainImage,
+                s?.heroImage
+              ),
+              heroImage: firstNonEmptyOptional(dbMatch.heroImage, s?.heroImage),
+              bio: firstNonEmpty(dbMatch.bio, s?.bio),
+              description: firstNonEmpty(dbMatch.description, s?.description ?? ""),
+              slug: firstNonEmpty(dbMatch.slug, s?.slug, slug),
+              thumbnailImage: firstNonEmptyOptional(
+                dbMatch.thumbnailImage,
+                s?.thumbnailImage
+              ),
             });
           }
         }
@@ -54,7 +82,7 @@ export default function CoCreatorDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-brand-darkest mb-4">
+          <h1 className="text-3xl font-normal text-brand-darkest mb-4">
             CoCreator Not Found
           </h1>
           <p className="text-brand-darkest/60 mb-6">
@@ -86,6 +114,8 @@ export default function CoCreatorDetailPage() {
     });
 
   const heroImg = creator.mountainImage || creator.heroImage;
+  const hideSecondImage =
+    slug === "kimber-cross" || slug === "lance-jones";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -120,7 +150,10 @@ export default function CoCreatorDetailPage() {
                   alt={creator.name}
                   fill
                   className="object-contain"
-                  style={{ objectPosition: "top center" }}
+                  style={{
+                    objectPosition:
+                      slug === "lance-jones" ? "center 58%" : "top center",
+                  }}
                   unoptimized
                 />
               )}
@@ -129,31 +162,33 @@ export default function CoCreatorDetailPage() {
               <p className="text-xs font-semibold text-brand-medium uppercase tracking-wider mb-3">
                 {creator.title}
               </p>
-              <h1 className="text-4xl md:text-5xl font-bold text-brand-darkest font-playfair mb-6">
+              <h1 className="text-4xl md:text-5xl font-normal text-brand-darkest font-playfair mb-6">
                 {creator.name}
               </h1>
-              {bioLines.map((line, idx) => (
-                <p
-                  key={idx}
-                  className="text-lg text-brand-darkest/80 leading-relaxed mb-4"
-                >
-                  {line}
-                </p>
-              ))}
-              {descLines.map((line, idx) => (
-                <p
-                  key={`desc-${idx}`}
-                  className="text-brand-darkest/70 leading-relaxed mb-4"
-                >
-                  {line}
-                </p>
-              ))}
+              <div className="space-y-4">
+                {bioLines.map((line, idx) => (
+                  <p
+                    key={idx}
+                    className="text-lg text-brand-darkest/80 leading-relaxed"
+                  >
+                    {line}
+                  </p>
+                ))}
+                {descLines.map((line, idx) => (
+                  <p
+                    key={`desc-${idx}`}
+                    className="text-lg text-brand-darkest/80 leading-relaxed"
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {heroImg && (
+      {heroImg && !hideSecondImage && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden shadow-lg">
             <Image
@@ -168,7 +203,7 @@ export default function CoCreatorDetailPage() {
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h2 className="text-3xl font-bold text-brand-darkest font-playfair mb-2">
+        <h2 className="text-3xl font-normal text-brand-darkest font-playfair mb-2">
           Collaborations
         </h2>
         <p className="text-brand-darkest/60 mb-10">

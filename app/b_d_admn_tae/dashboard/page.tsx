@@ -111,7 +111,7 @@ export default function AdminDashboardPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-brand-dark font-playfair">Dashboard</h1>
+        <h1 className="text-2xl font-normal text-brand-dark font-playfair">Dashboard</h1>
         <p className="text-sm text-brand-medium mt-1">Overview of your store</p>
         <button
           onClick={loadDashboard}

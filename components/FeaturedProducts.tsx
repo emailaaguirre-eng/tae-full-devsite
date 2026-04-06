@@ -83,7 +83,7 @@ export default function FeaturedProducts({ title = "Shop — Customize Your Own"
       id="shop" className="py-20" style={{ backgroundColor: '#ffffff' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4">
             {title}
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto"></div>
@@ -166,7 +166,7 @@ export default function FeaturedProducts({ title = "Shop — Customize Your Own"
                       <p className="text-xs font-semibold text-brand-medium uppercase tracking-wide mb-1">
                         {product.categoryName}
                       </p>
-                      <h3 className="text-lg font-bold text-brand-darkest mb-1 line-clamp-1">
+                      <h3 className="text-lg font-normal text-brand-darkest mb-1 line-clamp-1">
                         {product.name}
                       </h3>
                       {product.sizeLabel && (

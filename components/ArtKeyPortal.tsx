@@ -91,7 +91,7 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f5f5' }}>
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">ArtKey Not Found</h1>
+          <h1 className="text-2xl font-normal mb-4">ArtKey Not Found</h1>
           <p className="text-gray-600 mb-4">{error || 'This ArtKey does not exist'}</p>
           <button
             onClick={() => router.push('/')}
@@ -191,7 +191,7 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
           style={getPreviewBackground()}
         >
           <h1
-            className="text-2xl md:text-3xl font-bold mb-3 break-words mt-16"
+            className="text-2xl md:text-3xl font-normal mb-3 break-words mt-16"
             style={{
               fontFamily: getFontFamily(artKeyData.theme.font || 'g:Playfair Display'),
               color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
@@ -296,7 +296,7 @@ export default function ArtKeyPortal({ token }: ArtKeyPortalProps) {
             style={getPreviewBackground()}
           >
               <h1
-                className="text-2xl md:text-3xl font-bold mb-3 break-words mt-16"
+                className="text-2xl md:text-3xl font-normal mb-3 break-words mt-16"
                 style={{
                   fontFamily: getFontFamily(artKeyData.theme.font || 'g:Playfair Display'),
                   color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,

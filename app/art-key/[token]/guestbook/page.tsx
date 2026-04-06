@@ -16,6 +16,8 @@ export default function ArtKeyGuestbookPage() {
   const { portal, loading, error } = usePortal(token);
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
+  const [email, setEmail] = useState("");
+  const [shareEmailWithHost, setShareEmailWithHost] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -34,13 +36,20 @@ export default function ArtKeyGuestbookPage() {
       const res = await fetch(`/api/portal/${token}/guestbook`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), message: message.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          message: message.trim(),
+          email: email.trim() || undefined,
+          shareEmailWithHost,
+        }),
       });
       const data = await res.json();
       setStatus(data?.message || (data?.success ? "Submitted" : "Failed to submit"));
       if (data?.success) {
         setName("");
         setMessage("");
+        setEmail("");
+        setShareEmailWithHost(false);
       }
     } catch {
       setStatus("Something went wrong. Please try again.");
@@ -64,6 +73,9 @@ export default function ArtKeyGuestbookPage() {
               <p className="text-sm" style={{ color: textColor }}>{entry.message}</p>
               <p className="text-xs mt-2 opacity-50" style={{ color: textColor }}>
                 &mdash; {entry.name}
+                {entry.createdAt
+                  ? ` · ${new Date(entry.createdAt).toLocaleDateString()}`
+                  : ""}
               </p>
             </div>
           ))}
@@ -89,6 +101,32 @@ export default function ArtKeyGuestbookPage() {
           className="w-full bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 text-sm placeholder:opacity-50 focus:outline-none focus:ring-2 focus:ring-white/20 resize-none"
           style={{ color: textColor }}
         />
+        <div>
+          <label className="block text-xs opacity-80 mb-1" style={{ color: textColor }}>
+            Email address (optional)
+          </label>
+          <input
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 text-sm placeholder:opacity-50 focus:outline-none focus:ring-2 focus:ring-white/20"
+            style={{ color: textColor }}
+          />
+        </div>
+        <label className="flex items-start gap-2 text-xs cursor-pointer" style={{ color: textColor }}>
+          <input
+            type="checkbox"
+            checked={shareEmailWithHost}
+            onChange={(e) => setShareEmailWithHost(e.target.checked)}
+            className="mt-0.5 shrink-0"
+          />
+          <span>
+            Share my email with the host so they can reply. If you leave this unchecked, your email is not
+            stored or shown to the host.
+          </span>
+        </label>
         <button
           type="submit"
           disabled={submitting}

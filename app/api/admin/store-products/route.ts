@@ -12,12 +12,19 @@ import {
   DEFAULT_WATERMARK,
   mergeProductMeta,
   parseRequiresQrCode,
+  parseArtistSlug,
+  parseCoCreatorSlug,
+  parseFamilyKey,
   parseCustomizable,
   parseWatermarkSettings,
   parseProductMeta,
+  parseSemanticProductType,
+  parseVariantMatrix,
+  parseProductTags,
 } from '@/lib/product-watermark';
 import { DEFAULT_PRICING, computeRetailPrice, parsePricingSettings } from '@/lib/product-pricing';
 import { ensureStoreCategoryHierarchy } from '@/lib/store-category-tree';
+import { loadImagesByProductIds, mergeLegacyAndDbImages } from '@/lib/shop-product-images';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +72,9 @@ export async function GET(req: Request) {
         .all();
     }
 
+    const productIds = products.map((p) => p.id);
+    const imagesByProduct = await loadImagesByProductIds(db, productIds);
+
     const buildPathLabel = (categoryId: string | null | undefined): string => {
       if (!categoryId) return "";
       const names: string[] = [];
@@ -81,13 +91,18 @@ export async function GET(req: Request) {
     const mapped = products.map((p) => {
       const cat = catMap.get(p.categoryId || '');
       const pricing = parsePricingSettings(p.printfulDataJson);
+      const dbImg = imagesByProduct.get(p.id) || [];
+      const productImages = mergeLegacyAndDbImages(p.id, p.heroImage, p.galleryImages, dbImg);
       return {
         id: p.id,
         slug: p.slug,
         name: p.name,
         description: p.description,
-        productType: p.printProvider === 'printful' ? 'printful_print' : 'custom_artwork',
+        productType: parseSemanticProductType(p.printfulDataJson),
         heroImage: p.heroImage,
+        galleryImages: p.galleryImages,
+        productImages,
+        artworkSourceUrl: p.artworkSourceUrl || null,
         basePrice: computeRetailPrice({
           printfulBasePrice: p.printfulBasePrice,
           taeAddOnFee: p.taeAddOnFee,
@@ -113,8 +128,15 @@ export async function GET(req: Request) {
         proofTerms: getProofTermsFromMeta(p.printfulDataJson),
         requiresQrCode: parseRequiresQrCode(p.printfulDataJson) ?? (cat?.requiresQrCode ?? false),
         customizable: parseCustomizable(p.printfulDataJson) ?? false,
+        artistSlug: parseArtistSlug(p.printfulDataJson) || null,
+        coCreatorSlug: parseCoCreatorSlug(p.printfulDataJson) || null,
+        familyKey: parseFamilyKey(p.printfulDataJson) || null,
+        variantMatrix: parseVariantMatrix(p.printfulDataJson),
         watermark: parseWatermarkSettings(p.printfulDataJson),
         pricing,
+        tags: parseProductTags(p.printfulDataJson),
+        artistId: p.artistId || null,
+        coCreatorId: p.coCreatorId || null,
       };
     });
 
@@ -153,6 +175,10 @@ export async function POST(req: Request) {
     const now = Date.now().toString();
     const slug = body.slug || body.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || id;
     const taeId = body.taeId || `TAE-${slug.toUpperCase().slice(0, 20)}`;
+    const semanticProductType =
+      typeof body.productType === 'string' && body.productType.trim()
+        ? body.productType.trim()
+        : 'art-print';
 
     let categoryId = body.categoryId;
     if (!categoryId) {
@@ -167,6 +193,13 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const tagsFromBody = Array.isArray(body.tags)
+      ? (body.tags as unknown[])
+          .filter((t): t is string => typeof t === 'string')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [];
 
     await db.insert(shopProducts).values({
       id,
@@ -185,16 +218,35 @@ export async function POST(req: Request) {
       finishType: body.finishType || null,
       heroImage: body.heroImage || null,
       galleryImages: body.galleryImages || null,
+      artworkSourceUrl: body.artworkSourceUrl || null,
       printDpi: body.defaultDpi || body.printDpi || 300,
       printWidth: body.printWidth || null,
       printHeight: body.printHeight || null,
       requiredPlacements: body.requiredPlacements || null,
       qrDefaultPosition: body.qrDefaultPosition || null,
+      artistId:
+        body.artistId === null || body.artistId === ""
+          ? null
+          : typeof body.artistId === "string" && body.artistId.trim()
+            ? body.artistId.trim()
+            : null,
+      coCreatorId:
+        body.coCreatorId === null || body.coCreatorId === ""
+          ? null
+          : typeof body.coCreatorId === "string" && body.coCreatorId.trim()
+            ? body.coCreatorId.trim()
+            : null,
       printfulDataJson: mergeProductMeta(
         withProofTermsMeta(null, body.proofTerms || ''),
         {
+          productType: semanticProductType,
           requiresQrCode: typeof body.requiresQrCode === 'boolean' ? body.requiresQrCode : undefined,
           customizable: typeof body.customizable === 'boolean' ? body.customizable : undefined,
+          artistSlug: typeof body.artistSlug === 'string' ? body.artistSlug.trim() || undefined : undefined,
+          coCreatorSlug: typeof body.coCreatorSlug === 'string' ? body.coCreatorSlug.trim() || undefined : undefined,
+          familyKey: typeof body.familyKey === 'string' ? body.familyKey.trim() || undefined : undefined,
+          variantMatrix: Array.isArray(body.variantMatrix) ? body.variantMatrix : undefined,
+          ...(Array.isArray(body.tags) ? { tags: tagsFromBody } : {}),
           watermark: body.watermark || DEFAULT_WATERMARK,
           pricing: body.pricing || DEFAULT_PRICING,
         }

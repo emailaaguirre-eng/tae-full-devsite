@@ -21,9 +21,10 @@ export default async function GiftIdeas() {
     <section id="gift-ideas" className="py-20" style={{ backgroundColor: '#ecece9' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4 font-playfair">
             Gift Ideas
           </h2>
+          <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
           <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
             Our art and images feature a discreetly located ArtKey or QR code that you can customize. Our images get to tell a personalized story!
           </p>

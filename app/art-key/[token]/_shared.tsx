@@ -28,6 +28,7 @@ export interface PortalData {
     show_guestbook?: boolean;
     enable_custom_links?: boolean;
     enable_spotify?: boolean;
+    enable_favorites?: boolean;
   };
   links: { label: string; url: string }[];
   spotify: { url: string; autoplay?: boolean };
@@ -41,22 +42,65 @@ export interface PortalData {
   media: { id: string; type: string; url: string; caption?: string }[];
 }
 
-export interface PortalFavoriteItem {
-  url: string;
+/** Canonical persisted + guest card shape (legacy keys still accepted when loading). */
+export type PortalFavorite = {
+  id: string;
   title?: string;
   description?: string;
-  image?: string;
-  buttonLabel?: string;
-  // Host/editor compatibility aliases
-  link?: string;
-  href?: string;
-  thumbnail?: string;
-  imageUrl?: string;
-  writeup?: string;
-  button_label?: string;
+  linkUrl?: string;
+  thumbnailUrl?: string;
+};
+
+/** @deprecated Use PortalFavorite */
+export type PortalFavoriteItem = PortalFavorite & { url?: string };
+
+/** True if the string parses as a URL with a non-empty hostname (excludes bare https://). */
+export function isLikelyValidFavoriteUrl(raw: string | undefined | null): boolean {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return false;
+  if (/^https?:\/\/?$/i.test(trimmed)) return false;
+  let u: URL;
+  try {
+    const hasScheme = /^[a-z+.-]+:/i.test(trimmed);
+    const forParse = hasScheme ? trimmed : `https://${trimmed}`;
+    u = new URL(forParse);
+  } catch {
+    return false;
+  }
+  const proto = u.protocol.toLowerCase();
+  if (proto !== "http:" && proto !== "https:") return false;
+  return Boolean(u.hostname && u.hostname.length > 0);
 }
 
-export function getPortalFavorites(portal: PortalData): PortalFavoriteItem[] {
+function favoriteLinkUrlFromRaw(item: any): string {
+  return String(item?.linkUrl || item?.url || item?.link || item?.href || "").trim();
+}
+
+function favoriteThumbnailFromRaw(item: any): string | undefined {
+  const t = String(item?.thumbnailUrl || item?.thumbnail || item?.image || item?.imageUrl || "").trim();
+  return t || undefined;
+}
+
+/** Normalize one favorite: invalid URLs dropped; null if no meaningful fields remain. */
+export function normalizeFavoriteBodyFromRaw(item: any): Omit<PortalFavorite, "id"> | null {
+  if (!item || typeof item !== "object") return null;
+  const linkRaw = favoriteLinkUrlFromRaw(item);
+  const linkUrl = linkRaw && isLikelyValidFavoriteUrl(linkRaw) ? linkRaw : undefined;
+  const title = String(item?.title || "").trim() || undefined;
+  const description = String(item?.description || item?.writeup || "").trim() || undefined;
+  const thumbRaw = favoriteThumbnailFromRaw(item);
+  const thumbnailUrl = thumbRaw && isLikelyValidFavoriteUrl(thumbRaw) ? thumbRaw : undefined;
+  if (!title && !description && !thumbnailUrl && !linkUrl) return null;
+  const out: Omit<PortalFavorite, "id"> = {};
+  if (title) out.title = title;
+  if (description) out.description = description;
+  if (linkUrl) out.linkUrl = linkUrl;
+  if (thumbnailUrl) out.thumbnailUrl = thumbnailUrl;
+  return out;
+}
+
+/** Public favorites: at least one of title, description, thumbnailUrl, linkUrl after validation (max 6). */
+export function getPortalFavorites(portal: PortalData): PortalFavorite[] {
   const customizations = portal?.customizations || {};
   const raw =
     customizations.favorites ||
@@ -66,16 +110,23 @@ export function getPortalFavorites(portal: PortalData): PortalFavoriteItem[] {
   if (!Array.isArray(raw)) return [];
 
   return raw
-    .map((item: any) => {
-      const url = String(item?.url || item?.link || item?.href || "").trim();
-      if (!url) return null;
-      return {
-        ...item,
-        url,
-      } as PortalFavoriteItem;
+    .map((item: any, index: number) => {
+      const body = normalizeFavoriteBodyFromRaw(item);
+      if (!body) return null;
+      const id =
+        String(item?.id || "").trim() ||
+        [body.linkUrl, body.title, body.thumbnailUrl, body.description].filter(Boolean).join("|").slice(0, 100) ||
+        `fav-${index}`;
+      return { id, ...body };
     })
-    .filter((item): item is PortalFavoriteItem => !!item)
+    .filter((item): item is PortalFavorite => !!item)
     .slice(0, 6);
+}
+
+/** Guest-facing favorite CTA: only http(s); otherwise inert. */
+export function safeFavoriteLinkHref(linkUrl: string | undefined | null): string {
+  if (!isLikelyValidFavoriteUrl(linkUrl)) return "#";
+  return normalizeExternalUrl(linkUrl);
 }
 
 export function normalizeExternalUrl(url?: string | null): string {
@@ -299,7 +350,7 @@ export function PortalScaffold({
             </div>
           )}
           <h1
-            className="text-2xl font-bold mb-1"
+            className="text-2xl font-normal mb-1"
             style={
               theme.title_style === "gradient"
                 ? {
@@ -346,7 +397,7 @@ export function ErrorScreen({ error }: { error: string }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 px-6">
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-white mb-3">Portal Not Found</h1>
+        <h1 className="text-2xl font-normal text-white mb-3">Portal Not Found</h1>
         <p className="text-gray-400 mb-6">{error}</p>
         <Link href="/" className="text-blue-400 underline">
           Go to theAE

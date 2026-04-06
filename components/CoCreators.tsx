@@ -25,6 +25,12 @@ function mapStaticCreators(): CoCreator[] {
   return cocreatorsData.cocreators as CoCreator[];
 }
 
+function staticCoCreatorBySlug(): Record<string, CoCreator> {
+  return Object.fromEntries(
+    mapStaticCreators().map((c) => [c.slug, c])
+  );
+}
+
 export default function CoCreators({ simplified = false }: CoCreatorsProps) {
   const { title, subtitle, comingSoon, cta } = cocreatorsData;
   const [creators, setCreators] = useState<CoCreator[]>(mapStaticCreators());
@@ -34,16 +40,30 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
       .then((r) => r.json())
       .then((res) => {
         if (res.source === "db" && res.data.length > 0) {
-          const mapped: CoCreator[] = res.data.map((c: any) => ({
-            name: c.name,
-            title: c.title || "",
-            image: c.thumbnailImage || c.heroImage || "",
-            mountainImage: c.heroImage || "",
-            heroImage: c.heroImage || "",
-            bio: c.bio || "",
-            description: c.description || "",
-            slug: c.slug,
-          }));
+          const bySlug = staticCoCreatorBySlug();
+          const mapped: CoCreator[] = res.data.map((c: any) => {
+            const fb = bySlug[c.slug];
+            const titleDb = c.title != null ? String(c.title).trim() : "";
+            return {
+              name: (c.name && String(c.name).trim()) || fb?.name || "",
+              title: titleDb || fb?.title || "",
+              image:
+                c.thumbnailImage ||
+                c.heroImage ||
+                fb?.image ||
+                "",
+              mountainImage:
+                c.mountainImage ||
+                c.heroImage ||
+                fb?.mountainImage ||
+                fb?.heroImage ||
+                "",
+              heroImage: c.heroImage || fb?.heroImage || "",
+              bio: (c.bio && String(c.bio).trim()) || fb?.bio || "",
+              description: c.description ?? fb?.description ?? "",
+              slug: c.slug,
+            };
+          });
           setCreators(mapped);
         }
       })
@@ -71,7 +91,7 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
       <section id="cocreators" className="py-20" style={{ backgroundColor: "#ffffff" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
+            <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4 font-playfair">
               {title}
             </h2>
             <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
@@ -96,7 +116,7 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
                   )}
                 </Link>
                 <div className="p-8 md:p-12 flex flex-col justify-center">
-                  <h3 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-4 font-playfair">
+                  <h3 className="text-3xl md:text-4xl font-normal text-brand-darkest mb-4 font-playfair">
                     {kimber.name}
                   </h3>
                   <div className="mb-4">
@@ -126,7 +146,7 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
     <section id="cocreators" className="py-20" style={{ backgroundColor: "#ecece9" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4 font-playfair">
             {title}
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
@@ -154,7 +174,7 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
                 )}
               </div>
               <div className="p-6">
-                <h3 className="text-2xl font-bold text-brand-darkest mb-2 font-playfair">
+                <h3 className="text-2xl font-normal text-brand-darkest mb-2 font-playfair">
                   {cocreator.name}
                 </h3>
                 <div className="mb-3">
@@ -190,13 +210,16 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
         </div>
 
         <div className="mt-12 text-center">
-          <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
-            <h3 className="text-2xl font-bold text-brand-dark mb-4 font-playfair">
+          <div className="bg-white rounded-2xl p-8 shadow-lg inline-block max-w-lg">
+            <h3 className="text-2xl font-normal text-brand-dark mb-6 font-playfair">
               {comingSoon.title}
             </h3>
-            <p className="text-brand-darkest mb-6">
-              {comingSoon.description}
-            </p>
+            <Link
+              href={cta.href}
+              className="inline-block bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg"
+            >
+              {cta.buttonText}
+            </Link>
           </div>
         </div>
       </div>

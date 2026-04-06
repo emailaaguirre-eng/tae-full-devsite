@@ -159,7 +159,7 @@ export default function CartPage() {
           <div className="w-20 h-20 bg-brand-light/50 rounded-full flex items-center justify-center mx-auto mb-6">
             <ShoppingBag className="w-10 h-10 text-brand-darkest/30" />
           </div>
-          <h1 className="text-2xl font-bold text-brand-darkest mb-3">
+          <h1 className="text-2xl font-normal text-brand-darkest mb-3">
             Your cart is empty
           </h1>
           <p className="text-brand-darkest/60 mb-8">
@@ -190,7 +190,7 @@ export default function CartPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-brand-darkest font-playfair">
+          <h1 className="text-3xl font-normal text-brand-darkest font-playfair">
             Your Cart
             <span className="text-lg font-normal text-brand-darkest/50 ml-3">
               ({itemCount} {itemCount === 1 ? "item" : "items"})
@@ -232,7 +232,7 @@ export default function CartPage() {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow-sm p-6 sticky top-24">
-              <h2 className="text-lg font-bold text-brand-darkest mb-6">
+              <h2 className="text-lg font-normal text-brand-darkest mb-6">
                 Order Summary
               </h2>
 

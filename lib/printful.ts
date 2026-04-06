@@ -22,6 +22,11 @@ function getStoreId(): string {
   return process.env.PRINTFUL_STORE_ID || "17578870";
 }
 
+/** True when Printful API calls can be attempted (token present). */
+export function isPrintfulConfigured(): boolean {
+  return Boolean(process.env.PRINTFUL_TOKEN?.trim());
+}
+
 function headers(): HeadersInit {
   return {
     Authorization: `Bearer ${getToken()}`,
@@ -346,10 +351,19 @@ export async function getMockupTemplates(productId: number) {
   return res.data;
 }
 
+/** Printful mockup create-task file entry; `position` required for many catalog products. */
 export interface MockupGenerationFile {
   placement: string;
   image_url?: string;
   image?: string;
+  position?: {
+    area_width: number;
+    area_height: number;
+    width: number;
+    height: number;
+    top: number;
+    left: number;
+  };
 }
 
 export interface MockupGenerationRequest {

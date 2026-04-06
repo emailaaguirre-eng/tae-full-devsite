@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
 
 // =============================================================================
 // Artists - Gallery artists
@@ -103,6 +103,12 @@ export const shopProducts = sqliteTable('ShopProduct', {
   orientation: text('orientation'),
   heroImage: text('heroImage'),
   galleryImages: text('galleryImages'),
+  artworkSourceUrl: text('artworkSourceUrl'),
+
+  /** Optional FK to Artist — preferred linkage for gallery pages vs meta artistSlug alone. */
+  artistId: text('artistId').references(() => artists.id),
+  /** Optional FK to CoCreator — preferred linkage vs meta coCreatorSlug alone. */
+  coCreatorId: text('coCreatorId').references(() => coCreators.id),
 
   // Status
   active: integer('active', { mode: 'boolean' }).default(true),
@@ -116,6 +122,40 @@ export const shopProducts = sqliteTable('ShopProduct', {
   createdAt: text('createdAt'),
   updatedAt: text('updatedAt'),
 });
+
+// =============================================================================
+// Shop Product Images - gallery rows (admin-managed; legacy hero + JSON still synced)
+// =============================================================================
+export const shopProductImages = sqliteTable(
+  'ShopProductImage',
+  {
+    id: text('id').primaryKey(),
+    productId: text('productId')
+      .notNull()
+      .references(() => shopProducts.id),
+    imageUrl: text('imageUrl').notNull(),
+    title: text('title'),
+    description: text('description'),
+    sortOrder: integer('sortOrder').default(0),
+    isHero: integer('isHero', { mode: 'boolean' }).default(false),
+    isActive: integer('isActive', { mode: 'boolean' }).default(true),
+    /** general | variant | api */
+    sourceType: text('sourceType').default('general'),
+    variantKey: text('variantKey'),
+    variantId: text('variantId'),
+    size: text('size'),
+    frame: text('frame'),
+    frameColor: text('frameColor'),
+    material: text('material'),
+    orientation: text('orientation'),
+    format: text('format'),
+    createdAt: text('createdAt'),
+    updatedAt: text('updatedAt'),
+  },
+  (table) => ({
+    productIdx: index('ix_shop_product_image_product').on(table.productId),
+  })
+);
 
 // =============================================================================
 // Artwork to Category Links - Which products can artworks be sold as
@@ -208,6 +248,24 @@ export const artKeys = sqliteTable('ArtKey', {
 });
 
 // =============================================================================
+// Checkout QR proof snapshots — server authority for approval + fulfillment
+// =============================================================================
+export const checkoutProofSnapshots = sqliteTable('CheckoutProofSnapshot', {
+  id: text('id').primaryKey(),
+  cartItemId: text('cartItemId').notNull(),
+  artKeyId: text('artKeyId'),
+  publicToken: text('publicToken'),
+  /** Normalized lowercase email captured at proof generation (approve must match). */
+  customerEmail: text('customerEmail'),
+  displayProofFilesJson: text('displayProofFilesJson').notNull(),
+  productionFilesJson: text('productionFilesJson').notNull(),
+  /** portalToken, ownerToken, portalUrl, editUrl, reusedPortal, qrCodeDataUrl */
+  metaJson: text('metaJson').notNull(),
+  createdAt: text('createdAt').notNull(),
+  approvedAt: text('approvedAt'),
+});
+
+// =============================================================================
 // Portal Preview Nonces - replay protection tracking
 // =============================================================================
 export const portalPreviewNonces = sqliteTable('PortalPreviewNonce', {
@@ -227,6 +285,8 @@ export const guestbookEntries = sqliteTable('GuestbookEntry', {
   parentId: text('parentId'),
   name: text('name').notNull(),
   email: text('email'),
+  /** Guest opted in to let the host see their email; if false, email must not be exposed. */
+  shareEmailWithHost: integer('shareEmailWithHost', { mode: 'boolean' }).default(false),
   message: text('message').notNull(),
   role: text('role').default('guest'),
   approved: integer('approved', { mode: 'boolean' }).default(false),
@@ -362,6 +422,137 @@ export const productMockups = sqliteTable('ProductMockup', {
   extraMockups: text('extraMockups'),
   createdAt: text('createdAt'),
 });
+
+
+// =============================================================================
+// Catalog V2 - Customer-facing listings shown once in shop
+// =============================================================================
+export const productListings = sqliteTable('ProductListing', {
+  id: text('id').primaryKey(),
+  listingCode: text('listingCode').notNull(),
+  slug: text('slug').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  heroImage: text('heroImage'),
+  galleryImages: text('galleryImages'),
+  categoryId: text('categoryId').references(() => shopCategories.id),
+  customizable: integer('customizable', { mode: 'boolean' }).default(true),
+  requiresQrCode: integer('requiresQrCode', { mode: 'boolean' }).default(false),
+  active: integer('active', { mode: 'boolean' }).default(true),
+  featured: integer('featured', { mode: 'boolean' }).default(false),
+  sortOrder: integer('sortOrder').default(0),
+  createdAt: text('createdAt'),
+  updatedAt: text('updatedAt'),
+}, (table) => ({
+  listingCodeUnique: uniqueIndex('ux_productlisting_listingcode').on(table.listingCode),
+  slugUnique: uniqueIndex('ux_productlisting_slug').on(table.slug),
+  categoryIdx: index('ix_productlisting_category').on(table.categoryId),
+  activeIdx: index('ix_productlisting_active').on(table.active),
+}));
+
+
+export const listingSlugAliases = sqliteTable('ProductListingSlugAlias', {
+  id: text('id').primaryKey(),
+  listingId: text('listingId').notNull().references(() => productListings.id),
+  slug: text('slug').notNull(),
+  isPrimary: integer('isPrimary', { mode: 'boolean' }).default(false),
+  createdAt: text('createdAt'),
+}, (table) => ({
+  slugUnique: uniqueIndex('ux_listing_slugalias_slug').on(table.slug),
+  listingIdx: index('ix_listing_slugalias_listing').on(table.listingId),
+}));
+
+
+export const mediumTemplates = sqliteTable('MediumTemplate', {
+  id: text('id').primaryKey(),
+  mediumCode: text('mediumCode').notNull(),
+  slug: text('slug').notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  customizableDefault: integer('customizableDefault', { mode: 'boolean' }).default(true),
+  requiresQrCodeDefault: integer('requiresQrCodeDefault', { mode: 'boolean' }).default(false),
+  active: integer('active', { mode: 'boolean' }).default(true),
+  sortOrder: integer('sortOrder').default(0),
+  createdAt: text('createdAt'),
+  updatedAt: text('updatedAt'),
+}, (table) => ({
+  mediumCodeUnique: uniqueIndex('ux_mediumtemplate_code').on(table.mediumCode),
+  slugUnique: uniqueIndex('ux_mediumtemplate_slug').on(table.slug),
+  activeIdx: index('ix_mediumtemplate_active').on(table.active),
+}));
+
+
+export const mediumTemplateVariants = sqliteTable('MediumTemplateVariant', {
+  id: text('id').primaryKey(),
+  mediumTemplateId: text('mediumTemplateId').notNull().references(() => mediumTemplates.id),
+  variantCode: text('variantCode').notNull(),
+  variantSku: text('variantSku').notNull(),
+  name: text('name'),
+  sizeLabel: text('sizeLabel'),
+  paperType: text('paperType'),
+  finishType: text('finishType'),
+  frameType: text('frameType'),
+  orientation: text('orientation'),
+  colorName: text('colorName'),
+  colorCode: text('colorCode'),
+  optionsJson: text('optionsJson'),
+  basePrice: real('basePrice').default(0),
+  printWidth: integer('printWidth'),
+  printHeight: integer('printHeight'),
+  printDpi: integer('printDpi').default(300),
+  printFillMode: text('printFillMode'),
+  requiredPlacements: text('requiredPlacements'),
+  qrDefaultPosition: text('qrDefaultPosition'),
+  active: integer('active', { mode: 'boolean' }).default(true),
+  sortOrder: integer('sortOrder').default(0),
+  createdAt: text('createdAt'),
+  updatedAt: text('updatedAt'),
+}, (table) => ({
+  variantSkuUnique: uniqueIndex('ux_mediumvariant_sku').on(table.variantSku),
+  templateVariantCodeUnique: uniqueIndex('ux_mediumvariant_template_code').on(table.mediumTemplateId, table.variantCode),
+  templateIdx: index('ix_mediumvariant_template').on(table.mediumTemplateId),
+}));
+
+
+export const listingMediaAssignments = sqliteTable('ListingMediaAssignment', {
+  id: text('id').primaryKey(),
+  listingId: text('listingId').notNull().references(() => productListings.id),
+  mediumTemplateId: text('mediumTemplateId').notNull().references(() => mediumTemplates.id),
+  mediumTemplateVariantId: text('mediumTemplateVariantId').notNull().references(() => mediumTemplateVariants.id),
+  legacyShopProductId: text('legacyShopProductId').references(() => shopProducts.id),
+  assignmentSku: text('assignmentSku').notNull(),
+  enabled: integer('enabled', { mode: 'boolean' }).default(true),
+  priceOverride: real('priceOverride'),
+  heroImageOverride: text('heroImageOverride'),
+  proofTermsOverride: text('proofTermsOverride'),
+  customizable: integer('customizable', { mode: 'boolean' }),
+  requiresQrCode: integer('requiresQrCode', { mode: 'boolean' }),
+  createdAt: text('createdAt'),
+  updatedAt: text('updatedAt'),
+}, (table) => ({
+  listingVariantUnique: uniqueIndex('ux_listing_media_listing_variant').on(table.listingId, table.mediumTemplateVariantId),
+  listingSkuUnique: uniqueIndex('ux_listing_media_listing_sku').on(table.listingId, table.assignmentSku),
+  legacyShopProductUnique: uniqueIndex('ux_listing_media_legacy_shop_product').on(table.legacyShopProductId),
+  listingIdx: index('ix_listing_media_listing').on(table.listingId),
+  variantIdx: index('ix_listing_media_variant').on(table.mediumTemplateVariantId),
+}));
+
+
+export const variantFulfillmentMappings = sqliteTable('VariantFulfillmentMapping', {
+  id: text('id').primaryKey(),
+  mediumTemplateVariantId: text('mediumTemplateVariantId').notNull().references(() => mediumTemplateVariants.id),
+  provider: text('provider').notNull(),
+  printfulProductId: integer('printfulProductId'),
+  printfulVariantId: integer('printfulVariantId'),
+  printfulPrintfileId: integer('printfulPrintfileId'),
+  providerDataJson: text('providerDataJson'),
+  active: integer('active', { mode: 'boolean' }).default(true),
+  createdAt: text('createdAt'),
+  updatedAt: text('updatedAt'),
+}, (table) => ({
+  variantProviderUnique: uniqueIndex('ux_variant_fulfillment_variant_provider').on(table.mediumTemplateVariantId, table.provider),
+  printfulPairIdx: index('ix_variant_fulfillment_printful_pair').on(table.printfulProductId, table.printfulVariantId),
+}));
 
 // =============================================================================
 // Aliases for backwards compatibility with existing routes

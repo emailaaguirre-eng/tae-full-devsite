@@ -47,7 +47,7 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-brand-lightest flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold font-playfair text-brand-dark">theAE</h1>
+          <h1 className="text-3xl font-normal font-playfair text-brand-dark">theAE</h1>
           <p className="text-sm text-brand-medium mt-1">Admin Portal</p>
         </div>
 

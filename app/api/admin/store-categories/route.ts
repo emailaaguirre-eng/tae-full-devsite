@@ -111,7 +111,7 @@ export async function POST(req: Request) {
       name: body.name,
       parentId: body.parentId || null,
       categoryType: body.categoryType || 'leaf',
-      icon: body.icon || '📦',
+      icon: typeof body.icon === 'string' && body.icon.trim() ? body.icon.trim() : null,
       taeBaseFee: body.taeBaseFee || 0,
       requiresQrCode: body.requiresQrCode ? 1 : 0,
       active: body.active !== false ? 1 : 0,

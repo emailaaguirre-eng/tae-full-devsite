@@ -1,14 +1,21 @@
 // app/studio/page.tsx
-// Customization Studio — loads product spec from URL params or falls back to built-in catalog
+// Customization Studio — real products via ?slug=...; optional ?demo=1 for hardcoded samples only.
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { ProductSpec, Placement, DesignState } from "@/customization-studio/types";
 import Link from "next/link";
 import { ARTKEY_TEMPLATES } from "@/lib/artkeyTemplates";
 import { parseVariantMatrix } from "@/lib/product-watermark";
+import { encodeDesignFilesForStudioRegister } from "@/lib/studio-register-compress";
+import { customerPlacementLabel } from "@/lib/customer-placement-label";
+import { customerStudioProofMessageFromApi } from "@/lib/customer-proof-errors";
+
+/** Shown in the studio when live preview can’t run (avoid provider jargon in customer UI). */
+const STUDIO_PREVIEW_UNAVAILABLE_HINT =
+  "We can’t show a live print preview for this product in the studio yet. You can still save your design and continue to your ArtKey.";
 
 const CustomizationStudio = dynamic(
   () => import("@/customization-studio").then((m) => m.CustomizationStudio),
@@ -23,7 +30,7 @@ const CustomizationStudio = dynamic(
 );
 
 // =============================================================================
-// BUILT-IN PRODUCT CATALOG (fallback when no URL params)
+// BUILT-IN DEMO CATALOG (?demo=1 only — not linked to admin shop products)
 // =============================================================================
 
 type Orientation = "portrait" | "landscape";
@@ -111,6 +118,44 @@ function pickFallbackProductIndex(
     return false;
   });
   return idx >= 0 ? idx : 0;
+}
+
+function formatProofFailure(
+  data: {
+    error?: string;
+    code?: string;
+    hint?: string;
+    placements?: string[];
+  } | null | undefined,
+  httpStatus?: number,
+  rawBody?: string
+): string {
+  const chunks: string[] = [];
+  if (data?.error) chunks.push(String(data.error));
+  if (data?.code) chunks.push(`[${String(data.code)}]`);
+  if (Array.isArray(data?.placements) && data.placements.length) {
+    chunks.push(`Exported placements: ${data.placements.join(", ")}.`);
+  }
+  if (data?.hint) chunks.push(String(data.hint));
+  const fromJson = chunks.join(" ").replace(/\s+/g, " ").trim();
+  if (fromJson) return fromJson;
+  const raw = (rawBody || "").trim();
+  if (raw) return raw.length > 600 ? `${raw.slice(0, 600)}…` : raw;
+  if (httpStatus != null) return `Request failed (HTTP ${httpStatus}).`;
+  return "";
+}
+
+async function readResponseJson(res: Response): Promise<{ data: any; raw: string }> {
+  const raw = await res.text();
+  if (!raw) return { data: {}, raw: "" };
+  try {
+    return { data: JSON.parse(raw), raw };
+  } catch {
+    return {
+      data: { error: `Non-JSON response (HTTP ${res.status}): ${raw.slice(0, 280)}` },
+      raw,
+    };
+  }
 }
 
 function buildProductSpec(
@@ -362,6 +407,8 @@ function StudioContent() {
   const restoreDesignParam = searchParams.get("restore_design");
   const cartItemIdParam = searchParams.get("cart_item_id");
   const variantIdParam = searchParams.get("variant_id");
+  const demoMode = searchParams.get("demo") === "1";
+  const showChooseProduct = !slugParam && !demoMode;
 
   // API-loaded product state
   const [apiProduct, setApiProduct] = useState<any>(null);
@@ -370,11 +417,13 @@ function StudioContent() {
   const [apiVariants, setApiVariants] = useState<ApiVariant[]>([]);
   const [printSpecsData, setPrintSpecsData] = useState<PrintSpecsData | null>(null);
   const [proofPreview, setProofPreview] = useState<{
-    url: string;
+    blobUrl: string;
     placement: string;
   } | null>(null);
+  const proofBlobCleanupRef = useRef<string | null>(null);
   const [proofPreviewKey, setProofPreviewKey] = useState<string | null>(null);
   const [proofPreviewError, setProofPreviewError] = useState<string | null>(null);
+  const [studioProofLightboxOpen, setStudioProofLightboxOpen] = useState(false);
 
   // Fallback catalog state
   const [selectedProductIndex, setSelectedProductIndex] = useState(() =>
@@ -400,11 +449,11 @@ function StudioContent() {
       .finally(() => setApiLoading(false));
   }, [slugParam]);
 
-  // Keep fallback mode aligned with incoming product hints (e.g. cart/studio deep links).
+  // Demo mode only: align sample product with optional name hint from URL.
   useEffect(() => {
-    if (slugParam) return;
+    if (slugParam || !demoMode) return;
     setSelectedProductIndex(pickFallbackProductIndex(PRODUCTS, productNameParam));
-  }, [slugParam, productNameParam]);
+  }, [slugParam, productNameParam, demoMode]);
 
   // Fetch sibling variants for API mode
   useEffect(() => {
@@ -439,15 +488,66 @@ function StudioContent() {
   const isApiMode = !!slugParam && !!apiProduct;
   const selectedProduct = PRODUCTS[selectedProductIndex];
 
-  const productSpec: ProductSpec = isApiMode
-    ? buildSpecFromApiProduct(
-        apiProduct,
-        printSpecsData,
-        variantIdParam ? Math.trunc(Number(variantIdParam)) : null
-      )
-    : buildProductSpec(selectedProduct, selectedVariantIndex, orientation);
+  /** Matrix SKUs use row-level prices from GET /variants; GET /products/[slug] basePrice is often 0 — align studio export with PDP. */
+  const productSpec: ProductSpec = useMemo(() => {
+    const base = isApiMode
+      ? buildSpecFromApiProduct(
+          apiProduct,
+          printSpecsData,
+          variantIdParam ? Math.trunc(Number(variantIdParam)) : null
+        )
+      : buildProductSpec(selectedProduct, selectedVariantIndex, orientation);
+
+    if (!isApiMode || !Array.isArray(apiVariants) || apiVariants.length === 0) {
+      return base;
+    }
+
+    const targetVid = base.printfulVariantId;
+    if (targetVid == null || !Number.isFinite(Number(targetVid)) || Math.trunc(Number(targetVid)) <= 0) {
+      return base;
+    }
+
+    const matched = apiVariants.find(
+      (v) =>
+        v.printfulVariantId != null &&
+        Math.trunc(Number(v.printfulVariantId)) === Math.trunc(Number(targetVid))
+    );
+    if (!matched) return base;
+
+    const variantPrice = Number(matched.basePrice);
+    if (!Number.isFinite(variantPrice)) return base;
+
+    return { ...base, basePrice: variantPrice };
+  }, [
+    isApiMode,
+    apiProduct,
+    apiVariants,
+    printSpecsData,
+    variantIdParam,
+    selectedProduct,
+    selectedVariantIndex,
+    orientation,
+  ]);
 
   const productName = isApiMode ? apiProduct.name : selectedProduct.name;
+
+  const proofBlockReason = useMemo(() => {
+    const pid = productSpec.printfulProductId;
+    const vid = productSpec.printfulVariantId;
+    const pidOk =
+      pid != null && Number.isFinite(Number(pid)) && Math.trunc(Number(pid)) > 0;
+    const vidOk =
+      vid != null && Number.isFinite(Number(vid)) && Math.trunc(Number(vid)) > 0;
+    if (!pidOk) {
+      return "Print proof needs a Printful product ID on this product. In Admin → Catalog → Products, set the Printful product ID or an active variant matrix row with a product ID.";
+    }
+    if (!vidOk) {
+      return "Print proof needs a Printful variant ID. In Admin → Catalog → Products, set the variant ID (or matrix row) for the SKU you opened in the studio.";
+    }
+    return null;
+  }, [productSpec.printfulProductId, productSpec.printfulVariantId]);
+
+  const proofBlockedUserHint = proofBlockReason ? STUDIO_PREVIEW_UNAVAILABLE_HINT : null;
 
   const initialDesigns: DesignState | undefined = useMemo(() => {
     if (restoreDesignParam !== "1") return undefined;
@@ -489,20 +589,46 @@ function StudioContent() {
   );
 
   useEffect(() => {
-    setProofPreview(null);
+    setProofPreview((prev) => {
+      if (prev?.blobUrl) URL.revokeObjectURL(prev.blobUrl);
+      return null;
+    });
+    proofBlobCleanupRef.current = null;
     setProofPreviewKey(null);
     setProofPreviewError(null);
   }, [productSpec.printfulProductId, productSpec.printfulVariantId]);
 
+  useEffect(() => {
+    proofBlobCleanupRef.current = proofPreview?.blobUrl ?? null;
+  }, [proofPreview?.blobUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (proofBlobCleanupRef.current) {
+        URL.revokeObjectURL(proofBlobCleanupRef.current);
+        proofBlobCleanupRef.current = null;
+      }
+    };
+  }, []);
+
   const handlePreviewPrintProof = useCallback(
     async (files: { placement: string; dataUrl: string }[]) => {
       const first = files[0];
-      if (!first) throw new Error("No exported surface available for preview.");
+      if (!first) {
+        throw new Error("No design surface is ready to preview yet.");
+      }
+      if (proofBlockReason) {
+        throw new Error(proofBlockedUserHint || STUDIO_PREVIEW_UNAVAILABLE_HINT);
+      }
       if (!productSpec.printfulProductId) {
-        throw new Error("Missing Printful product mapping for this studio item.");
+        throw new Error(
+          "This product isn’t set up for live print preview yet. You can still save your design and continue."
+        );
       }
       if (!productSpec.printfulVariantId) {
-        throw new Error("Missing Printful variant mapping for this studio item.");
+        throw new Error(
+          "This product isn’t set up for live print preview yet. You can still save your design and continue."
+        );
       }
       const previewKey = [
         productSpec.printfulProductId,
@@ -517,6 +643,7 @@ function StudioContent() {
       }
 
       setProofPreviewError(null);
+      const registerFiles = await encodeDesignFilesForStudioRegister(files);
       const registerRes = await fetch("/api/studio/exports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -524,13 +651,19 @@ function StudioContent() {
           shopProductId: productSpec.id,
           productSlug: productSpec.productSlug || null,
           productName: productSpec.name,
-          studioRenderSignature: computeRenderSignature(files),
-          designFiles: files,
+          studioRenderSignature: computeRenderSignature(registerFiles),
+          designFiles: registerFiles,
         }),
       });
-      const registerData = await registerRes.json().catch(() => ({}));
+      const registerParsed = await readResponseJson(registerRes);
+      const registerData = registerParsed.data;
       if (!registerRes.ok || !registerData?.success || !registerData?.export?.exportId) {
-        throw new Error(registerData?.error || "Failed to register studio export for proof preview.");
+        console.error(
+          "[studio] export register failed",
+          formatProofFailure(registerData, registerRes.status, registerParsed.raw),
+          registerData
+        );
+        throw new Error(customerStudioProofMessageFromApi(registerData, registerRes.status));
       }
 
       const previewRes = await fetch("/api/studio/proof-preview", {
@@ -543,18 +676,53 @@ function StudioContent() {
           placement: first.placement,
         }),
       });
-      const previewData = await previewRes.json().catch(() => ({}));
+      const previewParsed = await readResponseJson(previewRes);
+      const previewData = previewParsed.data;
       if (!previewRes.ok || !previewData?.success || !previewData?.previewUrl) {
-        throw new Error(previewData?.error || "Failed to generate print proof preview.");
+        console.error(
+          "[studio] proof-preview failed",
+          formatProofFailure(previewData, previewRes.status, previewParsed.raw),
+          previewData
+        );
+        throw new Error(customerStudioProofMessageFromApi(previewData, previewRes.status));
       }
 
-      setProofPreview({
-        url: previewData.previewUrl,
-        placement: previewData.placement || first.placement,
+      const proxyRes = await fetch("/api/proof-image-proxy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: previewData.previewUrl }),
+      });
+      if (!proxyRes.ok) {
+        let proxyCode: string | undefined;
+        try {
+          const j = await proxyRes.json();
+          proxyCode = j?.code;
+        } catch {
+          /* ignore */
+        }
+        console.error("[studio] proof-image-proxy failed", proxyRes.status, proxyCode);
+        throw new Error(customerStudioProofMessageFromApi({ code: proxyCode }, proxyRes.status));
+      }
+
+      const blob = await proxyRes.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setProofPreview((prev) => {
+        if (prev?.blobUrl) URL.revokeObjectURL(prev.blobUrl);
+        return {
+          blobUrl,
+          placement: previewData.placement || first.placement,
+        };
       });
       setProofPreviewKey(previewKey);
     },
-    [computeRenderSignature, productSpec, proofPreview, proofPreviewKey]
+    [
+      computeRenderSignature,
+      productSpec,
+      proofBlockReason,
+      proofBlockedUserHint,
+      proofPreview,
+      proofPreviewKey,
+    ]
   );
 
   // Handle export: save design files to sessionStorage, then navigate to ArtKey editor
@@ -570,7 +738,8 @@ function StudioContent() {
         templateId: string;
       }
     ) => {
-      const studioRenderSignature = computeRenderSignature(files);
+      const registerFiles = await encodeDesignFilesForStudioRegister(files);
+      const studioRenderSignature = computeRenderSignature(registerFiles);
       let studioExportId: string | null = null;
       try {
         const registerRes = await fetch("/api/studio/exports", {
@@ -581,7 +750,7 @@ function StudioContent() {
             productSlug: productSpec.productSlug || null,
             productName: productSpec.name,
             studioRenderSignature,
-            designFiles: files,
+            designFiles: registerFiles,
           }),
         });
         const registerData = await registerRes.json().catch(() => ({}));
@@ -602,44 +771,35 @@ function StudioContent() {
           basePrice: productSpec.basePrice,
           requiresQrCode: productSpec.requiresQrCode,
         },
-        designFiles: files,
+        designFiles: registerFiles,
         studioRenderSignature,
         studioExportId,
         artKeyTemplatePosition: artKeyTemplatePosition || null,
         exportedAt: new Date().toISOString(),
       };
 
-      sessionStorage.setItem("tae-studio-export", JSON.stringify(studioData));
-
-      const paramForcesArtKey =
-        forceArtKeyParam === "1" ||
-        forceArtKeyParam === "true" ||
-        requiresQrParam === "1" ||
-        requiresQrParam === "true";
-
-      const categorySlug = String(apiProduct?.category?.slug || "").toLowerCase();
-      const categoryName = String(apiProduct?.category?.name || "").toLowerCase();
-      const nameHint = String(productNameParam || productSpec.name || "").toLowerCase();
-      const metadataSuggestsArtKey =
-        /artkey|qr|portal/.test(categorySlug) ||
-        /artkey|qr|portal/.test(categoryName) ||
-        /artkey|qr|portal/.test(nameHint);
-
-      // Route to ArtKey editor when QR is required OR when upstream flow explicitly forces ArtKey.
-      if (productSpec.requiresQrCode || paramForcesArtKey || metadataSuggestsArtKey) {
-        const params = new URLSearchParams({
-          from_studio: "true",
-          product_id: productSpec.id,
-          product_name: productSpec.name,
-        });
-        if (cartItemIdParam) params.set("cart_item_id", cartItemIdParam);
-        if (productSpec.productSlug) params.set("slug", productSpec.productSlug);
-        router.push(`/artkey-editor?${params}`);
-      } else {
-        router.push("/cart");
+      try {
+        sessionStorage.setItem("tae-studio-export", JSON.stringify(studioData));
+      } catch (e) {
+        console.error("[studio] tae-studio-export sessionStorage failed:", e);
+        throw new Error(
+          "Design too large to save — try reducing image size or number of surfaces."
+        );
       }
+
+      // Save & Continue always opens the ArtKey Portal Editor so sessionStorage handoff
+      // (tae-studio-export + from_studio) matches ArtKeyEditor expectations. Checkout still
+      // happens from the editor when the user finishes the portal.
+      const params = new URLSearchParams({
+        from_studio: "true",
+        product_id: productSpec.id,
+        product_name: productSpec.name,
+      });
+      if (cartItemIdParam) params.set("cart_item_id", cartItemIdParam);
+      if (productSpec.productSlug) params.set("slug", productSpec.productSlug);
+      router.push(`/artkey-editor?${params}`);
     },
-    [apiProduct?.category?.name, apiProduct?.category?.slug, cartItemIdParam, computeRenderSignature, forceArtKeyParam, productNameParam, productSpec, requiresQrParam, router]
+    [cartItemIdParam, computeRenderSignature, productSpec, router]
   );
 
   const handleProductChange = (index: number) => {
@@ -648,7 +808,42 @@ function StudioContent() {
     setOrientation(PRODUCTS[index].defaultOrientation);
   };
 
-  if (apiLoading) {
+  if (showChooseProduct) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center px-6 bg-gray-50">
+        <div className="max-w-lg w-full text-center">
+          <h1 className="text-2xl font-normal text-gray-900 mb-2">Choose a product first</h1>
+          <p className="text-gray-600 text-sm mb-8">
+            The studio loads a real shop product from its URL. Open customize from a product page, or pick a
+            product in admin and use &quot;Open in studio&quot; so the address includes{" "}
+            <code className="bg-gray-200 px-1 rounded text-xs">?slug=...</code>.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
+            <Link
+              href="/shop"
+              className="inline-flex justify-center bg-blue-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Browse shop
+            </Link>
+            <Link
+              href="/b_d_admn_tae/catalog/products"
+              className="inline-flex justify-center border border-gray-300 text-gray-800 px-6 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors"
+            >
+              Admin catalog
+            </Link>
+          </div>
+          <p className="text-xs text-gray-500">
+            Internal demo (hardcoded sample Printful products):{" "}
+            <Link href="/studio?demo=1" className="text-blue-600 underline">
+              /studio?demo=1
+            </Link>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (slugParam && apiLoading) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="text-center">
@@ -659,18 +854,26 @@ function StudioContent() {
     );
   }
 
-  if (apiError) {
+  if (slugParam && apiError) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Product Not Found</h2>
+      <div className="h-screen flex items-center justify-center px-6">
+        <div className="text-center max-w-md">
+          <h2 className="text-2xl font-normal text-gray-800 mb-2">Product Not Found</h2>
           <p className="text-gray-500 mb-6">{apiError}</p>
-          <Link
-            href="/shop"
-            className="bg-blue-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-700 transition-colors"
-          >
-            Back to Shop
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/shop"
+              className="bg-blue-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Back to Shop
+            </Link>
+            <Link
+              href="/b_d_admn_tae/catalog/products"
+              className="border border-gray-300 text-gray-800 px-6 py-3 rounded-full font-semibold hover:bg-gray-100 transition-colors"
+            >
+              Admin catalog
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -678,6 +881,13 @@ function StudioContent() {
 
   return (
     <div className="h-screen flex flex-col">
+      {demoMode && !slugParam && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-900 text-center">
+          <strong>Demo mode</strong> — sample Printful products only (not your admin catalog). For real products,
+          open the studio from the shop or admin with a <code className="mx-1 bg-amber-100 px-1 rounded">slug</code>{" "}
+          parameter.
+        </div>
+      )}
       {/* Top Bar */}
       <div className="bg-gray-100 border-b px-4 py-3 flex items-center gap-6 flex-wrap">
         {isApiMode ? (
@@ -688,9 +898,10 @@ function StudioContent() {
             >
               &larr; Back
             </Link>
-            <span className="text-sm font-semibold text-gray-800">
+            <span className="text-sm font-semibold text-gray-800" title={apiProduct.slug}>
               {productName}
             </span>
+            <span className="text-xs text-gray-500 hidden sm:inline">/shop/{apiProduct.slug}</span>
             {/* Variant selector in API mode */}
             {apiVariants.length > 1 && (
               <div className="flex items-center gap-2">
@@ -735,9 +946,12 @@ function StudioContent() {
           </>
         ) : (
           <>
-            {/* Catalog mode: product/variant/orientation dropdowns */}
+            {/* Demo mode only: hardcoded sample products */}
+            <span className="text-xs font-semibold uppercase tracking-wide text-amber-800 bg-amber-100 px-2 py-1 rounded">
+              Demo
+            </span>
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Product:</label>
+              <label className="text-sm font-medium text-gray-700">Sample product:</label>
               <select
                 value={selectedProductIndex}
                 onChange={(e) => handleProductChange(Number(e.target.value))}
@@ -794,29 +1008,70 @@ function StudioContent() {
       </div>
 
       {proofPreviewError && (
-        <div className="px-4 py-2 bg-red-50 border-b border-red-200 text-sm text-red-700">
-          {proofPreviewError}
+        <div className="px-4 py-3 bg-red-50 border-b border-red-200 text-sm text-red-800 whitespace-pre-wrap">
+          <p className="font-semibold text-red-900 mb-1">Preview couldn’t load</p>
+          <p className="text-red-800/95">{proofPreviewError}</p>
+        </div>
+      )}
+      {proofBlockReason && !proofPreviewError && (
+        <div className="px-4 py-3 bg-amber-50/90 border-b border-amber-200/80">
+          <p className="text-sm text-amber-950 font-medium">{proofBlockedUserHint}</p>
+        </div>
+      )}
+      {!proofBlockReason && !proofPreviewError && !proofPreview && (
+        <div className="px-4 py-2.5 bg-stone-50/80 border-b border-stone-200/80">
+          <p className="text-xs text-stone-600 leading-relaxed">
+            <span className="font-semibold text-stone-800">Tip:</span> use{" "}
+            <span className="font-medium text-stone-800">Print preview</span> in the toolbar to review how
+            the <span className="font-medium">currently selected surface</span> may look when printed—creative
+            check only, not checkout.
+          </p>
         </div>
       )}
       {proofPreview && (
-        <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-200">
-          <p className="text-sm text-emerald-800">
-            Print proof preview ready ({proofPreview.placement}).{" "}
-            <a
-              href={proofPreview.url}
-              target="_blank"
-              rel="noreferrer"
-              className="underline break-all"
-            >
-              {proofPreview.url}
-            </a>
-          </p>
-          <div className="mt-2">
-            <img
-              src={proofPreview.url}
-              alt="Print proof preview"
-              className="max-h-48 rounded border border-emerald-200 bg-white object-contain"
-            />
+        <div className="px-4 py-4 border-b border-stone-200 bg-gradient-to-b from-white to-stone-50/60">
+          <div className="max-w-4xl mx-auto rounded-2xl border border-stone-200/90 bg-white shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-stone-100 bg-stone-50/50 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-stone-900">Print preview</p>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Surface:{" "}
+                  <span className="font-medium text-stone-700">
+                    {customerPlacementLabel(proofPreview.placement)}
+                  </span>
+                  {" · "}
+                  Approximate only
+                </p>
+              </div>
+              <span className="text-[11px] font-medium uppercase tracking-wide text-emerald-800 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">
+                Ready
+              </span>
+            </div>
+            <div className="p-4 sm:p-5">
+              <p className="text-xs text-stone-500 mb-3 leading-relaxed">
+                Switch surfaces in the editor and run <strong>Print preview</strong> again to review other
+                panels. After you change the design, generate a new preview so it stays accurate.
+              </p>
+              <div className="rounded-xl bg-stone-100 border border-stone-200/80 flex items-center justify-center min-h-[200px] max-h-[min(52vh,420px)] p-2 sm:p-4">
+                <img
+                  src={proofPreview.blobUrl}
+                  alt={`Print preview — ${customerPlacementLabel(proofPreview.placement)}`}
+                  className="max-h-[min(48vh,380px)] w-full object-contain rounded-lg shadow-inner bg-white"
+                />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStudioProofLightboxOpen(true)}
+                  className="inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold bg-stone-900 text-white hover:bg-stone-800 transition-colors"
+                >
+                  View larger
+                </button>
+                <p className="text-[11px] text-stone-400 self-center">
+                  Preview loads securely through our site (full-screen overlay).
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -824,22 +1079,57 @@ function StudioContent() {
       {/* Customization Studio */}
       <div className="flex-1">
         <CustomizationStudio
-          key={`${productSpec.id}-${productSpec.printWidth}-${productSpec.printHeight}-${restoreDesignParam === "1" ? "restore" : "new"}`}
+          key={`${productSpec.id}-${productSpec.printWidth}-${productSpec.printHeight}-${productSpec.placements.join("|")}-${restoreDesignParam === "1" ? "restore" : "new"}`}
           productSpec={productSpec}
+          proofBlockedReason={proofBlockReason}
+          proofBlockedUserHint={proofBlockedUserHint}
           placeholderQrCodeUrl="/images/placeholder-qr.svg"
           artKeyTemplates={ARTKEY_TEMPLATES}
           initialDesigns={initialDesigns}
           onPreviewPrintProof={async (files) => {
             try {
               await handlePreviewPrintProof(files);
-            } catch (err: any) {
-              setProofPreviewError(err?.message || "Failed to generate print proof preview.");
+            } catch (err: unknown) {
+              console.error("[studio] print preview", err);
+              const msg =
+                err instanceof Error && err.message?.trim()
+                  ? err.message.trim()
+                  : customerStudioProofMessageFromApi(undefined, 0);
+              setProofPreviewError(msg);
             }
           }}
           onExport={handleExport}
           onSave={handleStudioSave}
         />
       </div>
+
+      {studioProofLightboxOpen && proofPreview && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Enlarged print preview"
+          onClick={() => setStudioProofLightboxOpen(false)}
+        >
+          <div
+            className="relative max-w-[min(96vw,56rem)] max-h-[90vh] rounded-2xl overflow-hidden border border-white/15 shadow-2xl bg-neutral-950"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setStudioProofLightboxOpen(false)}
+              className="absolute top-3 right-3 z-10 rounded-full bg-white/90 text-stone-900 text-sm font-semibold px-3 py-1.5 shadow hover:bg-white"
+            >
+              Close
+            </button>
+            <img
+              src={proofPreview.blobUrl}
+              alt={`Enlarged print preview — ${customerPlacementLabel(proofPreview.placement)}`}
+              className="block max-h-[85vh] w-auto object-contain mx-auto"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

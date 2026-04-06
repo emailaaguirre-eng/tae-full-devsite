@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import path from "path";
 import { promises as fs } from "fs";
 import sharp from "sharp";
-import { getDb, eq, shopProducts } from "@/lib/db";
+import { getDb, eq, and, shopProducts, shopProductImages } from "@/lib/db";
 import { parseWatermarkSettings } from "@/lib/product-watermark";
 import { enforceRequestRateLimit } from "@/lib/request-rate-limit";
 
@@ -79,6 +79,7 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const productId = searchParams.get("productId");
+    const imageId = searchParams.get("imageId");
     const kind = searchParams.get("kind") || "hero";
     const index = Number(searchParams.get("index") || "0");
     if (!productId) {
@@ -91,7 +92,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, error: "Product not found" }, { status: 404 });
     }
 
-    const src = getRequestedSource(product, kind, index);
+    let src: string | null = null;
+    if (imageId) {
+      const row = await db
+        .select()
+        .from(shopProductImages)
+        .where(and(eq(shopProductImages.id, imageId), eq(shopProductImages.productId, productId)))
+        .get();
+      if (row?.imageUrl) src = row.imageUrl;
+    } else {
+      src = getRequestedSource(product, kind, index);
+    }
     if (!src) {
       return NextResponse.json({ success: false, error: "Image not found" }, { status: 404 });
     }

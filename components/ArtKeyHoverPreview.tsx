@@ -238,7 +238,7 @@ return (
             {/* Header with Product Info */}
             <div className="bg-gradient-to-r from-brand-medium to-brand-dark p-4 flex justify-between items-start">
               <div className="flex-1">
-                <h4 className="text-white font-bold text-base font-playfair mb-1">✨ ArtKey Preview</h4>
+                <h4 className="text-white font-normal text-base font-playfair mb-1">✨ ArtKey Preview</h4>
                 <p className="text-white font-semibold text-sm mb-1">{productName}</p>
                 {effectiveProductInfo && (
                   <div className="space-y-0.5">
@@ -289,7 +289,7 @@ return (
                     >
                       {/* Title - Larger */}
                       <h1 
-                        className="text-xl font-bold mb-4 font-playfair px-3"
+                        className="text-xl font-normal mb-4 font-playfair px-3"
                         style={{ color: titleColor }}
                       >
                         {title || productName || 'Your Title'}

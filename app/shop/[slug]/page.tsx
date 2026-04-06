@@ -5,11 +5,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
+import { AdminAccordionSection } from "@/components/admin/AdminAccordionSection";
+import {
+  getBestProductImages,
+  type StorefrontProductImage,
+  type VariantImageMatchContext,
+} from "@/lib/storefront-product-images";
 
 interface ProductDetail {
   id: string;
   slug: string;
   name: string;
+  /** Semantic catalog type from printfulDataJson (e.g. art-print, greeting-card) */
+  productType?: string;
   description: string | null;
   heroImage: string | null;
   galleryImages: string[];
@@ -38,6 +46,7 @@ interface ProductDetail {
     description: string | null;
   } | null;
   printfulDataJson?: string | null;
+  productImages?: StorefrontProductImage[];
 }
 
 interface VariantOption {
@@ -86,6 +95,41 @@ function toVariantIdCandidates(row: VariantImageMeta): number[] {
 
 function isActiveRow(row: VariantImageMeta): boolean {
   return row?.active !== false;
+}
+
+function variantMatchContextFromOption(
+  v: VariantOption | null,
+  printfulVariantId: number | null
+): VariantImageMatchContext {
+  if (!v) {
+    return {
+      matrixRowId: null,
+      printfulVariantId,
+      sizeLabel: null,
+      paperType: null,
+      finishType: null,
+      pfColor: null,
+      pfSize: null,
+      orientation: null,
+    };
+  }
+  const n = Number(v.printfulVariantId);
+  const pf =
+    printfulVariantId != null && printfulVariantId > 0
+      ? printfulVariantId
+      : Number.isFinite(n) && n > 0
+        ? Math.trunc(n)
+        : null;
+  return {
+    matrixRowId: v.id,
+    printfulVariantId: pf,
+    sizeLabel: v.sizeLabel,
+    paperType: v.paperType,
+    finishType: v.finishType,
+    pfColor: v.pfColor,
+    pfSize: v.pfSize,
+    orientation: v.orientation,
+  };
 }
 
 export default function ProductDetailPage() {
@@ -207,6 +251,27 @@ export default function ProductDetailPage() {
     return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
   }, [currentVariant?.printfulVariantId]);
 
+  const variantMatchCtx = useMemo(
+    () => variantMatchContextFromOption(currentVariant, selectedPrintfulVariantId),
+    [currentVariant, selectedPrintfulVariantId]
+  );
+
+  const hoverCatalogPreviewUrls = useMemo(() => {
+    if (!product || !hoverVariant) return null;
+    const hVid =
+      Number.isFinite(Number(hoverVariant.printfulVariantId)) && Number(hoverVariant.printfulVariantId) > 0
+        ? Math.trunc(Number(hoverVariant.printfulVariantId))
+        : null;
+    const hCtx = variantMatchContextFromOption(hoverVariant, hVid);
+    const urls = getBestProductImages(
+      product.productImages,
+      hCtx,
+      product.heroImage,
+      product.galleryImages || []
+    );
+    return urls.length > 0 ? urls : null;
+  }, [product, hoverVariant]);
+
   const exactVariantImages = useMemo(() => {
     if (!selectedPrintfulVariantId && !currentVariant?.id) return [];
     const urls: string[] = [];
@@ -292,6 +357,15 @@ export default function ProductDetailPage() {
 
   const displayImages = useMemo(() => {
     if (!product) return [];
+    const fromShop = getBestProductImages(
+      product.productImages,
+      variantMatchCtx,
+      product.heroImage,
+      product.galleryImages || []
+    );
+    if (fromShop.length > 0) {
+      return fromShop;
+    }
     const fallback = [
       ...(product.heroImage ? [product.heroImage] : []),
       ...(product.galleryImages || []).filter((url) => !!url && url !== product.heroImage),
@@ -306,7 +380,13 @@ export default function ProductDetailPage() {
     if (!vh) return base;
     if (exactVariantImages.length > 0) return base;
     return [vh, ...base.filter((u) => u !== vh)];
-  }, [exactVariantImages, formatSpecificImages, product, currentVariant?.heroImage]);
+  }, [
+    variantMatchCtx,
+    product,
+    exactVariantImages,
+    formatSpecificImages,
+    currentVariant?.heroImage,
+  ]);
 
   useEffect(() => {
     setActiveImageIndex(0);
@@ -327,7 +407,7 @@ export default function ProductDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-brand-darkest mb-4">
+          <h1 className="text-3xl font-normal text-brand-darkest mb-4">
             Product Not Found
           </h1>
           <p className="text-brand-darkest/60 mb-6">{error}</p>
@@ -343,6 +423,7 @@ export default function ProductDetailPage() {
   }
 
   const canCustomize = product.customizable !== false;
+  const isGreetingCard = product.productType === "greeting-card";
 
   const getSizeLabel = (v: VariantOption) =>
     v.sizeLabel ||
@@ -493,11 +574,13 @@ export default function ProductDetailPage() {
         : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
     }`;
   const hoveredImage = hoverVariant?.heroImage || null;
-  const mainImageSrc =
-    hoveredImage ||
-    displayImages[activeImageIndex] ||
-    displayImages[0] ||
-    null;
+  const hoverPreviewFirst =
+    hoverCatalogPreviewUrls && hoverCatalogPreviewUrls.length > 0
+      ? hoverCatalogPreviewUrls[0]
+      : null;
+  const mainImageSrc = hoverVariant
+    ? hoverPreviewFirst || hoveredImage || displayImages[activeImageIndex] || displayImages[0] || null
+    : displayImages[activeImageIndex] || displayImages[0] || null;
 
   const handleStartCustomizing = () => {
     if (!canCustomize) return;
@@ -636,7 +719,7 @@ export default function ProductDetailPage() {
               </p>
             )}
 
-            <h1 className="text-3xl md:text-4xl font-bold text-brand-darkest font-playfair mb-3">
+            <h1 className="text-3xl md:text-4xl font-normal text-brand-darkest font-playfair mb-3">
               {product.name}
             </h1>
 
@@ -651,12 +734,9 @@ export default function ProductDetailPage() {
             )}
 
             {/* Product Options (ported from older guided option layout) */}
-            <div className="mb-8 space-y-6">
+            <div className="mb-8 space-y-4">
               {sizeOptions.length > 1 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
-                    Size
-                  </h3>
+                <AdminAccordionSection title="Size" defaultOpen>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {sizeOptions.map((opt) => (
                       <button
@@ -674,14 +754,14 @@ export default function ProductDetailPage() {
                       </button>
                     ))}
                   </div>
-                </div>
+                </AdminAccordionSection>
               )}
 
               {materialOptions.length > 1 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
-                    Material
-                  </h3>
+                <AdminAccordionSection
+                  title={isGreetingCard ? "Paper" : "Material"}
+                  defaultOpen
+                >
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {materialOptions.map((opt) => (
                       <button
@@ -699,14 +779,14 @@ export default function ProductDetailPage() {
                       </button>
                     ))}
                   </div>
-                </div>
+                </AdminAccordionSection>
               )}
 
               {frameOptions.length > 1 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
-                    Frame / Finish
-                  </h3>
+                <AdminAccordionSection
+                  title={isGreetingCard ? "Envelope" : "Frame / Finish"}
+                  defaultOpen
+                >
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {frameOptions.map((opt) => (
                       <button
@@ -724,14 +804,11 @@ export default function ProductDetailPage() {
                       </button>
                     ))}
                   </div>
-                </div>
+                </AdminAccordionSection>
               )}
 
-              {canCustomize && orientationOptions.length > 1 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
-                    Orientation
-                  </h3>
+              {canCustomize && !isGreetingCard && orientationOptions.length > 1 && (
+                <AdminAccordionSection title="Orientation" defaultOpen>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {orientationOptions.map((opt) => (
                       <button
@@ -749,14 +826,11 @@ export default function ProductDetailPage() {
                       </button>
                     ))}
                   </div>
-                </div>
+                </AdminAccordionSection>
               )}
 
-              {colorOptions.length > 1 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-brand-darkest mb-3 uppercase tracking-wide">
-                    Frame Color
-                  </h3>
+              {!isGreetingCard && colorOptions.length > 1 && (
+                <AdminAccordionSection title="Frame Color" defaultOpen>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {colorOptions.map((v) => (
                       <button
@@ -781,7 +855,7 @@ export default function ProductDetailPage() {
                       </button>
                     ))}
                   </div>
-                </div>
+                </AdminAccordionSection>
               )}
             </div>
 
@@ -810,7 +884,7 @@ export default function ProductDetailPage() {
               {product.finishType && (
                 <div className="bg-white rounded-lg p-4 shadow-sm">
                   <p className="text-xs text-brand-darkest/50 uppercase tracking-wide mb-1">
-                    Finish
+                    {isGreetingCard ? "Envelope" : "Finish"}
                   </p>
                   <p className="font-semibold text-brand-darkest">
                     {product.finishType}
@@ -822,7 +896,7 @@ export default function ProductDetailPage() {
             {/* ArtKey Feature Callout */}
             {product.requiresQrCode && (
               <div className="bg-gradient-to-r from-brand-light/50 to-brand-medium/20 border border-brand-medium/30 rounded-xl p-6 mb-8">
-                <h3 className="font-bold text-brand-darkest mb-2">
+                <h3 className="font-normal text-brand-darkest mb-2">
                   Includes ArtKey Portal
                 </h3>
                 <p className="text-sm text-brand-darkest/70 leading-relaxed">

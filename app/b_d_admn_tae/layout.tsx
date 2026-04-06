@@ -23,6 +23,7 @@ import {
 const NAV_ITEMS = [
   { href: ARTKEY_ADMIN_DASHBOARD_PATH, label: "Dashboard", icon: LayoutDashboard },
   { href: "/b_d_admn_tae/catalog/products", label: "Products", icon: Package },
+  { href: "/b_d_admn_tae/catalog-v2/listings", label: "Catalog V2", icon: Package },
   { href: "/b_d_admn_tae/catalog/categories", label: "Categories", icon: Grid3X3 },
   { href: "/b_d_admn_tae/gallery", label: "Gallery", icon: Palette },
   { href: "/b_d_admn_tae/cocreators", label: "CoCreators", icon: Handshake },
@@ -79,7 +80,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const Sidebar = () => (
     <nav className="flex flex-col h-full">
       <div className="px-6 py-6 border-b border-white/10">
-        <h1 className="text-lg font-bold font-playfair text-white">theAE</h1>
+        <h1 className="text-lg font-normal font-playfair text-white">theAE</h1>
         <p className="text-[10px] text-white/40 uppercase tracking-widest mt-0.5">
           Admin Portal
         </p>

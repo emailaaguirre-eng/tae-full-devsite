@@ -53,7 +53,7 @@ export default function ArtKeyHostLogin() {
       {/* Header */}
       <div className="pt-12 pb-6 text-center">
         <div className="text-amber-400 text-3xl mb-3">✦</div>
-        <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
+        <h1 className="text-3xl font-normal text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
           ArtKey Portal
         </h1>
         <p className="text-slate-400 text-sm mt-2">by The Artful Experience</p>

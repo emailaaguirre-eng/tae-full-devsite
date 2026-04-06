@@ -60,7 +60,11 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { name, email, message } = body;
+    const { name, email, message, shareEmailWithHost } = body;
+    const wantsShare =
+      shareEmailWithHost === true ||
+      shareEmailWithHost === "true" ||
+      shareEmailWithHost === 1;
 
     if (!name?.trim() || !message?.trim()) {
       return NextResponse.json(
@@ -68,6 +72,9 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    const storedEmail =
+      wantsShare && typeof email === "string" && email.trim() ? email.trim() : null;
 
     const id = generateId();
     const now = new Date().toISOString();
@@ -77,7 +84,8 @@ export async function POST(
       id,
       artkeyId: portal.id,
       name: name.trim(),
-      email: email?.trim() || null,
+      email: storedEmail,
+      shareEmailWithHost: wantsShare,
       message: message.trim(),
       role: "guest",
       approved: requireApproval ? false : true,
@@ -97,7 +105,7 @@ export async function POST(
           portalUrl,
           guestName: name.trim(),
           guestMessage: message.trim(),
-          guestEmail: email?.trim() || null,
+          guestEmail: storedEmail,
           requiresApproval: requireApproval,
         });
       } catch {
@@ -169,15 +177,19 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      entries: entries.map((e) => ({
-        id: e.id,
-        name: e.name,
-        email: e.email,
-        message: e.message,
-        role: e.role,
-        approved: e.approved,
-        createdAt: e.createdAt,
-      })),
+      entries: entries.map((e) => {
+        const share = !!e.shareEmailWithHost;
+        return {
+          id: e.id,
+          name: e.name,
+          shareEmailWithHost: share,
+          email: share && e.email ? e.email : null,
+          message: e.message,
+          role: e.role,
+          approved: e.approved,
+          createdAt: e.createdAt,
+        };
+      }),
     });
   } catch (err: any) {
     console.error("Guestbook GET error:", err);

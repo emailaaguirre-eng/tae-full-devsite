@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import type { CartItem } from "@/contexts/CartContext";
 import Link from "next/link";
-import { ArrowLeft, Check, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Check, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
-
+import { customerPlacementLabel } from "@/lib/customer-placement-label";
+import {
+  CUSTOMER_CHECKOUT_PROOF_NETWORK,
+  CUSTOMER_CHECKOUT_PROOF_SERVER,
+} from "@/lib/customer-proof-errors";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface ShippingInfo {
@@ -24,13 +28,51 @@ interface ShippingInfo {
 
 interface ProofItem {
   cartItemId: string;
+  /** Server CheckoutProofSnapshot id — required for approve + orders */
+  proofSnapshotId: string;
   portalToken: string | null;
   ownerToken: string | null;
   portalUrl: string | null;
   editUrl: string | null;
   qrCodeDataUrl?: string | null;
   reusedPortal?: boolean;
-  proofFiles: { placement: string; dataUrl: string }[];
+  /** Watermarked — customer review only */
+  displayProofFiles: { placement: string; dataUrl: string }[];
+  /** Present after generate response; omitted in GET snapshot (approve uses snapshot id only). */
+  productionFiles: { placement: string; dataUrl: string }[];
+}
+
+function normalizeProofPayload(raw: Record<string, unknown>): ProofItem {
+  const display = raw.displayProofFiles ?? raw.proofFiles;
+  const production = raw.productionFiles ?? raw.proofFiles;
+  return {
+    cartItemId: String(raw.cartItemId ?? ""),
+    proofSnapshotId: String(raw.proofSnapshotId ?? ""),
+    portalToken: (raw.portalToken as string) ?? null,
+    ownerToken: (raw.ownerToken as string) ?? null,
+    portalUrl: (raw.portalUrl as string) ?? null,
+    editUrl: (raw.editUrl as string) ?? null,
+    qrCodeDataUrl: raw.qrCodeDataUrl as string | null | undefined,
+    reusedPortal: raw.reusedPortal as boolean | undefined,
+    displayProofFiles: Array.isArray(display) ? (display as ProofItem["displayProofFiles"]) : [],
+    productionFiles: Array.isArray(production) ? (production as ProofItem["productionFiles"]) : [],
+  };
+}
+
+function snapshotApiToProofItem(data: Record<string, unknown>): ProofItem {
+  const display = data.displayProofFiles;
+  return {
+    cartItemId: String(data.cartItemId ?? ""),
+    proofSnapshotId: String(data.proofSnapshotId ?? ""),
+    portalToken: (data.portalToken as string) ?? null,
+    ownerToken: (data.ownerToken as string) ?? null,
+    portalUrl: (data.portalUrl as string) ?? null,
+    editUrl: (data.editUrl as string) ?? null,
+    qrCodeDataUrl: data.qrCodeDataUrl as string | null | undefined,
+    reusedPortal: data.reusedPortal as boolean | undefined,
+    displayProofFiles: Array.isArray(display) ? (display as ProofItem["displayProofFiles"]) : [],
+    productionFiles: [],
+  };
 }
 
 interface ShippingRate {
@@ -71,11 +113,14 @@ export default function CheckoutPage() {
   const [proofs, setProofs] = useState<ProofItem[]>([]);
   const [proofLoading, setProofLoading] = useState(false);
   const [proofError, setProofError] = useState<string | null>(null);
+  const [proofApproving, setProofApproving] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [shippingRatesLoading, setShippingRatesLoading] = useState(false);
   const [shippingRatesError, setShippingRatesError] = useState<string | null>(null);
   const [selectedShippingRateId, setSelectedShippingRateId] = useState<string | null>(null);
+  const [finalProofAcknowledged, setFinalProofAcknowledged] = useState(false);
+  const [checkoutProofSurfaceKey, setCheckoutProofSurfaceKey] = useState<Record<string, string>>({});
 
   const subtotal = getTotalPrice();
   const selectedShippingRate = useMemo(
@@ -96,13 +141,41 @@ export default function CheckoutPage() {
   );
   const hasInvalidProofRenders = useMemo(
     () =>
-      proofs.some(
-        (p) => !p.proofFiles?.length || p.proofFiles.some((pf) => !pf.dataUrl || !pf.dataUrl.startsWith("data:"))
-      ),
+      proofs.some((p) => {
+        const badDisplay =
+          !p.displayProofFiles?.length ||
+          p.displayProofFiles.some((pf) => !pf.dataUrl || !pf.dataUrl.startsWith("data:"));
+        if (!p.proofSnapshotId) return true;
+        if (p.productionFiles.length === 0) return badDisplay;
+        const badProd =
+          p.productionFiles.some((pf) => !pf.dataUrl || !pf.dataUrl.startsWith("data:"));
+        return badDisplay || badProd;
+      }),
     [proofs]
   );
 
   const hasQrItems = cart.some((item) => item.requiresQrCode);
+
+  /** Blocks PayPal until server-approved proof snapshot id is on the cart line */
+  const paymentBlockedForQr = useMemo(() => {
+    if (!hasQrItems) return false;
+    return cart.some(
+      (item) =>
+        item.requiresQrCode &&
+        !!item.printfulVariantId &&
+        !String(item.approvedProofSnapshotId || "").trim()
+    );
+  }, [cart, hasQrItems]);
+
+  const paymentDisabledReason = useMemo(() => {
+    if (hasMissingDesignRenders) {
+      return "Design render data is missing for one or more items. Please return to cart/studio and re-save your design.";
+    }
+    if (paymentBlockedForQr) {
+      return "Final proof must be approved before payment for ArtKey / QR products. Use the proof step or return to shipping to continue.";
+    }
+    return undefined;
+  }, [hasMissingDesignRenders, paymentBlockedForQr]);
   const hasShippablePrintfulItems = cart.some((item) => !!item.printfulVariantId);
 
   const fetchShippingRates = useCallback(async () => {
@@ -177,6 +250,60 @@ export default function CheckoutPage() {
     }
   }, [cart, step, router]);
 
+  useEffect(() => {
+    if (step !== "proof") setFinalProofAcknowledged(false);
+  }, [step]);
+
+  useEffect(() => {
+    setFinalProofAcknowledged(false);
+  }, [proofs]);
+
+  const pendingSnapshotHydrateKey = useMemo(() => {
+    return cart
+      .filter(
+        (i) =>
+          i.requiresQrCode &&
+          String(i.pendingProofSnapshotId || "").trim() &&
+          !String(i.approvedProofSnapshotId || "").trim()
+      )
+      .map((i) => `${i.id}:${i.pendingProofSnapshotId}`)
+      .sort()
+      .join("|");
+  }, [cart]);
+
+  useEffect(() => {
+    if (!hasQrItems || !pendingSnapshotHydrateKey) return;
+    if (proofs.length > 0) return;
+
+    let cancelled = false;
+    void (async () => {
+      const toLoad = cart.filter(
+        (i) =>
+          i.requiresQrCode &&
+          String(i.pendingProofSnapshotId || "").trim() &&
+          !String(i.approvedProofSnapshotId || "").trim()
+      );
+      const results: ProofItem[] = [];
+      for (const item of toLoad) {
+        const sid = String(item.pendingProofSnapshotId).trim();
+        try {
+          const res = await fetch(`/api/proof/snapshot/${encodeURIComponent(sid)}`);
+          const data = (await res.json()) as Record<string, unknown>;
+          if (!res.ok || !data.success) continue;
+          results.push(snapshotApiToProofItem(data));
+        } catch {
+          /* ignore */
+        }
+      }
+      if (cancelled || results.length === 0) return;
+      setProofs(results);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasQrItems, pendingSnapshotHydrateKey, cart, proofs.length]);
+
   // ─── Shipping Form ──────────────────────────────────────────────────────
 
   const handleShippingSubmit = useCallback(
@@ -186,7 +313,16 @@ export default function CheckoutPage() {
       if (!shippingOk) return;
 
       if (hasQrItems) {
-        // Generate proofs for QR items
+        const qrCartItems = cart.filter((item) => item.requiresQrCode);
+        const allPreApproved =
+          qrCartItems.length > 0 &&
+          qrCartItems.every((item) => String(item.approvedProofSnapshotId || "").trim());
+
+        if (allPreApproved) {
+          setStep("payment");
+          return;
+        }
+
         setStep("proof");
         setProofLoading(true);
         setProofError(null);
@@ -214,38 +350,82 @@ export default function CheckoutPage() {
 
           const data = await res.json();
           if (data.success) {
-            setProofs(data.proofs);
-            for (const proof of data.proofs as ProofItem[]) {
-              if (!proof.portalToken || !proof.ownerToken || !proof.portalUrl || !proof.editUrl) continue;
+            const normalized = (data.proofs as Record<string, unknown>[]).map(normalizeProofPayload);
+            setProofs(normalized);
+            for (const proof of normalized) {
+              const portalPatch =
+                proof.portalToken &&
+                proof.ownerToken &&
+                proof.portalUrl &&
+                proof.editUrl
+                  ? {
+                      proofPortal: {
+                        portalToken: proof.portalToken,
+                        ownerToken: proof.ownerToken,
+                        portalUrl: proof.portalUrl,
+                        editUrl: proof.editUrl,
+                        qrCodeDataUrl: proof.qrCodeDataUrl || undefined,
+                      },
+                    }
+                  : {};
               updateCartItem(proof.cartItemId, {
-                proofPortal: {
-                  portalToken: proof.portalToken,
-                  ownerToken: proof.ownerToken,
-                  portalUrl: proof.portalUrl,
-                  editUrl: proof.editUrl,
-                  qrCodeDataUrl: proof.qrCodeDataUrl || undefined,
-                },
+                ...portalPatch,
+                pendingProofSnapshotId: proof.proofSnapshotId || undefined,
+                approvedProofSnapshotId: undefined,
               });
             }
           } else {
-            setProofError(data.error || "Failed to generate proofs");
+            console.error("[checkout] proof generate failed", data?.error, data);
+            setProofError(CUSTOMER_CHECKOUT_PROOF_SERVER);
           }
         } catch (err) {
-          setProofError("Network error generating proofs");
+          console.error("[checkout] proof generate network", err);
+          setProofError(CUSTOMER_CHECKOUT_PROOF_NETWORK);
         } finally {
           setProofLoading(false);
         }
       } else {
-        // No QR items, skip to payment
         setStep("payment");
       }
     },
     [cart, fetchShippingRates, hasQrItems, shipping.email, updateCartItem]
   );
 
-  const handleApproveProofs = () => {
-    if (hasInvalidProofRenders) return;
-    setStep("payment");
+  const handleApproveProofs = async () => {
+    if (hasInvalidProofRenders || !finalProofAcknowledged || proofApproving) return;
+    setProofApproving(true);
+    setProofError(null);
+    try {
+      for (const p of proofs) {
+        if (!p.proofSnapshotId) {
+          setProofError(CUSTOMER_CHECKOUT_PROOF_SERVER);
+          return;
+        }
+        const res = await fetch("/api/proof/approve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            proofSnapshotId: p.proofSnapshotId,
+            customerEmail: shipping.email,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          setProofError(
+            typeof data?.error === "string" ? data.error : CUSTOMER_CHECKOUT_PROOF_SERVER
+          );
+          return;
+        }
+        updateCartItem(p.cartItemId, {
+          approvedProofSnapshotId: p.proofSnapshotId,
+        });
+      }
+      setStep("payment");
+    } catch {
+      setProofError(CUSTOMER_CHECKOUT_PROOF_NETWORK);
+    } finally {
+      setProofApproving(false);
+    }
   };
 
   const handleRejectAndEdit = useCallback((cartItemId: string) => {
@@ -257,13 +437,22 @@ export default function CheckoutPage() {
     const item = cart.find((c) => c.id === cartItemId);
     if (!item) return;
 
+    updateCartItem(cartItemId, {
+      pendingProofSnapshotId: undefined,
+      approvedProofSnapshotId: undefined,
+    });
+    setProofs((prev) => prev.filter((p) => p.cartItemId !== cartItemId));
+
     const searchParams = new URLSearchParams({
       product_id: item.id,
       product_name: item.name,
       cart_item_id: item.id,
       restore_design: "1",
     });
+    if (item.assignmentId) searchParams.set("assignment_id", item.assignmentId);
     if (item.productSlug) searchParams.set("slug", item.productSlug);
+    if (item.proofPortal?.portalToken) searchParams.set("portal_token", item.proofPortal.portalToken);
+    if (item.proofPortal?.ownerToken) searchParams.set("owner_token", item.proofPortal.ownerToken);
     if (item.requiresQrCode) {
       searchParams.set("requires_qr", "1");
       searchParams.set("force_artkey", "1");
@@ -275,7 +464,7 @@ export default function CheckoutPage() {
       searchParams.set("variant_id", String(item.printfulVariantId));
     }
     router.push(`/studio?${searchParams.toString()}`);
-  }, [cart, router]);
+  }, [cart, router, updateCartItem]);
 
   // ─── Payment ────────────────────────────────────────────────────────────
 
@@ -286,8 +475,21 @@ export default function CheckoutPage() {
     setPaymentLoading(true);
 
     try {
+      const qrLineMissingApproval = cart.some(
+        (item) =>
+          item.requiresQrCode &&
+          !!item.printfulVariantId &&
+          !String(item.approvedProofSnapshotId || "").trim()
+      );
+      if (qrLineMissingApproval) {
+        alert(
+          "Final proof approval is required before payment. Return to the proof step from shipping."
+        );
+        return;
+      }
+
       const orderItems = cart.map((item) => {
-        const proof = proofs.find((p) => p.cartItemId === item.id);
+        const portal = item.proofPortal;
         return {
           cartItemId: item.id,
           name: item.name,
@@ -296,13 +498,17 @@ export default function CheckoutPage() {
           priceAdjustments: item.priceAdjustments || [],
           printfulProductId: item.printfulProductId,
           printfulVariantId: item.printfulVariantId,
+          assignmentId: item.assignmentId,
           productSlug: item.productSlug,
           designDraftId: item.designDraftId,
-          designFiles: proof?.proofFiles || item.designFiles,
+          designFiles: item.designFiles,
           studioRenderSignature: item.studioRenderSignature,
           requiresQrCode: item.requiresQrCode,
-          portalToken: proof?.portalToken,
-          portalUrl: proof?.portalUrl,
+          approvedProofSnapshotId: item.requiresQrCode
+            ? String(item.approvedProofSnapshotId || "").trim() || undefined
+            : undefined,
+          portalToken: portal?.portalToken,
+          portalUrl: portal?.portalUrl,
           artKeyData: item.artKeyData,
         };
       });
@@ -350,7 +556,7 @@ export default function CheckoutPage() {
     } finally {
       setPaymentLoading(false);
     }
-  }, [cart, proofs, shipping, selectedShippingRate, subtotal, shippingCost, total, clearCart]);
+  }, [cart, shipping, selectedShippingRate, subtotal, shippingCost, total, clearCart, router]);
 
   // ─── Step Indicator ─────────────────────────────────────────────────────
 
@@ -407,7 +613,7 @@ export default function CheckoutPage() {
               onSubmit={handleShippingSubmit}
               className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-8"
             >
-              <h2 className="text-xl font-bold text-brand-darkest mb-6">
+              <h2 className="text-xl font-normal text-brand-darkest mb-6">
                 Shipping Information
               </h2>
 
@@ -546,7 +752,7 @@ export default function CheckoutPage() {
                 <div className="mb-6 rounded-xl border border-gray-200 p-4">
                   <div className="flex items-center justify-between gap-3 mb-3">
                     <h3 className="text-sm font-semibold text-brand-darkest">
-                      Shipping Options (Printful)
+                      Shipping Options
                     </h3>
                     <button
                       type="button"
@@ -588,7 +794,7 @@ export default function CheckoutPage() {
                               <p className="text-xs text-brand-darkest/60">
                                 {rate.minDeliveryDays && rate.maxDeliveryDays
                                   ? `${rate.minDeliveryDays}-${rate.maxDeliveryDays} business days`
-                                  : "Estimated delivery shown by Printful"}
+                                  : "Estimated delivery provided at checkout"}
                               </p>
                             </div>
                           </div>
@@ -621,135 +827,222 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        {/* ─── STEP: Proof Approval ───────────────────────────────── */}
+        {/* ─── STEP: Final proof approval (QR / ArtKey products) ─────────────── */}
         {step === "proof" && (
-          <div className="max-w-3xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-sm p-8">
-              <h2 className="text-xl font-bold text-brand-darkest mb-2">
-                Approve Your Proof
-              </h2>
-              <p className="text-sm text-brand-darkest/60 mb-8">
-                We&apos;ve generated the real QR codes for your ArtKey portals.
-                Review each design below — the QR code now links to your unique
-                portal URL. Approve to continue to payment.
-              </p>
-
-              {proofLoading && (
-                <div className="text-center py-16">
-                  <Loader2 className="w-10 h-10 text-brand-dark animate-spin mx-auto mb-4" />
-                  <p className="text-brand-darkest/60">
-                    Generating your proofs with real QR codes...
-                  </p>
-                  <p className="text-xs text-brand-darkest/40 mt-1">
-                    This is where the magic happens.
-                  </p>
-                </div>
-              )}
-
-              {proofError && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-                  <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-3" />
-                  <p className="text-red-700 font-medium">{proofError}</p>
-                  <button
-                    onClick={() => {
-                      setStep("shipping");
-                      setProofError(null);
-                    }}
-                    className="mt-4 text-sm text-red-600 underline"
-                  >
-                    Go back and try again
-                  </button>
-                </div>
-              )}
-
-              {!proofLoading && !proofError && proofs.length > 0 && (
-                <>
-                  {hasInvalidProofRenders && (
-                    <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                      Some proof renders are missing. Please go back and regenerate proofs before payment.
-                    </div>
-                  )}
-                  <div className="space-y-8">
-                    {proofs.map((proof) => {
-                      const cartItem = cart.find(
-                        (c) => c.id === proof.cartItemId
-                      );
-                      return (
-                        <div
-                          key={proof.cartItemId}
-                          className="border border-gray-100 rounded-xl p-6"
-                        >
-                          <h3 className="font-semibold text-brand-darkest mb-1">
-                            {cartItem?.name || "Product"}
-                          </h3>
-                          {proof.portalUrl && (
-                            <p className="text-xs text-brand-medium mb-4 break-all">
-                              Portal: {proof.portalUrl}
-                            </p>
-                          )}
-                          {proof.reusedPortal && (
-                            <p className="text-[11px] text-brand-darkest/60 mb-3">
-                              Reusing your existing portal + QR from a prior proof pass.
-                            </p>
-                          )}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            {proof.proofFiles.map((pf) => (
-                              <div
-                                key={pf.placement}
-                                className="bg-gray-50 rounded-lg overflow-hidden"
-                              >
-                                <img
-                                  src={pf.dataUrl}
-                                  alt={`${pf.placement} proof`}
-                                  className="w-full aspect-[3/4] object-contain"
-                                />
-                                <p className="text-[10px] text-center text-brand-darkest/50 py-1 capitalize">
-                                  {pf.placement}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="mt-4 flex justify-end">
-                            <button
-                              onClick={() => handleRejectAndEdit(proof.cartItemId)}
-                              className="text-sm border border-red-200 text-red-700 px-3 py-1.5 rounded-full hover:bg-red-50 transition-colors"
-                            >
-                              Reject &amp; Edit Design
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+          <div className="max-w-3xl lg:max-w-4xl mx-auto">
+            <div className="rounded-3xl border border-stone-200/90 bg-white shadow-[0_8px_40px_-12px_rgba(0,0,0,0.12)] overflow-hidden">
+              <div className="px-6 sm:px-10 pt-8 pb-6 border-b border-stone-100 bg-gradient-to-b from-stone-50/80 to-white">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-full bg-brand-dark/10 p-2 text-brand-dark">
+                    <ShieldCheck className="w-5 h-5" aria-hidden />
                   </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-brand-darkest/45 mb-1">
+                      Step 2 of checkout
+                    </p>
+                    <h2 className="text-2xl sm:text-[1.65rem] font-semibold text-brand-darkest tracking-tight">
+                      Final proof approval
+                    </h2>
+                    <p className="text-sm text-brand-darkest/65 mt-2 max-w-2xl leading-relaxed">
+                      Review your design before payment. This is the version we&apos;ll use for production,
+                      including your ArtKey QR where it appears on the artwork. Take a moment to confirm
+                      everything looks right.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-                  <div className="flex gap-4 mt-8">
+              <div className="px-6 sm:px-10 py-8">
+                {proofLoading && (
+                  <div className="text-center py-16 sm:py-20">
+                    <Loader2 className="w-11 h-11 text-brand-dark animate-spin mx-auto mb-5" />
+                    <p className="text-base font-medium text-brand-darkest">
+                      Preparing your final proof
+                    </p>
+                    <p className="text-sm text-brand-darkest/55 mt-2 max-w-md mx-auto leading-relaxed">
+                      Finalizing your ArtKey details and generating your print-ready proof. This usually
+                      takes just a moment.
+                    </p>
+                  </div>
+                )}
+
+                {proofError && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50/80 p-8 text-center">
+                    <AlertCircle className="w-9 h-9 text-red-400 mx-auto mb-3" />
+                    <p className="text-red-800 font-medium">{proofError}</p>
                     <button
-                      onClick={() => setStep("shipping")}
-                      className="flex-1 border-2 border-gray-200 text-brand-darkest py-3 rounded-full font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                      Edit Shipping
-                    </button>
-                    <button
+                      type="button"
                       onClick={() => {
-                        const firstProof = proofs[0];
-                        if (firstProof) handleRejectAndEdit(firstProof.cartItemId);
+                        setStep("shipping");
+                        setProofError(null);
                       }}
-                      className="flex-1 border-2 border-red-200 text-red-700 py-3 rounded-full font-semibold hover:bg-red-50 transition-colors"
+                      className="mt-5 text-sm font-semibold text-red-700 underline underline-offset-2 hover:text-red-900"
                     >
-                      Reject Proof &amp; Edit
-                    </button>
-                    <button
-                      onClick={handleApproveProofs}
-                      disabled={hasInvalidProofRenders}
-                      className="flex-1 bg-brand-dark text-white py-3 rounded-full font-semibold hover:bg-brand-darkest transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      <Check className="w-4 h-4" />
-                      Approve &amp; Continue to Payment
+                      Back to shipping to try again
                     </button>
                   </div>
-                </>
-              )}
+                )}
+
+                {!proofLoading && !proofError && proofs.length > 0 && (
+                  <>
+                    {hasInvalidProofRenders && (
+                      <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-950">
+                        Some proof images are missing or incomplete. Go back to shipping and continue again,
+                        or edit your design from the cart.
+                      </div>
+                    )}
+
+                    <div className="space-y-10">
+                      {proofs.map((proof) => {
+                        const cartItem = cart.find((c) => c.id === proof.cartItemId);
+                        const selectedPlacement =
+                          checkoutProofSurfaceKey[proof.cartItemId] ||
+                          proof.displayProofFiles[0]?.placement ||
+                          "";
+                        const activeFile =
+                          proof.displayProofFiles.find((pf) => pf.placement === selectedPlacement) ||
+                          proof.displayProofFiles[0];
+
+                        return (
+                          <div
+                            key={proof.cartItemId}
+                            className="rounded-2xl border border-stone-200 bg-stone-50/40 overflow-hidden"
+                          >
+                            <div className="px-4 sm:px-6 py-4 border-b border-stone-200/80 bg-white/90">
+                              <h3 className="font-semibold text-brand-darkest text-lg">
+                                {cartItem?.name || "Your item"}
+                              </h3>
+                              {proof.portalUrl ? (
+                                <p className="text-sm text-brand-darkest/60 mt-2 leading-relaxed">
+                                  Your personal ArtKey is part of this design. You&apos;ll get access details
+                                  in your order confirmation—we don&apos;t show private links on this screen.
+                                </p>
+                              ) : null}
+                              {proof.reusedPortal ? (
+                                <p className="text-xs text-brand-darkest/50 mt-2">
+                                  Using your saved ArtKey from an earlier step.
+                                </p>
+                              ) : null}
+                            </div>
+
+                            <div className="p-4 sm:p-6">
+                              {proof.displayProofFiles.length > 1 ? (
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                  {proof.displayProofFiles.map((pf) => {
+                                    const active = pf.placement === selectedPlacement;
+                                    return (
+                                      <button
+                                        key={pf.placement}
+                                        type="button"
+                                        onClick={() =>
+                                          setCheckoutProofSurfaceKey((prev) => ({
+                                            ...prev,
+                                            [proof.cartItemId]: pf.placement,
+                                          }))
+                                        }
+                                        className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors border ${
+                                          active
+                                            ? "bg-brand-dark text-white border-brand-dark"
+                                            : "bg-white text-brand-darkest/75 border-stone-200 hover:border-stone-300"
+                                        }`}
+                                      >
+                                        {customerPlacementLabel(pf.placement)}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : null}
+
+                              {activeFile ? (
+                                <div className="rounded-2xl bg-white border border-stone-200 overflow-hidden shadow-inner">
+                                  <div className="bg-stone-100/80 px-3 py-2 border-b border-stone-200/80">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                                      {customerPlacementLabel(activeFile.placement)}
+                                    </p>
+                                  </div>
+                                  <div className="flex justify-center items-center p-4 sm:p-8 min-h-[220px] max-h-[min(62vh,520px)]">
+                                    <img
+                                      src={activeFile.dataUrl}
+                                      alt={`Final proof — ${customerPlacementLabel(activeFile.placement)}`}
+                                      className="max-w-full max-h-[min(58vh,480px)] w-auto object-contain"
+                                    />
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              <div className="mt-4 flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRejectAndEdit(proof.cartItemId)}
+                                  className="text-sm font-semibold text-red-700 border border-red-200 bg-white px-4 py-2 rounded-full hover:bg-red-50 transition-colors"
+                                >
+                                  Back to edit design
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <label className="mt-10 flex items-start gap-3 p-4 sm:p-5 rounded-2xl border border-stone-200 bg-stone-50/60 cursor-pointer hover:border-stone-300/90 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={finalProofAcknowledged}
+                        onChange={(e) => setFinalProofAcknowledged(e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-stone-300 text-brand-dark focus:ring-brand-dark"
+                      />
+                      <span className="text-sm text-brand-darkest leading-snug">
+                        <span className="font-semibold block">
+                          I approve this artwork for production
+                        </span>
+                        <span className="text-brand-darkest/65 text-xs mt-1.5 block leading-relaxed">
+                          I&apos;ve reviewed each surface. The artwork shown—including the ArtKey QR where it
+                          appears—is what I want submitted to fulfill my order.
+                        </span>
+                      </span>
+                    </label>
+
+                    <div className="flex flex-col sm:flex-row gap-3 mt-8">
+                      <button
+                        type="button"
+                        onClick={() => setStep("shipping")}
+                        className="sm:flex-1 order-2 sm:order-1 border-2 border-stone-200 text-brand-darkest py-3.5 rounded-full font-semibold hover:bg-stone-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        Edit shipping
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const firstProof = proofs[0];
+                          if (firstProof) handleRejectAndEdit(firstProof.cartItemId);
+                        }}
+                        className="sm:flex-1 order-3 sm:order-2 border-2 border-red-200 text-red-700 py-3.5 rounded-full font-semibold hover:bg-red-50/80 transition-colors"
+                      >
+                        Edit design instead
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleApproveProofs()}
+                        disabled={
+                          hasInvalidProofRenders ||
+                          !finalProofAcknowledged ||
+                          proofApproving
+                        }
+                        className="sm:flex-[1.15] order-1 sm:order-3 bg-brand-dark text-white py-3.5 rounded-full font-semibold hover:bg-brand-darkest transition-colors flex items-center justify-center gap-2 disabled:opacity-45 disabled:cursor-not-allowed shadow-sm"
+                      >
+                        {proofApproving ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
+                        {proofApproving ? "Approving…" : "Approve & continue to payment"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -758,7 +1051,7 @@ export default function CheckoutPage() {
         {step === "payment" && (
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-8">
-              <h2 className="text-xl font-bold text-brand-darkest mb-6">
+              <h2 className="text-xl font-normal text-brand-darkest mb-6">
                 Payment
               </h2>
 
@@ -766,8 +1059,8 @@ export default function CheckoutPage() {
                 total={total}
                 onPaymentComplete={handlePayment}
                 loading={paymentLoading}
-                disabled={hasMissingDesignRenders}
-                disabledReason="Design render data is missing for one or more items. Please return to cart/studio and re-save your design."
+                disabled={hasMissingDesignRenders || paymentBlockedForQr}
+                disabledReason={paymentDisabledReason}
               />
             </div>
 
@@ -799,7 +1092,7 @@ function OrderSummary({
 }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
-      <h3 className="font-bold text-brand-darkest mb-4">Order Summary</h3>
+      <h3 className="font-normal text-brand-darkest mb-4">Order Summary</h3>
       <div className="space-y-3 mb-4">
         {cart.map((item) => (
           <div key={item.id} className="flex justify-between text-sm">

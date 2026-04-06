@@ -118,16 +118,14 @@ export function resolveAllPrintAreas(
 }
 
 /**
- * Map studio placement names to Printful placement names.
- *
- * Studio uses: front, inside1, inside2, back
- * Printful uses: default (or front), inside, back
+ * Map studio placement names to Printful placement names (orders / legacy).
+ * Product 568 mockup + printfiles use front, inside1, inside2, back (see Printful API).
  */
 export const STUDIO_TO_PRINTFUL_PLACEMENT: Record<string, string> = {
   front: "default",
   inside: "inside",
-  inside1: "inside",
-  inside2: "inside",
+  inside1: "inside1",
+  inside2: "inside2",
   back: "back",
 };
 

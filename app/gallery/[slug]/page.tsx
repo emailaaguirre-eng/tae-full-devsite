@@ -61,7 +61,7 @@ export default function ArtistDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-brand-darkest mb-4">
+          <h1 className="text-3xl font-normal text-brand-darkest mb-4">
             Artist Not Found
           </h1>
           <p className="text-brand-darkest/60 mb-6">
@@ -122,19 +122,21 @@ export default function ArtistDetailPage() {
               <p className="text-xs font-semibold text-brand-medium uppercase tracking-wider mb-3">
                 {artist.title}
               </p>
-              <h1 className="text-4xl md:text-5xl font-bold text-brand-darkest font-playfair mb-6">
+              <h1 className="text-4xl md:text-5xl font-normal text-brand-darkest font-playfair mb-6">
                 {artist.name}
               </h1>
-              {artist.bio && (
-                <p className="text-lg text-brand-darkest/80 leading-relaxed mb-6">
-                  {artist.bio}
-                </p>
-              )}
-              {artist.description && (
-                <p className="text-brand-darkest/70 leading-relaxed">
-                  {artist.description}
-                </p>
-              )}
+              <div className="space-y-4">
+                {artist.bio && (
+                  <p className="text-lg text-brand-darkest/80 leading-relaxed">
+                    {artist.bio}
+                  </p>
+                )}
+                {artist.description && (
+                  <p className="text-lg text-brand-darkest/80 leading-relaxed">
+                    {artist.description}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -142,7 +144,7 @@ export default function ArtistDetailPage() {
 
       {portfolio.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <h2 className="text-3xl font-bold text-brand-darkest font-playfair mb-2">
+          <h2 className="text-3xl font-normal text-brand-darkest font-playfair mb-2">
             Portfolio
           </h2>
           <p className="text-brand-darkest/60 mb-10">

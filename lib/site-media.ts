@@ -73,7 +73,8 @@ export interface SiteMediaSlot {
 
 export const SITE_MEDIA_SLOTS: SiteMediaSlot[] = [
   // Hero
-  { key: "hero.background", label: "Hero Background", component: "Hero", defaultUrl: "https://theartfulexperience.com/wp-content/uploads/2026/01/herowedding.png" },
+  { key: "hero.background", label: "Hero — image (legacy)", component: "Hero", defaultUrl: "https://theartfulexperience.com/wp-content/uploads/2026/01/herowedding.png" },
+  { key: "hero.video", label: "Hero — video (MP4)", component: "Hero", defaultUrl: "https://theartfulexperience.com/wp-content/uploads/2026/04/taehero-1.mp4" },
 
   // HowItWorks
   { key: "howitworks.step1", label: "How It Works — Step 1", component: "HowItWorks", defaultUrl: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/uploadyourimage.png" },

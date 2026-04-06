@@ -154,7 +154,7 @@ export default function AdminOrdersPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-brand-dark font-playfair">Orders</h1>
+        <h1 className="text-2xl font-normal text-brand-dark font-playfair">Orders</h1>
         <p className="text-sm text-brand-medium mt-1">{orders.length} orders total</p>
       </div>
 

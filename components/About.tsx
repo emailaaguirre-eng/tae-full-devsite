@@ -3,7 +3,7 @@ export default function About() {
     <section id="about" className="py-20 bg-brand-lightest">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4">
             About Us
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto"></div>
@@ -11,7 +11,7 @@ export default function About() {
 
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div>
-            <h3 className="text-3xl font-bold text-brand-darkest mb-6">
+            <h3 className="text-3xl font-normal text-brand-darkest mb-6">
               Who We Are
             </h3>
             <p className="text-lg text-brand-darkest mb-4 leading-relaxed">

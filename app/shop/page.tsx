@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 interface ShopProduct {
   id: string;
@@ -31,6 +32,9 @@ interface Category {
 }
 
 export default function ShopPage() {
+  const urlSearchParams = useSearchParams();
+  const tagFromUrl = (urlSearchParams.get("tag") || "").trim();
+
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -43,6 +47,7 @@ export default function ShopPage() {
         const params = new URLSearchParams({ limit: "200", group: "false" });
         if (activeCategory) params.set("category", activeCategory);
         if (search) params.set("search", search);
+        if (tagFromUrl) params.set("tag", tagFromUrl);
 
         const res = await fetch(`/api/products?${params}`);
         if (res.ok) {
@@ -59,7 +64,7 @@ export default function ShopPage() {
       }
     };
     fetchProducts();
-  }, [activeCategory, search]);
+  }, [activeCategory, search, tagFromUrl]);
 
   const formatPrice = (value: unknown) => {
     const n = Number(value);
@@ -71,7 +76,7 @@ export default function ShopPage() {
       {/* Hero Banner */}
       <div className="bg-gradient-to-br from-brand-dark via-brand-darkest to-brand-dark text-white py-16 px-4">
         <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-4xl md:text-5xl font-bold font-playfair mb-4">
+          <h1 className="text-4xl md:text-5xl font-normal font-playfair mb-4">
             Shop &mdash; Customize Your Own
           </h1>
           <p className="text-lg text-brand-lightest max-w-2xl mx-auto">
@@ -195,7 +200,7 @@ export default function ShopPage() {
                   <p className="text-[11px] font-semibold text-brand-medium uppercase tracking-wider mb-1">
                     {product.categoryName}
                   </p>
-                  <h3 className="text-lg font-bold text-brand-darkest mb-1 line-clamp-1 group-hover:text-brand-dark transition-colors">
+                  <h3 className="text-lg font-normal text-brand-darkest mb-1 line-clamp-1 group-hover:text-brand-dark transition-colors">
                     {product.name}
                   </h3>
                   {product.hasMultipleVariants && product.variantCount && (

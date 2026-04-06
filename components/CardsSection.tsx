@@ -24,7 +24,7 @@ export default function CardsSection() {
         </div>
 
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4">
             Cards, Invitations & Announcements
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
@@ -33,7 +33,7 @@ export default function CardsSection() {
         <div className="max-w-4xl mx-auto">
           {/* Choose Your Own Image */}
           <div className="bg-brand-lightest rounded-2xl p-8 mb-8 shadow-lg">
-            <h3 className="text-2xl font-bold text-brand-darkest mb-6 text-center">
+            <h3 className="text-2xl font-normal text-brand-darkest mb-6 text-center">
               Choose Your Own Image
             </h3>
             <div className="grid md:grid-cols-2 gap-6">
@@ -68,7 +68,7 @@ export default function CardsSection() {
             <>
               {/* Step 2: Personalize */}
               <div className="bg-gradient-to-br from-brand-light to-brand-medium rounded-2xl p-8 mb-8 shadow-lg">
-                <h3 className="text-2xl font-bold text-white mb-6 text-center">
+                <h3 className="text-2xl font-normal text-white mb-6 text-center">
                   Step 2: Personalize
                 </h3>
                 <div className="bg-white/95 backdrop-blur-sm rounded-xl p-6">

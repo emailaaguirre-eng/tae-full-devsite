@@ -1,5 +1,1019 @@
 [
   {
+    "exportId": "studio_mnmxay89114cnjvzesd",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:478695:data:image/jpeg;base64,/9j/4AAQS|inside1:19131:data:image/jpeg;base64,/9j/4AAQS|inside2:46075:data:image/jpeg;base64,/9j/4AAQS|back:56499:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front",
+      "inside1",
+      "inside2",
+      "back"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmxay89114cnjvzesd/front.jpg"
+      },
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmxay89114cnjvzesd/inside1.jpg"
+      },
+      {
+        "placement": "inside2",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmxay89114cnjvzesd/inside2.jpg"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmxay89114cnjvzesd/back.jpg"
+      }
+    ],
+    "createdAt": "2026-04-06T08:23:17.961Z"
+  },
+  {
+    "exportId": "studio_mnmxap6ubqoz8lq8msp",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside2:46075:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside2"
+    ],
+    "files": [
+      {
+        "placement": "inside2",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmxap6ubqoz8lq8msp/inside2.jpg"
+      }
+    ],
+    "createdAt": "2026-04-06T08:23:06.246Z"
+  },
+  {
+    "exportId": "studio_mnmx9tqon1qdes8ovjq",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside1:44419:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside1"
+    ],
+    "files": [
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmx9tqon1qdes8ovjq/inside1.jpg"
+      }
+    ],
+    "createdAt": "2026-04-06T08:22:25.488Z"
+  },
+  {
+    "exportId": "studio_mnmx9b3o2dgw0yobn6b",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside1:44419:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside1"
+    ],
+    "files": [
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmx9b3o2dgw0yobn6b/inside1.jpg"
+      }
+    ],
+    "createdAt": "2026-04-06T08:22:01.332Z"
+  },
+  {
+    "exportId": "studio_mnmx8awiegg0b08xxg",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:478695:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmx8awiegg0b08xxg/front.jpg"
+      }
+    ],
+    "createdAt": "2026-04-06T08:21:14.418Z"
+  },
+  {
+    "exportId": "studio_mnmx7uge20cl97dsd5b",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "back:56499:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "back"
+    ],
+    "files": [
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmx7uge20cl97dsd5b/back.jpg"
+      }
+    ],
+    "createdAt": "2026-04-06T08:20:53.102Z"
+  },
+  {
+    "exportId": "studio_mnmq8lrgmm5adanow5e",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:19131:data:image/jpeg;base64,/9j/4AAQS|inside1:19131:data:image/jpeg;base64,/9j/4AAQS|inside2:19131:data:image/jpeg;base64,/9j/4AAQS|back:56487:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front",
+      "inside1",
+      "inside2",
+      "back"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmq8lrgmm5adanow5e/front.jpg"
+      },
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmq8lrgmm5adanow5e/inside1.jpg"
+      },
+      {
+        "placement": "inside2",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmq8lrgmm5adanow5e/inside2.jpg"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmq8lrgmm5adanow5e/back.jpg"
+      }
+    ],
+    "createdAt": "2026-04-06T05:05:31.180Z"
+  },
+  {
+    "exportId": "studio_mnmo43nouzty4yygrtg",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:478695:data:image/jpeg;base64,/9j/4AAQS|inside1:410439:data:image/jpeg;base64,/9j/4AAQS|inside2:32003:data:image/jpeg;base64,/9j/4AAQS|back:56487:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front",
+      "inside1",
+      "inside2",
+      "back"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmo43nouzty4yygrtg/front.jpg"
+      },
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmo43nouzty4yygrtg/inside1.jpg"
+      },
+      {
+        "placement": "inside2",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmo43nouzty4yygrtg/inside2.jpg"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmo43nouzty4yygrtg/back.jpg"
+      }
+    ],
+    "createdAt": "2026-04-06T04:06:01.860Z"
+  },
+  {
+    "exportId": "studio_mnmo3np0yhf6628txdq",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:478695:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmo3np0yhf6628txdq/front.jpg"
+      }
+    ],
+    "createdAt": "2026-04-06T04:05:41.172Z"
+  },
+  {
+    "exportId": "studio_mnmo32sjb9xqywzx0d",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside2:32003:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside2"
+    ],
+    "files": [
+      {
+        "placement": "inside2",
+        "relativeUrl": "/uploads/studio-exports/studio_mnmo32sjb9xqywzx0d/inside2.jpg"
+      }
+    ],
+    "createdAt": "2026-04-06T04:05:14.083Z"
+  },
+  {
+    "exportId": "studio_mnlcsgcgzt00jtt3tof",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside1:55391:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside1"
+    ],
+    "files": [
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnlcsgcgzt00jtt3tof/inside1.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T06:01:16.480Z"
+  },
+  {
+    "exportId": "studio_mnlcs02qee65wv27x07",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside1:55391:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside1"
+    ],
+    "files": [
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnlcs02qee65wv27x07/inside1.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T06:00:55.394Z"
+  },
+  {
+    "exportId": "studio_mnl87cyl9tqx45ye3y",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:478695:data:image/jpeg;base64,/9j/4AAQS|inside1:19131:data:image/jpeg;base64,/9j/4AAQS|inside2:19131:data:image/jpeg;base64,/9j/4AAQS|back:56487:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front",
+      "inside1",
+      "inside2",
+      "back"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl87cyl9tqx45ye3y/front.jpg"
+      },
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl87cyl9tqx45ye3y/inside1.jpg"
+      },
+      {
+        "placement": "inside2",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl87cyl9tqx45ye3y/inside2.jpg"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl87cyl9tqx45ye3y/back.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T03:52:53.853Z"
+  },
+  {
+    "exportId": "studio_mnl86suukdq3gkg7gam",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:478695:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl86suukdq3gkg7gam/front.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T03:52:27.798Z"
+  },
+  {
+    "exportId": "studio_mnl7ogrvmraf1aeiktb",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:478695:data:image/jpeg;base64,/9j/4AAQS|inside1:27987:data:image/jpeg;base64,/9j/4AAQS|inside2:19131:data:image/jpeg;base64,/9j/4AAQS|back:56487:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front",
+      "inside1",
+      "inside2",
+      "back"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7ogrvmraf1aeiktb/front.jpg"
+      },
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7ogrvmraf1aeiktb/inside1.jpg"
+      },
+      {
+        "placement": "inside2",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7ogrvmraf1aeiktb/inside2.jpg"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7ogrvmraf1aeiktb/back.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T03:38:12.331Z"
+  },
+  {
+    "exportId": "studio_mnl7nosu7g9sr3ejomn",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:478695:data:image/jpeg;base64,/9j/4AAQS|inside1:27987:data:image/jpeg;base64,/9j/4AAQS|inside2:19131:data:image/jpeg;base64,/9j/4AAQS|back:56487:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front",
+      "inside1",
+      "inside2",
+      "back"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7nosu7g9sr3ejomn/front.jpg"
+      },
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7nosu7g9sr3ejomn/inside1.jpg"
+      },
+      {
+        "placement": "inside2",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7nosu7g9sr3ejomn/inside2.jpg"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7nosu7g9sr3ejomn/back.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T03:37:36.078Z"
+  },
+  {
+    "exportId": "studio_mnl7ngc4uzobgwqoz5a",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:478695:data:image/jpeg;base64,/9j/4AAQS|inside1:27987:data:image/jpeg;base64,/9j/4AAQS|inside2:19131:data:image/jpeg;base64,/9j/4AAQS|back:56487:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front",
+      "inside1",
+      "inside2",
+      "back"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7ngc4uzobgwqoz5a/front.jpg"
+      },
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7ngc4uzobgwqoz5a/inside1.jpg"
+      },
+      {
+        "placement": "inside2",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7ngc4uzobgwqoz5a/inside2.jpg"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7ngc4uzobgwqoz5a/back.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T03:37:25.108Z"
+  },
+  {
+    "exportId": "studio_mnl7iwcgwe3c8regji",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside1:27987:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside1"
+    ],
+    "files": [
+      {
+        "placement": "inside1",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl7iwcgwe3c8regji/inside1.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T03:33:52.576Z"
+  },
+  {
+    "exportId": "studio_mnl5o8sjup70q96q36",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside2:64987:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside2"
+    ],
+    "files": [
+      {
+        "placement": "inside2",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl5o8sjup70q96q36/inside2.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T02:42:02.755Z"
+  },
+  {
+    "exportId": "studio_mnl567n63rfikalyfg",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside:58531:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside"
+    ],
+    "files": [
+      {
+        "placement": "inside",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl567n63rfikalyfg/inside.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T02:28:01.458Z"
+  },
+  {
+    "exportId": "studio_mnl561d75cpbynn0d37",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside:58531:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside"
+    ],
+    "files": [
+      {
+        "placement": "inside",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl561d75cpbynn0d37/inside.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T02:27:53.323Z"
+  },
+  {
+    "exportId": "studio_mnl53fh58hhnipqt5hc",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside:58531:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside"
+    ],
+    "files": [
+      {
+        "placement": "inside",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl53fh58hhnipqt5hc/inside.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T02:25:51.641Z"
+  },
+  {
+    "exportId": "studio_mnl536fvg678r31rjue",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "inside:58531:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "inside"
+    ],
+    "files": [
+      {
+        "placement": "inside",
+        "relativeUrl": "/uploads/studio-exports/studio_mnl536fvg678r31rjue/inside.jpg"
+      }
+    ],
+    "createdAt": "2026-04-05T02:25:39.931Z"
+  },
+  {
+    "exportId": "studio_mnjes6bnudd5jer1qxh",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:652351:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnjes6bnudd5jer1qxh/front.jpg"
+      }
+    ],
+    "createdAt": "2026-04-03T21:21:30.371Z"
+  },
+  {
+    "exportId": "studio_mnj8msp7bcx1jf436",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:652351:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnj8msp7bcx1jf436/front.jpg"
+      }
+    ],
+    "createdAt": "2026-04-03T18:29:21.739Z"
+  },
+  {
+    "exportId": "studio_mnj8lys5rxn58zews4",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "front:652351:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "front"
+    ],
+    "files": [
+      {
+        "placement": "front",
+        "relativeUrl": "/uploads/studio-exports/studio_mnj8lys5rxn58zews4/front.jpg"
+      }
+    ],
+    "createdAt": "2026-04-03T18:28:42.965Z"
+  },
+  {
+    "exportId": "studio_mnj807mcy6hvigh7io",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "default:652351:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mnj807mcy6hvigh7io/default.jpg"
+      }
+    ],
+    "createdAt": "2026-04-03T18:11:47.988Z"
+  },
+  {
+    "exportId": "studio_mnj7ypsi67ogya95a6g",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "default:652351:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mnj7ypsi67ogya95a6g/default.jpg"
+      }
+    ],
+    "createdAt": "2026-04-03T18:10:38.226Z"
+  },
+  {
+    "exportId": "studio_mncvnw7vpal1a18yxjc",
+    "source": "studio",
+    "shopProductId": "mncvehw19lycvmo8cne",
+    "productSlug": "canvas-print",
+    "productName": "Canvas Print",
+    "studioRenderSignature": "default:158042:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mncvnw7vpal1a18yxjc/default.png"
+      }
+    ],
+    "createdAt": "2026-03-30T07:39:40.891Z"
+  },
+  {
+    "exportId": "studio_mncvnfcxbcdmx3dksp7",
+    "source": "studio",
+    "shopProductId": "mncqjpgbf9juhr9t779",
+    "productSlug": "post-card",
+    "productName": "Post Card",
+    "studioRenderSignature": "default:158042:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mncvnfcxbcdmx3dksp7/default.png"
+      }
+    ],
+    "createdAt": "2026-03-30T07:39:19.041Z"
+  },
+  {
+    "exportId": "studio_mncvmz5efkmhz1sih2p",
+    "source": "studio",
+    "shopProductId": "mncpg3uehmrsvxzx6pm",
+    "productSlug": "greeting-card",
+    "productName": "Greeting Card",
+    "studioRenderSignature": "default:158042:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mncvmz5efkmhz1sih2p/default.png"
+      }
+    ],
+    "createdAt": "2026-03-30T07:38:58.034Z"
+  },
+  {
+    "exportId": "studio_mncvliq1az423n3jl6f",
+    "source": "studio",
+    "shopProductId": "mncvehw19lycvmo8cne",
+    "productSlug": "canvas-print",
+    "productName": "Canvas Print",
+    "studioRenderSignature": "default:158042:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mncvliq1az423n3jl6f/default.png"
+      }
+    ],
+    "createdAt": "2026-03-30T07:37:50.089Z"
+  },
+  {
+    "exportId": "studio_mncqrqxkr8e49r05xkn",
+    "source": "studio",
+    "shopProductId": "mncqjpgbf9juhr9t779",
+    "productSlug": "post-card",
+    "productName": "Post Card",
+    "studioRenderSignature": "default:157822:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mncqrqxkr8e49r05xkn/default.png"
+      }
+    ],
+    "createdAt": "2026-03-30T05:22:42.584Z"
+  },
+  {
+    "exportId": "studio_mmx7shnz3g1oedhi75y",
+    "source": "studio",
+    "shopProductId": "mmv4jdy6ybotbgg0bnn",
+    "productSlug": "test-poster",
+    "productName": "Test Poster",
+    "studioRenderSignature": "default:185035:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mmx7shnz3g1oedhi75y/default.jpg"
+      }
+    ],
+    "createdAt": "2026-03-19T08:34:51.887Z"
+  },
+  {
+    "exportId": "studio_mmx7ia5jdimbrbzu72c",
+    "source": "studio",
+    "shopProductId": "mmv4jdy6ybotbgg0bnn",
+    "productSlug": "test-poster",
+    "productName": "Test Poster",
+    "studioRenderSignature": "default:184331:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mmx7ia5jdimbrbzu72c/default.jpg"
+      }
+    ],
+    "createdAt": "2026-03-19T08:26:55.591Z"
+  },
+  {
+    "exportId": "studio_mmx7hnls3rg10rvhh7l",
+    "source": "studio",
+    "shopProductId": "mmv4jdy6ybotbgg0bnn",
+    "productSlug": "test-poster",
+    "productName": "Test Poster",
+    "studioRenderSignature": "default:185255:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mmx7hnls3rg10rvhh7l/default.jpg"
+      }
+    ],
+    "createdAt": "2026-03-19T08:26:26.368Z"
+  },
+  {
+    "exportId": "studio_mmx7e84783v6yxneqg",
+    "source": "studio",
+    "shopProductId": "mmv4jdy6ybotbgg0bnn",
+    "productSlug": "test-poster",
+    "productName": "Test Poster",
+    "studioRenderSignature": "default:185255:data:image/jpeg;base64,/9j/4AAQS",
+    "placements": [
+      "default"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mmx7e84783v6yxneqg/default.jpg"
+      }
+    ],
+    "createdAt": "2026-03-19T08:23:46.327Z"
+  },
+  {
+    "exportId": "studio_mmwpzkx26ahjz8mnvvh",
+    "source": "studio",
+    "shopProductId": "mmv4jdy6ybotbgg0bnn",
+    "productSlug": "test-poster",
+    "productName": "Test Poster",
+    "studioRenderSignature": "default:179658:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default"
+    ],
+    "files": [],
+    "createdAt": "2026-03-19T00:16:29.606Z"
+  },
+  {
+    "exportId": "studio_mmqt471w2dsfi40lj5o",
+    "source": "studio",
+    "shopProductId": "mmqmhbxshf1406xdsn",
+    "productSlug": "kimber-poster",
+    "productName": "Kimber Poster",
+    "studioRenderSignature": "default:158042:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default"
+    ],
+    "files": [],
+    "createdAt": "2026-03-14T20:57:26.708Z"
+  },
+  {
+    "exportId": "studio_mmqiz8rg7n7boru3jbb",
+    "source": "studio",
+    "shopProductId": "6f1ac338-009a-408f-8c3b-76dc22246a7d",
+    "productSlug": "greeting-cards-greeting-card-greeting-card-5x7",
+    "productName": "Greeting Card — Greeting Card (5″×7″)",
+    "studioRenderSignature": "back:168298:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "back"
+    ],
+    "files": [],
+    "createdAt": "2026-03-14T16:13:39.484Z"
+  },
+  {
+    "exportId": "studio_mmq6pkoc2ry4yqwi1xl",
+    "source": "studio",
+    "shopProductId": "mmliur3z7imvjtxdvj",
+    "productSlug": "greeting-card-large",
+    "productName": "Greeting Cards - A5",
+    "studioRenderSignature": "default:191574:data:image/png;base64,iVBORw0KGg|back:124818:data:image/png;base64,iVBORw0KGg|inside:236222:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [],
+    "createdAt": "2026-03-14T10:30:12.972Z"
+  },
+  {
+    "exportId": "studio_mmq09p0ugwutfw92dei",
+    "source": "studio",
+    "shopProductId": "mmliur3z7imvjtxdvj",
+    "productSlug": "greeting-card-large",
+    "productName": "Greeting Cards - A5",
+    "studioRenderSignature": "default:199254:data:image/png;base64,iVBORw0KGg|back:124818:data:image/png;base64,iVBORw0KGg|inside:236222:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [],
+    "createdAt": "2026-03-14T07:29:54.414Z"
+  },
+  {
+    "exportId": "studio_mmple7puq1fsbcq48hs",
+    "source": "studio",
+    "shopProductId": "mmliur3z7imvjtxdvj",
+    "productSlug": "greeting-card-large",
+    "productName": "Greeting Cards - A5",
+    "studioRenderSignature": "default:9033122:data:image/png;base64,iVBORw0KGg|back:212770:data:image/png;base64,iVBORw0KGg|inside:236222:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [],
+    "createdAt": "2026-03-14T00:33:31.026Z"
+  },
+  {
+    "exportId": "studio_mmpl1hwqshargm6uyym",
+    "source": "studio",
+    "shopProductId": "mmliur3z7imvjtxdvj",
+    "productSlug": "greeting-card-large",
+    "productName": "Greeting Cards - A5",
+    "studioRenderSignature": "default:191854:data:image/png;base64,iVBORw0KGg|back:124818:data:image/png;base64,iVBORw0KGg|inside:236222:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [],
+    "createdAt": "2026-03-14T00:23:37.706Z"
+  },
+  {
+    "exportId": "studio_mmp9pjtmatks6tzuslh",
+    "source": "studio",
+    "shopProductId": "mmliur3z7imvjtxdvj",
+    "productSlug": "greeting-card-large",
+    "productName": "Greeting Cards - A5",
+    "studioRenderSignature": "default:191854:data:image/png;base64,iVBORw0KGg|back:124818:data:image/png;base64,iVBORw0KGg|inside:236222:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [],
+    "createdAt": "2026-03-13T19:06:24.538Z"
+  },
+  {
+    "exportId": "studio_mmp9htzxegzfz0hqu8i",
+    "source": "studio",
+    "shopProductId": "mmliur3z7imvjtxdvj",
+    "productSlug": "greeting-card-large",
+    "productName": "Greeting Cards - A5",
+    "studioRenderSignature": "default:9017350:data:image/png;base64,iVBORw0KGg|back:124818:data:image/png;base64,iVBORw0KGg|inside:236222:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [],
+    "createdAt": "2026-03-13T19:00:24.477Z"
+  },
+  {
+    "exportId": "studio_mmp9hjeei5olduq1bfo",
+    "source": "studio",
+    "shopProductId": "mmliur3z7imvjtxdvj",
+    "productSlug": "greeting-card-large",
+    "productName": "Greeting Cards - A5",
+    "studioRenderSignature": "default:9017350:data:image/png;base64,iVBORw0KGg|back:124818:data:image/png;base64,iVBORw0KGg|inside:236222:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [],
+    "createdAt": "2026-03-13T19:00:10.742Z"
+  },
+  {
+    "exportId": "studio_mmp9hb4csmuik8w182r",
+    "source": "studio",
+    "shopProductId": "mmliur3z7imvjtxdvj",
+    "productSlug": "greeting-card-large",
+    "productName": "Greeting Cards - A5",
+    "studioRenderSignature": "default:9017350:data:image/png;base64,iVBORw0KGg|back:124818:data:image/png;base64,iVBORw0KGg|inside:236222:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [],
+    "createdAt": "2026-03-13T19:00:00.012Z"
+  },
+  {
+    "exportId": "studio_mmoiuao1mvnhic2tll",
+    "source": "studio",
+    "shopProductId": "mmliur3z7imvjtxdvj",
+    "productSlug": "greeting-card-large",
+    "productName": "Greeting Cards - A5",
+    "studioRenderSignature": "default:191854:data:image/png;base64,iVBORw0KGg|back:124818:data:image/png;base64,iVBORw0KGg|inside:236222:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mmoiuao1mvnhic2tll/default.png"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mmoiuao1mvnhic2tll/back.png"
+      },
+      {
+        "placement": "inside",
+        "relativeUrl": "/uploads/studio-exports/studio_mmoiuao1mvnhic2tll/inside.png"
+      }
+    ],
+    "createdAt": "2026-03-13T06:34:16.321Z"
+  },
+  {
+    "exportId": "studio_mmohzdlu8pf3ilq6xbi",
+    "source": "studio",
+    "shopProductId": "mmliur3z7imvjtxdvj",
+    "productSlug": "greeting-card-large",
+    "productName": "Greeting Cards - A5",
+    "studioRenderSignature": "default:191854:data:image/png;base64,iVBORw0KGg|back:124818:data:image/png;base64,iVBORw0KGg|inside:236222:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mmohzdlu8pf3ilq6xbi/default.png"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mmohzdlu8pf3ilq6xbi/back.png"
+      },
+      {
+        "placement": "inside",
+        "relativeUrl": "/uploads/studio-exports/studio_mmohzdlu8pf3ilq6xbi/inside.png"
+      }
+    ],
+    "createdAt": "2026-03-13T06:10:13.794Z"
+  },
+  {
+    "exportId": "studio_mmmbu6d6v0dekry7e4k",
+    "source": "studio",
+    "shopProductId": "8deec11d-db66-4715-91e2-56bc935044d1",
+    "productSlug": "greeting-cards-greeting-card-greeting-card-4x6",
+    "productName": "Greeting Card — Greeting Card (4″×6″)",
+    "studioRenderSignature": "default:93062:data:image/png;base64,iVBORw0KGg|back:158042:data:image/png;base64,iVBORw0KGg|inside:174766:data:image/png;base64,iVBORw0KGg",
+    "placements": [
+      "default",
+      "back",
+      "inside"
+    ],
+    "files": [
+      {
+        "placement": "default",
+        "relativeUrl": "/uploads/studio-exports/studio_mmmbu6d6v0dekry7e4k/default.png"
+      },
+      {
+        "placement": "back",
+        "relativeUrl": "/uploads/studio-exports/studio_mmmbu6d6v0dekry7e4k/back.png"
+      },
+      {
+        "placement": "inside",
+        "relativeUrl": "/uploads/studio-exports/studio_mmmbu6d6v0dekry7e4k/inside.png"
+      }
+    ],
+    "createdAt": "2026-03-11T17:42:41.082Z"
+  },
+  {
     "exportId": "studio_mmk62izlcyng9nsqe3s",
     "source": "studio",
     "shopProductId": "cmkuhb85g0006itxu6scdazl1",

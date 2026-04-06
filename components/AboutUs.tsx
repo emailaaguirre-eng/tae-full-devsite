@@ -30,7 +30,7 @@ export default async function AboutUs() {
       <div className="py-12 md:py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
+            <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4 font-playfair">
               About Us
             </h2>
             <div className="w-24 h-1 bg-brand-medium mx-auto"></div>
@@ -50,7 +50,7 @@ export default async function AboutUs() {
               />
             </div>
             <div className="bg-brand-lightest rounded-2xl p-8 md:p-10 shadow-lg space-y-4">
-              <h2 className="text-3xl md:text-4xl font-bold text-brand-darkest font-playfair">The Artful Experience</h2>
+              <h2 className="text-3xl md:text-4xl font-normal text-brand-darkest font-playfair">The Artful Experience</h2>
               <p className="text-lg text-brand-darkest leading-relaxed">
                 Welcome to The Artful Experience Gallery and Upload Center—where soul-stirring art and images become a living portal.
                 Give a gift that will never be forgotten, even if that gift is for you.
@@ -71,7 +71,7 @@ export default async function AboutUs() {
 
           {/* What is an ArtKey™ */}
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-10 space-y-4">
-            <h3 className="text-3xl font-bold text-brand-darkest font-playfair">What is an ArtKey™?</h3>
+            <h3 className="text-3xl font-normal text-brand-darkest font-playfair">What is an ArtKey™?</h3>
             <p className="text-lg text-brand-darkest leading-relaxed">
               Each painting or print is embedded with an ArtKey™—a discreet digital touchpoint that unlocks a personalized experience.
               By simply scanning near the artist's signature, the artwork opens a hidden world of music, messages, videos, and exclusive surprises.
@@ -88,7 +88,7 @@ export default async function AboutUs() {
               ArtKey™ technology transforms a piece of art from something you admire into something that connects, surprises, and evolves. You get to decide!
             </p>
             <div>
-              <h4 className="text-2xl font-bold text-brand-darkest font-playfair mb-2">Who this is for?</h4>
+              <h4 className="text-2xl font-normal text-brand-darkest font-playfair mb-2">Who this is for?</h4>
               <ul className="list-disc list-inside text-brand-darkest space-y-1">
                 <li>Gift givers who want to leave a lasting impression</li>
                 <li>Art collectors who want the artist’s narrative</li>

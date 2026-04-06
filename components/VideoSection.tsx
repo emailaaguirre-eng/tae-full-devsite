@@ -15,13 +15,13 @@ export default function VideoSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Welcome Header */}
         <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
+          <h1 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4 font-playfair">
             Welcome to The Artful Experience Gallery and Upload Center
           </h1>
-          <h2 className="text-2xl md:text-3xl font-normal text-brand-dark mb-4">
+          <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
+          <h2 className="text-2xl md:text-3xl font-normal text-brand-dark mb-6">
             Where soul-stirring art and images become a living portal.
           </h2>
-          <div className="w-24 h-1 bg-brand-medium mx-auto mb-6"></div>
           <div className="text-lg text-brand-darkest max-w-3xl mx-auto space-y-4 text-left">
             <p>
               Give a gift that will never be forgotten, even if that gift is for you.
@@ -45,7 +45,7 @@ export default function VideoSection() {
               
               {/* Phone Screen */}
               <div className="bg-white rounded-[2.5rem] overflow-hidden pt-10 pb-6 px-5 min-h-[500px] relative">
-                <h3 className="text-2xl font-bold text-brand-darkest mb-6 text-center font-playfair">
+                <h3 className="text-2xl font-normal text-brand-darkest mb-6 text-center font-playfair">
                   ArtKey™ Portal
                 </h3>
                 
@@ -98,7 +98,7 @@ export default function VideoSection() {
 
           {/* Right: Combined Purchase and Upload Options */}
           <div className="bg-gradient-to-br from-brand-lightest to-white rounded-2xl shadow-lg p-8 border border-brand-light">
-            <h3 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair">
+            <h3 className="text-2xl font-normal text-brand-darkest mb-6 font-playfair">
               Your Purchase & Upload Options
             </h3>
             

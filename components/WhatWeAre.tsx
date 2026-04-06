@@ -16,7 +16,7 @@ export function ArtTechnologySection() {
     <section className="py-20" style={{ backgroundColor: "#ffffff" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-gradient-to-br from-brand-dark to-brand-darkest shadow-2xl p-8 md:p-12 text-white mb-16">
-          <h2 className="text-3xl md:text-5xl font-bold mb-4 font-playfair text-center">
+          <h2 className="text-3xl md:text-5xl font-normal mb-4 font-playfair text-center">
             Turn a Meaningful Image Into a Living Experience
           </h2>
           <p className="text-lg md:text-xl max-w-3xl mx-auto opacity-90 text-center">
@@ -44,7 +44,7 @@ export function WhatIsTheArtfulExperienceSection() {
     <section className="py-20" style={{ backgroundColor: "#ecece9" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="p-8 md:p-12" style={{ backgroundColor: "#ffffff" }}>
-          <h3 className="text-3xl md:text-4xl font-bold text-brand-dark mb-4 font-playfair text-center">
+          <h3 className="text-3xl md:text-4xl font-normal text-brand-dark mb-4 font-playfair text-center">
             What is The Artful Experience
           </h3>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-6"></div>
@@ -77,7 +77,7 @@ export function EveryProductIncludesArtKeySection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="p-8 md:p-12" style={{ backgroundColor: "#000000" }}>
           <div className="text-center mb-8">
-            <h3 className="text-3xl font-bold text-white mb-4 font-playfair">
+            <h3 className="text-3xl font-normal text-white mb-4 font-playfair">
               Every Product Includes ArtKey™ Technology
             </h3>
             <p className="text-lg text-white/90 max-w-2xl mx-auto">

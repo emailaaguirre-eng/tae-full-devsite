@@ -353,7 +353,7 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brand-dark font-playfair">
+          <h1 className="text-2xl font-normal text-brand-dark font-playfair">
             {canManageAdminUsers ? "Admin Users" : "Admin Profile"}
           </h1>
           <p className="text-sm text-brand-medium mt-1">

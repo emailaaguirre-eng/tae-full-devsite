@@ -84,7 +84,7 @@ ${formData.description}`,
     <section id="commissioned" className="py-20" style={{ backgroundColor: '#ffffff' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4 font-playfair">
             Commissioned Art
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
@@ -98,7 +98,7 @@ ${formData.description}`,
           {/* Left Side - Information */}
           <div className="space-y-8">
             <div>
-              <h3 className="text-2xl font-bold text-brand-darkest mb-4 font-playfair">
+              <h3 className="text-2xl font-normal text-brand-darkest mb-4 font-playfair">
                 What We Offer
               </h3>
               <ul className="space-y-4">
@@ -150,7 +150,7 @@ ${formData.description}`,
             </div>
 
             <div className="bg-brand-lightest rounded-2xl p-6">
-              <h3 className="text-xl font-bold text-brand-darkest mb-3 font-playfair">
+              <h3 className="text-xl font-normal text-brand-darkest mb-3 font-playfair">
                 The Process
               </h3>
               <ol className="space-y-3">
@@ -176,13 +176,13 @@ ${formData.description}`,
 
           {/* Right Side - Contact Form */}
           <div className="bg-brand-lightest rounded-2xl shadow-lg p-8">
-            <h3 className="text-2xl font-bold text-brand-darkest mb-6 font-playfair">
+            <h3 className="text-2xl font-normal text-brand-darkest mb-6 font-playfair">
               Request a Commission
             </h3>
             {submitted ? (
               <div className="text-center py-8">
                 <div className="text-6xl mb-4">✓</div>
-                <h3 className="text-2xl font-bold text-brand-dark mb-2">
+                <h3 className="text-2xl font-normal text-brand-dark mb-2">
                   Thank You!
                 </h3>
                 <p className="text-brand-darkest">

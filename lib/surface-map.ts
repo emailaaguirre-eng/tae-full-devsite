@@ -74,6 +74,8 @@ const PRINTFUL_PLACEMENT_LABELS: Record<string, string> = {
   front: "Front",
   back: "Back",
   inside: "Inside",
+  inside1: "Inside 1",
+  inside2: "Inside 2",
   label_outside: "Outside Label",
   label_inside: "Inside Label",
   sleeve_left: "Left Sleeve",
@@ -110,18 +112,19 @@ export function generateDefaultSurfaceMap(
 // ---------------------------------------------------------------------------
 
 const KNOWN_OVERRIDES: Record<number, SurfaceMapConfig> = {
-  // Greeting Card (product 568): 4 UX surfaces → 3 Printful placements
+  // Greeting Card (product 568): Printful mockup + printfiles use front, inside1, inside2, back — not "inside".
   568: {
     printfulProductId: 568,
     uxSurfaces: [
-      { id: "front", label: "Front", printfulPlacement: "default", role: "cover", order: 0 },
-      { id: "inside_left", label: "Inside (Left)", printfulPlacement: "inside", role: "spread_left", order: 1 },
-      { id: "inside_right", label: "Inside (Right)", printfulPlacement: "inside", role: "spread_right", order: 2 },
+      { id: "front", label: "Front", printfulPlacement: "front", role: "cover", order: 0 },
+      { id: "inside_left", label: "Inside (Left)", printfulPlacement: "inside1", role: "spread_left", order: 1 },
+      { id: "inside_right", label: "Inside (Right)", printfulPlacement: "inside2", role: "spread_right", order: 2 },
       { id: "back", label: "Back", printfulPlacement: "back", order: 3 },
     ],
     exportRules: [
-      { printfulPlacement: "default", uxSurfaceIds: ["front"] },
-      { printfulPlacement: "inside", uxSurfaceIds: ["inside_left", "inside_right"], composite: { type: "horizontalSpread" } },
+      { printfulPlacement: "front", uxSurfaceIds: ["front"] },
+      { printfulPlacement: "inside1", uxSurfaceIds: ["inside_left"] },
+      { printfulPlacement: "inside2", uxSurfaceIds: ["inside_right"] },
       { printfulPlacement: "back", uxSurfaceIds: ["back"] },
     ],
   },
@@ -139,6 +142,32 @@ export function hasKnownOverride(printfulProductId: number): boolean {
  */
 export function getKnownOverride(printfulProductId: number): SurfaceMapConfig | null {
   return KNOWN_OVERRIDES[printfulProductId] || null;
+}
+
+/**
+ * Merge DB SurfaceMap with canonical multi-surface overrides.
+ * When the DB row is missing, empty, or has fewer UX surfaces than the known
+ * catalog config (e.g. a single-surface row for a folded greeting card), use
+ * the override so the studio gets the full placement list.
+ */
+export function resolveSurfaceMapForPrintSpecs(
+  parsedFromDb: SurfaceMapConfig | null,
+  printfulProductId: number
+): SurfaceMapConfig | null {
+  const known = getKnownOverride(printfulProductId);
+  if (!known) return parsedFromDb;
+  const dbCount = parsedFromDb?.uxSurfaces?.length ?? 0;
+  if (!parsedFromDb || dbCount === 0 || dbCount < known.uxSurfaces.length) {
+    return known;
+  }
+  // Product 568: mockup API rejects placement "inside"; prefer catalog if DB still maps inside_* → "inside".
+  if (
+    printfulProductId === 568 &&
+    parsedFromDb.uxSurfaces.some((s) => s.printfulPlacement === "inside")
+  ) {
+    return known;
+  }
+  return parsedFromDb;
 }
 
 // ---------------------------------------------------------------------------

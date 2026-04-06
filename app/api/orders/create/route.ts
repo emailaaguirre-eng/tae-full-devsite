@@ -14,6 +14,7 @@
  *     cartItemId, name, price, quantity,
  *     printfulProductId?, printfulVariantId?, productSlug?,
  *     designFiles?, requiresQrCode?,
+ *     approvedProofSnapshotId?, // QR: server-approved snapshot (production art)
  *     portalToken?, portalUrl?,
  *     artKeyData?,
  *   }],
@@ -31,6 +32,8 @@ import {
   artKeys,
   customers,
   shopProducts,
+  listingMediaAssignments,
+  checkoutProofSnapshots,
 } from "@/lib/db";
 import { and, eq } from "drizzle-orm";
 import {
@@ -40,6 +43,8 @@ import {
   roundCurrency,
   sanitizeQuantity,
 } from "@/lib/pricing-engine";
+import { parsePricingSettings } from "@/lib/product-pricing";
+import { parseVariantMatrix } from "@/lib/product-watermark";
 
 function generateOrderNumber(): string {
   const prefix = "TAE";
@@ -57,8 +62,56 @@ function normalizePlacementForPrintful(placement: unknown): string {
   const raw = String(placement || "").trim().toLowerCase();
   if (!raw) return "default";
   if (raw === "front") return "default";
-  if (raw === "inside1" || raw === "inside2") return "inside";
+  // Printful catalog 568 (and similar) expects inside1 / inside2 file types, not "inside".
+  if (raw === "inside1" || raw === "inside2") return raw;
   return raw;
+}
+
+function resolveVariantPricingComponents(
+  product: any,
+  printfulVariantId: unknown
+): {
+  printfulBasePrice: number;
+  taeAddOnFee: number;
+  artistRoyalty: number;
+  baseUnitPrice: number;
+} | null {
+  const variantId = Math.trunc(Number(printfulVariantId));
+  if (!Number.isFinite(variantId) || variantId <= 0) return null;
+
+  const rows = parseVariantMatrix(product?.printfulDataJson);
+  const matched = rows.find(
+    (row: any) =>
+      row?.active !== false &&
+      Math.trunc(Number(row?.printfulVariantId)) === variantId
+  ) as any;
+  if (!matched) return null;
+
+  const pricingDefaults = parsePricingSettings(product?.printfulDataJson);
+  const fallback = getBasePricingComponents(product);
+  const defaultVariationUpcharge = numOr(pricingDefaults.variationUpcharge, 0);
+  const defaultTaeAddOnFee = numOr(
+    pricingDefaults.taePrice,
+    Math.max(0, fallback.taeAddOnFee - defaultVariationUpcharge)
+  );
+  const printfulBasePrice = numOr(
+    matched.providerCost ?? matched.printfulBasePrice,
+    fallback.printfulBasePrice
+  );
+  const variationUpcharge = numOr(matched.variationUpcharge, defaultVariationUpcharge);
+  const taeAddOnFee = numOr(matched.taeAddOnFee, defaultTaeAddOnFee);
+  const artistRoyalty = numOr(matched.artistRoyalty, fallback.artistRoyalty);
+  const explicitSellPrice = numOr(matched.sellPrice, 0);
+  const baseUnitPrice =
+    explicitSellPrice > 0
+      ? explicitSellPrice
+      : roundCurrency(printfulBasePrice + variationUpcharge + taeAddOnFee + artistRoyalty);
+  return {
+    printfulBasePrice,
+    taeAddOnFee: roundCurrency(taeAddOnFee + variationUpcharge),
+    artistRoyalty,
+    baseUnitPrice,
+  };
 }
 
 function parseRequiredPlacements(raw: unknown): string[] {
@@ -91,7 +144,107 @@ export async function POST(req: Request) {
       );
     }
 
-    const missingDesignPayload = items.find(
+    const db = await getDb();
+
+    const productionByCartItemId = new Map<string, unknown[]>();
+
+    for (const raw of items as any[]) {
+      if (!raw?.requiresQrCode || !raw?.printfulVariantId) continue;
+
+      const sid =
+        typeof raw?.approvedProofSnapshotId === "string"
+          ? raw.approvedProofSnapshotId.trim()
+          : "";
+      if (!sid) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Approved proof snapshot is required for "${raw?.name || "QR item"}".`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const snapRows = await db
+        .select()
+        .from(checkoutProofSnapshots)
+        .where(eq(checkoutProofSnapshots.id, sid))
+        .limit(1)
+        .all();
+      const snap = snapRows[0];
+      if (!snap) {
+        return NextResponse.json(
+          { success: false, error: `Invalid proof snapshot for "${raw?.name || "item"}".` },
+          { status: 400 }
+        );
+      }
+      if (!snap.approvedAt) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Proof is not approved for "${raw?.name || "item"}".`,
+          },
+          { status: 400 }
+        );
+      }
+      if (snap.cartItemId !== raw.cartItemId) {
+        return NextResponse.json(
+          { success: false, error: "Proof snapshot does not match cart line" },
+          { status: 400 }
+        );
+      }
+      if (
+        raw.portalToken &&
+        snap.publicToken &&
+        String(raw.portalToken) !== String(snap.publicToken)
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Proof snapshot portal mismatch" },
+          { status: 400 }
+        );
+      }
+
+      let productionFiles: unknown[];
+      try {
+        productionFiles = JSON.parse(snap.productionFilesJson);
+      } catch {
+        return NextResponse.json(
+          { success: false, error: "Corrupt proof snapshot (production art)" },
+          { status: 500 }
+        );
+      }
+      if (
+        !Array.isArray(productionFiles) ||
+        productionFiles.length === 0 ||
+        productionFiles.some(
+          (df: any) =>
+            !df?.dataUrl || !String(df.dataUrl).startsWith("data:")
+        )
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Invalid production art in proof snapshot" },
+          { status: 400 }
+        );
+      }
+
+      productionByCartItemId.set(String(raw.cartItemId), productionFiles);
+    }
+
+    const itemsResolved = (items as any[]).map((item) => {
+      if (
+        item?.requiresQrCode &&
+        item?.printfulVariantId &&
+        productionByCartItemId.has(String(item.cartItemId))
+      ) {
+        return {
+          ...item,
+          designFiles: productionByCartItemId.get(String(item.cartItemId)),
+        };
+      }
+      return item;
+    });
+
+    const missingDesignPayload = itemsResolved.find(
       (item: any) =>
         !!item?.printfulVariantId &&
         (!Array.isArray(item.designFiles) ||
@@ -107,8 +260,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    const db = await getDb();
     const now = new Date().toISOString();
     const orderNumber = generateOrderNumber();
     const orderId = generateId();
@@ -139,12 +290,33 @@ export async function POST(req: Request) {
     let computedSubtotal = 0;
     let computedRoyalties = 0;
 
-    for (const item of items as any[]) {
+    for (const item of itemsResolved as any[]) {
       const qty = sanitizeQuantity(item?.quantity);
       const adjustments = normalizePriceAdjustments(item?.priceAdjustments);
 
       let productForPricing: any | null = null;
-      if (typeof item?.productSlug === "string" && item.productSlug.trim()) {
+
+      if (typeof item?.assignmentId === "string" && item.assignmentId.trim()) {
+        const assignments = await db
+          .select()
+          .from(listingMediaAssignments)
+          .where(eq(listingMediaAssignments.id, item.assignmentId.trim()))
+          .limit(1)
+          .all();
+
+        const legacyShopProductId = assignments[0]?.legacyShopProductId;
+        if (legacyShopProductId) {
+          const rows = await db
+            .select()
+            .from(shopProducts)
+            .where(and(eq(shopProducts.id, legacyShopProductId), eq(shopProducts.active, true)))
+            .limit(1)
+            .all();
+          productForPricing = rows[0] || null;
+        }
+      }
+
+      if (!productForPricing && typeof item?.productSlug === "string" && item.productSlug.trim()) {
         const rows = await db
           .select()
           .from(shopProducts)
@@ -152,7 +324,9 @@ export async function POST(req: Request) {
           .limit(1)
           .all();
         productForPricing = rows[0] || null;
-      } else if (Number.isFinite(Number(item?.printfulVariantId))) {
+      }
+
+      if (!productForPricing && Number.isFinite(Number(item?.printfulVariantId))) {
         const rows = await db
           .select()
           .from(shopProducts)
@@ -168,7 +342,11 @@ export async function POST(req: Request) {
       }
 
       if (productForPricing) {
-        const base = getBasePricingComponents(productForPricing);
+        const base =
+          resolveVariantPricingComponents(
+            productForPricing,
+            item?.printfulVariantId
+          ) ?? getBasePricingComponents(productForPricing);
         const line = computeLinePricing({
           baseUnitPrice: base.baseUnitPrice,
           quantity: qty,
@@ -313,8 +491,8 @@ export async function POST(req: Request) {
           parseRequiredPlacements(i?.productForPricing?.requiredPlacements)
         );
         if (requiredPlacements.size === 0) {
-          ["default", "back", "inside", "inside_left", "inside_right"].forEach((p) =>
-            requiredPlacements.add(p)
+          ["default", "back", "inside", "inside1", "inside2", "inside_left", "inside_right"].forEach(
+            (p) => requiredPlacements.add(p)
           );
         }
 

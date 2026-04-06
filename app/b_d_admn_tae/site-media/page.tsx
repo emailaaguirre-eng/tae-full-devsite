@@ -20,7 +20,8 @@ interface Override {
 }
 
 const SLOTS: SiteMediaSlot[] = [
-  { key: "hero.background", label: "Hero Background", component: "Hero", defaultUrl: "https://theartfulexperience.com/wp-content/uploads/2026/01/herowedding.png" },
+  { key: "hero.background", label: "Hero — image (legacy)", component: "Hero", defaultUrl: "https://theartfulexperience.com/wp-content/uploads/2026/01/herowedding.png" },
+  { key: "hero.video", label: "Hero — video (MP4)", component: "Hero", defaultUrl: "https://theartfulexperience.com/wp-content/uploads/2026/04/taehero-1.mp4" },
   { key: "howitworks.step1", label: "How It Works — Step 1", component: "HowItWorks", defaultUrl: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/uploadyourimage.png" },
   { key: "howitworks.step2", label: "How It Works — Step 2", component: "HowItWorks", defaultUrl: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/buyanexistingprint.jpg" },
   { key: "howitworks.step3", label: "How It Works — Step 3", component: "HowItWorks", defaultUrl: "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/uploadmedia.png" },
@@ -139,7 +140,7 @@ export default function SiteMediaPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-brand-dark font-playfair">Site Media</h1>
+          <h1 className="text-2xl font-normal text-brand-dark font-playfair">Site Media</h1>
           <p className="text-sm text-brand-medium mt-1">
             Override homepage images without editing code. {overrides.length} of {SLOTS.length} overridden.
           </p>

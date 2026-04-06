@@ -98,7 +98,7 @@ export default function ArtKeySelector({
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-6 border-b flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-brand-darkest">Select an ArtKey to Reuse</h2>
+          <h2 className="text-2xl font-normal text-brand-darkest">Select an ArtKey to Reuse</h2>
           <button
             onClick={onCancel}
             className="text-gray-500 hover:text-gray-700 text-2xl"

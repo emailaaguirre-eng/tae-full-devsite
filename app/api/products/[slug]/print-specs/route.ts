@@ -12,7 +12,12 @@ import {
   parsePrintAreaSpec,
   resolveAllPrintAreas,
 } from "@/lib/print-area-specs";
-import { parseSurfaceMap } from "@/lib/surface-map";
+import {
+  generateDefaultSurfaceMap,
+  parseSurfaceMap,
+  resolveSurfaceMapForPrintSpecs,
+} from "@/lib/surface-map";
+import { resolveShopProductPrintfulIds } from "@/lib/product-watermark";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +44,9 @@ export async function GET(
 
     const product = products[0];
 
-    if (!product.printfulProductId) {
+    const resolved = resolveShopProductPrintfulIds(product);
+
+    if (!resolved.printfulProductId) {
       return NextResponse.json({
         success: true,
         data: null,
@@ -47,11 +54,13 @@ export async function GET(
       });
     }
 
+    const { printfulProductId, printfulVariantId } = resolved;
+
     // Fetch print area specs
     const specs = await db
       .select()
       .from(printAreaSpecs)
-      .where(eq(printAreaSpecs.printfulProductId, product.printfulProductId))
+      .where(eq(printAreaSpecs.printfulProductId, printfulProductId))
       .limit(1)
       .all();
 
@@ -63,9 +72,10 @@ export async function GET(
       const specData = parsePrintAreaSpec(specs[0]);
       if (specData) {
         availablePlacements = specData.available_placements;
-        allAreas = product.printfulVariantId
-          ? resolveAllPrintAreas(specData, product.printfulVariantId)
-          : {};
+        allAreas =
+          printfulVariantId != null
+            ? resolveAllPrintAreas(specData, printfulVariantId)
+            : {};
         fetchedAt = specs[0].fetchedAt;
       }
     }
@@ -74,19 +84,33 @@ export async function GET(
     const surfaceMapRows = await db
       .select()
       .from(surfaceMaps)
-      .where(eq(surfaceMaps.printfulProductId, product.printfulProductId))
+      .where(eq(surfaceMaps.printfulProductId, printfulProductId))
       .limit(1)
       .all();
 
-    const surfaceMap = surfaceMapRows.length > 0
+    const parsedSurfaceMap = surfaceMapRows.length > 0
       ? parseSurfaceMap(surfaceMapRows[0])
       : null;
+    let surfaceMap = resolveSurfaceMapForPrintSpecs(
+      parsedSurfaceMap,
+      printfulProductId
+    );
+    // Poster/canvas/catalog: mockup printfiles often only expose `default`; no DB SurfaceMap row.
+    if (
+      !surfaceMap &&
+      Object.keys(availablePlacements).length > 0
+    ) {
+      surfaceMap = generateDefaultSurfaceMap(
+        printfulProductId,
+        availablePlacements
+      );
+    }
 
     return NextResponse.json({
       success: true,
       data: {
-        printfulProductId: product.printfulProductId,
-        printfulVariantId: product.printfulVariantId,
+        printfulProductId,
+        printfulVariantId,
         availablePlacements,
         printAreas: allAreas,
         fetchedAt,

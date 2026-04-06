@@ -28,6 +28,9 @@ export interface CartItem {
   /** Product slug for linking back to product detail */
   productSlug?: string;
 
+  /** Assignment-based identity for Catalog V2 bridge flow */
+  assignmentId?: string;
+
   /** Printful IDs needed at checkout to submit the order */
   printfulProductId?: number;
   printfulVariantId?: number;
@@ -63,6 +66,15 @@ export interface CartItem {
     editUrl: string;
     qrCodeDataUrl?: string;
   };
+
+  /**
+   * Latest server proof snapshot id from /api/proof/generate (pending approval).
+   */
+  pendingProofSnapshotId?: string;
+  /**
+   * Server-approved snapshot id (POST /api/proof/approve). Required for QR payment + orders.
+   */
+  approvedProofSnapshotId?: string;
 
   /** Legacy customization fields */
   customization?: {
@@ -124,17 +136,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const lightCart = cart.map((item) => {
       const { designFiles, imageUrl, ...rest } = item;
+      let next = { ...rest, imageUrl, designFiles } as CartItem;
+
       if (designFiles && designFiles.length > 0) {
         try {
           sessionStorage.setItem(`tae-design-${item.id}`, JSON.stringify(designFiles));
         } catch { /* sessionStorage also full — data survives in memory */ }
         if (imageUrl && imageUrl.startsWith('data:')) {
           try { sessionStorage.setItem(`tae-thumb-${item.id}`, imageUrl); } catch {}
-          return { ...rest, designFiles: designFiles.map(df => ({ placement: df.placement, dataUrl: '' })), imageUrl: '' };
+          return {
+            ...next,
+            designFiles: designFiles.map((df) => ({ placement: df.placement, dataUrl: '' })),
+            imageUrl: '',
+          };
         }
-        return { ...rest, designFiles: designFiles.map(df => ({ placement: df.placement, dataUrl: '' })) };
+        return {
+          ...next,
+          designFiles: designFiles.map((df) => ({ placement: df.placement, dataUrl: '' })),
+        };
       }
-      return item;
+      return next;
     });
     try {
       localStorage.setItem('artful-cart', JSON.stringify(lightCart));
@@ -148,17 +169,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setCart((prev) =>
       prev.map((item) => {
-        if (item.designFiles?.some(df => !df.dataUrl)) {
+        let next = item;
+        if (item.designFiles?.some((df) => !df.dataUrl)) {
           try {
             const stored = sessionStorage.getItem(`tae-design-${item.id}`);
             if (stored) {
               const files = JSON.parse(stored);
               const thumb = sessionStorage.getItem(`tae-thumb-${item.id}`);
-              return { ...item, designFiles: files, imageUrl: thumb || item.imageUrl };
+              next = { ...next, designFiles: files, imageUrl: thumb || next.imageUrl };
             }
           } catch {}
         }
-        return item;
+        return next;
       })
     );
   }, []);

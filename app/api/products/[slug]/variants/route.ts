@@ -7,8 +7,15 @@
  */
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, eq } from "@/lib/db";
-import { buildProductPreviewUrl } from "@/lib/product-watermark";
-import { computeRetailPrice, parsePricingSettings } from "@/lib/product-pricing";
+import {
+  buildProductPreviewUrl,
+  parseVariantMatrix,
+} from "@/lib/product-watermark";
+import {
+  computeMatrixRowShopDisplay,
+  computeRetailPrice,
+  parsePricingSettings,
+} from "@/lib/product-pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +65,71 @@ export async function GET(
     }
 
     const product = products[0];
+    const variantMatrix = parseVariantMatrix(product.printfulDataJson);
+
+    if (variantMatrix.length > 0) {
+      const activeMatrix = variantMatrix.filter((row) => row.active !== false);
+      const productPricingSource = {
+        printfulBasePrice: product.printfulBasePrice,
+        taeAddOnFee: product.taeAddOnFee,
+        printfulDataJson: product.printfulDataJson,
+      };
+      const mappedFromMatrix = activeMatrix.map((row) => {
+        const pfVid = Math.trunc(Number(row.printfulVariantId));
+        const rowImg = row.image ? String(row.image) : null;
+        const heroImage =
+          rowImg ||
+          (product.heroImage ? buildProductPreviewUrl(product.id, "hero") : null);
+
+        const rowAny = row as unknown as Record<string, unknown>;
+        const { printfulBasePrice, basePrice, taeAddOnFee, artistRoyalty } =
+          computeMatrixRowShopDisplay(row, productPricingSource);
+        const paperFromRow =
+          (typeof rowAny.paperType === "string" && rowAny.paperType) ||
+          row.material ||
+          null;
+        const productPfVid = Math.trunc(Number(product.printfulVariantId));
+        const isCurrent =
+          Number.isFinite(productPfVid) &&
+          productPfVid > 0 &&
+          Number.isFinite(pfVid) &&
+          pfVid > 0
+            ? productPfVid === pfVid
+            : activeMatrix[0]?.id === row.id;
+
+        return {
+          id: row.id,
+          slug: product.slug,
+          name: product.name,
+          sizeLabel: row.size ?? product.sizeLabel,
+          paperType: paperFromRow ?? product.paperType,
+          finishType: row.frame ?? product.finishType,
+          orientation: product.orientation,
+          heroImage,
+          basePrice,
+          printfulBasePrice,
+          taeAddOnFee,
+          artistRoyalty,
+          printfulVariantId:
+            Number.isFinite(pfVid) && pfVid > 0 ? pfVid : null,
+          printWidth: row.printWidth ?? product.printWidth,
+          printHeight: row.printHeight ?? product.printHeight,
+          isCurrent,
+          pfColor: null,
+          pfColorCode: null,
+          pfSize: row.size ?? null,
+          pfName: null,
+          inStock: true,
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: mappedFromMatrix,
+        current: params.slug,
+        printfulProductId: product.printfulProductId,
+      });
+    }
 
     if (!product.printfulProductId) {
       return NextResponse.json({
@@ -115,9 +187,7 @@ export async function GET(
         paperType: p.paperType,
         finishType: p.finishType,
         orientation: p.orientation,
-        heroImage: p.heroImage
-          ? buildProductPreviewUrl(p.id, "hero")
-          : (pfVariant?.image || pfDataForRow?.variant?.image || pfDataForRow?.product?.image || null),
+        heroImage: p.heroImage ? buildProductPreviewUrl(p.id, "hero") : null,
         basePrice: computeRetailPrice({
           printfulBasePrice,
           taeAddOnFee,

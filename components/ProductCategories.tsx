@@ -32,7 +32,7 @@ const categories = [
     cta: "Explore Gallery",
   },
   {
-    title: "CoCreators",
+    title: "The CoCreators",
     description:
       "Unique collaborations between The Artful Experience and creative partners. Limited-edition products with a story.",
     icon: HandshakeIcon,
@@ -54,7 +54,7 @@ export default function ProductCategories() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4">
             Three Ways to Shop
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
@@ -74,7 +74,7 @@ export default function ProductCategories() {
               >
                 <div className="bg-gradient-to-br from-brand-light to-brand-medium p-8 text-center flex flex-col items-center">
                   <IconComponent size={48} color="white" strokeWidth={1.5} className="mb-3" />
-                  <h3 className="text-xl font-bold text-white">
+                  <h3 className="text-xl font-normal text-white">
                     {category.title}
                   </h3>
                 </div>

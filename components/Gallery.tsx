@@ -55,7 +55,7 @@ export default function Gallery() {
     <section className="py-20" style={{ backgroundColor: "#ecece9" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4 font-playfair">
             {title}
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
@@ -83,7 +83,7 @@ export default function Gallery() {
                 )}
               </div>
               <div className="p-6">
-                <h3 className="text-2xl font-bold text-brand-darkest mb-2 font-playfair">
+                <h3 className="text-2xl font-normal text-brand-darkest mb-2 font-playfair">
                   {artist.name}
                 </h3>
                 <div className="mb-3">
@@ -109,7 +109,7 @@ export default function Gallery() {
 
         <div className="mt-12 text-center">
           <div className="bg-white rounded-2xl p-8 shadow-lg inline-block">
-            <h3 className="text-2xl font-bold text-brand-dark mb-4 font-playfair">
+            <h3 className="text-2xl font-normal text-brand-dark mb-4 font-playfair">
               {comingSoon.title}
             </h3>
             <p className="text-brand-darkest mb-6">

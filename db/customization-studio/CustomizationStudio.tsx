@@ -1579,7 +1579,7 @@ export function CustomizationStudio({
         style={{ background: BRAND.white, borderColor: BRAND.light }}
       >
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold" style={{ color: BRAND.dark }}>
+          <h1 className="text-xl font-normal" style={{ color: BRAND.dark }}>
             Customization Studio
           </h1>
           <span className="text-sm px-2 py-1 rounded" style={{ background: BRAND.light, color: BRAND.dark }}>

@@ -4,6 +4,13 @@ import Image from "next/image";
 import { mediaUrl } from "@/lib/media";
 import { useSiteMedia } from "@/hooks/useSiteMedia";
 import StoryCarousel from "@/components/StoryCarousel";
+import { RefinedTm } from "@/components/RefinedTm";
+
+/**
+ * TEMP: testimonial images hidden for now — set to `true` to show images again.
+ * (Image markup preserved below; rollback: flip flag only.)
+ */
+const SHOW_TESTIMONIAL_IMAGES = false;
 
 const TESTIMONIAL_DATA = [
   { name: "Deanna Lankin", location: "Testimonial details coming soon", mediaKey: "testimonials.8", defaultImage: "", text: "Final approved testimonial copy for Deanna Lankin is pending and will be added in this same format." },
@@ -30,19 +37,26 @@ export default function Testimonials() {
   }));
 
   return (
-    <section id="testimonials" className="py-20" style={{ backgroundColor: '#ffffff' }}>
+    <section
+      id="testimonials"
+      className="relative z-10 py-20 overflow-x-clip overflow-y-visible"
+      style={{ backgroundColor: "#ffffff" }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
-            Ways to use your ArtKey™
+          <h2 className="inline-block text-4xl md:text-5xl font-normal text-brand-dark mb-4 text-center max-w-full">
+            Ways to use your ArtKey
+            <RefinedTm />
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
         </div>
 
-        <StoryCarousel />
+        <div className="relative z-20 isolate min-w-0">
+          <StoryCarousel />
+        </div>
 
         <div className="text-center mb-16 mt-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4">
             How Our Friends & Clients Use the ArtKey™
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
@@ -58,20 +72,24 @@ export default function Testimonials() {
               key={index} 
               className="group bg-white rounded-2xl shadow-lg overflow-visible hover:shadow-2xl transition-all duration-500 transform hover:scale-110 hover:-translate-y-4 relative z-0 flex flex-col"
             >
-              {/* Image */}
-              <div className={TESTIMONIAL_DATA[index].imageWrapperClassName || "relative aspect-[3/4] bg-gray-50 overflow-hidden rounded-t-2xl"}>
-                <TestimonialImage
-                  mediaKey={TESTIMONIAL_DATA[index].mediaKey}
-                  defaultImage={TESTIMONIAL_DATA[index].defaultImage}
-                  alt={testimonial.name}
+              {/* TEMP: testimonial image block — gated off; restore by setting SHOW_TESTIMONIAL_IMAGES = true */}
+              {SHOW_TESTIMONIAL_IMAGES ? (
+                <div className={TESTIMONIAL_DATA[index].imageWrapperClassName || "relative aspect-[3/4] bg-gray-50 overflow-hidden rounded-t-2xl"}>
+                  <TestimonialImage
+                    mediaKey={TESTIMONIAL_DATA[index].mediaKey}
+                    defaultImage={TESTIMONIAL_DATA[index].defaultImage}
+                    alt={testimonial.name}
                     className={TESTIMONIAL_DATA[index].imageClassName}
-                />
-              </div>
-              
+                  />
+                </div>
+              ) : null}
+
               {/* Content - expands on hover */}
-              <div className="p-6 transition-all duration-500 group-hover:p-8 flex-1 flex flex-col">
+              <div
+                className={`p-6 transition-all duration-500 group-hover:p-8 flex-1 flex flex-col ${!SHOW_TESTIMONIAL_IMAGES ? "rounded-t-2xl" : ""}`}
+              >
                 <div className="mb-4">
-                  <h3 className="text-xl font-bold text-brand-darkest mb-1 group-hover:text-2xl transition-all duration-500">
+                  <h3 className="text-xl font-normal text-brand-darkest mb-1 group-hover:text-2xl transition-all duration-500">
                     {testimonial.name}
                   </h3>
                   <p className="text-sm text-brand-dark group-hover:text-base transition-all duration-500">

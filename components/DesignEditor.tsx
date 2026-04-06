@@ -851,7 +851,7 @@ export default function DesignEditor({
       {/* Header */}
       <div className="bg-gray-800 text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h2 className="text-xl font-bold">Design Editor</h2>
+          <h2 className="text-xl font-normal">Design Editor</h2>
           {onClose && (
             <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded">
               <X className="w-5 h-5" />

@@ -59,7 +59,7 @@ export default function Contact() {
     <section id="contact" className="py-20" style={{ backgroundColor: '#ffffff' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4">
             Get In Touch
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
@@ -73,7 +73,7 @@ export default function Contact() {
             {submitted ? (
               <div className="text-center py-8">
                 <div className="text-6xl mb-4">✓</div>
-                <h3 className="text-2xl font-bold text-brand-dark mb-2">
+                <h3 className="text-2xl font-normal text-brand-dark mb-2">
                   Thank You!
                 </h3>
                 <p className="text-brand-darkest">

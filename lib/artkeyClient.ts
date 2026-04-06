@@ -153,12 +153,8 @@ export async function postGuestbookEntry(
 }
 
 /**
- * Moderate a guestbook entry (approve, reject, or delete)
- * Only accessible with owner token
- * 
- * @param ownerToken - The owner token for authentication
- * @param payload - Moderation action (entryId and action: "approve" | "reject" | "delete")
- * @returns void on success
+ * @deprecated Legacy `/api/manage/artkey` route. Active stack: `GET /api/portal/[token]/guestbook?owner=…`,
+ * `POST /api/portal/[token]/moderate` with `X-Owner-Token` or portal session cookie. Not imported by app code.
  */
 export async function moderateGuestbookEntry(
   ownerToken: string,

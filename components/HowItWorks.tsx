@@ -1,173 +1,90 @@
 import Image from "next/image";
-import { getSiteMediaMap } from "@/lib/site-media";
 
-const DEFAULTS = {
-  "howitworks.step1": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/uploadyourimage.png",
-  "howitworks.step2": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/buyanexistingprint.jpg",
-  "howitworks.step3": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/12/uploadmedia.png",
-  "howitworks.step4": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/09/legacy-3.jpeg",
-  "howitworks.step5": "https://dredev.theartfulexperience.com/wp-content/uploads/2025/06/couch.jpg",
-};
+/** Canonical homepage “How It Works” artwork. Bump `?v=` on the URL if you replace this file in place. */
+const HOW_IT_WORKS_IMAGE =
+  "https://theartfulexperience.com/wp-content/uploads/2026/04/temphowitworks-2.png";
 
-export default async function HowItWorks() {
-  const media = await getSiteMediaMap();
-  const img = (key: keyof typeof DEFAULTS) => media[key]?.url || DEFAULTS[key];
+/** Intrinsic PNG size (from file headers). */
+const IMAGE_WIDTH = 1917;
+const IMAGE_HEIGHT = 720;
 
+const STEPS = [
+  {
+    n: "1",
+    title: "CHOOSE THE ART",
+    body: "Upload or select the image that holds your story.",
+  },
+  {
+    n: "2",
+    title: "BUILD YOUR PORTAL",
+    body: "Add videos, photos, playlists, and messages.",
+  },
+  {
+    n: "3",
+    title: "TAP TO ENTER",
+    body: "Tap with your phone and step inside.",
+  },
+] as const;
+
+export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-20" style={{ backgroundColor: '#ecece9' }}>
+    <section id="how-it-works" className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
+        <div className="text-center mb-10 md:mb-14">
+          <h2 className="text-4xl md:text-5xl font-normal font-playfair text-brand-dark mb-4">
             How It Works
           </h2>
-          <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
-          <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
-            Create personalized art with embedded memories in just a few simple steps
+          <div className="w-24 h-1 bg-brand-medium mx-auto mb-4" aria-hidden />
+          <p className="text-sm sm:text-base md:text-lg text-brand-medium max-w-3xl mx-auto font-normal tracking-[0.2em] uppercase">
+            TURN A MEANINGFUL IMAGE INTO A LIVING EXPERIENCE
           </p>
         </div>
 
-        {/* Step 1 - Two Options Side by Side */}
-        <div className="mb-16">
-          <div className="grid md:grid-cols-3 gap-4 items-stretch">
-            {/* Option 1: Upload Your Image */}
-            <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
-              <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
-                <Image
-                  src={img("howitworks.step1")}
-                  alt="Design Editor - Upload Your Image"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div className="p-6">
-                <div className="inline-block bg-brand-dark text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-lg mb-4">
-                  1
+        {/* Steps + artwork: small gap only — negative margin on the figure was overlapping and clipping the copy */}
+        <div className="max-w-6xl mx-auto flex flex-col gap-2 md:gap-3">
+          {/* Horizontal inset matches artwork margins in temphowitworks-2.png so each step lines up with its panel */}
+          <ol className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-3 lg:gap-5 list-none p-0 m-0 relative z-10 md:px-7 lg:px-11 xl:px-14">
+            {STEPS.map((step, idx) => (
+              <li key={step.n}>
+                <div
+                  className={`flex items-start gap-3 ${
+                    idx === 0
+                      ? "md:pl-1 lg:pl-2"
+                      : idx === 1
+                        ? "md:pl-5 lg:pl-8"
+                        : "md:pl-6 lg:pl-10"
+                  }`}
+                >
+                  <div
+                    className="shrink-0 w-10 h-10 rounded-full border-2 border-brand-dark flex items-center justify-center text-sm font-semibold text-brand-dark"
+                    aria-hidden
+                  >
+                    {step.n}
+                  </div>
+                  <div className="min-w-0">
+                    <span className="sr-only">Step {step.n}: </span>
+                    <h4 className="text-xl font-normal text-brand-darkest uppercase tracking-wide mb-1">
+                      {step.title}
+                    </h4>
+                    <p className="text-brand-darkest text-sm sm:text-base leading-snug">{step.body}</p>
+                  </div>
                 </div>
-                <h4 className="text-xl font-bold text-brand-darkest mb-2">
-                  Upload Your Image
-                </h4>
-                <p className="text-brand-darkest">
-                  Personalize your art with a message. Upload your own photo and transform it into a beautiful piece of art using our Design Editor.
-                </p>
-              </div>
-            </div>
+              </li>
+            ))}
+          </ol>
 
-            {/* OR Divider - Centered */}
-            <div className="flex items-center justify-center">
-              <div className="bg-brand-medium text-white rounded-full w-16 h-16 flex items-center justify-center font-bold text-xl shadow-lg">
-                OR
-              </div>
-            </div>
-
-            {/* Option 2: Choose from Gallery */}
-            <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
-              <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
-                <Image
-                  src={img("howitworks.step2")}
-                  alt="Choose art from gallery"
-                  fill
-                  className="object-cover"
-                  style={{ top: 0 }}
-                />
-              </div>
-              <div className="p-6">
-                <div className="inline-block bg-brand-dark text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-lg mb-4">
-                  1
-                </div>
-                <h4 className="text-xl font-bold text-brand-darkest mb-2">
-                  Choose Art from Our Online Gallery
-                </h4>
-                <p className="text-brand-darkest">
-                  Explore our unique art collection. Select from curated pieces by internationally recognized artists.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Steps 2-4 */}
-        <div className="grid md:grid-cols-3 gap-8">
-          {/* Step 2 */}
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
-            <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
-              <Image
-                src={img("howitworks.step3")}
-                alt="Upload your media"
-                fill
-                className="object-cover"
-                style={{ top: 0 }}
-              />
-            </div>
-            <div className="p-6">
-              <div className="inline-block bg-brand-dark text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-lg mb-4">
-                2
-              </div>
-              <h4 className="text-xl font-bold text-brand-darkest mb-2">
-                Upload Your Media
-              </h4>
-              <p className="text-brand-darkest">
-                Images, videos, music, e-gift card, or a time-released message. Add all the personal touches that make your gift unique.
-              </p>
-            </div>
-          </div>
-
-          {/* Step 3 */}
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
-            <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
-              <Image
-                src={img("howitworks.step4")}
-                alt="Send the gift"
-                fill
-                className="object-cover"
-                style={{ top: 0 }}
-              />
-            </div>
-            <div className="p-6">
-              <div className="inline-block bg-brand-dark text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-lg mb-4">
-                3
-              </div>
-              <h4 className="text-xl font-bold text-brand-darkest mb-2">
-                Send the Gift
-              </h4>
-              <p className="text-brand-darkest">
-                We&apos;ll carefully package and ship your personalized art. Your gift will arrive ready to be displayed and enjoyed.
-              </p>
-            </div>
-          </div>
-
-          {/* Step 4 */}
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
-            <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
-              <Image
-                src={img("howitworks.step5")}
-                alt="Find the perfect place"
-                fill
-                className="object-cover"
-                style={{ top: 0 }}
-              />
-            </div>
-            <div className="p-6">
-              <div className="inline-block bg-brand-dark text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-lg mb-4">
-                4
-              </div>
-              <h4 className="text-xl font-bold text-brand-darkest mb-2">
-                Interact with the ArtKey™
-              </h4>
-              <p className="text-brand-darkest">
-                Find the perfect place for your art, then bring it to life with the ArtKey™. Hold. Connect. Experience. Place your phone near the signature and hold it for a moment. Your personalized content opens, and your experience comes to life.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div className="text-center mt-16">
-          <a
-            href="/customize"
-            className="inline-block bg-brand-medium text-white px-10 py-4 rounded-full text-lg font-semibold hover:bg-brand-dark transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-          >
-            Upload your image to get started
-          </a>
+          {/* Main artwork — exact composition from temphowitworks.png */}
+          <figure className="w-full m-0 shrink-0">
+            <Image
+              src={HOW_IT_WORKS_IMAGE}
+              alt=""
+              width={IMAGE_WIDTH}
+              height={IMAGE_HEIGHT}
+              className="w-full h-auto block"
+              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1152px"
+              priority
+            />
+          </figure>
         </div>
       </div>
     </section>

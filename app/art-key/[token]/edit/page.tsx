@@ -93,7 +93,7 @@ function NotAuthenticated({ token }: { token: string }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
       <div className="max-w-sm w-full">
-        <h1 className="text-xl font-bold text-gray-900 text-center mb-2">
+        <h1 className="text-xl font-normal text-gray-900 text-center mb-2">
           ArtKey Portal Access
         </h1>
         <p className="text-sm text-gray-500 text-center mb-8">

@@ -108,7 +108,11 @@ export function createStudioExport(input: {
     });
   }
 
-  if (files.length === 0) {
+  const fallbackPlacements = input.designFiles
+    .map((f) => String(f?.placement || "").trim())
+    .filter(Boolean);
+
+  if (files.length === 0 && fallbackPlacements.length === 0) {
     throw new Error("No valid image files found in studio export");
   }
 
@@ -119,7 +123,7 @@ export function createStudioExport(input: {
     productSlug: input.productSlug || null,
     productName: input.productName || null,
     studioRenderSignature: input.studioRenderSignature || null,
-    placements: files.map((f) => f.placement),
+    placements: files.length > 0 ? files.map((f) => f.placement) : fallbackPlacements,
     files,
     createdAt,
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams, useRouter } from "next/navigation";
 import { adminFetchJson, AdminUnauthorizedError } from "@/lib/admin/clientFetch";
 import {
@@ -17,16 +18,54 @@ import {
   Upload,
   ImageIcon,
   GripVertical,
+  Star,
 } from "lucide-react";
+import {
+  STATIONERY_PRODUCT_TYPES,
+  getRowStationeryFormat,
+  getStationeryPrintfulProducts,
+  type StationeryPrintfulPickerProduct,
+} from "@/lib/stationery-printful-catalog";
+import { AdminAccordionSection } from "@/components/admin/AdminAccordionSection";
+import { normalizeHeroFlags } from "@/lib/product-image-ui";
+
+type ProductImageSource = "general" | "variant" | "api";
+
+interface ProductImageEntry {
+  id: string;
+  imageUrl: string;
+  title: string;
+  description: string;
+  sortOrder: number;
+  isHero: boolean;
+  isActive: boolean;
+  sourceType: ProductImageSource;
+  variantKey: string | null;
+  variantId: string | null;
+  size: string | null;
+  frame: string | null;
+  frameColor: string | null;
+  material: string | null;
+  orientation: string | null;
+  format: string | null;
+}
+
+function localImageId() {
+  return `local_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
 
 interface ProductVariantMatrixRow {
   id: string;
+  /** Stationery: flat (e.g. postcard-style) vs bifold (folded card); drives Printful catalog slice */
+  format?: "flat" | "bifold" | string | null;
   paperType?: string | null;
   size?: string | null;
   frame?: string | null;
   frameColor?: string | null;
   printfulProductId?: number | null;
   printfulVariantId?: number | null;
+  /** Row-level Printful base (legacy/alternate to providerCost in JSON). */
+  printfulBasePrice?: number | null;
   providerCost?: number | null;
   variationUpcharge?: number | null;
   artistRoyalty?: number | null;
@@ -63,8 +102,11 @@ interface Product {
   requiresQrCode?: boolean;
   customizable?: boolean;
   artistSlug?: string | null;
+  artistId?: string | null;
   coCreatorSlug?: string | null;
+  coCreatorId?: string | null;
   familyKey?: string | null;
+  tags?: string[];
   productType?: string | null;
   variantMatrix?: ProductVariantMatrixRow[];
   proofTerms?: string | null;
@@ -91,6 +133,247 @@ interface Product {
   };
   createdAt: string;
   updatedAt: string;
+  productImages?: {
+    id: string;
+    imageUrl: string;
+    title?: string | null;
+    description?: string | null;
+    sortOrder?: number;
+    isHero?: boolean;
+    isActive?: boolean;
+    sourceType?: string;
+    variantKey?: string | null;
+    variantId?: string | null;
+    size?: string | null;
+    frame?: string | null;
+    frameColor?: string | null;
+    material?: string | null;
+    orientation?: string | null;
+    format?: string | null;
+  }[];
+}
+
+function productImagesFromProduct(p: Product): ProductImageEntry[] {
+  const list = p.productImages;
+  if (list && list.length > 0) {
+    return list.map((img, i) => ({
+      id: img.id,
+      imageUrl: img.imageUrl,
+      title: typeof img.title === "string" ? img.title : "",
+      description: typeof img.description === "string" ? img.description : "",
+      sortOrder: typeof img.sortOrder === "number" ? img.sortOrder : i,
+      isHero: !!img.isHero,
+      isActive: img.isActive !== false,
+      sourceType:
+        img.sourceType === "variant" || img.sourceType === "api" ? img.sourceType : "general",
+      variantKey: img.variantKey ?? null,
+      variantId: img.variantId ?? null,
+      size: img.size ?? null,
+      frame: img.frame ?? null,
+      frameColor: img.frameColor ?? null,
+      material: img.material ?? null,
+      orientation: img.orientation ?? null,
+      format: img.format ?? null,
+    }));
+  }
+  const rows: ProductImageEntry[] = [];
+  let order = 0;
+  const hero = (p.heroImage || "").trim();
+  if (hero) {
+    rows.push({
+      id: `legacy-hero-${p.id}`,
+      imageUrl: hero,
+      title: "",
+      description: "",
+      sortOrder: order++,
+      isHero: true,
+      isActive: true,
+      sourceType: "general",
+      variantKey: null,
+      variantId: null,
+      size: null,
+      frame: null,
+      frameColor: null,
+      material: null,
+      orientation: null,
+      format: null,
+    });
+  }
+  let g: unknown[] = [];
+  try {
+    const parsed = p.galleryImages ? JSON.parse(p.galleryImages) : [];
+    g = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    g = [];
+  }
+  for (const u of g) {
+    if (typeof u !== "string" || !u.trim()) continue;
+    const url = u.trim();
+    if (url === hero) continue;
+    rows.push({
+      id: `legacy-g-${p.id}-${order}`,
+      imageUrl: url,
+      title: "",
+      description: "",
+      sortOrder: order++,
+      isHero: false,
+      isActive: true,
+      sourceType: "general",
+      variantKey: null,
+      variantId: null,
+      size: null,
+      frame: null,
+      frameColor: null,
+      material: null,
+      orientation: null,
+      format: null,
+    });
+  }
+  return rows;
+}
+
+function deriveHeroGalleryFromDraft(draft: ProductImageEntry[]): { hero: string; gallery: string } {
+  const sorted = [...draft].sort((a, b) => a.sortOrder - b.sortOrder);
+  const mapped = sorted.map((r, i) => ({ ...r, sortOrder: i }));
+  const n = normalizeHeroFlags(mapped);
+  const heroR = n.find((r) => r.isHero) || n[0];
+  const hero = (heroR?.imageUrl || "").trim();
+  const urls: string[] = [];
+  for (const r of n) {
+    if (heroR && r.id === heroR.id) continue;
+    const u = (r.imageUrl || "").trim();
+    if (u) urls.push(u);
+  }
+  return { hero, gallery: JSON.stringify(urls) };
+}
+
+type ImageModalRuleOptions = {
+  sizes: string[];
+  materials: string[];
+  frames: string[];
+  frameColors: string[];
+  formats: string[];
+  matrixRows: { id: string; label: string; printfulVariantId: number | null }[];
+  printfulVariantIds: string[];
+};
+
+function uniqNonEmptyStrings(values: (string | null | undefined)[]): string[] {
+  const s = new Set<string>();
+  for (const v of values) {
+    const t = (v || "").trim();
+    if (t) s.add(t);
+  }
+  return Array.from(s).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+function formatMatrixRowLabelForImageRule(r: ProductVariantMatrixRow): string {
+  const parts = [
+    r.size?.trim(),
+    r.paperType?.trim(),
+    r.frame?.trim(),
+    r.frameColor?.trim(),
+    r.format ? String(r.format) : null,
+  ].filter(Boolean) as string[];
+  const vid = r.printfulVariantId;
+  const tail = vid != null && Number.isFinite(Number(vid)) ? `#${Math.trunc(Number(vid))}` : "";
+  const base = parts.length > 0 ? parts.join(" · ") : `Row ${r.id.slice(0, 8)}`;
+  return tail ? `${base} (${tail})` : base;
+}
+
+function buildImageModalRuleOptions(matrix: ProductVariantMatrixRow[] | undefined): ImageModalRuleOptions {
+  const rows = Array.isArray(matrix) ? matrix : [];
+  const sizes = uniqNonEmptyStrings(rows.map((r) => r.size));
+  const materials = uniqNonEmptyStrings(rows.map((r) => r.paperType));
+  const frames = uniqNonEmptyStrings(rows.map((r) => r.frame));
+  const frameColors = uniqNonEmptyStrings(rows.map((r) => r.frameColor));
+  const formats = uniqNonEmptyStrings(rows.map((r) => (r as { format?: string | null }).format));
+  const matrixRows = rows.map((r) => ({
+    id: r.id,
+    label: formatMatrixRowLabelForImageRule(r),
+    printfulVariantId: r.printfulVariantId ?? null,
+  }));
+  const vidSet = new Set<string>();
+  for (const r of rows) {
+    const n = Number(r.printfulVariantId);
+    if (Number.isFinite(n) && n > 0) vidSet.add(String(Math.trunc(n)));
+  }
+  return {
+    sizes,
+    materials,
+    frames,
+    frameColors,
+    formats,
+    matrixRows,
+    printfulVariantIds: Array.from(vidSet).sort((a, b) => Number(a) - Number(b)),
+  };
+}
+
+function hasRestrictiveImageMetadata(row: ProductImageEntry): boolean {
+  return !!(
+    (row.variantKey && row.variantKey.trim()) ||
+    (row.variantId && row.variantId.trim()) ||
+    (row.size && row.size.trim()) ||
+    (row.frame && row.frame.trim()) ||
+    (row.frameColor && row.frameColor.trim()) ||
+    (row.material && row.material.trim()) ||
+    (row.orientation && row.orientation.trim()) ||
+    (row.format && row.format.trim())
+  );
+}
+
+function imageEntryStorefrontSummary(
+  row: ProductImageEntry,
+  ruleOpts: ImageModalRuleOptions
+): {
+  appliesTo: string;
+  displayHint: string;
+  targetingBadge: "default-gallery" | "option-targeted" | "api-import";
+} {
+  const st = row.sourceType;
+  if (st === "api") {
+    return {
+      appliesTo: "All variants · default gallery",
+      displayHint: "API / imported — always eligible for the default image set (order follows drag-and-drop).",
+      targetingBadge: "api-import",
+    };
+  }
+  if (st === "general") {
+    return {
+      appliesTo: "All variants · default gallery",
+      displayHint: "Displays by default for every option selection. Deactivate or remove to hide.",
+      targetingBadge: "default-gallery",
+    };
+  }
+  if (!hasRestrictiveImageMetadata(row)) {
+    return {
+      appliesTo: "All variants · default gallery",
+      displayHint:
+        "Marked as Variant but no rules yet — storefront treats this like a general catalog image. Add matrix or option rules below to target specific combinations.",
+      targetingBadge: "default-gallery",
+    };
+  }
+  const human: string[] = [];
+  if (row.size?.trim()) human.push(row.size.trim());
+  if (row.material?.trim()) human.push(row.material.trim());
+  if (row.frame?.trim()) human.push(row.frame.trim());
+  if (row.frameColor?.trim()) human.push(row.frameColor.trim());
+  if (row.orientation?.trim()) human.push(row.orientation.trim());
+  if (row.format?.trim()) human.push(row.format.trim());
+  if (row.variantKey?.trim()) {
+    const mr = ruleOpts.matrixRows.find((m) => m.id === row.variantKey!.trim());
+    human.push(mr ? mr.label : `Matrix ${row.variantKey.trim().slice(0, 10)}`);
+  }
+  if (row.variantId?.trim()) human.push(`Printful ${row.variantId.trim()}`);
+  const applies = human.length > 0 ? human.join(" · ") : "Custom variant rules";
+  const hint =
+    human.length > 0
+      ? `Displays when the shopper selection matches: ${human.join(" + ")}. If nothing matches, the storefront falls back to general images.`
+      : "Variant-specific rules — storefront uses exact/partial matching on these fields.";
+  return {
+    appliesTo: applies,
+    displayHint: hint,
+    targetingBadge: "option-targeted",
+  };
 }
 
 interface Category {
@@ -107,6 +390,7 @@ interface Category {
 }
 
 interface CreatorOption {
+  id: string;
   slug: string;
   name: string;
   sourceImageUrl?: string | null;
@@ -124,6 +408,32 @@ interface PrintfulVariantOption {
   name: string;
   size?: string | null;
   retailPrice?: string | null;
+  /** Parsed from Printful catalog variant `price` only (provider-cost autofill). */
+  catalogPrice?: number | null;
+}
+
+function parseMoneyInputToNumberOrNull(raw: string): number | null {
+  const t = raw.trim().replace(/,/g, "");
+  if (t === "") return null;
+  const n = Number.parseFloat(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parsePrintfulCatalogPriceForProviderCost(variant: any): number | null {
+  const raw = variant?.price;
+  const s = raw == null ? "" : String(raw).trim().replace(/,/g, "");
+  if (s === "") return null;
+  const n = Number.parseFloat(s);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function providerCostFromVariantOptions(
+  variantId: number | null,
+  options: PrintfulVariantOption[]
+): number | null {
+  if (variantId == null) return null;
+  const opt = options.find((v) => v.id === variantId);
+  return opt?.catalogPrice != null ? opt.catalogPrice : null;
 }
 
 const PRINTFUL_FALLBACK_PRODUCTS: PrintfulCatalogProduct[] = [
@@ -131,9 +441,9 @@ const PRINTFUL_FALLBACK_PRODUCTS: PrintfulCatalogProduct[] = [
   { id: 433, title: "Postcard", type: "Postcards / Invitations / Announcements", variantCount: 1 },
   { id: 3, title: "Canvas", type: "Canvas Prints" },
   { id: 614, title: "Framed Canvas", type: "Framed Canvas Prints" },
-  { id: 1, title: "Enhanced Matte Paper Poster", type: "Wall Art / Posters" },
+  { id: 1, title: "Enhanced Matte Paper Poster", type: "ArtPrint" },
   { id: 2, title: "Enhanced Matte Paper Framed Poster", type: "Framed Prints" },
-  { id: 171, title: "Premium Luster Paper Poster", type: "Wall Art / Posters" },
+  { id: 171, title: "Premium Luster Paper Poster", type: "ArtPrint" },
   { id: 172, title: "Premium Luster Paper Framed Poster", type: "Framed Prints" },
 ];
 
@@ -159,7 +469,8 @@ const PRINTFUL_FALLBACK_VARIANTS: Record<number, PrintfulVariantOption[]> = {
     { id: 14458, name: "Greeting Card - Medium", size: '5" x 7"' },
     { id: 14460, name: "Greeting Card - Large", size: '5.83" x 8.27" / A5' },
   ],
-  433: [{ id: 11513, name: "Postcard", size: '5" x 7"' }],
+  /** Printful catalog 433: single variant 11513, 4″×6″ (API); keep aligned with postcard matrix sizes. */
+  433: [{ id: 11513, name: "Standard Postcards (4″×6″)", size: '4″×6″' }],
 };
 
 const PRINTFUL_FRAMED_FALLBACK_VARIANTS: Record<number, Record<string, PrintfulVariantOption[]>> = {
@@ -217,6 +528,12 @@ const PRINTFUL_FRAMED_FALLBACK_VARIANTS: Record<number, Record<string, PrintfulV
   },
 };
 
+type MatrixPrintfulProductOption = {
+  id: number;
+  label: string;
+  format?: "flat" | "bifold";
+};
+
 const VARIANT_DROPDOWN_OPTIONS: Record<
   string,
   {
@@ -224,7 +541,8 @@ const VARIANT_DROPDOWN_OPTIONS: Record<
     paperTypes?: string[];
     frames?: string[];
     frameColors?: string[];
-    printfulProducts?: Array<{ id: number; label: string }>;
+    /** Stationery types: omit — use @/lib/stationery-printful-catalog */
+    printfulProducts?: MatrixPrintfulProductOption[];
   }
 > = {
   "art-print": {
@@ -239,10 +557,20 @@ const VARIANT_DROPDOWN_OPTIONS: Record<
       { id: 172, label: "Premium Luster Paper Framed Poster" },
     ],
   },
+  "canvas-print": {
+    sizes: ['8″×10″', '11″×14″', '12″×18″', '16″×20″', '18″×24″', '24″×36″'],
+    frames: ["Unframed", "Framed"],
+    frameColors: ["Black", "White", "Oak"],
+    printfulProducts: [
+      { id: 3, label: "Canvas" },
+      { id: 614, label: "Framed Canvas" },
+    ],
+  },
   "greeting-card": {
     sizes: ['4″×6″', '5″×7″', '5.83″×8.27″'],
     paperTypes: ["Greeting Card Stock"],
-    printfulProducts: [{ id: 568, label: "Greeting Card" }],
+    /** Envelope options; stored on matrix row as `frame` (storefront reads via variants API as finishType). */
+    frames: ["No Envelope", "White Envelope", "Kraft Envelope"],
   },
   "postcard": {
     sizes: ['4″×6″'],
@@ -252,20 +580,53 @@ const VARIANT_DROPDOWN_OPTIONS: Record<
   "invitation": {
     sizes: ['4″×6″'],
     paperTypes: ["Matte Postcard Stock"],
-    printfulProducts: [{ id: 433, label: "Standard Postcard" }],
   },
   "announcement": {
     sizes: ['4″×6″'],
     paperTypes: ["Matte Postcard Stock"],
-    printfulProducts: [{ id: 433, label: "Standard Postcard" }],
   },
 };
+
+/** First two dimension numbers in a label (e.g. 4″×6″ → [4, 6]) for postcard size ↔ variant matching. */
+function extractPostcardDimensionPair(text: string): [number, number] | null {
+  const nums = text.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+  if (nums.length >= 2) return [nums[0], nums[1]];
+  return null;
+}
+
+function postcardVariantMatchesRowSize(variant: PrintfulVariantOption, rowSize: string): boolean {
+  const rs = rowSize.trim();
+  if (!rs) return true;
+  const rowPair = extractPostcardDimensionPair(rs);
+  if (!rowPair) return true;
+  const blob = `${variant.size || ""} ${variant.name || ""}`;
+  const varPair = extractPostcardDimensionPair(blob);
+  if (!varPair) return false;
+  return rowPair[0] === varPair[0] && rowPair[1] === varPair[1];
+}
+
+function postcardMatrixSizeForVariant(variant: PrintfulVariantOption): string | null {
+  const sizes = VARIANT_DROPDOWN_OPTIONS.postcard?.sizes;
+  if (!sizes?.length) return null;
+  const hit = sizes.find((s) => postcardVariantMatchesRowSize(variant, s));
+  return hit ?? null;
+}
+
+function filterPostcardVariantList(
+  list: PrintfulVariantOption[],
+  rowSize: string | null | undefined,
+  productType: string | undefined
+): PrintfulVariantOption[] {
+  if (productType !== "postcard" || !(rowSize || "").trim()) return list;
+  return list.filter((v) => postcardVariantMatchesRowSize(v, rowSize || ""));
+}
 
 const PRODUCT_TYPE_MATRIX_FIELDS: Record<
   string,
   {
     label: string;
     fields: Array<
+      | "format"
       | "size"
       | "paperType"
       | "frame"
@@ -281,7 +642,7 @@ const PRODUCT_TYPE_MATRIX_FIELDS: Record<
   }
 > = {
   "art-print": {
-    label: "Art Prints / Posters",
+    label: "ArtPrint",
     fields: [
       "size",
       "paperType",
@@ -316,6 +677,7 @@ const PRODUCT_TYPE_MATRIX_FIELDS: Record<
     fields: [
       "size",
       "paperType",
+      "frame",
       "printfulProductId",
       "printfulVariantId",
       "providerCost",
@@ -342,6 +704,7 @@ const PRODUCT_TYPE_MATRIX_FIELDS: Record<
   "invitation": {
     label: "Invitations",
     fields: [
+      "format",
       "size",
       "paperType",
       "printfulProductId",
@@ -356,6 +719,7 @@ const PRODUCT_TYPE_MATRIX_FIELDS: Record<
   "announcement": {
     label: "Announcements",
     fields: [
+      "format",
       "size",
       "paperType",
       "printfulProductId",
@@ -391,9 +755,13 @@ const EMPTY_FORM = {
   paperType: "",
   finishType: "",
   artistSlug: "",
+  artistId: "",
   coCreatorSlug: "",
+  coCreatorId: "",
   familyKey: "",
+  tags: "",
   heroImage: "",
+  galleryImages: "[]",
   artworkSourceUrl: "",
   watermarkEnabled: false,
   watermarkText: "tAE",
@@ -411,6 +779,98 @@ const EMPTY_FORM = {
 
 const DEFAULT_MARGIN_TARGET = 0.45;
 const DEFAULT_ARTIST_ROYALTY = 0;
+
+function normalizeTagsFromForm(input: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of input.split(",")) {
+    const t = part.trim();
+    if (!t) continue;
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
+type MatrixMoneyField =
+  | "providerCost"
+  | "taeAddOnFee"
+  | "artistRoyalty"
+  | "variationUpcharge"
+  | "sellPrice";
+
+function matrixMoneyKey(rowId: string, field: MatrixMoneyField) {
+  return `${rowId}:${field}`;
+}
+
+/** Same rules as finiteOverridePrice in GET /api/products/[slug]/variants (matrix branch). */
+function finiteMatrixSellOverride(raw: unknown): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === "string" && raw.trim() === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** First finite among row.printfulBasePrice, row.providerCost, then product-level printful base. */
+function effectiveMatrixRowPrintfulBaseFromRow(
+  row: ProductVariantMatrixRow,
+  productPrintful: number
+): number {
+  const rowAny = row as unknown as Record<string, unknown>;
+  const candidates = [rowAny.printfulBasePrice, row.providerCost];
+  for (const v of candidates) {
+    if (v === null || v === undefined) continue;
+    if (typeof v === "string" && v.trim() === "") continue;
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return Number.isFinite(productPrintful) && productPrintful >= 0 ? productPrintful : 0;
+}
+
+/** Matches GET /api/products/[slug]/variants matrix branch (keep in sync). */
+function computeMatrixRowShopPreview(
+  row: ProductVariantMatrixRow,
+  formPricing: {
+    printfulBasePrice: string;
+    taeAddOnFee: string;
+    artistRoyalty: string;
+    variationUpcharge: string;
+  }
+) {
+  const toN = (v: unknown, fb: number) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fb;
+  };
+  const rowAny = row as unknown as Record<string, unknown>;
+  const productPrintful = Math.max(0, parseFloat(formPricing.printfulBasePrice) || 0);
+  const printfulBase = effectiveMatrixRowPrintfulBaseFromRow(row, productPrintful);
+  const productTae = Math.max(0, parseFloat(formPricing.taeAddOnFee) || 0);
+  const tae = toN(row.taeAddOnFee, productTae);
+  const defaultArt = Math.max(0, parseFloat(formPricing.artistRoyalty) || DEFAULT_ARTIST_ROYALTY);
+  const art = toN(row.artistRoyalty, defaultArt);
+  const defaultVar = Math.max(0, parseFloat(formPricing.variationUpcharge) || 0);
+  const up = toN(rowAny.variationUpcharge, defaultVar);
+  const components = Math.max(0, printfulBase + tae + art + up);
+  const sellOverride = finiteMatrixSellOverride(row.sellPrice);
+  const displayed = sellOverride != null ? sellOverride : components;
+  return { displayed, components };
+}
+
+function matrixMoneyCommittedDisplay(row: ProductVariantMatrixRow, field: MatrixMoneyField): string {
+  if (field === "providerCost") {
+    const pv = row.providerCost;
+    const pb = row.printfulBasePrice;
+    const display = pv ?? pb;
+    if (display == null || !Number.isFinite(Number(display))) return "";
+    return String(display);
+  }
+  const v = row[field];
+  if (v == null || !Number.isFinite(v)) return "";
+  return String(v);
+}
+
 const BTN_PRIMARY =
   "bg-brand-dark text-white px-4 py-2 text-sm font-medium inline-flex items-center gap-2 hover:bg-brand-dark/90 transition-colors disabled:opacity-50";
 const BTN_SECONDARY =
@@ -454,11 +914,24 @@ export default function AdminProductsPage() {
 
   // Image editor modal
   const [imageEditProduct, setImageEditProduct] = useState<Product | null>(null);
-  const [heroUploading, setHeroUploading] = useState(false);
+  const [galleryDraft, setGalleryDraft] = useState<ProductImageEntry[]>([]);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [artworkSourceUploading, setArtworkSourceUploading] = useState(false);
   const [imgError, setImgError] = useState<string | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  type ProductFormTab = "details" | "images";
+  const [productFormTab, setProductFormTab] = useState<ProductFormTab>("details");
+  const [imagesTabMountNode, setImagesTabMountNode] = useState<HTMLDivElement | null>(null);
+  const imageRuleMatrix = useMemo((): ProductVariantMatrixRow[] | undefined => {
+    if (showForm && editId) {
+      return Array.isArray(form.variantMatrix) ? (form.variantMatrix as ProductVariantMatrixRow[]) : undefined;
+    }
+    return imageEditProduct?.variantMatrix;
+  }, [showForm, editId, form.variantMatrix, imageEditProduct?.variantMatrix]);
+  const imageModalRuleOptions = useMemo(
+    () => buildImageModalRuleOptions(imageRuleMatrix),
+    [imageRuleMatrix]
+  );
   const [showWatermarkEditor, setShowWatermarkEditor] = useState(false);
   const [wmDraft, setWmDraft] = useState<{ x: number; y: number; scale: number; rotation: number } | null>(null);
   const [wmDragging, setWmDragging] = useState(false);
@@ -467,6 +940,60 @@ export default function AdminProductsPage() {
   const [draftGalleryFiles, setDraftGalleryFiles] = useState<File[]>([]);
   const [rowPrintfulVariants, setRowPrintfulVariants] = useState<Record<string, PrintfulVariantOption[]>>({});
   const [rowPrintfulLoadingVariants, setRowPrintfulLoadingVariants] = useState<Record<string, boolean>>({});
+  const [matrixMoneyDrafts, setMatrixMoneyDrafts] = useState<Record<string, string>>({});
+
+  const editingProductForImages = useMemo(
+    () => (editId ? products.find((p) => p.id === editId) ?? null : null),
+    [products, editId]
+  );
+
+  const matrixImageLibraryEntries = useMemo(() => {
+    const entries: { url: string; label: string }[] = [];
+    const seen = new Set<string>();
+    const p = editingProductForImages;
+    if (p?.productImages && p.productImages.length > 0) {
+      const sorted = [...p.productImages].sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+      );
+      for (const img of sorted) {
+        if (img.isActive === false) continue;
+        const u = (img.imageUrl || "").trim();
+        if (!u || seen.has(u)) continue;
+        seen.add(u);
+        const label =
+          (typeof img.title === "string" && img.title.trim()) ||
+          (img.isHero ? "Hero image" : `Image ${entries.length + 1}`);
+        entries.push({ url: u, label });
+      }
+      return entries;
+    }
+    const hero = (form.heroImage || "").trim();
+    if (hero) {
+      entries.push({ url: hero, label: "Hero image" });
+      seen.add(hero);
+    }
+    try {
+      const g = JSON.parse(form.galleryImages || "[]");
+      if (Array.isArray(g)) {
+        let galleryIdx = 0;
+        for (const u of g) {
+          if (typeof u !== "string" || !u.trim()) continue;
+          const t = u.trim();
+          if (seen.has(t)) continue;
+          seen.add(t);
+          galleryIdx += 1;
+          entries.push({ url: t, label: `Gallery image ${galleryIdx}` });
+        }
+      }
+    } catch {
+      /* ok */
+    }
+    return entries;
+  }, [editingProductForImages, form.heroImage, form.galleryImages]);
+
+  useEffect(() => {
+    setMatrixMoneyDrafts({});
+  }, [editId]);
 
   const selectedProductTypeConfig =
     PRODUCT_TYPE_MATRIX_FIELDS[form.productType || "art-print"] ||
@@ -474,6 +1001,7 @@ export default function AdminProductsPage() {
 
   const variantFieldEnabled = (
     field:
+      | "format"
       | "size"
       | "paperType"
       | "frame"
@@ -490,33 +1018,61 @@ export default function AdminProductsPage() {
   const variantDropdownConfig =
     VARIANT_DROPDOWN_OPTIONS[form.productType || "art-print"] || null;
 
-  const variantPrintfulProducts =
-    Array.isArray(variantDropdownConfig?.printfulProducts) && variantDropdownConfig.printfulProducts.length > 0
-      ? variantDropdownConfig.printfulProducts
-      : form.productType === "art-print"
-        ? PRINTFUL_FALLBACK_PRODUCTS.filter(
-            (product) =>
-              product.id === 1 ||
-              product.id === 2 ||
-              product.id === 171 ||
-              product.id === 172
-          ).map((product) => ({ id: product.id, label: product.title }))
-        : [];
+  const variantPrintfulProducts = useMemo(() => {
+    const stationery = getStationeryPrintfulProducts(form.productType);
+    if (stationery.length > 0) return stationery;
+
+    const cfg = VARIANT_DROPDOWN_OPTIONS[form.productType || "art-print"];
+    if (Array.isArray(cfg?.printfulProducts) && cfg.printfulProducts.length > 0) {
+      return cfg.printfulProducts;
+    }
+
+    if (form.productType === "art-print") {
+      return PRINTFUL_FALLBACK_PRODUCTS.filter(
+        (product) =>
+          product.id === 1 ||
+          product.id === 2 ||
+          product.id === 171 ||
+          product.id === 172
+      ).map((product) => ({ id: product.id, label: product.title }));
+    }
+
+    return [];
+  }, [form.productType]);
 
   const getVariantPrintfulProductsForRow = (row: ProductVariantMatrixRow) => {
-    if (form.productType !== "art-print") return variantPrintfulProducts;
+    if (form.productType === "greeting-card") {
+      return variantPrintfulProducts.filter(
+        (product): product is StationeryPrintfulPickerProduct => product.format === "bifold"
+      );
+    }
+
+    if (STATIONERY_PRODUCT_TYPES.has(form.productType || "")) {
+      const rowFormat = getRowStationeryFormat(row);
+      return variantPrintfulProducts.filter(
+        (product): product is StationeryPrintfulPickerProduct =>
+          (product.format === "flat" || product.format === "bifold") &&
+          product.format === rowFormat
+      );
+    }
+
+    if (form.productType !== "art-print" && form.productType !== "canvas-print") {
+      return variantPrintfulProducts;
+    }
 
     return variantPrintfulProducts.filter((product) => {
       const label = product.label.toLowerCase();
       const paperType = (row.paperType || "").trim();
       const frame = (row.frame || "").trim();
 
-      if (paperType === "Enhanced Matte Paper" && !label.includes("enhanced matte")) {
-        return false;
-      }
+      if (form.productType === "art-print") {
+        if (paperType === "Enhanced Matte Paper" && !label.includes("enhanced matte")) {
+          return false;
+        }
 
-      if (paperType === "Premium Luster Paper" && !label.includes("premium luster")) {
-        return false;
+        if (paperType === "Premium Luster Paper" && !label.includes("premium luster")) {
+          return false;
+        }
       }
 
       if (frame === "Framed" && !label.includes("framed")) {
@@ -538,23 +1094,29 @@ export default function AdminProductsPage() {
     const frameColor = row.frameColor || "Black";
     const liveVariants = rowPrintfulVariants[row.id];
 
+    let list: PrintfulVariantOption[];
+
     if (liveVariants?.length) {
       if (row.frame === "Framed") {
         const filteredLiveVariants = liveVariants.filter((variant) =>
           (variant.name || "").toLowerCase().includes(frameColor.toLowerCase())
         );
 
-        if (filteredLiveVariants.length) return filteredLiveVariants;
+        if (filteredLiveVariants.length) {
+          list = filteredLiveVariants;
+        } else {
+          list = liveVariants;
+        }
+      } else {
+        list = liveVariants;
       }
-
-      return liveVariants;
+    } else if (row.frame === "Framed") {
+      list = PRINTFUL_FRAMED_FALLBACK_VARIANTS[productId]?.[frameColor] || [];
+    } else {
+      list = PRINTFUL_FALLBACK_VARIANTS[productId] || [];
     }
 
-    if (row.frame === "Framed") {
-      return PRINTFUL_FRAMED_FALLBACK_VARIANTS[productId]?.[frameColor] || [];
-    }
-
-    return PRINTFUL_FALLBACK_VARIANTS[productId] || [];
+    return filterPostcardVariantList(list, row.size, form.productType);
   };
 
   const leafCategories = useMemo(
@@ -587,8 +1149,9 @@ export default function AdminProductsPage() {
       if (artistsJson?.data && Array.isArray(artistsJson.data)) {
         setArtists(
           artistsJson.data
-            .filter((item: any) => item?.slug && item?.name)
+            .filter((item: any) => item?.id && item?.slug && item?.name)
             .map((item: any) => ({
+              id: String(item.id),
               slug: item.slug,
               name: item.name,
               sourceImageUrl: item?.portfolio?.[0]?.image || null,
@@ -599,8 +1162,9 @@ export default function AdminProductsPage() {
       if (coCreatorsJson?.data && Array.isArray(coCreatorsJson.data)) {
         setCoCreators(
           coCreatorsJson.data
-            .filter((item: any) => item?.slug && item?.name)
+            .filter((item: any) => item?.id && item?.slug && item?.name)
             .map((item: any) => ({
+              id: String(item.id),
               slug: item.slug,
               name: item.name,
               sourceImageUrl: item?.heroImage || null,
@@ -802,7 +1366,11 @@ export default function AdminProductsPage() {
   };
 
   // Image upload helpers
-  const uploadProductImage = async (file: File, productId: string, kind: "hero" | "gallery" | "artworkSource") => {
+  const uploadProductImage = async (
+    file: File,
+    productId: string,
+    kind: "hero" | "gallery" | "artworkSource"
+  ) => {
     const fd = new FormData();
     fd.append("file", file);
     fd.append("productId", productId);
@@ -813,73 +1381,6 @@ export default function AdminProductsPage() {
       () => router.push("/b_d_admn_tae/login")
     );
     return { success: !!(res.ok && data?.success), data };
-  };
-
-  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !imageEditProduct) return;
-    setHeroUploading(true);
-    setImgError(null);
-    try {
-      const result = await uploadProductImage(file, imageEditProduct.id, "hero");
-      if (result.success) {
-        setImageEditProduct({ ...imageEditProduct, heroImage: result.data.url });
-        loadProducts();
-      } else {
-        setImgError(result.data?.error || "Upload failed");
-      }
-    } catch (err) {
-      if (!(err instanceof AdminUnauthorizedError)) setImgError("Upload failed");
-    }
-    finally { setHeroUploading(false); }
-    e.target.value = "";
-  };
-
-  const handleRemoveHero = async () => {
-    if (!imageEditProduct) return;
-    try {
-      const { res, data } = await adminFetchJson(`/api/admin/store-products/${imageEditProduct.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ heroImage: null }),
-      }, () => router.push("/b_d_admn_tae/login"));
-      if (!res.ok || !data?.success) {
-        setImgError(data?.error || "Failed to remove hero image");
-        return;
-      }
-      setImageEditProduct({ ...imageEditProduct, heroImage: null });
-      loadProducts();
-    } catch (err) {
-      if (!(err instanceof AdminUnauthorizedError)) setImgError("Failed to remove hero image");
-    }
-  };
-
-  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || !imageEditProduct) return;
-    setGalleryUploading(true);
-    setImgError(null);
-    let current: string[] = [];
-    try { current = imageEditProduct.galleryImages ? JSON.parse(imageEditProduct.galleryImages) : []; } catch { /* ok */ }
-
-    for (const file of Array.from(files)) {
-      try {
-        const result = await uploadProductImage(file, imageEditProduct.id, "gallery");
-        if (result.success) {
-          current.push(result.data.url);
-        } else {
-          setImgError(result.data?.error || "Upload failed");
-          break;
-        }
-      } catch (err) {
-        if (!(err instanceof AdminUnauthorizedError)) setImgError("Upload failed");
-        break;
-      }
-    }
-    setImageEditProduct({ ...imageEditProduct, galleryImages: JSON.stringify(current) });
-    loadProducts();
-    setGalleryUploading(false);
-    e.target.value = "";
   };
 
   const handleArtworkSourceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -925,53 +1426,6 @@ export default function AdminProductsPage() {
       loadProducts();
     } catch (err) {
       if (!(err instanceof AdminUnauthorizedError)) setImgError("Failed to remove artwork source");
-    }
-  };
-
-  const handleRemoveGalleryImage = async (idx: number) => {
-    if (!imageEditProduct) return;
-    let gallery: string[] = [];
-    try { gallery = imageEditProduct.galleryImages ? JSON.parse(imageEditProduct.galleryImages) : []; } catch { /* ok */ }
-    gallery.splice(idx, 1);
-    const json = JSON.stringify(gallery);
-    try {
-      const { res, data } = await adminFetchJson(`/api/admin/store-products/${imageEditProduct.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ galleryImages: json }),
-      }, () => router.push("/b_d_admn_tae/login"));
-      if (!res.ok || !data?.success) {
-        setImgError(data?.error || "Failed to remove gallery image");
-        return;
-      }
-      setImageEditProduct({ ...imageEditProduct, galleryImages: json });
-      loadProducts();
-    } catch (err) {
-      if (!(err instanceof AdminUnauthorizedError)) setImgError("Failed to remove gallery image");
-    }
-  };
-
-  const handleGalleryReorder = async (fromIdx: number, toIdx: number) => {
-    if (!imageEditProduct) return;
-    let gallery: string[] = [];
-    try { gallery = imageEditProduct.galleryImages ? JSON.parse(imageEditProduct.galleryImages) : []; } catch { /* ok */ }
-    const [moved] = gallery.splice(fromIdx, 1);
-    gallery.splice(toIdx, 0, moved);
-    const json = JSON.stringify(gallery);
-    try {
-      const { res, data } = await adminFetchJson(`/api/admin/store-products/${imageEditProduct.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ galleryImages: json }),
-      }, () => router.push("/b_d_admn_tae/login"));
-      if (!res.ok || !data?.success) {
-        setImgError(data?.error || "Failed to reorder gallery images");
-        return;
-      }
-      setImageEditProduct({ ...imageEditProduct, galleryImages: json });
-      loadProducts();
-    } catch (err) {
-      if (!(err instanceof AdminUnauthorizedError)) setImgError("Failed to reorder gallery images");
     }
   };
 
@@ -1037,8 +1491,268 @@ export default function AdminProductsPage() {
     }
   }, [router]);
 
+  /** Merge saved product with current form fields for the Images tab / modal. */
+  const mergeProductWithFormDraft = useCallback(
+    (p: Product): Product => ({
+      ...p,
+      name: form.name.trim() || p.name,
+      artworkSourceUrl: (form.artworkSourceUrl || "").trim() || p.artworkSourceUrl || null,
+      variantMatrix: Array.isArray(form.variantMatrix)
+        ? (form.variantMatrix as ProductVariantMatrixRow[])
+        : p.variantMatrix ?? [],
+    }),
+    [form.name, form.artworkSourceUrl, form.variantMatrix]
+  );
+
+  const applyImagesTabContext = useCallback(() => {
+    if (!editId) return;
+    const p = products.find((pr) => pr.id === editId);
+    if (!p) return;
+    setImgError(null);
+    const merged = mergeProductWithFormDraft(p);
+    setImageEditProduct(merged);
+    setGalleryDraft(productImagesFromProduct(merged));
+  }, [editId, products, mergeProductWithFormDraft]);
+
+  const setProductFormTabAndMaybeLoadImages = useCallback(
+    (tab: ProductFormTab) => {
+      setProductFormTab(tab);
+      if (tab === "images" && editId) applyImagesTabContext();
+    },
+    [editId, applyImagesTabContext]
+  );
+
+  const persistProductGallery = useCallback(
+    async (productId: string, draft: ProductImageEntry[]) => {
+      const sorted = [...draft].sort((a, b) => a.sortOrder - b.sortOrder);
+      const forNorm = sorted.map((r, i) => ({
+        id: r.id,
+        imageUrl: r.imageUrl,
+        title: r.title.trim() ? r.title.trim() : null,
+        description: r.description.trim() ? r.description.trim() : null,
+        sortOrder: i,
+        isHero: r.isHero,
+        isActive: r.isActive,
+        sourceType: r.sourceType,
+        variantKey: r.variantKey,
+        variantId: r.variantId,
+        size: r.size,
+        frame: r.frame,
+        frameColor: r.frameColor,
+        material: r.material,
+        orientation: r.orientation,
+        format: r.format,
+      }));
+      const normalized = normalizeHeroFlags(forNorm);
+      const productImages = normalized.map((r, i) => ({
+        imageUrl: r.imageUrl,
+        title: r.title,
+        description: r.description,
+        sortOrder: i,
+        isHero: r.isHero,
+        isActive: r.isActive,
+        sourceType: r.sourceType,
+        variantKey: r.variantKey,
+        variantId: r.variantId,
+        size: r.size,
+        frame: r.frame,
+        frameColor: r.frameColor,
+        material: r.material,
+        orientation: r.orientation,
+        format: r.format,
+      }));
+      const { res, data } = await adminFetchJson(
+        `/api/admin/store-products/${productId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productImages }),
+        },
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (!res.ok || !data?.success) {
+        setImgError(data?.error || "Failed to save images");
+        return;
+      }
+      const detail = await adminFetchJson(
+        `/api/admin/store-products/${productId}`,
+        undefined,
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (detail.res.ok && detail.data?.success && detail.data?.data) {
+        const saved = detail.data.data as Product;
+        setGalleryDraft(productImagesFromProduct(saved));
+        setImageEditProduct((prev) => (prev?.id === productId ? saved : prev));
+        const sync = deriveHeroGalleryFromDraft(productImagesFromProduct(saved));
+        if (editId === productId) {
+          setForm((prev) => ({
+            ...prev,
+            heroImage: sync.hero,
+            galleryImages: sync.gallery,
+          }));
+        }
+      } else {
+        const sync = deriveHeroGalleryFromDraft(draft);
+        if (editId === productId) {
+          setForm((prev) => ({
+            ...prev,
+            heroImage: sync.hero,
+            galleryImages: sync.gallery,
+          }));
+        }
+      }
+      await loadProducts();
+    },
+    [router, loadProducts, editId]
+  );
+
+  const handleGalleryImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !imageEditProduct) return;
+    if (galleryDraft.length >= 30) {
+      setImgError("Maximum 30 images per product");
+      e.target.value = "";
+      return;
+    }
+    setGalleryUploading(true);
+    setImgError(null);
+    let next = [...galleryDraft].sort((a, b) => a.sortOrder - b.sortOrder);
+    try {
+      for (const file of Array.from(files)) {
+        if (next.length >= 30) break;
+        const result = await uploadProductImage(file, imageEditProduct.id, "gallery");
+        if (result.success && result.data?.url) {
+          const url = result.data.url as string;
+          next.push({
+            id: localImageId(),
+            imageUrl: url,
+            title: "",
+            description: "",
+            sortOrder: next.length,
+            isHero: next.length === 0,
+            isActive: true,
+            sourceType: "general",
+            variantKey: null,
+            variantId: null,
+            size: null,
+            frame: null,
+            frameColor: null,
+            material: null,
+            orientation: null,
+            format: null,
+          });
+        } else {
+          setImgError(result.data?.error || "Upload failed");
+          break;
+        }
+      }
+      setGalleryDraft(next);
+      await persistProductGallery(imageEditProduct.id, next);
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) setImgError("Upload failed");
+    } finally {
+      setGalleryUploading(false);
+    }
+    e.target.value = "";
+  };
+
+  const handleRemoveGalleryRow = async (idx: number) => {
+    if (!imageEditProduct) return;
+    const sorted = [...galleryDraft].sort((a, b) => a.sortOrder - b.sortOrder);
+    const filtered = sorted.filter((_, i) => i !== idx).map((r, i) => ({ ...r, sortOrder: i }));
+    let next = normalizeHeroFlags(
+      filtered.map((r, i) => ({
+        id: r.id,
+        imageUrl: r.imageUrl,
+        title: r.title.trim() ? r.title.trim() : null,
+        description: r.description.trim() ? r.description.trim() : null,
+        sortOrder: i,
+        isHero: r.isHero,
+        isActive: r.isActive,
+        sourceType: r.sourceType,
+        variantKey: r.variantKey,
+        variantId: r.variantId,
+        size: r.size,
+        frame: r.frame,
+        frameColor: r.frameColor,
+        material: r.material,
+        orientation: r.orientation,
+        format: r.format,
+      }))
+    ).map((r, i) => ({
+      id: r.id,
+      imageUrl: r.imageUrl,
+      title: r.title ?? "",
+      description: r.description ?? "",
+      sortOrder: i,
+      isHero: !!r.isHero,
+      isActive: r.isActive !== false,
+      sourceType: (r.sourceType === "variant" || r.sourceType === "api"
+        ? r.sourceType
+        : "general") as ProductImageSource,
+      variantKey: r.variantKey ?? null,
+      variantId: r.variantId ?? null,
+      size: r.size ?? null,
+      frame: r.frame ?? null,
+      frameColor: r.frameColor ?? null,
+      material: r.material ?? null,
+      orientation: r.orientation ?? null,
+      format: r.format ?? null,
+    })) as ProductImageEntry[];
+    if (next.length > 0 && !next.some((r) => r.isHero)) {
+      next = next.map((r, i) => ({ ...r, isHero: i === 0 }));
+    }
+    setGalleryDraft(next);
+    await persistProductGallery(imageEditProduct.id, next);
+  };
+
+  const handleGalleryRowReorder = async (fromIdx: number, toIdx: number) => {
+    if (!imageEditProduct || fromIdx === toIdx) return;
+    const next = [...galleryDraft].sort((a, b) => a.sortOrder - b.sortOrder);
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    const reindexed = next.map((r, i) => ({ ...r, sortOrder: i }));
+    setGalleryDraft(reindexed);
+    await persistProductGallery(imageEditProduct.id, reindexed);
+  };
+
+  const handleSetHeroIndex = async (idx: number) => {
+    if (!imageEditProduct) return;
+    const sorted = [...galleryDraft].sort((a, b) => a.sortOrder - b.sortOrder);
+    const next = sorted.map((r, i) => ({ ...r, isHero: i === idx }));
+    setGalleryDraft(next);
+    await persistProductGallery(imageEditProduct.id, next);
+  };
+
+  const handleGalleryFieldChange = async (idx: number, patch: Partial<ProductImageEntry>) => {
+    if (!imageEditProduct) return;
+    const sorted = [...galleryDraft].sort((a, b) => a.sortOrder - b.sortOrder);
+    const next = sorted.map((r, i) => (i === idx ? { ...r, ...patch } : r));
+    setGalleryDraft(next);
+    await persistProductGallery(imageEditProduct.id, next);
+  };
+
   const loadRowPrintfulVariants = useCallback(async (rowId: string, productId: number) => {
     const fallbackVariants = PRINTFUL_FALLBACK_VARIANTS[productId] || [];
+
+    const backfillProviderCostForRow = (options: PrintfulVariantOption[]) => {
+      setMatrixMoneyDrafts((prev) => {
+        const next = { ...prev };
+        delete next[matrixMoneyKey(rowId, "providerCost")];
+        return next;
+      });
+      setForm((prev) => ({
+        ...prev,
+        variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map((item) => {
+          if (item.id !== rowId) return item;
+          const vid = item.printfulVariantId;
+          if (vid == null || item.providerCost != null) return item;
+          const opt = options.find((v) => v.id === vid);
+          if (opt?.catalogPrice == null) return item;
+          return { ...item, providerCost: opt.catalogPrice };
+        }),
+      }));
+    };
 
     setRowPrintfulLoadingVariants((prev) => ({ ...prev, [rowId]: true }));
     setRowPrintfulVariants((prev) => ({ ...prev, [rowId]: [] }));
@@ -1054,17 +1768,19 @@ export default function AdminProductsPage() {
       if (!res.ok || data?.error) {
         if (fallbackVariants.length > 0) {
           setRowPrintfulVariants((prev) => ({ ...prev, [rowId]: fallbackVariants }));
+          backfillProviderCostForRow(fallbackVariants);
           return;
         }
         throw new Error(data?.error || `Variant load failed (${res.status})`);
       }
 
       const body = data?.body?.result || {};
-      const variants = Array.isArray(body?.sync_variants)
-        ? body.sync_variants
-        : Array.isArray(body?.variants)
+      const variants =
+        Array.isArray(body?.variants) && body.variants.length
           ? body.variants
-          : [];
+          : Array.isArray(body?.sync_variants)
+            ? body.sync_variants
+            : [];
 
       const mappedVariants = variants
         .map((variant: any) => {
@@ -1088,17 +1804,21 @@ export default function AdminProductsPage() {
               variant?.retail_price ??
               variant?.price ??
               null,
+            catalogPrice: parsePrintfulCatalogPriceForProviderCost(variant),
           };
         })
         .filter(Boolean) as PrintfulVariantOption[];
 
+      const finalList = mappedVariants.length > 0 ? mappedVariants : fallbackVariants;
       setRowPrintfulVariants((prev) => ({
         ...prev,
-        [rowId]: mappedVariants.length > 0 ? mappedVariants : fallbackVariants,
+        [rowId]: finalList,
       }));
+      backfillProviderCostForRow(finalList);
     } catch (err: any) {
       if (fallbackVariants.length > 0) {
         setRowPrintfulVariants((prev) => ({ ...prev, [rowId]: fallbackVariants }));
+        backfillProviderCostForRow(fallbackVariants);
       } else {
         setError(err?.message || "Failed to load Printful variants");
       }
@@ -1119,6 +1839,9 @@ export default function AdminProductsPage() {
     if (searchParams.get("action") === "new") {
       setShowForm(true);
       setEditId(null);
+      setProductFormTab("details");
+      setImageEditProduct(null);
+      setGalleryDraft([]);
       setDraftHeroFile(null);
       setDraftGalleryFiles([]);
       setRowPrintfulVariants({});
@@ -1132,7 +1855,7 @@ export default function AdminProductsPage() {
     }
   }, [getCategoryRequiresQrDefault, getDefaultCategoryId, searchParams]);
 
-  const handleEdit = (p: Product) => {
+  const handleEdit = (p: Product, options?: { openImagesTab?: boolean }) => {
     const wm = p.watermark || {
       enabled: false,
       text: "tAE",
@@ -1176,9 +1899,13 @@ export default function AdminProductsPage() {
       paperType: p.paperType || "",
       finishType: p.finishType || "",
       artistSlug: p.artistSlug || "",
+      artistId: p.artistId || "",
       coCreatorSlug: p.coCreatorSlug || "",
+      coCreatorId: p.coCreatorId || "",
       familyKey: p.familyKey || "",
+      tags: Array.isArray(p.tags) ? p.tags.join(", ") : "",
       heroImage: p.heroImage || "",
+      galleryImages: p.galleryImages || "[]",
       artworkSourceUrl: p.artworkSourceUrl || "",
       watermarkEnabled: !!wm.enabled,
       watermarkText: wm.text || "tAE",
@@ -1194,9 +1921,19 @@ export default function AdminProductsPage() {
       sortOrder: (p.sortOrder || 0).toString(),
     });
     setShowForm(true);
+    if (options?.openImagesTab) {
+      setProductFormTab("images");
+      setImgError(null);
+      setImageEditProduct(p);
+      setGalleryDraft(productImagesFromProduct(p));
+    } else {
+      setProductFormTab("details");
+      setImageEditProduct(null);
+      setGalleryDraft([]);
+    }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (saveOpts?: { stayOpen?: boolean; goToImagesTab?: boolean }) => {
     setSaving(true);
     setError("");
     try {
@@ -1226,9 +1963,13 @@ export default function AdminProductsPage() {
         paperType: form.paperType || null,
         finishType: form.finishType || null,
         artistSlug: form.artistSlug.trim() || null,
+        artistId: form.artistId.trim() || null,
         coCreatorSlug: form.coCreatorSlug.trim() || null,
+        coCreatorId: form.coCreatorId.trim() || null,
         familyKey: form.familyKey.trim() || null,
+        tags: normalizeTagsFromForm(form.tags || ""),
         heroImage: form.heroImage || null,
+        galleryImages: form.galleryImages || null,
         artworkSourceUrl: form.artworkSourceUrl || null,
         watermark: {
           enabled: !!form.watermarkEnabled,
@@ -1274,14 +2015,40 @@ export default function AdminProductsPage() {
             await uploadProductImage(file, savedId, "gallery");
           }
         }
+        await loadProducts();
+
+        if (saveOpts?.stayOpen && savedId) {
+          if (!editId) setEditId(savedId);
+          setDraftHeroFile(null);
+          setDraftGalleryFiles([]);
+          if (saveOpts.goToImagesTab) {
+            const detail = await adminFetchJson(
+              `/api/admin/store-products/${savedId}`,
+              undefined,
+              () => router.push("/b_d_admn_tae/login")
+            );
+            if (detail.res.ok && detail.data?.success && detail.data?.data) {
+              const saved = detail.data.data as Product;
+              setImgError(null);
+              setImageEditProduct(mergeProductWithFormDraft(saved));
+              setGalleryDraft(productImagesFromProduct(saved));
+            }
+            setProductFormTab("images");
+          }
+          setSaving(false);
+          return;
+        }
+
         setShowForm(false);
         setEditId(null);
+        setProductFormTab("details");
+        setImageEditProduct(null);
+        setGalleryDraft([]);
         setForm(EMPTY_FORM);
         setDraftHeroFile(null);
         setDraftGalleryFiles([]);
         setRowPrintfulVariants({});
         setRowPrintfulLoadingVariants({});
-        await loadProducts();
       } else {
         setError(data?.error || `Save failed (${res.status})`);
       }
@@ -1326,7 +2093,7 @@ export default function AdminProductsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-brand-dark font-playfair">Products</h1>
+          <h1 className="text-2xl font-normal text-brand-dark font-playfair">Products</h1>
           <p className="text-sm text-brand-medium mt-1">
             {products.length} products total. Manage category placement, fulfillment, and pricing.
           </p>
@@ -1561,7 +2328,12 @@ export default function AdminProductsPage() {
                       <Wand2 className="w-3.5 h-3.5" />
                     )}
                   </button>
-                  <button onClick={() => { setImageEditProduct(p); setImgError(null); }} className={BTN_ICON} title="Images">
+                  <button
+                    type="button"
+                    onClick={() => handleEdit(p, { openImagesTab: true })}
+                    className={BTN_ICON}
+                    title="Images (open in editor)"
+                  >
                     <ImageIcon className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={() => handleEdit(p)} className={BTN_ICON} title="Edit">
@@ -1598,8 +2370,10 @@ export default function AdminProductsPage() {
       {/* Create/Edit form modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl my-8">
-            <div className="px-6 py-4 border-b border-brand-light flex items-center justify-between">
+          <div
+            className={`bg-white w-full my-8 ${productFormTab === "images" ? "max-w-4xl" : "max-w-2xl"}`}
+          >
+            <div className="px-6 py-4 border-b border-brand-light flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-brand-dark">
                 {editId ? "Edit Product" : "New Product"}
               </h3>
@@ -1607,6 +2381,9 @@ export default function AdminProductsPage() {
                 onClick={() => {
                   setShowForm(false);
                   setEditId(null);
+                  setProductFormTab("details");
+                  setImageEditProduct(null);
+                  setGalleryDraft([]);
                   setDraftHeroFile(null);
                   setDraftGalleryFiles([]);
                   setRowPrintfulVariants({});
@@ -1617,7 +2394,33 @@ export default function AdminProductsPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
+            <div className="px-6 pt-3 pb-0 border-b border-brand-light flex gap-1">
+              <button
+                type="button"
+                onClick={() => setProductFormTabAndMaybeLoadImages("details")}
+                className={`px-3 py-2 text-xs font-medium rounded-t border border-b-0 transition-colors ${
+                  productFormTab === "details"
+                    ? "bg-white border-brand-light text-brand-dark -mb-px z-10"
+                    : "border-transparent text-brand-medium hover:text-brand-dark"
+                }`}
+              >
+                Details
+              </button>
+              <button
+                type="button"
+                onClick={() => setProductFormTabAndMaybeLoadImages("images")}
+                className={`px-3 py-2 text-xs font-medium rounded-t border border-b-0 transition-colors ${
+                  productFormTab === "images"
+                    ? "bg-white border-brand-light text-brand-dark -mb-px z-10"
+                    : "border-transparent text-brand-medium hover:text-brand-dark"
+                }`}
+              >
+                Product Images
+              </button>
+            </div>
+            {productFormTab === "details" && (
             <div className="p-6 space-y-4">
+              <AdminAccordionSection title="Product details">
               <div>
                 <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Product Name *</label>
                 <input
@@ -1645,7 +2448,7 @@ export default function AdminProductsPage() {
                     onChange={(e) => setForm({ ...form, productType: e.target.value })}
                     className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                   >
-                    <option value="art-print">Art Prints / Posters</option>
+                    <option value="art-print">ArtPrint</option>
                     <option value="canvas-print">Canvas Prints</option>
                     <option value="greeting-card">Greeting Cards</option>
                     <option value="postcard">Postcards</option>
@@ -1699,11 +2502,13 @@ export default function AdminProductsPage() {
                   </select>
                 </div>
               </div>
+              </AdminAccordionSection>
 
-              <div className="border border-brand-light rounded-lg p-4 space-y-4">
+              <AdminAccordionSection title={`Variant matrix · ${selectedProductTypeConfig.label}`}>
+              <div className="space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
-                    Variant Matrix · {selectedProductTypeConfig.label}
+                    Rows &amp; fulfillment options
                   </div>
                   <button
                     type="button"
@@ -1714,8 +2519,15 @@ export default function AdminProductsPage() {
                           ...(Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []),
                           {
                             id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                            ...(STATIONERY_PRODUCT_TYPES.has(prev.productType || "") &&
+                            prev.productType !== "greeting-card"
+                              ? { format: "flat" as const }
+                              : {}),
                             paperType: "",
-                            size: "",
+                            size:
+                              prev.productType === "postcard"
+                                ? VARIANT_DROPDOWN_OPTIONS.postcard.sizes[0] ?? ""
+                                : "",
                             frame: "",
                             frameColor: "",
                             printfulProductId: null,
@@ -1743,7 +2555,15 @@ export default function AdminProductsPage() {
 
                 {Array.isArray(form.variantMatrix) && form.variantMatrix.length > 0 ? (
                   <div className="space-y-4">
-                    {form.variantMatrix.map((row, index) => (
+                    {form.variantMatrix.map((row, index) => {
+                      const rowShopPreview = computeMatrixRowShopPreview(row, {
+                        printfulBasePrice: form.printfulBasePrice,
+                        taeAddOnFee: form.taeAddOnFee,
+                        artistRoyalty: form.artistRoyalty,
+                        variationUpcharge: form.variationUpcharge,
+                      });
+                      const isStationeryMatrix = STATIONERY_PRODUCT_TYPES.has(form.productType || "");
+                      return (
                       <div
                         key={row.id || index}
                         className="border border-brand-light/70 rounded-lg p-4 space-y-3 bg-brand-lightest/40"
@@ -1767,19 +2587,315 @@ export default function AdminProductsPage() {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {variantFieldEnabled("format") && (
+                            <div
+                              className={
+                                isStationeryMatrix
+                                  ? "sm:col-span-2 rounded-lg border-2 border-brand-medium/40 bg-white p-3 shadow-sm"
+                                  : "sm:col-span-2"
+                              }
+                            >
+                              <div className="text-[10px] font-semibold uppercase tracking-wider text-brand-dark/80 mb-1">
+                                {isStationeryMatrix ? "1 · Format" : "Card format"}
+                              </div>
+                              <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                                {isStationeryMatrix
+                                  ? "Flat or bifold (sets Printful family)"
+                                  : "Card format (Printful family)"}
+                              </label>
+                              <select
+                                value={getRowStationeryFormat(row)}
+                                onChange={(e) => {
+                                  const fmt =
+                                    e.target.value === "bifold" ? "bifold" : "flat";
+                                  setMatrixMoneyDrafts((prev) => {
+                                    const next = { ...prev };
+                                    delete next[matrixMoneyKey(row.id, "providerCost")];
+                                    return next;
+                                  });
+                                  setRowPrintfulVariants((prev) => {
+                                    const next = { ...prev };
+                                    delete next[row.id];
+                                    return next;
+                                  });
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    variantMatrix: (
+                                      Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
+                                    ).map((item) =>
+                                      item.id === row.id
+                                        ? {
+                                            ...item,
+                                            format: fmt,
+                                            printfulProductId: null,
+                                            printfulVariantId: null,
+                                            providerCost: null,
+                                          }
+                                        : item
+                                    ),
+                                  }));
+                                }}
+                                className="w-full border border-brand-medium/50 px-3 py-2.5 text-sm font-medium bg-white max-w-md"
+                              >
+                                <option value="flat">Flat</option>
+                                <option value="bifold">Bifold</option>
+                              </select>
+                              <p className="text-[10px] text-brand-dark/60 mt-2 leading-snug">
+                                {isStationeryMatrix ? (
+                                  <>
+                                    Format is the row-level source of truth for which Printful catalog family applies.
+                                    Families come from centralized stationery config; changing format clears product,
+                                    variant, and provider cost so you cannot mix flat and bifold IDs on one row. Rows
+                                    without an explicit format still infer bifold when the Printful product ID matches
+                                    legacy folded-card IDs.
+                                  </>
+                                ) : (
+                                  <>Pick flat vs folded card; then choose the matching Printful product and variant.</>
+                                )}
+                              </p>
+                            </div>
+                          )}
+                          {isStationeryMatrix && variantFieldEnabled("format") && (
+                            <div className="sm:col-span-2 space-y-3 border border-brand-light/80 rounded-md bg-white/80 p-3">
+                              <div className="text-[10px] font-semibold uppercase tracking-wider text-brand-dark/70">
+                                2 · Printful catalog
+                              </div>
+                              <p className="text-[10px] text-brand-dark/55 leading-snug">
+                                Only the Printful product that matches this row&apos;s format appears in the list.
+                                Options labeled &quot;(provisional ID)&quot; are placeholders—verify the ID in
+                                Printful before relying on fulfillment.
+                              </p>
+                              <div>
+                                <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                                  Printful Product
+                                </label>
+                                {getVariantPrintfulProductsForRow(row).length ? (
+                                  <select
+                                    value={row.printfulProductId ?? ""}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      const pid = raw ? parseInt(raw, 10) : null;
+                                      setMatrixMoneyDrafts((prev) => {
+                                        const next = { ...prev };
+                                        delete next[matrixMoneyKey(row.id, "providerCost")];
+                                        return next;
+                                      });
+                                      setForm((prev) => ({
+                                        ...prev,
+                                        variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                          (item) =>
+                                            item.id === row.id
+                                              ? {
+                                                  ...item,
+                                                  printfulProductId: pid,
+                                                  printfulVariantId: null,
+                                                  providerCost: null,
+                                                }
+                                              : item
+                                        ),
+                                      }));
+                                      if (pid) {
+                                        loadRowPrintfulVariants(row.id, pid);
+                                      } else {
+                                        setRowPrintfulVariants((prev) => {
+                                          const next = { ...prev };
+                                          delete next[row.id];
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                                  >
+                                    <option value="">Select Printful product...</option>
+                                    {getVariantPrintfulProductsForRow(row).map((product) => (
+                                      <option key={product.id} value={product.id}>
+                                        {product.label} ({product.id})
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    type="number"
+                                    value={row.printfulProductId ?? ""}
+                                    onChange={(e) => {
+                                      const pid = e.target.value ? parseInt(e.target.value, 10) : null;
+                                      setMatrixMoneyDrafts((prev) => {
+                                        const next = { ...prev };
+                                        delete next[matrixMoneyKey(row.id, "providerCost")];
+                                        return next;
+                                      });
+                                      setForm((prev) => ({
+                                        ...prev,
+                                        variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                          (item) =>
+                                            item.id === row.id
+                                              ? {
+                                                  ...item,
+                                                  printfulProductId: Number.isFinite(pid as number) ? pid : null,
+                                                  printfulVariantId: null,
+                                                  providerCost: null,
+                                                }
+                                              : item
+                                        ),
+                                      }));
+                                      if (pid && Number.isFinite(pid)) {
+                                        loadRowPrintfulVariants(row.id, pid);
+                                      } else {
+                                        setRowPrintfulVariants((prev) => {
+                                          const next = { ...prev };
+                                          delete next[row.id];
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                                  />
+                                )}
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                                  Printful Variant
+                                  {rowPrintfulLoadingVariants[row.id] ? (
+                                    <span className="ml-2 text-brand-medium font-normal">(loading…)</span>
+                                  ) : null}
+                                </label>
+                                {getVariantOptionsForRow(row).length ? (
+                                  <select
+                                    value={row.printfulVariantId ?? ""}
+                                    onChange={(e) => {
+                                      const vid = e.target.value ? parseInt(e.target.value, 10) : null;
+                                      const options = getVariantOptionsForRow(row);
+                                      const selected = vid != null ? options.find((v) => v.id === vid) : null;
+                                      const postcardSize =
+                                        form.productType === "postcard" && selected
+                                          ? postcardMatrixSizeForVariant(selected)
+                                          : null;
+                                      const nextCost = providerCostFromVariantOptions(vid, options);
+                                      setMatrixMoneyDrafts((prev) => {
+                                        const next = { ...prev };
+                                        delete next[matrixMoneyKey(row.id, "providerCost")];
+                                        return next;
+                                      });
+                                      setForm((prev) => ({
+                                        ...prev,
+                                        variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                          (item) =>
+                                            item.id === row.id
+                                              ? {
+                                                  ...item,
+                                                  printfulVariantId: vid,
+                                                  providerCost: nextCost,
+                                                  ...(postcardSize ? { size: postcardSize } : {}),
+                                                }
+                                              : item
+                                        ),
+                                      }));
+                                    }}
+                                    className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                                  >
+                                    <option value="">Select Printful variant...</option>
+                                    {getVariantOptionsForRow(row).map((variant) => (
+                                      <option key={variant.id} value={variant.id}>
+                                        {variant.name}
+                                        {variant.size ? ` (${variant.size})` : ""}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    type="number"
+                                    value={row.printfulVariantId ?? ""}
+                                    onChange={(e) => {
+                                      const vid = e.target.value ? parseInt(e.target.value, 10) : null;
+                                      const options = getVariantOptionsForRow(row);
+                                      const pid = row.printfulProductId;
+                                      const live = rowPrintfulVariants[row.id] || [];
+                                      const fb = pid ? PRINTFUL_FALLBACK_VARIANTS[pid] || [] : [];
+                                      const selected =
+                                        vid != null
+                                          ? options.find((v) => v.id === vid) ||
+                                            live.find((v) => v.id === vid) ||
+                                            fb.find((v) => v.id === vid)
+                                          : null;
+                                      const postcardSize =
+                                        form.productType === "postcard" && selected
+                                          ? postcardMatrixSizeForVariant(selected)
+                                          : null;
+                                      const nextCost = providerCostFromVariantOptions(
+                                        Number.isFinite(vid as number) ? vid : null,
+                                        options
+                                      );
+                                      setMatrixMoneyDrafts((prev) => {
+                                        const next = { ...prev };
+                                        delete next[matrixMoneyKey(row.id, "providerCost")];
+                                        return next;
+                                      });
+                                      setForm((prev) => ({
+                                        ...prev,
+                                        variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                          (item) =>
+                                            item.id === row.id
+                                              ? {
+                                                  ...item,
+                                                  printfulVariantId: Number.isFinite(vid as number) ? vid : null,
+                                                  providerCost: nextCost,
+                                                  ...(postcardSize ? { size: postcardSize } : {}),
+                                                }
+                                              : item
+                                        ),
+                                      }));
+                                    }}
+                                    className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {isStationeryMatrix && variantFieldEnabled("format") && (
+                            <div className="sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-brand-dark/70 pt-1">
+                              3 · Size, paper &amp; extras
+                            </div>
+                          )}
+                          {isStationeryMatrix && form.productType === "greeting-card" && (
+                            <p className="sm:col-span-2 text-[10px] text-brand-dark/55 leading-snug -mt-2 mb-0">
+                              Use <span className="font-medium">Envelope</span> per row (stored as{" "}
+                              <code className="text-[9px]">frame</code> in row JSON so variant APIs and the shop PDP
+                              stay aligned).
+                            </p>
+                          )}
                           <div>
                             <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Size</label>
                             {variantDropdownConfig?.sizes?.length ? (
                               <select
                                 value={row.size || ""}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (form.productType === "postcard") {
+                                    setMatrixMoneyDrafts((prev) => {
+                                      const next = { ...prev };
+                                      delete next[matrixMoneyKey(row.id, "providerCost")];
+                                      return next;
+                                    });
+                                  }
                                   setForm((prev) => ({
                                     ...prev,
                                     variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
-                                      (item) => (item.id === row.id ? { ...item, size: e.target.value } : item)
+                                      (item) =>
+                                        item.id === row.id
+                                          ? {
+                                              ...item,
+                                              size: v,
+                                              ...(prev.productType === "postcard"
+                                                ? {
+                                                    printfulVariantId: null,
+                                                    providerCost: null,
+                                                  }
+                                                : {}),
+                                            }
+                                          : item
                                     ),
-                                  }))
-                                }
+                                  }));
+                                }}
                                 className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
                               >
                                 <option value="">Select size...</option>
@@ -1793,21 +2909,41 @@ export default function AdminProductsPage() {
                               <input
                                 type="text"
                                 value={row.size || ""}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (form.productType === "postcard") {
+                                    setMatrixMoneyDrafts((prev) => {
+                                      const next = { ...prev };
+                                      delete next[matrixMoneyKey(row.id, "providerCost")];
+                                      return next;
+                                    });
+                                  }
                                   setForm((prev) => ({
                                     ...prev,
                                     variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
-                                      (item) => (item.id === row.id ? { ...item, size: e.target.value } : item)
+                                      (item) =>
+                                        item.id === row.id
+                                          ? {
+                                              ...item,
+                                              size: v,
+                                              ...(prev.productType === "postcard"
+                                                ? {
+                                                    printfulVariantId: null,
+                                                    providerCost: null,
+                                                  }
+                                                : {}),
+                                            }
+                                          : item
                                     ),
-                                  }))
-                                }
+                                  }));
+                                }}
                                 className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
                               />
                             )}
                           </div>
                           <div>
                             <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
-                              Material / Paper Type
+                              {isStationeryMatrix ? "Paper" : "Material / Paper Type"}
                             </label>
                             {variantDropdownConfig?.paperTypes?.length ? (
                               <select
@@ -1847,11 +2983,28 @@ export default function AdminProductsPage() {
                           </div>
                           {variantFieldEnabled("frame") && (
                             <div>
-                              <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Frame</label>
+                              <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                                {form.productType === "greeting-card" ? "Envelope" : "Frame"}
+                              </label>
                               {variantDropdownConfig?.frames?.length ? (
                                 <select
                                   value={row.frame || ""}
-                                  onChange={(e) =>
+                                  onChange={(e) => {
+                                    const nextFrame = e.target.value;
+                                    const resetPrintfulOnFrame =
+                                      form.productType === "art-print" || form.productType === "canvas-print";
+                                    if (resetPrintfulOnFrame) {
+                                      setMatrixMoneyDrafts((prev) => {
+                                        const next = { ...prev };
+                                        delete next[matrixMoneyKey(row.id, "providerCost")];
+                                        return next;
+                                      });
+                                      setRowPrintfulVariants((prev) => {
+                                        const next = { ...prev };
+                                        delete next[row.id];
+                                        return next;
+                                      });
+                                    }
                                     setForm((prev) => ({
                                       ...prev,
                                       variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
@@ -1859,36 +3012,67 @@ export default function AdminProductsPage() {
                                           item.id === row.id
                                             ? {
                                                 ...item,
-                                                frame: e.target.value,
-                                                frameColor: e.target.value === "Framed" ? item.frameColor : "",
+                                                frame: nextFrame,
+                                                frameColor: nextFrame === "Framed" ? item.frameColor : "",
+                                                ...(resetPrintfulOnFrame
+                                                  ? {
+                                                      printfulProductId: null,
+                                                      printfulVariantId: null,
+                                                      providerCost: null,
+                                                    }
+                                                  : {}),
                                               }
                                             : item
                                       ),
-                                    }))
-                                  }
+                                    }));
+                                  }}
                                   className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
                                 >
-                                  <option value="">Select frame option...</option>
+                                  <option value="">
+                                    {form.productType === "greeting-card"
+                                      ? "Select envelope…"
+                                      : "Select frame option..."}
+                                  </option>
                                   {variantDropdownConfig.frames.map((frameOption) => (
                                     <option key={frameOption} value={frameOption}>
                                       {frameOption}
                                     </option>
                                   ))}
+                                  {form.productType === "greeting-card" &&
+                                    (row.frame || "").trim() &&
+                                    !variantDropdownConfig.frames.includes((row.frame || "").trim()) && (
+                                      <option value={row.frame || ""}>
+                                        {row.frame} (legacy — choose a standard envelope to migrate)
+                                      </option>
+                                    )}
                                 </select>
                               ) : (
-                                <input
-                                  type="text"
-                                  value={row.frame || ""}
-                                  onChange={(e) =>
-                                    setForm((prev) => ({
-                                      ...prev,
-                                      variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
-                                        (item) => (item.id === row.id ? { ...item, frame: e.target.value } : item)
-                                      ),
-                                    }))
-                                  }
-                                  className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
-                                />
+                                <>
+                                  <input
+                                    type="text"
+                                    value={row.frame || ""}
+                                    onChange={(e) =>
+                                      setForm((prev) => ({
+                                        ...prev,
+                                        variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                          (item) => (item.id === row.id ? { ...item, frame: e.target.value } : item)
+                                        ),
+                                      }))
+                                    }
+                                    placeholder={
+                                      form.productType === "greeting-card"
+                                        ? "e.g. No Envelope, White Envelope"
+                                        : undefined
+                                    }
+                                    className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                                  />
+                                  {form.productType === "greeting-card" && (
+                                    <p className="text-[10px] text-brand-dark/50 mt-1 leading-snug">
+                                      Any label works; examples include No Envelope, White Envelope. Matches the shop
+                                      &quot;Envelope&quot; dimension.
+                                    </p>
+                                  )}
+                                </>
                               )}
                             </div>
                           )}
@@ -1934,6 +3118,8 @@ export default function AdminProductsPage() {
                               )}
                             </div>
                           )}
+                          {(!isStationeryMatrix || form.productType === "greeting-card") && (
+                            <>
                           <div>
                             <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
                               Printful Product
@@ -1944,6 +3130,11 @@ export default function AdminProductsPage() {
                                 onChange={(e) => {
                                   const raw = e.target.value;
                                   const pid = raw ? parseInt(raw, 10) : null;
+                                  setMatrixMoneyDrafts((prev) => {
+                                    const next = { ...prev };
+                                    delete next[matrixMoneyKey(row.id, "providerCost")];
+                                    return next;
+                                  });
                                   setForm((prev) => ({
                                     ...prev,
                                     variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
@@ -1953,6 +3144,7 @@ export default function AdminProductsPage() {
                                               ...item,
                                               printfulProductId: pid,
                                               printfulVariantId: null,
+                                              providerCost: null,
                                             }
                                           : item
                                     ),
@@ -1982,6 +3174,11 @@ export default function AdminProductsPage() {
                                 value={row.printfulProductId ?? ""}
                                 onChange={(e) => {
                                   const pid = e.target.value ? parseInt(e.target.value, 10) : null;
+                                  setMatrixMoneyDrafts((prev) => {
+                                    const next = { ...prev };
+                                    delete next[matrixMoneyKey(row.id, "providerCost")];
+                                    return next;
+                                  });
                                   setForm((prev) => ({
                                     ...prev,
                                     variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
@@ -1991,6 +3188,7 @@ export default function AdminProductsPage() {
                                               ...item,
                                               printfulProductId: Number.isFinite(pid as number) ? pid : null,
                                               printfulVariantId: null,
+                                              providerCost: null,
                                             }
                                           : item
                                     ),
@@ -2019,7 +3217,20 @@ export default function AdminProductsPage() {
                             {getVariantOptionsForRow(row).length ? (
                               <select
                                 value={row.printfulVariantId ?? ""}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const vid = e.target.value ? parseInt(e.target.value, 10) : null;
+                                  const options = getVariantOptionsForRow(row);
+                                  const selected = vid != null ? options.find((v) => v.id === vid) : null;
+                                  const postcardSize =
+                                    form.productType === "postcard" && selected
+                                      ? postcardMatrixSizeForVariant(selected)
+                                      : null;
+                                  const nextCost = providerCostFromVariantOptions(vid, options);
+                                  setMatrixMoneyDrafts((prev) => {
+                                    const next = { ...prev };
+                                    delete next[matrixMoneyKey(row.id, "providerCost")];
+                                    return next;
+                                  });
                                   setForm((prev) => ({
                                     ...prev,
                                     variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
@@ -2027,12 +3238,14 @@ export default function AdminProductsPage() {
                                         item.id === row.id
                                           ? {
                                               ...item,
-                                              printfulVariantId: e.target.value ? parseInt(e.target.value, 10) : null,
+                                              printfulVariantId: vid,
+                                              providerCost: nextCost,
+                                              ...(postcardSize ? { size: postcardSize } : {}),
                                             }
                                           : item
                                     ),
-                                  }))
-                                }
+                                  }));
+                                }}
                                 className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
                               >
                                 <option value="">Select Printful variant...</option>
@@ -2047,7 +3260,31 @@ export default function AdminProductsPage() {
                               <input
                                 type="number"
                                 value={row.printfulVariantId ?? ""}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const vid = e.target.value ? parseInt(e.target.value, 10) : null;
+                                  const options = getVariantOptionsForRow(row);
+                                  const pid = row.printfulProductId;
+                                  const live = rowPrintfulVariants[row.id] || [];
+                                  const fb = pid ? PRINTFUL_FALLBACK_VARIANTS[pid] || [] : [];
+                                  const selected =
+                                    vid != null
+                                      ? options.find((v) => v.id === vid) ||
+                                        live.find((v) => v.id === vid) ||
+                                        fb.find((v) => v.id === vid)
+                                      : null;
+                                  const postcardSize =
+                                    form.productType === "postcard" && selected
+                                      ? postcardMatrixSizeForVariant(selected)
+                                      : null;
+                                  const nextCost = providerCostFromVariantOptions(
+                                    Number.isFinite(vid as number) ? vid : null,
+                                    options
+                                  );
+                                  setMatrixMoneyDrafts((prev) => {
+                                    const next = { ...prev };
+                                    delete next[matrixMoneyKey(row.id, "providerCost")];
+                                    return next;
+                                  });
                                   setForm((prev) => ({
                                     ...prev,
                                     variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
@@ -2055,18 +3292,25 @@ export default function AdminProductsPage() {
                                         item.id === row.id
                                           ? {
                                               ...item,
-                                              printfulVariantId: e.target.value
-                                                ? parseInt(e.target.value, 10)
-                                                : null,
+                                              printfulVariantId: Number.isFinite(vid as number) ? vid : null,
+                                              providerCost: nextCost,
+                                              ...(postcardSize ? { size: postcardSize } : {}),
                                             }
                                           : item
                                     ),
-                                  }))
-                                }
+                                  }));
+                                }}
                                 className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
                               />
                             )}
                           </div>
+                            </>
+                          )}
+                          {isStationeryMatrix && variantFieldEnabled("format") && (
+                            <div className="sm:col-span-2 text-[10px] font-semibold uppercase tracking-wider text-brand-dark/70 pt-2 border-t border-brand-light/50 mt-1">
+                              4 · Pricing
+                            </div>
+                          )}
                           <div>
                             <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
                               Provider Cost ($)
@@ -2074,21 +3318,34 @@ export default function AdminProductsPage() {
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={row.providerCost ?? ""}
+                              value={
+                                matrixMoneyDrafts[matrixMoneyKey(row.id, "providerCost")] ??
+                                matrixMoneyCommittedDisplay(row, "providerCost")
+                              }
                               onChange={(e) =>
-                                setForm((prev) => ({
+                                setMatrixMoneyDrafts((prev) => ({
                                   ...prev,
-                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
-                                    (item) =>
-                                      item.id === row.id
-                                        ? {
-                                            ...item,
-                                            providerCost: e.target.value ? parseFloat(e.target.value) : null,
-                                          }
-                                        : item
-                                  ),
+                                  [matrixMoneyKey(row.id, "providerCost")]: e.target.value,
                                 }))
                               }
+                              onBlur={(e) => {
+                                const key = matrixMoneyKey(row.id, "providerCost");
+                                const raw = e.target.value;
+                                setMatrixMoneyDrafts((prev) => {
+                                  const next = { ...prev };
+                                  delete next[key];
+                                  return next;
+                                });
+                                const num = parseMoneyInputToNumberOrNull(raw);
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (
+                                    Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
+                                  ).map((item) =>
+                                    item.id === row.id ? { ...item, providerCost: num } : item
+                                  ),
+                                }));
+                              }}
                               className="w-full border border-brand-light px-3 py-2 text-sm bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                             />
                           </div>
@@ -2099,21 +3356,34 @@ export default function AdminProductsPage() {
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={row.variationUpcharge ?? ""}
+                              value={
+                                matrixMoneyDrafts[matrixMoneyKey(row.id, "variationUpcharge")] ??
+                                matrixMoneyCommittedDisplay(row, "variationUpcharge")
+                              }
                               onChange={(e) =>
-                                setForm((prev) => ({
+                                setMatrixMoneyDrafts((prev) => ({
                                   ...prev,
-                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
-                                    (item) =>
-                                      item.id === row.id
-                                        ? {
-                                            ...item,
-                                            variationUpcharge: e.target.value ? parseFloat(e.target.value) : null,
-                                          }
-                                        : item
-                                  ),
+                                  [matrixMoneyKey(row.id, "variationUpcharge")]: e.target.value,
                                 }))
                               }
+                              onBlur={(e) => {
+                                const key = matrixMoneyKey(row.id, "variationUpcharge");
+                                const raw = e.target.value;
+                                setMatrixMoneyDrafts((prev) => {
+                                  const next = { ...prev };
+                                  delete next[key];
+                                  return next;
+                                });
+                                const num = parseMoneyInputToNumberOrNull(raw);
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (
+                                    Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
+                                  ).map((item) =>
+                                    item.id === row.id ? { ...item, variationUpcharge: num } : item
+                                  ),
+                                }));
+                              }}
                               className="w-full border border-brand-light px-3 py-2 text-sm bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                             />
                           </div>
@@ -2124,21 +3394,34 @@ export default function AdminProductsPage() {
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={row.artistRoyalty ?? ""}
+                              value={
+                                matrixMoneyDrafts[matrixMoneyKey(row.id, "artistRoyalty")] ??
+                                matrixMoneyCommittedDisplay(row, "artistRoyalty")
+                              }
                               onChange={(e) =>
-                                setForm((prev) => ({
+                                setMatrixMoneyDrafts((prev) => ({
                                   ...prev,
-                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
-                                    (item) =>
-                                      item.id === row.id
-                                        ? {
-                                            ...item,
-                                            artistRoyalty: e.target.value ? parseFloat(e.target.value) : null,
-                                          }
-                                        : item
-                                  ),
+                                  [matrixMoneyKey(row.id, "artistRoyalty")]: e.target.value,
                                 }))
                               }
+                              onBlur={(e) => {
+                                const key = matrixMoneyKey(row.id, "artistRoyalty");
+                                const raw = e.target.value;
+                                setMatrixMoneyDrafts((prev) => {
+                                  const next = { ...prev };
+                                  delete next[key];
+                                  return next;
+                                });
+                                const num = parseMoneyInputToNumberOrNull(raw);
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (
+                                    Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
+                                  ).map((item) =>
+                                    item.id === row.id ? { ...item, artistRoyalty: num } : item
+                                  ),
+                                }));
+                              }}
                               className="w-full border border-brand-light px-3 py-2 text-sm bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                             />
                           </div>
@@ -2149,21 +3432,34 @@ export default function AdminProductsPage() {
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={row.taeAddOnFee ?? ""}
+                              value={
+                                matrixMoneyDrafts[matrixMoneyKey(row.id, "taeAddOnFee")] ??
+                                matrixMoneyCommittedDisplay(row, "taeAddOnFee")
+                              }
                               onChange={(e) =>
-                                setForm((prev) => ({
+                                setMatrixMoneyDrafts((prev) => ({
                                   ...prev,
-                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
-                                    (item) =>
-                                      item.id === row.id
-                                        ? {
-                                            ...item,
-                                            taeAddOnFee: e.target.value ? parseFloat(e.target.value) : null,
-                                          }
-                                        : item
-                                  ),
+                                  [matrixMoneyKey(row.id, "taeAddOnFee")]: e.target.value,
                                 }))
                               }
+                              onBlur={(e) => {
+                                const key = matrixMoneyKey(row.id, "taeAddOnFee");
+                                const raw = e.target.value;
+                                setMatrixMoneyDrafts((prev) => {
+                                  const next = { ...prev };
+                                  delete next[key];
+                                  return next;
+                                });
+                                const num = parseMoneyInputToNumberOrNull(raw);
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (
+                                    Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
+                                  ).map((item) =>
+                                    item.id === row.id ? { ...item, taeAddOnFee: num } : item
+                                  ),
+                                }));
+                              }}
                               className="w-full border border-brand-light px-3 py-2 text-sm bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                             />
                           </div>
@@ -2172,49 +3468,159 @@ export default function AdminProductsPage() {
                             <input
                               type="text"
                               inputMode="decimal"
-                              value={row.sellPrice ?? ""}
+                              value={
+                                matrixMoneyDrafts[matrixMoneyKey(row.id, "sellPrice")] ??
+                                matrixMoneyCommittedDisplay(row, "sellPrice")
+                              }
                               onChange={(e) =>
-                                setForm((prev) => ({
+                                setMatrixMoneyDrafts((prev) => ({
                                   ...prev,
-                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
-                                    (item) =>
-                                      item.id === row.id
-                                        ? {
-                                            ...item,
-                                            sellPrice: e.target.value ? parseFloat(e.target.value) : null,
-                                          }
-                                        : item
-                                  ),
+                                  [matrixMoneyKey(row.id, "sellPrice")]: e.target.value,
                                 }))
                               }
+                              onBlur={(e) => {
+                                const key = matrixMoneyKey(row.id, "sellPrice");
+                                const raw = e.target.value;
+                                setMatrixMoneyDrafts((prev) => {
+                                  const next = { ...prev };
+                                  delete next[key];
+                                  return next;
+                                });
+                                const num = parseMoneyInputToNumberOrNull(raw);
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (
+                                    Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
+                                  ).map((item) =>
+                                    item.id === row.id ? { ...item, sellPrice: num } : item
+                                  ),
+                                }));
+                              }}
                               className="w-full border border-brand-light px-3 py-2 text-sm bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                             />
                           </div>
                           <div className="sm:col-span-2">
+                            <div className="text-[10px] font-medium text-brand-dark/70 uppercase tracking-wider mb-1.5">
+                              Row pricing (shop)
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                              <div className="bg-brand-lightest border border-brand-light p-2 rounded">
+                                <div className="text-brand-medium">Displayed on PDP</div>
+                                <div className="text-brand-dark font-semibold">
+                                  ${rowShopPreview.displayed.toFixed(2)}
+                                </div>
+                              </div>
+                              <div className="bg-brand-lightest border border-brand-light p-2 rounded">
+                                <div className="text-brand-medium">Components sum</div>
+                                <div className="text-brand-dark font-semibold">
+                                  ${rowShopPreview.components.toFixed(2)}
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-brand-medium mt-1 leading-snug">
+                              Sell Price overrides the computed total when set. Matches{" "}
+                              <code className="text-[9px]">GET /api/products/[slug]/variants</code> matrix pricing.
+                            </p>
+                          </div>
+                          <div className="sm:col-span-2 space-y-2">
                             <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
-                              Row Image URL
+                              Support image
                             </label>
-                            <input
-                              type="text"
-                              value={row.image ?? ""}
-                              onChange={(e) =>
+                            <p className="text-[10px] text-brand-medium leading-snug">
+                              Assigns an existing product image for this row on the shop PDP (when different from the
+                              product hero). Upload images only in{" "}
+                              <span className="font-medium">Product Images</span>.
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProductFormTabAndMaybeLoadImages("images");
+                                }}
+                                disabled={!editId}
+                                className="text-xs text-brand-dark underline decoration-brand-light hover:decoration-brand-dark disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                              >
+                                Open Product Images tab
+                              </button>
+                            </div>
+                            <select
+                              value={(() => {
+                                const img = (row.image || "").trim();
+                                if (!img) return "";
+                                if (matrixImageLibraryEntries.some((e) => e.url === img)) return img;
+                                return "__custom__";
+                              })()}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (v === "__custom__") return;
                                 setForm((prev) => ({
                                   ...prev,
-                                  variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
-                                    (item) =>
-                                      item.id === row.id
-                                        ? { ...item, image: e.target.value || null }
-                                        : item
+                                  variantMatrix: (
+                                    Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
+                                  ).map((item) =>
+                                    item.id === row.id ? { ...item, image: v || null } : item
                                   ),
-                                }))
-                              }
-                              className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
-                              placeholder="https://..."
-                            />
+                                }));
+                              }}
+                              className="w-full max-w-md border border-brand-light px-2 py-1.5 text-xs bg-white"
+                            >
+                              <option value="">No support image</option>
+                              {matrixImageLibraryEntries.map((e) => (
+                                <option key={e.url} value={e.url}>
+                                  {e.label}
+                                </option>
+                              ))}
+                              {(row.image || "").trim() !== "" &&
+                                !matrixImageLibraryEntries.some((e) => e.url === (row.image || "").trim()) && (
+                                  <option value="__custom__" disabled>
+                                    Custom path (see Advanced)
+                                  </option>
+                                )}
+                            </select>
+                            {(row.image || "").trim() !== "" &&
+                              !matrixImageLibraryEntries.some((e) => e.url === (row.image || "").trim()) && (
+                                <p className="text-[10px] text-brand-medium">
+                                  Current URL is not in hero/gallery. Clear below or add that file under Product Images.
+                                </p>
+                              )}
+                            <details className="text-[10px] text-brand-dark/80">
+                              <summary className="cursor-pointer select-none text-brand-dark/70 hover:text-brand-dark">
+                                Advanced: image path URL
+                              </summary>
+                              <div className="mt-2 space-y-1">
+                                <input
+                                  type="text"
+                                  value={row.image ?? ""}
+                                  onChange={(e) =>
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      variantMatrix: (
+                                        Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
+                                      ).map((item) =>
+                                        item.id === row.id
+                                          ? { ...item, image: e.target.value || null }
+                                          : item
+                                      ),
+                                    }))
+                                  }
+                                  className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
+                                  placeholder="/uploads/products/your-product-slug/filename.webp"
+                                />
+                                {(row.image || "").trim() !== "" &&
+                                  !(row.image || "").trim().startsWith("/uploads/") && (
+                                    <p className="text-[10px] text-amber-800/90">
+                                      This path does not look like a tAE upload under{" "}
+                                      <code className="text-[9px]">/uploads/</code>. Prefer Product Images for
+                                      shopper-facing assets.
+                                    </p>
+                                  )}
+                              </div>
+                            </details>
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 ) : (
                   <div className="text-sm text-brand-medium">
@@ -2222,9 +3628,12 @@ export default function AdminProductsPage() {
                   </div>
                 )}
               </div>
+              </AdminAccordionSection>
 
-              <div className="border border-brand-light rounded-lg p-4 space-y-3">
-                <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">Pricing Builder</div>
+              <AdminAccordionSection title="Pricing">
+                <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider -mt-1 mb-1">
+                  Pricing builder
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Printful Base Price ($)</label>
@@ -2308,13 +3717,9 @@ export default function AdminProductsPage() {
                     <div className="text-brand-dark font-semibold">${(providerCost + variationUpcharge).toFixed(2)}</div>
                   </div>
                 </div>
-              </div>
+              </AdminAccordionSection>
 
-              <details className="border border-brand-light rounded-lg p-3">
-                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-brand-dark/70">
-                  Advanced (Optional)
-                </summary>
-                <div className="space-y-4 mt-3">
+              <AdminAccordionSection title="Advanced (optional)" defaultOpen={false}>
                   <div>
                     <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
                       Proof Terms &amp; Conditions
@@ -2334,7 +3739,15 @@ export default function AdminProductsPage() {
                       </label>
                       <select
                         value={form.artistSlug}
-                        onChange={(e) => setForm({ ...form, artistSlug: e.target.value })}
+                        onChange={(e) => {
+                          const slug = e.target.value;
+                          const opt = artists.find((a) => a.slug === slug);
+                          setForm({
+                            ...form,
+                            artistSlug: slug,
+                            artistId: opt?.id || "",
+                          });
+                        }}
                         className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                       >
                         <option value="">None</option>
@@ -2345,7 +3758,7 @@ export default function AdminProductsPage() {
                         ))}
                       </select>
                       <p className="text-[11px] mt-1 text-brand-medium">
-                        Optional. Link this product to an artist page without typing the slug manually.
+                        Optional. Links this product to an artist via stable ID (and slug in meta for legacy pages).
                       </p>
                     </div>
                     <div>
@@ -2354,7 +3767,15 @@ export default function AdminProductsPage() {
                       </label>
                       <select
                         value={form.coCreatorSlug}
-                        onChange={(e) => setForm({ ...form, coCreatorSlug: e.target.value })}
+                        onChange={(e) => {
+                          const slug = e.target.value;
+                          const opt = coCreators.find((c) => c.slug === slug);
+                          setForm({
+                            ...form,
+                            coCreatorSlug: slug,
+                            coCreatorId: opt?.id || "",
+                          });
+                        }}
                         className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                       >
                         <option value="">None</option>
@@ -2365,7 +3786,7 @@ export default function AdminProductsPage() {
                         ))}
                       </select>
                       <p className="text-[11px] mt-1 text-brand-medium">
-                        Optional. Link this product to a co-creator page without typing the slug manually.
+                        Optional. Links via stable co-creator ID (and meta slug for legacy).
                       </p>
                     </div>
                   </div>
@@ -2384,6 +3805,22 @@ export default function AdminProductsPage() {
                     <p className="text-[11px] mt-1 text-brand-medium">
                       Use the same family key on related variants so one art print can offer multiple materials, sizes,
                       and frame options together.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                      Tags
+                    </label>
+                    <input
+                      type="text"
+                      value={form.tags}
+                      onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      placeholder="e.g. featured, stationery (comma-separated)"
+                    />
+                    <p className="text-[11px] mt-1 text-brand-medium">
+                      Optional. Stored on the product for filtering (e.g. <code className="text-[10px]">/api/products?tag=featured</code>).
                     </p>
                   </div>
 
@@ -2609,27 +4046,67 @@ export default function AdminProductsPage() {
                       </button>
                     </div>
                   </div>
-                </div>
-              </details>
+              </AdminAccordionSection>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setForm({ ...form, active: !form.active })}
-                  className={`w-5 h-5 border flex items-center justify-center transition-colors ${
-                    form.active ? "bg-brand-dark border-brand-dark text-white" : "border-brand-light"
-                  }`}
-                >
-                  {form.active && <Check className="w-3 h-3" />}
-                </button>
-                <span className="text-sm text-brand-dark">Active (visible in shop)</span>
-              </div>
+              <AdminAccordionSection title="Publishing">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, active: !form.active })}
+                    className={`w-5 h-5 border flex items-center justify-center transition-colors ${
+                      form.active ? "bg-brand-dark border-brand-dark text-white" : "border-brand-light"
+                    }`}
+                  >
+                    {form.active && <Check className="w-3 h-3" />}
+                  </button>
+                  <span className="text-sm text-brand-dark">Active (visible in shop)</span>
+                </div>
+              </AdminAccordionSection>
             </div>
+            )}
+
+            {productFormTab === "images" && (
+              <div ref={setImagesTabMountNode} className="p-6 space-y-4">
+                {!editId ? (
+                  <div className="border border-dashed border-brand-light rounded-lg p-8 text-center space-y-4 bg-brand-lightest/30">
+                    <p className="text-sm text-brand-darkest font-medium">Save the product first</p>
+                    <p className="text-xs text-brand-medium max-w-md mx-auto leading-relaxed">
+                      Product images are stored on the server for this listing. Enter a name and category on the
+                      Details tab, then save once — after that you can upload, reorder, and set variant rules here.
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setProductFormTab("details")}
+                        className={BTN_SECONDARY}
+                      >
+                        Back to Details
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleSave({ stayOpen: true, goToImagesTab: true })}
+                        disabled={saving || !form.name.trim() || !form.categoryId}
+                        className={BTN_PRIMARY}
+                        title={!form.categoryId ? "Choose a category on the Details tab first" : undefined}
+                      >
+                        {saving ? "Saving..." : "Save product & open images"}
+                      </button>
+                    </div>
+                  </div>
+                ) : !imageEditProduct ? (
+                  <div className="text-sm text-brand-medium py-8 text-center">Loading image manager…</div>
+                ) : null}
+              </div>
+            )}
 
             <div className="px-6 py-4 border-t border-brand-light flex items-center justify-end gap-2">
               <button
                 onClick={() => {
                   setShowForm(false);
                   setEditId(null);
+                  setProductFormTab("details");
+                  setImageEditProduct(null);
+                  setGalleryDraft([]);
                   setDraftHeroFile(null);
                   setDraftGalleryFiles([]);
                   setRowPrintfulVariants({});
@@ -2640,7 +4117,7 @@ export default function AdminProductsPage() {
                 Cancel
               </button>
               <button
-                onClick={handleSave}
+                onClick={() => void handleSave()}
                 disabled={saving || !form.name}
                 className={BTN_PRIMARY}
               >
@@ -2757,29 +4234,37 @@ export default function AdminProductsPage() {
 
       {/* Image editor modal */}
       {imageEditProduct && (() => {
-        let gallery: string[] = [];
-        try { gallery = imageEditProduct.galleryImages ? JSON.parse(imageEditProduct.galleryImages) : []; } catch { /* ok */ }
-        return (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto">
-            <div className="bg-white w-full max-w-3xl my-8">
-              <div className="px-6 py-4 border-b border-brand-light flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-brand-dark">Product Images</h3>
-                  <p className="text-xs text-brand-medium mt-0.5">{imageEditProduct.name}</p>
-                </div>
-                <button onClick={() => setImageEditProduct(null)} className="text-brand-medium hover:text-brand-dark">
-                  <X className="w-5 h-5" />
+        const sortedGallery = [...galleryDraft].sort((a, b) => a.sortOrder - b.sortOrder);
+        const ruleOpts = imageModalRuleOptions;
+        const sourceBadgeClass = (s: ProductImageSource) =>
+          s === "api"
+            ? "border-violet-200 bg-violet-50 text-violet-900"
+            : s === "variant"
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-slate-200 bg-slate-50 text-slate-800";
+        const targetBadgeClass = (t: ReturnType<typeof imageEntryStorefrontSummary>["targetingBadge"]) =>
+          t === "option-targeted"
+            ? "border-sky-200 bg-sky-50 text-sky-900"
+            : t === "api-import"
+              ? "border-violet-100 bg-violet-50/50 text-violet-800"
+              : "border-emerald-200 bg-emerald-50 text-emerald-900";
+        if (!(showForm && productFormTab === "images" && imagesTabMountNode)) return null;
+        return createPortal(
+          <div className="space-y-4">
+            <p className="text-xs text-brand-medium pb-2 border-b border-brand-light/80">
+              <span className="font-semibold text-brand-darkest">Product images</span>
+              <span className="text-brand-medium"> — </span>
+              {form.name.trim() || imageEditProduct.name}
+            </p>
+            {imgError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 flex items-center justify-between">
+                {imgError}
+                <button type="button" onClick={() => setImgError(null)}>
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-
-              {imgError && (
-                <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 flex items-center justify-between">
-                  {imgError}
-                  <button onClick={() => setImgError(null)}><X className="w-4 h-4" /></button>
-                </div>
-              )}
-
-              <div className="p-6 space-y-6">
+            )}
+            <div className="space-y-6">
                 <div>
                   <label className="block text-xs font-medium text-brand-dark/70 mb-2 uppercase tracking-wider">Artwork Source (Canonical)</label>
                   <div className="flex items-start gap-4">
@@ -2792,6 +4277,7 @@ export default function AdminProductsPage() {
                           onError={(e) => { (e.target as HTMLImageElement).src = ""; }}
                         />
                         <button
+                          type="button"
                           onClick={handleRemoveArtworkSource}
                           className="absolute top-1 right-1 bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                           title="Remove"
@@ -2821,113 +4307,507 @@ export default function AdminProductsPage() {
                   </div>
                 </div>
 
-                {/* Hero image */}
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-2 uppercase tracking-wider">Hero Image</label>
-                  <div className="flex items-start gap-4">
-                    {imageEditProduct.heroImage ? (
-                      <div className="relative group">
-                        <img
-                          src={imageEditProduct.heroImage}
-                          alt="Hero"
-                          className="w-40 h-28 object-cover border border-brand-light"
-                          onError={(e) => { (e.target as HTMLImageElement).src = ""; }}
-                        />
-                        <button
-                          onClick={handleRemoveHero}
-                          className="absolute top-1 right-1 bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Remove"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-40 h-28 border-2 border-dashed border-brand-light flex items-center justify-center text-brand-medium">
-                        <ImageIcon className="w-8 h-8 opacity-30" />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <label className="inline-flex items-center gap-2 px-4 py-2 text-sm border border-brand-dark text-brand-dark cursor-pointer hover:bg-brand-dark/10 transition-colors">
-                        <Upload className="w-4 h-4" />
-                        {heroUploading ? "Uploading..." : imageEditProduct.heroImage ? "Replace" : "Upload Hero"}
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={handleHeroUpload}
-                          disabled={heroUploading}
-                          className="hidden"
-                        />
-                      </label>
-                      <p className="text-[10px] text-brand-medium mt-2">JPEG, PNG, or WebP. Max 15 MB.</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Gallery images */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
-                      Gallery Images ({gallery.length}/30)
+                      Image gallery ({sortedGallery.length}/30)
                     </label>
                     <label className="inline-flex items-center gap-2 px-3 py-1.5 text-xs border border-brand-dark text-brand-dark cursor-pointer hover:bg-brand-dark/10 transition-colors">
                       <Upload className="w-3 h-3" />
-                      {galleryUploading ? "Uploading..." : "Add Images"}
+                      {galleryUploading ? "Uploading..." : "Add images"}
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
                         multiple
-                        onChange={handleGalleryUpload}
-                        disabled={galleryUploading || gallery.length >= 30}
+                        onChange={handleGalleryImagesUpload}
+                        disabled={galleryUploading || sortedGallery.length >= 30}
                         className="hidden"
                       />
                     </label>
                   </div>
+                  <p className="text-[10px] text-brand-medium mb-3">
+                    Drag rows to reorder (handle beside the star). Star sets the storefront hero. Use <strong>General</strong> for
+                    images that should always appear by default; use <strong>Variant</strong> with option rules to swap in
+                    different photos when selections match; <strong>API</strong> marks synced/imported assets.
+                  </p>
 
-                  {gallery.length === 0 ? (
+                  {sortedGallery.length === 0 ? (
                     <div className="border-2 border-dashed border-brand-light p-8 text-center text-sm text-brand-medium">
-                      No gallery images yet. Click "Add Images" to upload.
+                      No images yet. Click &quot;Add images&quot; to upload. The starred image is the default hero.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                      {gallery.map((url, idx) => (
+                    <div className="space-y-3">
+                      {sortedGallery.map((row, idx) => {
+                        const summary = imageEntryStorefrontSummary(row, ruleOpts);
+                        const pfVidListId = `gallery-pfvid-${row.id}`;
+                        return (
                         <div
-                          key={`${url}-${idx}`}
+                          key={row.id}
                           draggable
                           onDragStart={() => setDragIdx(idx)}
                           onDragOver={(e) => e.preventDefault()}
-                          onDrop={() => { if (dragIdx !== null && dragIdx !== idx) handleGalleryReorder(dragIdx, idx); setDragIdx(null); }}
-                          className={`relative group aspect-square border ${dragIdx === idx ? "border-blue-500 opacity-50" : "border-brand-light"}`}
+                          onDrop={() => {
+                            if (dragIdx !== null && dragIdx !== idx) {
+                              void handleGalleryRowReorder(dragIdx, idx);
+                            }
+                            setDragIdx(null);
+                          }}
+                          className={`flex flex-col sm:flex-row gap-3 p-3 border ${dragIdx === idx ? "border-blue-500 bg-blue-50/30" : "border-brand-light bg-brand-lightest/40"}`}
                         >
-                          <img src={url} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                          <button
-                            onClick={() => handleRemoveGalleryImage(idx)}
-                            className="absolute top-0.5 right-0.5 bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Remove"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                          <div className="absolute bottom-0.5 left-0.5 opacity-0 group-hover:opacity-80 transition-opacity cursor-grab">
-                            <GripVertical className="w-3 h-3 text-white drop-shadow" />
+                          <div className="shrink-0 flex sm:flex-col items-center gap-2">
+                            <div className="w-20 h-20 border border-brand-light bg-white overflow-hidden shrink-0">
+                              <img
+                                src={row.imageUrl}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                draggable={false}
+                              />
+                            </div>
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                title="Set as hero"
+                                onClick={() => void handleSetHeroIndex(idx)}
+                                className={`p-1.5 rounded border ${row.isHero ? "bg-amber-100 border-amber-400 text-amber-800" : "border-brand-light text-brand-medium hover:bg-white"}`}
+                              >
+                                <Star className={`w-3.5 h-3.5 ${row.isHero ? "fill-current" : ""}`} />
+                              </button>
+                              <span className="cursor-grab p-1.5 text-brand-medium" title="Drag to reorder">
+                                <GripVertical className="w-4 h-4" />
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`text-[10px] uppercase tracking-wider px-2 py-0.5 border ${sourceBadgeClass(row.sourceType)}`}
+                              >
+                                {row.sourceType === "variant"
+                                  ? "Variant"
+                                  : row.sourceType === "api"
+                                    ? "API"
+                                    : "General"}
+                              </span>
+                              <span
+                                className={`text-[10px] px-2 py-0.5 border rounded ${targetBadgeClass(summary.targetingBadge)}`}
+                              >
+                                {summary.targetingBadge === "option-targeted"
+                                  ? "Option-specific"
+                                  : summary.targetingBadge === "api-import"
+                                    ? "Imported"
+                                    : "Default gallery"}
+                              </span>
+                              {row.isHero && (
+                                <span className="text-[10px] font-semibold text-amber-800">Hero</span>
+                              )}
+                              <label className="inline-flex items-center gap-1.5 text-[10px] text-brand-dark ml-auto">
+                                <input
+                                  type="checkbox"
+                                  checked={row.isActive}
+                                  onChange={(e) =>
+                                    void handleGalleryFieldChange(idx, { isActive: e.target.checked })
+                                  }
+                                />
+                                Active
+                              </label>
+                            </div>
+                            <div className="rounded border border-brand-light bg-white/70 px-2.5 py-2 space-y-1">
+                              <p className="text-[10px] font-semibold text-brand-dark uppercase tracking-wide">
+                                Applies to
+                              </p>
+                              <p className="text-xs text-brand-darkest leading-snug">{summary.appliesTo}</p>
+                              <p className="text-[10px] text-brand-medium leading-snug">{summary.displayHint}</p>
+                            </div>
+                            {row.sourceType === "general" && hasRestrictiveImageMetadata(row) && (
+                              <p className="text-[10px] text-amber-900 bg-amber-50 border border-amber-100 rounded px-2 py-1.5 leading-snug">
+                                Saved option fields exist but source is <strong>General</strong> — the storefront only applies
+                                these rules when source is <strong>Variant</strong>. Change source to Variant to activate
+                                targeting, or clear the fields.
+                              </p>
+                            )}
+                            <input
+                              type="text"
+                              value={row.title}
+                              onChange={(e) =>
+                                setGalleryDraft((prev) => {
+                                  const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
+                                  return s.map((r, i) =>
+                                    i === idx ? { ...r, title: e.target.value } : r
+                                  );
+                                })
+                              }
+                              onBlur={(e) => void handleGalleryFieldChange(idx, { title: e.target.value })}
+                              placeholder="Image title"
+                              className="w-full border border-brand-light px-2 py-1.5 text-xs bg-white"
+                            />
+                            <textarea
+                              value={row.description}
+                              onChange={(e) =>
+                                setGalleryDraft((prev) => {
+                                  const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
+                                  return s.map((r, i) =>
+                                    i === idx ? { ...r, description: e.target.value } : r
+                                  );
+                                })
+                              }
+                              onBlur={(e) =>
+                                void handleGalleryFieldChange(idx, { description: e.target.value })
+                              }
+                              placeholder="Optional description / notes"
+                              rows={2}
+                              className="w-full border border-brand-light px-2 py-1.5 text-xs bg-white resize-y"
+                            />
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <label className="text-[10px] text-brand-medium">Source type</label>
+                              <select
+                                value={row.sourceType}
+                                onChange={(e) =>
+                                  void handleGalleryFieldChange(idx, {
+                                    sourceType: e.target.value as ProductImageSource,
+                                  })
+                                }
+                                className="border border-brand-light px-2 py-1 text-xs bg-white"
+                              >
+                                <option value="general">General — default gallery for all</option>
+                                <option value="variant">Variant — optional option rules</option>
+                                <option value="api">API — imported / synced</option>
+                              </select>
+                            </div>
+                            {row.sourceType === "variant" && (
+                              <div className="rounded border border-brand-light/90 bg-white/80 p-2.5 space-y-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="text-[10px] font-semibold text-brand-dark">
+                                    Match storefront selection
+                                  </p>
+                                  <button
+                                    type="button"
+                                    className="text-[10px] text-brand-dark underline decoration-brand-light"
+                                    onClick={() =>
+                                      void handleGalleryFieldChange(idx, {
+                                        variantKey: null,
+                                        variantId: null,
+                                        size: null,
+                                        frame: null,
+                                        frameColor: null,
+                                        material: null,
+                                        orientation: null,
+                                        format: null,
+                                      })
+                                    }
+                                  >
+                                    Clear rules
+                                  </button>
+                                </div>
+                                <p className="text-[10px] text-brand-medium">
+                                  Choose values from this product&apos;s variant matrix where possible. Leave &quot;(Any)&quot;
+                                  when that dimension should not constrain matching.
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="block text-[10px] text-brand-medium mb-0.5">Matrix row</label>
+                                    <select
+                                      value={row.variantKey || ""}
+                                      onChange={(e) => {
+                                        const id = e.target.value.trim() || null;
+                                        if (!id) {
+                                          void handleGalleryFieldChange(idx, { variantKey: null });
+                                          return;
+                                        }
+                                        const mr = ruleOpts.matrixRows.find((m) => m.id === id);
+                                        const patch: Partial<ProductImageEntry> = { variantKey: id };
+                                        if (
+                                          mr?.printfulVariantId != null &&
+                                          Number.isFinite(Number(mr.printfulVariantId))
+                                        ) {
+                                          patch.variantId = String(Math.trunc(Number(mr.printfulVariantId)));
+                                        }
+                                        void handleGalleryFieldChange(idx, patch);
+                                      }}
+                                      className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                    >
+                                      <option value="">(Any matrix row)</option>
+                                      {ruleOpts.matrixRows.map((m) => (
+                                        <option key={m.id} value={m.id}>
+                                          {m.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] text-brand-medium mb-0.5">
+                                      Printful variant ID
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={row.variantId || ""}
+                                      list={ruleOpts.printfulVariantIds.length ? pfVidListId : undefined}
+                                      onChange={(e) =>
+                                        setGalleryDraft((prev) => {
+                                          const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
+                                          return s.map((r, i) =>
+                                            i === idx ? { ...r, variantId: e.target.value || null } : r
+                                          );
+                                        })
+                                      }
+                                      onBlur={(e) =>
+                                        void handleGalleryFieldChange(idx, {
+                                          variantId: e.target.value.trim() || null,
+                                        })
+                                      }
+                                      placeholder="e.g. 4012"
+                                      className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                    />
+                                    {ruleOpts.printfulVariantIds.length > 0 && (
+                                      <datalist id={pfVidListId}>
+                                        {ruleOpts.printfulVariantIds.map((v) => (
+                                          <option key={v} value={v} />
+                                        ))}
+                                      </datalist>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] text-brand-medium mb-0.5">Size</label>
+                                    {ruleOpts.sizes.length > 0 ? (
+                                      <select
+                                        value={row.size || ""}
+                                        onChange={(e) =>
+                                          void handleGalleryFieldChange(idx, {
+                                            size: e.target.value.trim() || null,
+                                          })
+                                        }
+                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                      >
+                                        <option value="">(Any)</option>
+                                        {ruleOpts.sizes.map((o) => (
+                                          <option key={o} value={o}>
+                                            {o}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        value={row.size || ""}
+                                        onChange={(e) =>
+                                          setGalleryDraft((prev) => {
+                                            const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
+                                            return s.map((r, i) =>
+                                              i === idx ? { ...r, size: e.target.value || null } : r
+                                            );
+                                          })
+                                        }
+                                        onBlur={(e) =>
+                                          void handleGalleryFieldChange(idx, {
+                                            size: e.target.value.trim() || null,
+                                          })
+                                        }
+                                        placeholder="Size label"
+                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                      />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] text-brand-medium mb-0.5">Material / paper</label>
+                                    {ruleOpts.materials.length > 0 ? (
+                                      <select
+                                        value={row.material || ""}
+                                        onChange={(e) =>
+                                          void handleGalleryFieldChange(idx, {
+                                            material: e.target.value.trim() || null,
+                                          })
+                                        }
+                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                      >
+                                        <option value="">(Any)</option>
+                                        {ruleOpts.materials.map((o) => (
+                                          <option key={o} value={o}>
+                                            {o}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        value={row.material || ""}
+                                        onChange={(e) =>
+                                          setGalleryDraft((prev) => {
+                                            const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
+                                            return s.map((r, i) =>
+                                              i === idx ? { ...r, material: e.target.value || null } : r
+                                            );
+                                          })
+                                        }
+                                        onBlur={(e) =>
+                                          void handleGalleryFieldChange(idx, {
+                                            material: e.target.value.trim() || null,
+                                          })
+                                        }
+                                        placeholder="Matches storefront material/paper"
+                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                      />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] text-brand-medium mb-0.5">Frame / finish</label>
+                                    {ruleOpts.frames.length > 0 ? (
+                                      <select
+                                        value={row.frame || ""}
+                                        onChange={(e) =>
+                                          void handleGalleryFieldChange(idx, {
+                                            frame: e.target.value.trim() || null,
+                                          })
+                                        }
+                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                      >
+                                        <option value="">(Any)</option>
+                                        {ruleOpts.frames.map((o) => (
+                                          <option key={o} value={o}>
+                                            {o}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        value={row.frame || ""}
+                                        onChange={(e) =>
+                                          setGalleryDraft((prev) => {
+                                            const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
+                                            return s.map((r, i) =>
+                                              i === idx ? { ...r, frame: e.target.value || null } : r
+                                            );
+                                          })
+                                        }
+                                        onBlur={(e) =>
+                                          void handleGalleryFieldChange(idx, {
+                                            frame: e.target.value.trim() || null,
+                                          })
+                                        }
+                                        placeholder="Frame / envelope / finish"
+                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                      />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] text-brand-medium mb-0.5">Frame color</label>
+                                    {ruleOpts.frameColors.length > 0 ? (
+                                      <select
+                                        value={row.frameColor || ""}
+                                        onChange={(e) =>
+                                          void handleGalleryFieldChange(idx, {
+                                            frameColor: e.target.value.trim() || null,
+                                          })
+                                        }
+                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                      >
+                                        <option value="">(Any)</option>
+                                        {ruleOpts.frameColors.map((o) => (
+                                          <option key={o} value={o}>
+                                            {o}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        value={row.frameColor || ""}
+                                        onChange={(e) =>
+                                          setGalleryDraft((prev) => {
+                                            const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
+                                            return s.map((r, i) =>
+                                              i === idx ? { ...r, frameColor: e.target.value || null } : r
+                                            );
+                                          })
+                                        }
+                                        onBlur={(e) =>
+                                          void handleGalleryFieldChange(idx, {
+                                            frameColor: e.target.value.trim() || null,
+                                          })
+                                        }
+                                        placeholder="Frame color"
+                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                      />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] text-brand-medium mb-0.5">Orientation</label>
+                                    <select
+                                      value={row.orientation || ""}
+                                      onChange={(e) =>
+                                        void handleGalleryFieldChange(idx, {
+                                          orientation: e.target.value.trim() || null,
+                                        })
+                                      }
+                                      className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                    >
+                                      <option value="">(Any)</option>
+                                      <option value="Portrait">Portrait</option>
+                                      <option value="Landscape">Landscape</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] text-brand-medium mb-0.5">Format</label>
+                                    {ruleOpts.formats.length > 0 ? (
+                                      <select
+                                        value={row.format || ""}
+                                        onChange={(e) =>
+                                          void handleGalleryFieldChange(idx, {
+                                            format: e.target.value.trim() || null,
+                                          })
+                                        }
+                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                      >
+                                        <option value="">(Any)</option>
+                                        {ruleOpts.formats.map((o) => (
+                                          <option key={o} value={o}>
+                                            {o}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        value={row.format || ""}
+                                        onChange={(e) =>
+                                          setGalleryDraft((prev) => {
+                                            const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
+                                            return s.map((r, i) =>
+                                              i === idx ? { ...r, format: e.target.value || null } : r
+                                            );
+                                          })
+                                        }
+                                        onBlur={(e) =>
+                                          void handleGalleryFieldChange(idx, {
+                                            format: e.target.value.trim() || null,
+                                          })
+                                        }
+                                        placeholder="e.g. flat, bifold"
+                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => void handleRemoveGalleryRow(idx)}
+                                className="text-xs text-red-600 hover:underline"
+                              >
+                                Remove image
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
-                  <p className="text-[10px] text-brand-medium mt-2">Drag to reorder. Hover and click X to remove.</p>
                 </div>
-              </div>
-
-              <div className="px-6 py-4 border-t border-brand-light flex justify-end">
-                <button
-                  onClick={() => setImageEditProduct(null)}
-                  className={BTN_PRIMARY}
-                >
-                  Done
-                </button>
-              </div>
             </div>
-          </div>
+          </div>,
+          imagesTabMountNode
         );
       })()}
     </div>

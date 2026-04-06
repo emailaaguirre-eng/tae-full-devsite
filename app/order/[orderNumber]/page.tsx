@@ -110,7 +110,7 @@ export default function OrderPage() {
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-brand-darkest mb-2">
+          <h1 className="text-xl font-normal text-brand-darkest mb-2">
             Order Not Found
           </h1>
           <p className="text-brand-darkest/60 mb-6">{error}</p>
@@ -143,7 +143,7 @@ export default function OrderPage() {
           >
             <StatusIcon className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-brand-darkest font-playfair mb-1">
+          <h1 className="text-2xl font-normal text-brand-darkest font-playfair mb-1">
             {order.status === "paid"
               ? "Thank You for Your Order!"
               : statusConfig.label}

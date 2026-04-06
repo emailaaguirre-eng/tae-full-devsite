@@ -17,7 +17,8 @@
 
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Circle, Group, Image as KonvaImage, Layer, Rect, Stage, Text as KonvaText, Transformer } from "react-konva";
 import Konva from "konva";
 
@@ -240,18 +241,18 @@ function getLabelBoxHeight(item: TextItem): number {
 // ============================================================================
 // PER-PLACEMENT CANVAS DIMENSIONS
 // Uses surfacePlacementMap (from SurfaceMap) to resolve the Printful placement,
-// then looks up the dimensions. For split surfaces sharing a placement
-// (e.g. inside_left/inside_right → "inside"), each gets half the width.
+// then looks up the dimensions. Split width only when exportRules composite
+// merges multiple UX surfaces into one Printful file.
 // ============================================================================
 
 function resolvePrintfulPlacement(spec: ProductSpec, uxSurfaceId: string): string {
   if (spec.surfacePlacementMap?.[uxSurfaceId]) {
     return spec.surfacePlacementMap[uxSurfaceId];
   }
-  // Legacy fallback
-  if (uxSurfaceId === "front") return "default";
-  if (uxSurfaceId === "inside1" || uxSurfaceId === "inside2") return "inside";
-  if (uxSurfaceId === "inside_left" || uxSurfaceId === "inside_right") return "inside";
+  // Legacy fallback (568-style cards use inside1/inside2, not "inside")
+  if (uxSurfaceId === "inside1" || uxSurfaceId === "inside2") return uxSurfaceId;
+  if (uxSurfaceId === "inside_left") return "inside1";
+  if (uxSurfaceId === "inside_right") return "inside2";
   return uxSurfaceId;
 }
 
@@ -421,6 +422,10 @@ type Props = {
   ) => void;
   onSave?: (designs: DesignState) => void;
   onPreviewPrintProof?: (files: { placement: string; dataUrl: string }[]) => void | Promise<void>;
+  /** When set, proof preview is disabled (internal / dev diagnostics). */
+  proofBlockedReason?: string | null;
+  /** Shown to customers in tooltips and errors instead of internal proofBlockedReason. */
+  proofBlockedUserHint?: string | null;
 };
 
 function buildSlotRects(
@@ -691,6 +696,8 @@ export function CustomizationStudio({
   onExport,
   onSave,
   onPreviewPrintProof,
+  proofBlockedReason = null,
+  proofBlockedUserHint = null,
 }: Props) {
   // -------------------------------------------------------------------------
   // BASIC STATE
@@ -882,6 +889,25 @@ export function CustomizationStudio({
   const [isExporting, setIsExporting] = useState(false);
   const [isPreviewingProof, setIsPreviewingProof] = useState(false);
   const [exportStatus, setExportStatus] = useState<{ tone: "info" | "success" | "error"; message: string } | null>(null);
+  /** When set, a fixed-position textarea is shown over the canvas for inline typing. */
+  const [canvasTextEditId, setCanvasTextEditId] = useState<string | null>(null);
+  const [inlineTextDraft, setInlineTextDraft] = useState("");
+  const [inlineEditLayout, setInlineEditLayout] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    fontSizePx: number;
+    fontFamily: string;
+    color: string;
+    fontWeight: string;
+    fontStyle: string;
+    textAlign: string;
+    lineHeight: number;
+    letterSpacingPx: number;
+    textDecoration: string;
+  } | null>(null);
+  const canvasInlineTextRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Crop
   const [cropImageId, setCropImageId] = useState<string | null>(null);
@@ -1003,6 +1029,84 @@ export function CustomizationStudio({
 
   const stageWidth = Math.max(1, Math.round(canvasWidth * displayScale));
   const stageHeight = Math.max(1, Math.round(canvasHeight * displayScale));
+
+  // Sync draft when opening inline editor (not on every designs keystroke).
+  useEffect(() => {
+    if (!canvasTextEditId) {
+      setInlineTextDraft("");
+      return;
+    }
+    const item = (designs[activePlacement]?.texts || []).find((t) => t.id === canvasTextEditId);
+    setInlineTextDraft(item?.text ?? "");
+  }, [canvasTextEditId, activePlacement]);
+
+  useLayoutEffect(() => {
+    if (!canvasTextEditId) {
+      setInlineEditLayout(null);
+      return;
+    }
+    const updateLayout = () => {
+      const stage = stageRef.current;
+      if (!stage) return;
+      const node = stage.findOne(`#${canvasTextEditId}`);
+      if (!node) return;
+      const texts = designs[activePlacement]?.texts || [];
+      const item = texts.find((t) => t.id === canvasTextEditId);
+      if (!item) {
+        setCanvasTextEditId(null);
+        return;
+      }
+      const container = stage.container();
+      const cr = container.getBoundingClientRect();
+      const rect = node.getClientRect({ relativeTo: stage });
+      const sw = stage.width();
+      const sh = stage.height();
+      if (sw <= 0 || sh <= 0) return;
+      const scaleX = cr.width / sw;
+      const scaleY = cr.height / sh;
+      const fs = Math.max(10, item.fontSize * (cr.width / canvasWidth));
+      setInlineEditLayout({
+        left: cr.left + rect.x * scaleX,
+        top: cr.top + rect.y * scaleY,
+        width: Math.max(48, rect.width * scaleX),
+        height: Math.max(28, rect.height * scaleY),
+        fontSizePx: fs,
+        fontFamily: item.fontFamily,
+        color: item.fill,
+        fontWeight: item.fontStyle?.includes("bold") ? "700" : "400",
+        fontStyle: item.fontStyle?.includes("italic") ? "italic" : "normal",
+        textAlign: item.align || "left",
+        lineHeight: item.lineHeight ?? 1.2,
+        letterSpacingPx: (item.letterSpacing ?? 0) * (cr.width / canvasWidth),
+        textDecoration: item.textDecoration || "none",
+      });
+    };
+    updateLayout();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateLayout) : null;
+    const wrap = canvasContainerRef.current;
+    if (ro && wrap) ro.observe(wrap);
+    window.addEventListener("resize", updateLayout);
+    window.addEventListener("scroll", updateLayout, true);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", updateLayout);
+      window.removeEventListener("scroll", updateLayout, true);
+    };
+  }, [canvasTextEditId, designs, activePlacement, canvasWidth, zoomIndex, displayScale]);
+
+  useEffect(() => {
+    if (!canvasTextEditId) return;
+    const raf = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const el = canvasInlineTextRef.current;
+        if (!el) return;
+        el.focus();
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      });
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [canvasTextEditId]);
 
   const currentDesign = designs[activePlacement] || { images: [], texts: [], layoutId: DEFAULT_LAYOUT_ID };
   const currentLayoutId = currentDesign.layoutId || DEFAULT_LAYOUT_ID;
@@ -2459,6 +2563,70 @@ export function CustomizationStudio({
     ]
   );
 
+  /** Insert an empty text box on the active surface, select it, and focus the sidebar editor. */
+  const addTextBox = useCallback(() => {
+    const id = generateId();
+    const fontStyle = `${textBold ? "bold " : ""}${textItalic ? "italic " : ""}`.trim() || "normal";
+    const baseWidth = Math.max(200, Math.round(canvasWidth * 0.6));
+    const width = baseWidth;
+
+    const newText: TextItem = {
+      id,
+      text: "",
+      x: (canvasWidth - width) / 2,
+      y: canvasHeight / 2 - textSize / 2,
+      fontSize: textSize,
+      fontFamily: textFont,
+      fill: textColor,
+      fontStyle,
+      rotation: 0,
+      width,
+      align: textAlign,
+      textDecoration: textUnderline ? "underline" : "",
+      lineHeight: textLineHeight,
+      letterSpacing: textLetterSpacing,
+      labelShape: "none",
+      labelBoxHeight: undefined,
+      labelPadding: 0,
+      labelOuterStrokeWidth: 0,
+      labelInnerStrokeWidth: 0,
+      labelOuterStrokeColor: undefined,
+      labelInnerStrokeColor: undefined,
+      labelFillEnabled: false,
+      labelFillColor: BRAND.white,
+      labelBorderEnabled: false,
+      labelBorderColor: BRAND.dark,
+      labelBorderWidth: 0,
+      labelCornerRadius: 0,
+    };
+
+    setDesigns((prev) => ({
+      ...prev,
+      [activePlacement]: {
+        ...(prev[activePlacement] || { images: [], texts: [], layoutId: DEFAULT_LAYOUT_ID }),
+        texts: [...((prev[activePlacement]?.texts || []) as TextItem[]), newText],
+      },
+    }));
+
+    setSelectedId(id);
+    setSelectedType("text");
+    setTextInput("");
+    setCanvasTextEditId(id);
+  }, [
+    activePlacement,
+    canvasHeight,
+    canvasWidth,
+    textAlign,
+    textBold,
+    textColor,
+    textFont,
+    textItalic,
+    textLetterSpacing,
+    textLineHeight,
+    textSize,
+    textUnderline,
+  ]);
+
   const updateTextById = useCallback(
     (id: string, updates: Partial<TextItem>) => {
       setDesigns((prev) => {
@@ -2707,6 +2875,7 @@ export function CustomizationStudio({
     const clickedOnEmpty = e.target === stage;
 
     if (clickedOnEmpty) {
+      setCanvasTextEditId(null);
       setSelectedId(null);
       setSelectedType(null);
     }
@@ -2875,8 +3044,12 @@ export function CustomizationStudio({
 
       downloadDataURL(dataUrl, `${productSpec.name}-${activePlacement}.png`);
       setExportStatus({ tone: "success", message: "Download started." });
-    } catch {
-      setExportStatus({ tone: "error", message: "Export failed. Please try again." });
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : "Export failed. Please try again.";
+      setExportStatus({ tone: "error", message: msg });
     } finally {
       setIsExporting(false);
     }
@@ -2884,8 +3057,15 @@ export function CustomizationStudio({
 
   const handlePreviewPrintProof = useCallback(async () => {
     if (!onPreviewPrintProof || isPreviewingProof || isExporting) return;
+    if (proofBlockedReason) {
+      setExportStatus({
+        tone: "error",
+        message: proofBlockedUserHint || proofBlockedReason,
+      });
+      return;
+    }
     setIsPreviewingProof(true);
-    setExportStatus({ tone: "info", message: "Generating print proof preview..." });
+    setExportStatus({ tone: "info", message: "Creating your print preview…" });
     try {
       const dataUrl = await exportCurrentPlacement();
       if (!dataUrl) {
@@ -2894,13 +3074,25 @@ export function CustomizationStudio({
       }
       const pfPlacement = resolvePrintfulPlacement(productSpec, activePlacement);
       await Promise.resolve(onPreviewPrintProof([{ placement: pfPlacement, dataUrl }]));
-      setExportStatus({ tone: "success", message: "Print proof preview ready." });
-    } catch {
-      setExportStatus({ tone: "error", message: "Failed to generate print proof preview." });
+      setExportStatus({ tone: "success", message: "Preview ready — see panel above the canvas." });
+    } catch (err: any) {
+      setExportStatus({
+        tone: "error",
+        message: err?.message || "Couldn’t create the print preview. Try again.",
+      });
     } finally {
       setIsPreviewingProof(false);
     }
-  }, [activePlacement, exportCurrentPlacement, isExporting, isPreviewingProof, onPreviewPrintProof, productSpec]);
+  }, [
+    activePlacement,
+    exportCurrentPlacement,
+    isExporting,
+    isPreviewingProof,
+    onPreviewPrintProof,
+    productSpec,
+    proofBlockedReason,
+    proofBlockedUserHint,
+  ]);
 
   /**
    * Generic compositor: loads N images and composites them into a single
@@ -3094,8 +3286,12 @@ export function CustomizationStudio({
 
       finalOutputs.forEach((o) => downloadDataURL(o.dataUrl, `${productSpec.name}-${o.placement}.png`));
       setExportStatus({ tone: "success", message: `Download started (${finalOutputs.length} files).` });
-    } catch {
-      setExportStatus({ tone: "error", message: "Export failed. Please try again." });
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : "Export failed. Please try again.";
+      setExportStatus({ tone: "error", message: msg });
     } finally {
       setIsExporting(false);
     }
@@ -3108,6 +3304,7 @@ export function CustomizationStudio({
     setActivePlacement(p);
     setSelectedId(null);
     setSelectedType(null);
+    setCanvasTextEditId(null);
     setHoverSlotIndex(null);
     setContextMenu((cm) => ({ ...cm, visible: false }));
   }, []);
@@ -3152,7 +3349,7 @@ export function CustomizationStudio({
       >
         <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
           <h1 
-            className="text-base sm:text-lg lg:text-xl font-bold truncate" 
+            className="text-base sm:text-lg lg:text-xl font-normal truncate" 
             style={{ 
               color: BRAND.dark,
               fontFamily: "'Playfair Display', Georgia, serif",
@@ -3165,12 +3362,11 @@ export function CustomizationStudio({
             {productSpec.name}
           </span>
           <button
-            onClick={() => {
-              addText("Your text here");
-            }}
+            type="button"
+            onClick={() => addTextBox()}
             className="flex items-center gap-1.5 px-3 py-2 rounded text-sm"
             style={{ background: BRAND.light, color: BRAND.dark }}
-            title="Add editable text to canvas"
+            title="Add text on this surface — then use the bar below the header for font, size, and color"
           >
             <IconText /> Add Text
           </button>
@@ -3278,13 +3474,18 @@ export function CustomizationStudio({
           <div className="mx-1 h-6 w-px hidden sm:block" style={{ background: BRAND.light }} />
           {onPreviewPrintProof && (
             <button
+              type="button"
               onClick={handlePreviewPrintProof}
-              disabled={isExporting || isPreviewingProof}
+              disabled={isExporting || isPreviewingProof || !!proofBlockedReason}
               className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium disabled:opacity-60"
               style={{ background: BRAND.light, color: BRAND.dark }}
-              title="Generate Printful proof preview for current surface"
+              title={
+                proofBlockedUserHint ||
+                proofBlockedReason ||
+                "See how this surface may look when printed (preview only)"
+              }
             >
-              {isPreviewingProof ? "Proof..." : "Preview Print Proof"}
+              {isPreviewingProof ? "Generating…" : "Print preview"}
             </button>
           )}
           {productSpec.placements.length > 1 ? (
@@ -3322,46 +3523,170 @@ export function CustomizationStudio({
         </div>
       </div>
 
+      {selectedType === "text" && selectedTextItem && (
+        <div
+          className="relative px-3 py-2 border-b flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center"
+          style={{ background: BRAND.lightest, borderColor: BRAND.light }}
+        >
+          <p className="text-[11px] leading-snug lg:max-w-[220px]" style={{ color: BRAND.medium }}>
+            <span className="font-semibold" style={{ color: BRAND.dark }}>
+              Text
+            </span>
+            : double-click on the canvas to type. Drag the box to position. Use the controls here for font and color.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => openColorPickerFor("text")}
+              className="h-8 px-2 rounded border flex items-center gap-2 shrink-0"
+              style={{ borderColor: BRAND.light, background: BRAND.white }}
+              title="Text color"
+            >
+              <span
+                className="w-4 h-4 rounded border shrink-0"
+                style={{ background: textColor, borderColor: BRAND.light }}
+              />
+              <span className="text-[11px] font-mono truncate max-w-[4.5rem]" style={{ color: BRAND.medium }}>
+                {textColor}
+              </span>
+            </button>
+            <select
+              value={textFont}
+              onChange={(e) => setTextFont(e.target.value)}
+              className="border rounded px-2 py-1.5 text-xs min-w-0 max-w-[10rem] sm:max-w-[14rem]"
+              style={{ borderColor: BRAND.light, background: BRAND.white, color: BRAND.dark }}
+              title="Font"
+            >
+              {FONT_OPTIONS.map((option) => (
+                <option key={option.family} value={option.family}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-1 text-[11px] shrink-0" style={{ color: BRAND.medium }}>
+              Size
+              <input
+                type="number"
+                min={8}
+                max={300}
+                step={1}
+                value={textSize}
+                onChange={(e) => setTextSize(Math.max(8, Math.min(300, Number(e.target.value) || 48)))}
+                className="w-14 border rounded px-1 py-1 text-xs"
+                style={{ borderColor: BRAND.light, background: BRAND.white }}
+              />
+            </label>
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setTextBold((prev) => !prev)}
+                className="w-8 h-8 rounded text-xs font-bold"
+                style={{
+                  background: textBold ? BRAND.accent : BRAND.light,
+                  color: textBold ? BRAND.white : BRAND.dark,
+                }}
+                title="Bold"
+              >
+                B
+              </button>
+              <button
+                type="button"
+                onClick={() => setTextItalic((prev) => !prev)}
+                className="w-8 h-8 rounded text-xs italic"
+                style={{
+                  background: textItalic ? BRAND.accent : BRAND.light,
+                  color: textItalic ? BRAND.white : BRAND.dark,
+                }}
+                title="Italic"
+              >
+                I
+              </button>
+              <button
+                type="button"
+                onClick={() => setTextUnderline((prev) => !prev)}
+                className="w-8 h-8 rounded text-xs underline"
+                style={{
+                  background: textUnderline ? BRAND.accent : BRAND.light,
+                  color: textUnderline ? BRAND.white : BRAND.dark,
+                }}
+                title="Underline"
+              >
+                U
+              </button>
+            </div>
+            <div className="flex items-center gap-0.5 shrink-0">
+              {(["left", "center", "right"] as const).map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setTextAlign(a)}
+                  className="px-2 py-1 rounded text-[11px] capitalize"
+                  style={{
+                    background: textAlign === a ? BRAND.accent : BRAND.light,
+                    color: textAlign === a ? BRAND.white : BRAND.dark,
+                  }}
+                  title={`Align ${a}`}
+                >
+                  {a.slice(0, 1)}
+                </button>
+              ))}
+            </div>
+            <label className="flex items-center gap-1 text-[11px] shrink-0" style={{ color: BRAND.medium }}>
+              Lh
+              <input
+                type="number"
+                min={0.8}
+                max={3}
+                step={0.05}
+                value={textLineHeight}
+                onChange={(e) => setTextLineHeight(Math.max(0.8, Math.min(3, Number(e.target.value) || 1.2)))}
+                className="w-12 border rounded px-1 py-1 text-xs"
+                style={{ borderColor: BRAND.light, background: BRAND.white }}
+              />
+            </label>
+            <label className="flex items-center gap-1 text-[11px] shrink-0" style={{ color: BRAND.medium }}>
+              Sp
+              <input
+                type="number"
+                min={-5}
+                max={40}
+                step={0.5}
+                value={textLetterSpacing}
+                onChange={(e) => setTextLetterSpacing(Math.max(-5, Math.min(40, Number(e.target.value) || 0)))}
+                className="w-12 border rounded px-1 py-1 text-xs"
+                style={{ borderColor: BRAND.light, background: BRAND.white }}
+              />
+            </label>
+          </div>
+          {activeColorPicker === "text" && (
+            <AdvancedColorPickerPopover
+              title="Text Color"
+              value={getColorValueForTarget(activeColorPicker)}
+              alpha={activeColorAlpha}
+              recentColors={recentTextColors}
+              palette={{
+                primary: BRAND.white,
+                alt: BRAND.lightest,
+                accent: BRAND.accent,
+              }}
+              onChange={(value, alpha) => {
+                setActiveColorAlpha(alpha);
+                setTextColor(value);
+              }}
+              onSelectRecent={(value) => {
+                rememberRecentTextColor(value);
+                setTextColor(value);
+              }}
+              onClose={closeActiveColorPicker}
+            />
+          )}
+        </div>
+      )}
+
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left Sidebar */}
         <div className="w-64 xl:w-72 2xl:w-80 flex-shrink-0 border-r flex flex-col" style={{ background: BRAND.white, borderColor: BRAND.light }}>
           <div className="flex-1 overflow-auto">
-          {/* Surface Tabs - prominent at top */}
-          {productSpec.placements.length > 1 && (
-            <div className="p-3 lg:p-4 border-b" style={{ borderColor: BRAND.light, background: BRAND.lightest }}>
-              <h3 className="font-semibold mb-2 text-sm lg:text-base">Surfaces</h3>
-              <div className={`grid gap-1.5 ${productSpec.placements.length <= 2 ? "grid-cols-2" : "grid-cols-2"}`}>
-                {productSpec.placements.map((p, idx) => (
-                  <button
-                    key={p}
-                    onClick={() => switchPlacement(p)}
-                    className="min-h-[5.5rem] text-center px-2 py-2 lg:px-3 lg:py-2.5 rounded-lg border-2 text-xs lg:text-sm font-medium transition-all flex flex-col items-center justify-between"
-                    style={{
-                      borderColor: activePlacement === p ? BRAND.accent : BRAND.light,
-                      background: activePlacement === p ? BRAND.accent : BRAND.white,
-                      color: activePlacement === p ? BRAND.white : BRAND.dark,
-                      boxShadow: activePlacement === p ? `0 2px 8px ${BRAND.accent}40` : "none",
-                    }}
-                  >
-                    <span className="block text-[10px] lg:text-[11px] opacity-60 leading-none">{idx + 1}/{productSpec.placements.length}</span>
-                    <span className="block leading-tight">{getLabel(p)}</span>
-                    <span
-                      className="inline-flex items-center justify-center h-4 px-1.5 rounded text-[10px] leading-none border"
-                      style={{
-                        visibility: qrPlacement === p && productSpec.requiresQrCode ? "visible" : "hidden",
-                        color: activePlacement === p ? "#ddd" : "#6d28d9",
-                        borderColor: activePlacement === p ? "#d1d5db66" : "#c4b5fd",
-                        background: activePlacement === p ? "#ffffff18" : "#ede9fe",
-                      }}
-                    >
-                      ArtKey
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Image Tools */}
           <div className="p-4 border-b" style={{ borderColor: BRAND.light }}>
             <h3 className="font-semibold mb-3">Images</h3>
@@ -3799,219 +4124,20 @@ export function CustomizationStudio({
               )}
 
               {selectedType === "text" && selectedTextItem && (
-                <div className="mb-3 space-y-3">
-                  <div>
-                    <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                      Text Content
-                    </label>
-                    <textarea
-                      value={textInput}
-                      onChange={(e) => setTextInput(e.target.value)}
-                      rows={3}
-                      className="w-full border rounded px-2 py-2 text-sm resize-y"
-                      style={{ borderColor: BRAND.light }}
-                      placeholder="Type your text..."
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                      Text Color
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => openColorPickerFor("text")}
-                      className="w-full h-9 border rounded flex items-center justify-between px-2"
-                      style={{ borderColor: BRAND.light, background: BRAND.white }}
-                      title="Open text color picker"
-                    >
-                      <span className="text-xs truncate" style={{ color: BRAND.medium }}>
-                        {textColor}
-                      </span>
-                      <span
-                        className="w-5 h-5 rounded border"
-                        style={{ background: textColor, borderColor: BRAND.light }}
-                      />
-                    </button>
-                  </div>
-
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Font
-                      </label>
-                      <select
-                        value={textFont}
-                        onChange={(e) => setTextFont(e.target.value)}
-                        className="w-full border rounded px-2 py-2 text-sm"
-                        style={{ borderColor: BRAND.light }}
-                      >
-                        {FONT_OPTIONS.map((option) => (
-                          <option key={option.family} value={option.family}>
-                            {option.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Text Size
-                      </label>
-                      <input
-                        type="number"
-                        min={8}
-                        max={300}
-                        step={1}
-                        value={textSize}
-                        onChange={(e) => setTextSize(Math.max(8, Math.min(300, Number(e.target.value) || 48)))}
-                        className="w-full border rounded px-2 py-2 text-sm"
-                        style={{ borderColor: BRAND.light }}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Style
-                      </label>
-                      <div className="grid grid-cols-3 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setTextBold((prev) => !prev)}
-                          className="px-2 py-2 rounded text-sm font-semibold"
-                          style={{
-                            background: textBold ? BRAND.accent : BRAND.light,
-                            color: textBold ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Bold"
-                        >
-                          B
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTextItalic((prev) => !prev)}
-                          className="px-2 py-2 rounded text-sm italic"
-                          style={{
-                            background: textItalic ? BRAND.accent : BRAND.light,
-                            color: textItalic ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Italic"
-                        >
-                          I
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTextUnderline((prev) => !prev)}
-                          className="px-2 py-2 rounded text-sm underline"
-                          style={{
-                            background: textUnderline ? BRAND.accent : BRAND.light,
-                            color: textUnderline ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Underline"
-                        >
-                          U
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Alignment
-                      </label>
-                      <div className="grid grid-cols-3 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setTextAlign("left")}
-                          className="px-2 py-2 rounded text-sm"
-                          style={{
-                            background: textAlign === "left" ? BRAND.accent : BRAND.light,
-                            color: textAlign === "left" ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Align left"
-                        >
-                          Left
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTextAlign("center")}
-                          className="px-2 py-2 rounded text-sm"
-                          style={{
-                            background: textAlign === "center" ? BRAND.accent : BRAND.light,
-                            color: textAlign === "center" ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Align center"
-                        >
-                          Center
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTextAlign("right")}
-                          className="px-2 py-2 rounded text-sm"
-                          style={{
-                            background: textAlign === "right" ? BRAND.accent : BRAND.light,
-                            color: textAlign === "right" ? BRAND.white : BRAND.dark,
-                          }}
-                          title="Align right"
-                        >
-                          Right
-                        </button>
-                      </div>
-                    </div>
-
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Line Height
-                      </label>
-                      <input
-                        type="number"
-                        min={0.8}
-                        max={3}
-                        step={0.05}
-                        value={textLineHeight}
-                        onChange={(e) => setTextLineHeight(Math.max(0.8, Math.min(3, Number(e.target.value) || 1.2)))}
-                        className="w-full border rounded px-2 py-2 text-sm"
-                        style={{ borderColor: BRAND.light }}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                        Letter Spacing
-                      </label>
-                      <input
-                        type="number"
-                        min={-5}
-                        max={40}
-                        step={0.5}
-                        value={textLetterSpacing}
-                        onChange={(e) => setTextLetterSpacing(Math.max(-5, Math.min(40, Number(e.target.value) || 0)))}
-                        className="w-full border rounded px-2 py-2 text-sm"
-                        style={{ borderColor: BRAND.light }}
-                      />
-                    </div>
-                  </div>
-
-                  {activeColorPicker === "text" && (
-                    <AdvancedColorPickerPopover
-                      title="Text Color"
-                      value={getColorValueForTarget(activeColorPicker)}
-                      alpha={activeColorAlpha}
-                      recentColors={recentTextColors}
-                      palette={{
-                        primary: BRAND.white,
-                        alt: BRAND.lightest,
-                        accent: BRAND.accent,
-                      }}
-                      onChange={(value, alpha) => {
-                        setActiveColorAlpha(alpha);
-                        setTextColor(value);
-                      }}
-                      onSelectRecent={(value) => {
-                        rememberRecentTextColor(value);
-                        setTextColor(value);
-                      }}
-                      onClose={closeActiveColorPicker}
-                    />
-                  )}
+                <div className="mb-3 space-y-2">
+                  <p className="text-xs" style={{ color: BRAND.medium }}>
+                    Font, size, color, and alignment are in the <strong>top bar</strong> above the canvas (appears when
+                    text is selected).
+                  </p>
+                  <textarea
+                    readOnly
+                    tabIndex={-1}
+                    value={textInput}
+                    rows={2}
+                    className="w-full border rounded px-2 py-2 text-sm resize-y bg-gray-50 cursor-default"
+                    style={{ borderColor: BRAND.light }}
+                    placeholder="Double-click text on the canvas to edit here."
+                  />
                 </div>
               )}
 
@@ -4211,8 +4337,27 @@ export function CustomizationStudio({
         </div>
 
         {/* Canvas Area */}
-        <div ref={canvasContainerRef} className="flex-1 min-h-0 w-full overflow-hidden p-2 lg:p-2.5 flex items-center justify-center">
-          <div className="inline-block rounded-lg shadow-xl overflow-hidden relative" style={{ background: BRAND.white, border: `1px solid ${BRAND.light}` }}>
+        <div ref={canvasContainerRef} className="flex-1 min-h-0 w-full overflow-hidden p-2 lg:p-2.5 flex flex-col items-center justify-center min-w-0">
+          {productSpec.placements.length > 1 && (
+            <div className="lg:hidden w-full max-w-full flex gap-1.5 overflow-x-auto pb-2 shrink-0 justify-center">
+              {productSpec.placements.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => switchPlacement(p)}
+                  className="shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border"
+                  style={{
+                    borderColor: activePlacement === p ? BRAND.accent : BRAND.light,
+                    background: activePlacement === p ? BRAND.accent : BRAND.white,
+                    color: activePlacement === p ? BRAND.white : BRAND.dark,
+                  }}
+                >
+                  {getLabel(p)}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="inline-block rounded-lg shadow-xl overflow-hidden relative max-w-full" style={{ background: BRAND.white, border: `1px solid ${BRAND.light}` }}>
             <Stage
               ref={stageRef}
               width={stageWidth}
@@ -4389,6 +4534,7 @@ export function CustomizationStudio({
                         : textHeight ?? Math.max(24, Math.round((t.fontSize || 16) * ((t.lineHeight ?? 1.2) + 0.8)));
 
                     const isActiveText = selectedId === t.id && selectedType === "text";
+                    const isInlineEditing = canvasTextEditId === t.id;
 
                     return (
                       <Group
@@ -4397,26 +4543,34 @@ export function CustomizationStudio({
                         x={t.x}
                         y={t.y}
                         rotation={t.rotation}
-                        draggable={isActiveText}
+                        draggable={isActiveText && !isInlineEditing}
                         onClick={() => {
+                          if (canvasTextEditId && canvasTextEditId !== t.id) {
+                            setCanvasTextEditId(null);
+                          }
                           setSelectedId(t.id);
                           setSelectedType("text");
                         }}
                         onTap={() => {
+                          if (canvasTextEditId && canvasTextEditId !== t.id) {
+                            setCanvasTextEditId(null);
+                          }
                           setSelectedId(t.id);
                           setSelectedType("text");
                         }}
-                        onDblClick={() => {
-                          const next = window.prompt("Edit text", t.text);
-                          if (next === null) return;
-                          updateTextById(t.id, { text: next });
-                          if (selectedId === t.id) setTextInput(next);
+                        onDblClick={(e) => {
+                          e.cancelBubble = true;
+                          setSelectedId(t.id);
+                          setSelectedType("text");
+                          setTextInput(t.text);
+                          setCanvasTextEditId(t.id);
                         }}
-                        onDblTap={() => {
-                          const next = window.prompt("Edit text", t.text);
-                          if (next === null) return;
-                          updateTextById(t.id, { text: next });
-                          if (selectedId === t.id) setTextInput(next);
+                        onDblTap={(e) => {
+                          e.cancelBubble = true;
+                          setSelectedId(t.id);
+                          setSelectedType("text");
+                          setTextInput(t.text);
+                          setCanvasTextEditId(t.id);
                         }}
                         onDragEnd={(e) => handleTextDragEnd(t.id, e.target)}
                         onTransformEnd={(e) => handleTextTransformEnd(t.id, e.target)}
@@ -4492,7 +4646,7 @@ export function CustomizationStudio({
 
                         <KonvaText
                           key={t.id}
-                          text={t.text}
+                          text={t.text || "\u00a0"}
                           x={0}
                           y={0}
                           width={textWidth}
@@ -4508,6 +4662,7 @@ export function CustomizationStudio({
                           lineHeight={t.lineHeight ?? 1.2}
                           letterSpacing={t.letterSpacing ?? 0}
                           listening={false}
+                          opacity={isInlineEditing ? 0 : 1}
                         />
                       </Group>
                     );
@@ -4670,7 +4825,7 @@ export function CustomizationStudio({
         </div>
 
         {/* Right Sidebar - surface previews (uniform card sizes) */}
-        <div className="hidden xl:block w-56 2xl:w-64 flex-shrink-0 border-l p-3 2xl:p-4 overflow-auto" style={{ background: BRAND.white, borderColor: BRAND.light }}>
+        <div className="hidden lg:block w-52 xl:w-56 2xl:w-64 flex-shrink-0 border-l p-3 2xl:p-4 overflow-auto" style={{ background: BRAND.white, borderColor: BRAND.light }}>
           <h3 className="font-semibold mb-3 text-sm">Preview</h3>
 
           <div className="space-y-3">
@@ -4753,6 +4908,59 @@ export function CustomizationStudio({
           </button>
         </div>
       )}
+
+      {canvasTextEditId &&
+        inlineEditLayout &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <textarea
+            ref={canvasInlineTextRef}
+            value={inlineTextDraft}
+            onChange={(e) => {
+              const v = e.target.value;
+              setInlineTextDraft(v);
+              setTextInput(v);
+              updateTextById(canvasTextEditId, { text: v });
+            }}
+            onBlur={() => setCanvasTextEditId(null)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                (e.target as HTMLTextAreaElement).blur();
+                setCanvasTextEditId(null);
+              }
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            rows={3}
+            className="rounded-sm shadow-lg outline-none border-2"
+            style={{
+              position: "fixed",
+              zIndex: 10000,
+              left: inlineEditLayout.left,
+              top: inlineEditLayout.top,
+              width: inlineEditLayout.width,
+              minHeight: Math.max(inlineEditLayout.height, inlineEditLayout.fontSizePx * 2.5),
+              fontSize: inlineEditLayout.fontSizePx,
+              fontFamily: inlineEditLayout.fontFamily,
+              color: inlineEditLayout.color,
+              fontWeight: inlineEditLayout.fontWeight as React.CSSProperties["fontWeight"],
+              fontStyle: inlineEditLayout.fontStyle as React.CSSProperties["fontStyle"],
+              textAlign: inlineEditLayout.textAlign as React.CSSProperties["textAlign"],
+              lineHeight: inlineEditLayout.lineHeight,
+              letterSpacing: `${inlineEditLayout.letterSpacingPx}px`,
+              textDecoration: inlineEditLayout.textDecoration as React.CSSProperties["textDecoration"],
+              padding: 4,
+              margin: 0,
+              resize: "none",
+              overflow: "auto",
+              background: "rgba(255,255,255,0.96)",
+              boxSizing: "border-box",
+              borderColor: BRAND.accent,
+            }}
+            aria-label="Edit text on canvas"
+          />,
+          document.body
+        )}
     </div>
   );
 }

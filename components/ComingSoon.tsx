@@ -6,7 +6,7 @@ export default function ComingSoon() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 max-w-4xl mx-auto">
-            <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-6 font-playfair">
+            <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-6 font-playfair">
               We&apos;re Building Something Special!
             </h2>
             <p className="text-lg md:text-xl text-brand-darkest leading-relaxed mb-6">

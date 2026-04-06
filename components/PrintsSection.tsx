@@ -53,7 +53,7 @@ export default function PrintsSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <div className="text-6xl mb-4">🖼️</div>
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4">
             Prints
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
@@ -62,7 +62,7 @@ export default function PrintsSection() {
         <div className="max-w-5xl mx-auto">
           {/* Step 1: Upload or Gallery */}
           <div className="bg-white rounded-2xl p-8 mb-8 shadow-lg">
-            <h3 className="text-2xl font-bold text-brand-darkest mb-6 text-center">
+            <h3 className="text-2xl font-normal text-brand-darkest mb-6 text-center">
               Step 1: Choose Your Image Source
             </h3>
             <div className="grid md:grid-cols-2 gap-6">
@@ -97,7 +97,7 @@ export default function PrintsSection() {
             <>
               {/* Step 2: Personalize with Designer */}
               <div className="bg-gradient-to-br from-brand-light to-brand-medium rounded-2xl p-8 mb-8 shadow-lg">
-                <h3 className="text-2xl font-bold text-white mb-6 text-center">
+                <h3 className="text-2xl font-normal text-white mb-6 text-center">
                   Step 2: Personalize
                 </h3>
                 <div className="bg-white/95 backdrop-blur-sm rounded-xl p-6">
@@ -115,7 +115,7 @@ export default function PrintsSection() {
 
               {/* Step 3: Choose Size */}
               <div className="bg-white rounded-2xl p-8 mb-8 shadow-lg">
-                <h3 className="text-2xl font-bold text-brand-darkest mb-6 text-center">
+                <h3 className="text-2xl font-normal text-brand-darkest mb-6 text-center">
                   Step 3: Choose Size
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -138,7 +138,7 @@ export default function PrintsSection() {
 
               {/* Step 4: Choose Material */}
               <div className="bg-white rounded-2xl p-8 mb-8 shadow-lg">
-                <h3 className="text-2xl font-bold text-brand-darkest mb-6 text-center">
+                <h3 className="text-2xl font-normal text-brand-darkest mb-6 text-center">
                   Step 4: Choose Material
                 </h3>
                 <div className="grid md:grid-cols-2 gap-4">
@@ -164,7 +164,7 @@ export default function PrintsSection() {
 
               {/* Step 5: Framed or Unframed */}
               <div className="bg-white rounded-2xl p-8 mb-8 shadow-lg">
-                <h3 className="text-2xl font-bold text-brand-darkest mb-6 text-center">
+                <h3 className="text-2xl font-normal text-brand-darkest mb-6 text-center">
                   Step 5: Framed or Unframed?
                 </h3>
                 <div className="grid md:grid-cols-2 gap-6 mb-6">
@@ -200,7 +200,7 @@ export default function PrintsSection() {
                 {/* Frame Color Selection */}
                 {isFramed && (
                   <div className="border-t-2 border-brand-light pt-6">
-                    <h4 className="font-bold text-lg text-brand-darkest mb-4 text-center">
+                    <h4 className="font-normal text-lg text-brand-darkest mb-4 text-center">
                       Plastic Frame - Choose Color:
                     </h4>
                     <div className="grid grid-cols-3 gap-4">
@@ -239,7 +239,7 @@ export default function PrintsSection() {
               {/* Order Summary & Add to Cart */}
               {selectedSize && selectedMaterial && isFramed !== null && (
                 <div className="bg-gradient-to-br from-brand-dark to-brand-darkest rounded-2xl p-8 shadow-2xl text-white">
-                  <h3 className="text-2xl font-bold mb-6 text-center">Order Summary</h3>
+                  <h3 className="text-2xl font-normal mb-6 text-center">Order Summary</h3>
                   <div className="space-y-3 mb-6">
                     <div className="flex justify-between">
                       <span>Size:</span>

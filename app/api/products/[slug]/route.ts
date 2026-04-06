@@ -3,9 +3,16 @@
  * GET /api/products/[slug] — Get full product details by slug
  */
 import { NextResponse } from "next/server";
-import { getDb, shopProducts, shopCategories, eq } from "@/lib/db";
-import { buildProductPreviewUrl, parseRequiresQrCode } from "@/lib/product-watermark";
+import { getDb, shopProducts, shopCategories, shopProductImages, eq } from "@/lib/db";
+import { asc } from "drizzle-orm";
+import {
+  buildProductPreviewUrl,
+  parseRequiresQrCode,
+  parseFamilyKey,
+  parseSemanticProductType,
+} from "@/lib/product-watermark";
 import { computeRetailPrice, parsePricingSettings } from "@/lib/product-pricing";
+import { buildStorefrontProductImageRows } from "@/lib/storefront-product-image-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -89,17 +96,25 @@ export async function GET(
       gallery = [];
     }
 
+    const imageRows = await db
+      .select()
+      .from(shopProductImages)
+      .where(eq(shopProductImages.productId, product.id))
+      .orderBy(asc(shopProductImages.sortOrder))
+      .all();
+    const productImages = buildStorefrontProductImageRows(
+      product.id,
+      product.heroImage,
+      product.galleryImages,
+      imageRows
+    );
+
     let printfulData: any = {};
     try {
       printfulData = product.printfulDataJson ? JSON.parse(product.printfulDataJson) : {};
     } catch {
       printfulData = {};
     }
-
-    const fallbackHero =
-      printfulData?.variant?.image ||
-      printfulData?.product?.image ||
-      null;
 
     const printfulBasePrice = toNumber(
       product.printfulBasePrice,
@@ -114,13 +129,6 @@ export async function GET(
       artistRoyalty,
     });
 
-    const fallbackGallery: string[] = Array.isArray(printfulData?.variantImages)
-      ? printfulData.variantImages
-          .map((v: any) => (typeof v?.image === "string" ? v.image : null))
-          .filter((url: string | null): url is string => !!url)
-      : [];
-
-    const finalGallery = gallery.length > 0 ? gallery : fallbackGallery;
     const requiresQrCode =
       parseRequiresQrCode(product.printfulDataJson) ??
       (category?.requiresQrCode ?? false);
@@ -132,16 +140,15 @@ export async function GET(
         taeId: product.taeId,
         slug: product.slug,
         name: product.name,
+        productType: parseSemanticProductType(product.printfulDataJson),
         description: cleanDescription(product.description),
         heroImage: product.heroImage
           ? buildProductPreviewUrl(product.id, "hero")
-          : fallbackHero,
-        galleryImages:
-          gallery.length > 0
-            ? finalGallery.map((_url, idx) =>
-                buildProductPreviewUrl(product.id, "gallery", idx)
-              )
-            : finalGallery,
+          : null,
+        galleryImages: gallery.map((_url, idx) =>
+          buildProductPreviewUrl(product.id, "gallery", idx)
+        ),
+        productImages,
         basePrice,
         printfulBasePrice,
         taeAddOnFee,
@@ -160,6 +167,9 @@ export async function GET(
         requiredPlacements: product.requiredPlacements,
         qrDefaultPosition: product.qrDefaultPosition,
         proofTerms: getProofTerms(product.printfulDataJson),
+        printfulDataJson: product.printfulDataJson,
+        familyKey: parseFamilyKey(product.printfulDataJson) || null,
+        customizable: printfulData?.customizable !== false,
         requiresQrCode,
         category: category
           ? {

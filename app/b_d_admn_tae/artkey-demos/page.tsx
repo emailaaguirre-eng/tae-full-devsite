@@ -295,7 +295,7 @@ export default function AdminArtKeyDemosPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-brand-dark font-playfair">ArtKey Demo Builder</h1>
+          <h1 className="text-2xl font-normal text-brand-dark font-playfair">ArtKey Demo Builder</h1>
           <p className="text-sm text-brand-medium mt-1">
             Create ArtKey portals with unique URLs and QR codes
           </p>

@@ -14,6 +14,11 @@ import { saveDatabase } from "@/db";
 import { generateId } from "@/lib/db";
 import { getPrintfiles } from "@/lib/printful";
 import { parsePrintAreaSpec, resolvePrintArea } from "@/lib/print-area-specs";
+import {
+  parseVariantMatrix,
+  resolveShopProductPrintfulIds,
+} from "@/lib/product-watermark";
+import { SUPPORTED_PROOF_PREVIEW_PRINTFUL_PRODUCT_IDS } from "@/lib/proof-preview-mockup";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +30,23 @@ export async function POST() {
     const products = await db.select().from(shopProducts).all();
 
     const uniqueProductIds = new Set<number>();
-    products.forEach((p) => {
-      if (p.printfulProductId) uniqueProductIds.add(p.printfulProductId);
-    });
+    for (const p of products) {
+      const resolved = resolveShopProductPrintfulIds(p);
+      if (resolved.printfulProductId) {
+        uniqueProductIds.add(resolved.printfulProductId);
+      }
+      for (const row of parseVariantMatrix(p.printfulDataJson)) {
+        const pid = Math.trunc(Number(row.printfulProductId));
+        if (Number.isFinite(pid) && pid > 0) uniqueProductIds.add(pid);
+      }
+    }
+
+    // Always sync catalog IDs we support for print proof, even when ShopProduct is empty
+    // (e.g. serverless DB path mismatch) or variantMatrix fails to parse — otherwise
+    // uniqueProductIds stays empty → results: [] and PrintAreaSpec never writes.
+    for (const id of SUPPORTED_PROOF_PREVIEW_PRINTFUL_PRODUCT_IDS) {
+      uniqueProductIds.add(id);
+    }
 
     if (DEBUG) console.log(`[sync-printspecs] Fetching specs for ${uniqueProductIds.size} product types`);
 

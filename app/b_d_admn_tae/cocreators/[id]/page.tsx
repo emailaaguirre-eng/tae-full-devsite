@@ -161,7 +161,7 @@ export default function AdminCoCreatorEditPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">Edit CoCreator</h1>
+          <h1 className="text-2xl font-normal text-gray-900">Edit CoCreator</h1>
           <p className="text-sm text-gray-500">{item.name}</p>
         </div>
         <button

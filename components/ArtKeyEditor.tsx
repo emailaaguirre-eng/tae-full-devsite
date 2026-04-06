@@ -9,7 +9,7 @@
  *   Alt: #ECECE9
  *   Accent: #353535
  */
-import React, { useEffect, useMemo, useState, Suspense } from 'react';
+import React, { useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { ARTKEY_ADMIN_DASHBOARD_PATH } from '@/lib/routes';
@@ -32,6 +32,8 @@ import {
 } from './artkey/ElegantIcons';
 import { AdvancedColorPickerPopover } from './artkey/AdvancedColorPickerPopover';
 import { CustomIcon } from './CustomIcons';
+import { GuestbookModerationPanel } from './GuestbookModerationPanel';
+import { normalizeFavoriteBodyFromRaw } from '@/app/art-key/[token]/_shared';
 
 function isElegantIconKey(value: string): value is ElegantIconKey {
   return Object.prototype.hasOwnProperty.call(ELEGANT_ICONS, value);
@@ -42,6 +44,64 @@ const COLOR_PRIMARY = '#FFFFFF';
 const COLOR_ALT = '#ECECE9';
 const COLOR_ACCENT = '#353535';
 
+const MAX_PORTAL_FAVORITES = 6;
+
+/** Portals saved before Favorites was a featureDef row still get a reorderable Favorites action. */
+function mergeFavoritesFeatureDef(defs: unknown[]) {
+  const arr = Array.isArray(defs) ? defs : [];
+  if (arr.some((f: any) => f?.key === 'favorites')) return arr.map((f: any) => ({ ...f }));
+  return [
+    ...arr,
+    {
+      key: 'favorites',
+      label: '⭐ Favorites',
+      field: 'enable_favorites',
+      type: 'feature' as const,
+      enabled: true,
+    },
+  ];
+}
+
+const CONTINUING_STORY_FEATURE_DEF = {
+  key: 'continuing_story',
+  label: '📜 Continuing Story',
+  type: 'coming_soon' as const,
+  enabled: false,
+};
+
+/** Ensures Continuing Story appears in the button list (non-toggleable); dedupes legacy rows. */
+function ensureContinuingStoryFeatureDef(defs: unknown[]) {
+  const arr = (Array.isArray(defs) ? defs : []).map((f: any) => ({ ...f }));
+  const dupIdxs = arr.map((f: any, i: number) => (f?.key === 'continuing_story' ? i : -1)).filter((i) => i >= 0);
+  if (dupIdxs.length > 1) {
+    dupIdxs
+      .slice(1)
+      .sort((a, b) => b - a)
+      .forEach((i) => arr.splice(i, 1));
+  }
+  let idx = arr.findIndex((f: any) => f?.key === 'continuing_story');
+  if (idx >= 0) {
+    arr[idx] = { ...CONTINUING_STORY_FEATURE_DEF };
+    return arr;
+  }
+  const favIdx = arr.findIndex((f: any) => f?.key === 'favorites');
+  if (favIdx >= 0) {
+    arr.splice(favIdx + 1, 0, { ...CONTINUING_STORY_FEATURE_DEF });
+    return arr;
+  }
+  const firstLinkIdx = arr.findIndex((f: any) => f?.type === 'custom_link');
+  if (firstLinkIdx >= 0) {
+    arr.splice(firstLinkIdx, 0, { ...CONTINUING_STORY_FEATURE_DEF });
+    return arr;
+  }
+  arr.push({ ...CONTINUING_STORY_FEATURE_DEF });
+  return arr;
+}
+
+function normalizePortalFeatureDefs(defs: unknown[]) {
+  return ensureContinuingStoryFeatureDef(mergeFavoritesFeatureDef(defs));
+}
+
 interface ArtKeyEditorProps {
   artkeyId?: string | null;
 }
@@ -50,6 +110,21 @@ interface Link {
   label: string;
   url: string;
 }
+
+type PortalAccordionId =
+  | 'choosePath'
+  | 'chooseTemplate'
+  | 'selectBackground'
+  | 'branding'
+  | 'buttonStyle'
+  | 'addButtons'
+  | 'configureButtons';
+
+type PortalSaveIssue = {
+  message: string;
+  accordion: PortalAccordionId;
+  featureIndex?: number;
+};
 
 interface ArtKeyData {
   title: string;
@@ -79,6 +154,7 @@ interface ArtKeyData {
     show_guestbook: boolean;
     enable_custom_links: boolean;
     enable_spotify: boolean;
+    enable_favorites: boolean;
     allow_img_uploads: boolean;
     allow_vid_uploads: boolean;
     gb_btn_view: boolean;
@@ -93,6 +169,30 @@ interface ArtKeyData {
   uploadedImages: string[];
   uploadedVideos: string[];
   customizations: Record<string, any>;
+}
+
+function isValidHttpUrl(s: string): boolean {
+  const t = (s || '').trim();
+  if (!t) return false;
+  try {
+    const u = new URL(t);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function isLikelySpotifyPlaylistUrl(s: string): boolean {
+  const t = (s || '').trim().toLowerCase();
+  if (t.length < 12) return false;
+  return t.includes('spotify.com') || t.includes('open.spotify.com');
+}
+
+function isVideoFeatureComplete(data: ArtKeyData): boolean {
+  const fv = data.featured_video;
+  if (fv?.video_url && String(fv.video_url).trim()) return true;
+  if (Array.isArray(data.uploadedVideos) && data.uploadedVideos.length > 0) return true;
+  return false;
 }
 
 function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
@@ -166,7 +266,33 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     button: 1,
   });
   const [openedGallery, setOpenedGallery] = useState<'images' | 'videos' | null>(null); // Track which gallery is opened
-  
+
+  const [openPortalAccordion, setOpenPortalAccordion] = useState<PortalAccordionId | null>('choosePath');
+  const [expandedFeatureIndex, setExpandedFeatureIndex] = useState<number | null>(null);
+  const accordionRefChoosePath = useRef<HTMLDivElement>(null);
+  const accordionRefChooseTemplate = useRef<HTMLDivElement>(null);
+  const accordionRefSelectBackground = useRef<HTMLDivElement>(null);
+  const accordionRefBranding = useRef<HTMLDivElement>(null);
+  const accordionRefButtonStyle = useRef<HTMLDivElement>(null);
+  const accordionRefAddButtons = useRef<HTMLDivElement>(null);
+  const accordionRefConfigureButtons = useRef<HTMLDivElement>(null);
+  const accordionScrollRefs: Record<PortalAccordionId, React.RefObject<HTMLDivElement | null>> = {
+    choosePath: accordionRefChoosePath,
+    chooseTemplate: accordionRefChooseTemplate,
+    selectBackground: accordionRefSelectBackground,
+    branding: accordionRefBranding,
+    buttonStyle: accordionRefButtonStyle,
+    addButtons: accordionRefAddButtons,
+    configureButtons: accordionRefConfigureButtons,
+  };
+
+  useEffect(() => {
+    if (designMode === null) {
+      setOpenPortalAccordion('choosePath');
+      setExpandedFeatureIndex(null);
+    }
+  }, [designMode]);
+
   // QR Code & Skeleton Key state (only for cards/invitations/postcards)
   const [productInfo, setProductInfo] = useState<any>(null);
   const [skeletonKey, setSkeletonKey] = useState<string>('template-1');
@@ -223,6 +349,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       vid_require_approval: true,
       enable_custom_links: false,
       enable_spotify: false,
+      enable_favorites: false,
       order: ['gallery', 'guestbook', 'video'],
     },
     uploadedImages: [],
@@ -304,11 +431,21 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           const uploadedImages = typeof d.uploadedImages === 'string' ? JSON.parse(d.uploadedImages) : (d.uploadedImages || []);
           const uploadedVideos = typeof d.uploadedVideos === 'string' ? JSON.parse(d.uploadedVideos) : (d.uploadedVideos || []);
 
+          const legacyFavoritesActive =
+            Array.isArray(customizations?.favorites) &&
+            customizations.favorites.some((item: any) => normalizeFavoriteBodyFromRaw(item) !== null);
+
           setArtKeyData(prev => ({
             ...prev,
             title: d.title || prev.title,
             theme: { ...prev.theme, ...theme },
-            features: { ...prev.features, ...features },
+            features: {
+              ...prev.features,
+              ...features,
+              ...(!('enable_favorites' in features) && legacyFavoritesActive
+                ? { enable_favorites: true }
+                : {}),
+            },
             links: links,
             spotify: spotify,
             featured_video: featuredVideo,
@@ -318,9 +455,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           }));
           if (links.length > 0) setCustomLinks(links);
           if (Array.isArray(customizations?.featureDefs) && customizations.featureDefs.length > 0) {
-            setFeatureDefs(customizations.featureDefs.map((f: any) => ({ ...f, enabled: f?.enabled !== false })));
+            setFeatureDefs(
+              normalizePortalFeatureDefs(
+                customizations.featureDefs.map((f: any) => ({ ...f, enabled: f?.enabled !== false }))
+              )
+            );
           } else {
-            const baseFeatures = featureDefsDefault.map((f) => ({ ...f, enabled: true }));
+            const baseFeatures = defaultFeatureDefsWithFeaturesOn();
             const linkFeatures = links.map((link: Link, idx: number) => ({
               key: `custom_link_${idx}_${Date.now()}`,
               label: link.label,
@@ -329,7 +470,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               linkData: link,
               enabled: true,
             }));
-            setFeatureDefs([...baseFeatures, ...linkFeatures]);
+            setFeatureDefs(normalizePortalFeatureDefs([...baseFeatures, ...linkFeatures]));
           }
           setPortalLoaded(true);
         }
@@ -345,13 +486,27 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         if (stored) {
           const savedData = JSON.parse(stored);
           console.log('[ARTKEY EDITOR] Loaded from localStorage:', id);
-          setArtKeyData(savedData);
+          const feats = savedData.features || {};
+          const favLegacy =
+            Array.isArray(savedData.customizations?.favorites) &&
+            savedData.customizations.favorites.some((item: any) => normalizeFavoriteBodyFromRaw(item) !== null);
+          setArtKeyData({
+            ...savedData,
+            features: {
+              ...feats,
+              ...(!('enable_favorites' in feats) ? { enable_favorites: !!favLegacy } : {}),
+            },
+          });
           setCustomLinks(savedData.links || []);
           if (savedData.featureDefs) {
-            setFeatureDefs(savedData.featureDefs.map((f: any) => ({ ...f, enabled: f?.enabled !== false })));
+            setFeatureDefs(
+              normalizePortalFeatureDefs(
+                savedData.featureDefs.map((f: any) => ({ ...f, enabled: f?.enabled !== false }))
+              )
+            );
           } else {
             // Rebuild featureDefs from customLinks if not saved
-            const baseFeatures = featureDefsDefault.map((f) => ({ ...f, enabled: true }));
+            const baseFeatures = defaultFeatureDefsWithFeaturesOn();
             const linkFeatures = (savedData.links || []).map((link: Link, idx: number) => ({
               key: `custom_link_${idx}_${Date.now()}`,
               label: link.label,
@@ -360,7 +515,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               linkData: link,
               enabled: true,
             }));
-            setFeatureDefs([...baseFeatures, ...linkFeatures]);
+            setFeatureDefs(normalizePortalFeatureDefs([...baseFeatures, ...linkFeatures]));
           }
           if (savedData.customizations?.skeleton_key) {
             setSkeletonKey(savedData.customizations.skeleton_key);
@@ -377,15 +532,30 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       if (!res.ok) return;
       const data = await res.json();
       if (data?.data) {
-        setArtKeyData(data.data);
-        setCustomLinks(data.data.links || []);
-        const apiCustomizations = data.data.customizations || {};
+        const raw = data.data;
+        const fd = raw.features || {};
+        const apiCustomizations = raw.customizations || {};
+        const favLegacy =
+          Array.isArray(apiCustomizations?.favorites) &&
+          apiCustomizations.favorites.some((item: any) => normalizeFavoriteBodyFromRaw(item) !== null);
+        setArtKeyData({
+          ...raw,
+          features: {
+            ...fd,
+            ...(!('enable_favorites' in fd) && favLegacy ? { enable_favorites: true } : {}),
+          },
+        });
+        setCustomLinks(raw.links || []);
         if (Array.isArray(apiCustomizations?.featureDefs) && apiCustomizations.featureDefs.length > 0) {
-          setFeatureDefs(apiCustomizations.featureDefs.map((f: any) => ({ ...f, enabled: f?.enabled !== false })));
+          setFeatureDefs(
+            normalizePortalFeatureDefs(
+              apiCustomizations.featureDefs.map((f: any) => ({ ...f, enabled: f?.enabled !== false }))
+            )
+          );
         } else {
           // Rebuild featureDefs from customLinks
-          const baseFeatures = featureDefsDefault.map((f) => ({ ...f, enabled: true }));
-          const linkFeatures = (data.data.links || []).map((link: Link, idx: number) => ({
+          const baseFeatures = defaultFeatureDefsWithFeaturesOn();
+          const linkFeatures = (raw.links || []).map((link: Link, idx: number) => ({
             key: `custom_link_${idx}_${Date.now()}`,
             label: link.label,
             field: `custom_link_${idx}`,
@@ -393,13 +563,13 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             linkData: link,
             enabled: true,
           }));
-          setFeatureDefs([...baseFeatures, ...linkFeatures]);
+          setFeatureDefs(normalizePortalFeatureDefs([...baseFeatures, ...linkFeatures]));
         }
-        if (data.data.customizations?.skeleton_key) {
-          setSkeletonKey(data.data.customizations.skeleton_key);
+        if (raw.customizations?.skeleton_key) {
+          setSkeletonKey(raw.customizations.skeleton_key);
         }
-        if (data.data.customizations?.qr_position) {
-          setQrPosition(data.data.customizations.qr_position);
+        if (raw.customizations?.qr_position) {
+          setQrPosition(raw.customizations.qr_position);
         }
       }
     } catch (e) {
@@ -498,12 +668,25 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   ];
 
   const featureDefsDefault = [
-    { key: 'spotify', label: '🎵 Share Your Playlist', field: 'enable_spotify', type: 'feature', enabled: true },
+    { key: 'spotify', label: '🎵 Playlist (Spotify)', field: 'enable_spotify', type: 'feature', enabled: true },
     { key: 'gallery', label: '📸 Image Gallery', field: 'enable_gallery', type: 'feature', enabled: true },
     { key: 'guestbook', label: '📖 Guestbook', field: 'show_guestbook', type: 'feature', enabled: true },
-    { key: 'video', label: '🎥 Video Gallery', field: 'enable_video', type: 'feature', enabled: true },
+    { key: 'video', label: '🎥 Featured Video · Video Gallery', field: 'enable_video', type: 'feature', enabled: true },
+    { key: 'favorites', label: '⭐ Favorites', field: 'enable_favorites', type: 'feature', enabled: true },
+    { ...CONTINUING_STORY_FEATURE_DEF },
   ];
-  const [featureDefs, setFeatureDefs] = useState<Array<typeof featureDefsDefault[0] & { type?: 'feature' | 'custom_link'; linkData?: Link }>>(featureDefsDefault);
+  const defaultFeatureDefsWithFeaturesOn = () =>
+    featureDefsDefault.map((f) =>
+      f.type === 'coming_soon' ? { ...f, enabled: false } : { ...f, enabled: true }
+    );
+  const [featureDefs, setFeatureDefs] = useState<
+    Array<
+      (typeof featureDefsDefault)[0] & {
+        type?: 'feature' | 'custom_link' | 'coming_soon';
+        linkData?: Link;
+      }
+    >
+  >(() => normalizePortalFeatureDefs(featureDefsDefault));
   const [editingFeatureIndex, setEditingFeatureIndex] = useState<number | null>(null);
   const [editFeatureLabel, setEditFeatureLabel] = useState('');
   const [draggedFeature, setDraggedFeature] = useState<number | null>(null);
@@ -539,6 +722,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     if (tpl.buttonShape) setButtonShape(tpl.buttonShape);
     if (tpl.buttonStyle) setButtonStyle(tpl.buttonStyle);
     setHeaderIcon(tpl.headerIcon || 'none');
+    setOpenPortalAccordion('configureButtons');
   };
 
   const handleColorSelect = (color: typeof buttonColors[0], type: 'button' | 'title' | 'background') => {
@@ -742,6 +926,52 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     }
   };
 
+  const getFavoritesFromState = () => {
+    const raw = artKeyData.customizations?.favorites;
+    return Array.isArray(raw) ? raw : [];
+  };
+
+  const updatePortalFavorites = (next: any[]) => {
+    const capped = next.slice(0, MAX_PORTAL_FAVORITES);
+    setArtKeyData((prev) => ({
+      ...prev,
+      customizations: { ...prev.customizations, favorites: capped },
+    }));
+  };
+
+  const handleFavoriteImageUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.[0]) return;
+    const auth = resolveUploadAuth();
+    if (!auth.publicToken) {
+      notifyUploadError('Upload requires a saved portal token. Save the portal first, then upload.');
+      return;
+    }
+    const file = files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('publicToken', auth.publicToken);
+    if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
+    try {
+      const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
+      if (res.ok) {
+        const result = await res.json();
+        const url = result.url || result.fileUrl;
+        const list = [...getFavoritesFromState()];
+        const cur = { ...(list[index] || {}) };
+        cur.thumbnailUrl = url;
+        list[index] = cur;
+        updatePortalFavorites(list);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        notifyUploadError(err?.error || 'Favorite image upload failed');
+      }
+    } catch {
+      notifyUploadError('Favorite image upload failed');
+    }
+    e.target.value = '';
+  };
+
   const handleSave = async (redirectToShop = false) => {
     if (isSaving) return;
     setIsSaving(true);
@@ -750,14 +980,42 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       const buildArtKeyPortalUrl = (publicToken: string) => `https://${artKeyDomain}/${publicToken}`;
       // QR placement is handled in the Customization Studio canvas, not here
 
+      const favoritesRaw = Array.isArray(artKeyData.customizations?.favorites)
+        ? artKeyData.customizations.favorites
+        : [];
+      const favoritesSanitized = favoritesRaw
+        .map((item: any, index: number) => {
+          const body = normalizeFavoriteBodyFromRaw(item);
+          if (!body) return null;
+          let id = String(item?.id || '').trim();
+          if (!id && typeof crypto !== 'undefined' && crypto.randomUUID) id = crypto.randomUUID();
+          if (!id) {
+            id = `fav-${index}-${(body.linkUrl || body.title || body.thumbnailUrl || body.description || 'x').slice(0, 48)}`;
+          }
+          const out: Record<string, any> = { id };
+          if (body.title) out.title = body.title;
+          if (body.description) out.description = body.description;
+          if (body.linkUrl) out.linkUrl = body.linkUrl;
+          if (body.thumbnailUrl) out.thumbnailUrl = body.thumbnailUrl;
+          return out;
+        })
+        .filter(Boolean)
+        .slice(0, MAX_PORTAL_FAVORITES);
+
+      const featureDefsForSave = featureDefs.map((f) => ({
+        ...f,
+        enabled: f.type === 'coming_soon' ? false : (f as any).enabled !== false,
+      }));
+
       // Include skeleton key and QR position in customizations if product requires QR
       const customizations = {
         ...artKeyData.customizations,
+        favorites: favoritesSanitized,
         ...(productInfo?.requiresQR || productInfo?.requiresSkeletonKey ? {
           skeleton_key: skeletonKey,
           qr_position: qrPosition,
         } : {}),
-        featureDefs: featureDefs.map((f) => ({ ...f, enabled: (f as any).enabled !== false })),
+        featureDefs: featureDefsForSave,
       };
 
       // Rebuild customLinks from enabled featureDefs custom_link entries
@@ -779,7 +1037,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         ...artKeyData,
         links: rebuiltCustomLinks.length > 0 ? rebuiltCustomLinks : customLinks,
         customizations,
-        featureDefs, // Save feature definitions including custom links
+        featureDefs: featureDefsForSave,
         token: artkeyId,
       };
 
@@ -880,6 +1138,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             quantity: 1,
             imageUrl: frontDesign?.dataUrl,
             source: 'shop' as const,
+            assignmentId: spec.assignmentId || undefined,
             productSlug: spec.productSlug || productSlugParam,
             printfulProductId: spec.printfulProductId,
             printfulVariantId: spec.printfulVariantId,
@@ -955,7 +1214,14 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       }
       
       const result = await res.json();
-      if (result.token) setSavedPortalToken(result.token);
+      if (result.token) {
+        setSavedPortalToken(result.token);
+        if (typeof window !== 'undefined' && result.owner_token) {
+          try {
+            sessionStorage.setItem(`portal_owner_${result.token}`, result.owner_token);
+          } catch {}
+        }
+      }
       const portalUrl = result.share_url || (result.token ? buildArtKeyPortalUrl(result.token) : '');
       
       // If coming from studio, build cart item with design files + ArtKey data
@@ -969,6 +1235,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           quantity: 1,
           imageUrl: frontDesign?.dataUrl,
           source: 'shop' as const,
+          assignmentId: spec.assignmentId || undefined,
           productSlug: spec.productSlug || productSlugParam,
           printfulProductId: spec.printfulProductId,
           printfulVariantId: spec.printfulVariantId,
@@ -1029,9 +1296,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     }
   };
 
-  const handleSaveAndContinue = () => handleSave(false);
-  const handleSaveAndCheckout = () => handleSave(true);
-
   const toggleFeature = (field: keyof ArtKeyData['features']) => {
     setArtKeyData((prev) => ({
       ...prev,
@@ -1044,6 +1308,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const previewButtons = useMemo(() => {
     const items: Array<{ label: string; href?: string }> = [];
     for (const f of featureDefs) {
+      if (f.type === 'coming_soon') continue;
       if ((f as any).enabled === false) continue;
       if (f.type === 'custom_link') {
         if (artKeyData.features.enable_custom_links && f.linkData) {
@@ -1066,10 +1331,188 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         items.push({ label: f.label || 'Guestbook', href: previewPortalToken ? `/art-key/${previewPortalToken}/guestbook` : undefined });
       } else if (f.key === 'spotify' && artKeyData.features.enable_spotify) {
         items.push({ label: f.label || 'Listen', href: previewPortalToken ? `/art-key/${previewPortalToken}/spotify` : undefined });
+      } else if (f.key === 'favorites' && artKeyData.features.enable_favorites) {
+        items.push({
+          label: f.label || 'Favorites',
+          href: previewPortalToken ? `/art-key/${previewPortalToken}/favorites` : undefined,
+        });
       }
     }
     return items;
   }, [featureDefs, artKeyData.features, artKeyData.featured_video, customLinks, previewPortalToken]);
+
+  const portalSaveValidation = useMemo(() => {
+    const issues: PortalSaveIssue[] = [];
+    if (designMode === null) {
+      issues.push({
+        message: 'Choose how to start: Use a Template or Build Manually.',
+        accordion: 'choosePath',
+      });
+    }
+    if (designMode !== null && !String(artKeyData.title || '').trim()) {
+      issues.push({
+        message: 'Add a portal title in Portal Design.',
+        accordion: 'branding',
+      });
+    }
+    featureDefs.forEach((f, idx) => {
+      if (f.type === 'coming_soon') return;
+      const isCustom = f.type === 'custom_link';
+      const on = isCustom ? (f as any).enabled !== false : !!(f.field && artKeyData.features[f.field]);
+      if (!on) return;
+      if (isCustom) {
+        const link = f.linkData;
+        const labelOk = link?.label?.trim();
+        const urlOk = link?.url && isValidHttpUrl(link.url);
+        if (!labelOk || !urlOk) {
+          issues.push({
+            message: `Link "${String(f.label || 'button')}": add a label and valid URL (https).`,
+            accordion: designMode === 'custom' ? 'addButtons' : 'configureButtons',
+            featureIndex: idx,
+          });
+        }
+        return;
+      }
+      if (f.key === 'spotify' && artKeyData.features.enable_spotify) {
+        if (!isLikelySpotifyPlaylistUrl(artKeyData.spotify?.url || '')) {
+          issues.push({
+            message: 'Spotify: add a playlist or show URL from Spotify.',
+            accordion: 'configureButtons',
+            featureIndex: idx,
+          });
+        }
+      }
+      if (f.key === 'gallery' && artKeyData.features.enable_gallery) {
+        if (!artKeyData.uploadedImages?.length) {
+          issues.push({
+            message: 'Image gallery: add at least one image.',
+            accordion: 'configureButtons',
+            featureIndex: idx,
+          });
+        }
+      }
+      if (f.key === 'video' && artKeyData.features.enable_video) {
+        if (!isVideoFeatureComplete(artKeyData)) {
+          issues.push({
+            message: 'Featured / video gallery: set a featured video or upload at least one video.',
+            accordion: 'configureButtons',
+            featureIndex: idx,
+          });
+        }
+      }
+      if (f.key === 'guestbook' && artKeyData.features.show_guestbook) {
+        if (artKeyData.features.gb_signing_status === 'scheduled') {
+          const start = String(artKeyData.features.gb_signing_start || '').trim();
+          const end = String(artKeyData.features.gb_signing_end || '').trim();
+          if (!start || !end) {
+            issues.push({
+              message: 'Guestbook: set start and end date/time for scheduled signing.',
+              accordion: 'configureButtons',
+              featureIndex: idx,
+            });
+          }
+        }
+      }
+      if (f.key === 'favorites' && artKeyData.features.enable_favorites) {
+        const raw = artKeyData.customizations?.favorites;
+        const list = Array.isArray(raw) ? raw : [];
+        const hasOne = list.some((item: any) => normalizeFavoriteBodyFromRaw(item) !== null);
+        if (!hasOne) {
+          issues.push({
+            message: 'Favorites: add at least one favorite (title, link, image, or description).',
+            accordion: 'configureButtons',
+            featureIndex: idx,
+          });
+        }
+      }
+    });
+    return {
+      blocked: issues.length > 0,
+      issues,
+      summary: issues.map((i) => i.message).join(' · '),
+    };
+  }, [designMode, artKeyData, featureDefs]);
+
+  const portalAccordionStatuses = useMemo(() => {
+    const choosePathIssue = portalSaveValidation.issues.some((i) => i.accordion === 'choosePath');
+    const brandingIssue = portalSaveValidation.issues.some((i) => i.accordion === 'branding');
+    const addButtonsIssue = portalSaveValidation.issues.some((i) => i.accordion === 'addButtons');
+    const configureButtonsIssue = portalSaveValidation.issues.some((i) => i.accordion === 'configureButtons');
+    return {
+      choosePath: choosePathIssue ? 'needs-setup' : 'complete',
+      chooseTemplate: 'complete' as const,
+      selectBackground: 'complete' as const,
+      branding: brandingIssue ? 'needs-setup' : 'complete',
+      buttonStyle: 'complete' as const,
+      addButtons: addButtonsIssue ? 'needs-setup' : 'complete',
+      configureButtons: configureButtonsIssue ? 'needs-setup' : 'complete',
+    };
+  }, [designMode, portalSaveValidation.issues]);
+
+  const customerPortalBlocked = editorMode === 'customer' && portalSaveValidation.blocked;
+
+  const focusFirstPortalIssue = () => {
+    const first = portalSaveValidation.issues[0];
+    if (!first) return;
+    setOpenPortalAccordion(first.accordion);
+    if (first.featureIndex != null) setExpandedFeatureIndex(first.featureIndex);
+    requestAnimationFrame(() => {
+      accordionScrollRefs[first.accordion]?.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  };
+
+  const promptPortalIncompleteThenFocus = () => {
+    focusFirstPortalIssue();
+    const detail =
+      portalSaveValidation.issues.length > 0
+        ? portalSaveValidation.summary
+        : 'Complete the required items in the sections below.';
+    setSaveModal({
+      show: true,
+      url: '',
+      message: `Finish your portal before continuing. Still needed: ${detail}`,
+    });
+  };
+
+  const handleSaveAndContinue = () => {
+    if (isSaving) return;
+    if (editorMode === 'customer' && portalSaveValidation.blocked) {
+      promptPortalIncompleteThenFocus();
+      return;
+    }
+    handleSave(true);
+  };
+
+  const handleSaveAndCheckout = () => {
+    if (isSaving) return;
+    if (editorMode === 'customer' && portalSaveValidation.blocked) {
+      promptPortalIncompleteThenFocus();
+      return;
+    }
+    handleSave(true);
+  };
+
+  const featureTypeLabel = (f: (typeof featureDefs)[0]) => {
+    if (f.type === 'coming_soon' || f.key === 'continuing_story') return 'Continuing Story';
+    if (f.type === 'custom_link') return 'Link';
+    if (f.key === 'spotify') return 'Playlist (Spotify)';
+    if (f.key === 'gallery') return 'Image Gallery';
+    if (f.key === 'video') return 'Featured Video / Video Gallery';
+    if (f.key === 'guestbook') return 'Guestbook';
+    if (f.key === 'favorites') return 'Favorites';
+    return 'Feature';
+  };
+
+  const featureRowGateStatus = (idx: number): 'ready' | 'needs-setup' | 'off' => {
+    const f = featureDefs[idx];
+    if (f.type === 'coming_soon') return 'off';
+    const isCustom = f.type === 'custom_link';
+    const on = isCustom ? (f as any).enabled !== false : !!(f.field && artKeyData.features[f.field]);
+    if (!on) return 'off';
+    const hit = portalSaveValidation.issues.find((i) => i.featureIndex === idx);
+    if (hit) return 'needs-setup';
+    return 'ready';
+  };
 
   const handleAddLink = () => {
     if (!newLinkLabel || !newLinkUrl) return;
@@ -1280,6 +1723,326 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   };
   const handleLinkDragEnd = () => setDraggedLink(null);
 
+  function AddButtonsPanel() {
+    return (
+      <>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4 flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs">⋮⋮</span>
+                    <span className="text-[11px] text-slate-500">
+                      Choose which actions appear on your portal: <strong>Link</strong> (add below), <strong>Guestbook</strong>, <strong>Featured Video · Video Gallery</strong>, <strong>Image Gallery</strong>, <strong>Playlist</strong>, <strong>Favorites</strong>. Drag to reorder. Use <strong>Configure Buttons</strong> for uploads and settings.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {featureDefs.map((f, idx) => {
+                    const isCustomLink = f.type === 'custom_link';
+                    const isComingSoon = f.type === 'coming_soon';
+                    const rowStatus = featureRowGateStatus(idx);
+                    const rowStatusLabel = rowStatus === 'off' ? 'Off' : rowStatus === 'needs-setup' ? 'Needs setup' : 'Ready';
+                    const rowActive =
+                      !isComingSoon &&
+                      (isCustomLink ? (f as any).enabled : !!(f.field && artKeyData.features[f.field]));
+                    return (
+                      <div key={f.key} className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+                        {editingFeatureIndex === idx ? (
+                          // Edit mode
+                          <div className="p-3 rounded-xl border border-blue-200 bg-blue-50/50">
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                value={editFeatureLabel}
+                                onChange={(e) => setEditFeatureLabel(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
+                                autoFocus
+                                placeholder="Enter button name"
+                              />
+                              {isCustomLink && (
+                                <input
+                                  type="url"
+                                  value={editLinkUrl}
+                                  onChange={(e) => setEditLinkUrl(e.target.value)}
+                                  className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
+                                  placeholder="https://..."
+                                />
+                              )}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    if (editFeatureLabel.trim()) {
+                                      const updated = [...featureDefs];
+                                      if (isCustomLink) {
+                                        // Update custom link
+                                        const linkData = { label: editFeatureLabel, url: editLinkUrl };
+                                        updated[idx] = { ...updated[idx], label: editFeatureLabel, linkData };
+                                        // Update customLinks array - find by matching the old linkData
+                                        const oldLinkData = f.linkData;
+                                        if (oldLinkData) {
+                                          const linkIndex = customLinks.findIndex(l => l.url === oldLinkData.url && l.label === oldLinkData.label);
+                                          if (linkIndex >= 0) {
+                                            const newCustomLinks = [...customLinks];
+                                            newCustomLinks[linkIndex] = linkData;
+                                            setCustomLinks(newCustomLinks);
+                                            setArtKeyData((prev) => ({ ...prev, links: newCustomLinks }));
+                                          }
+                                        }
+                                      } else {
+                                        updated[idx] = { ...updated[idx], label: editFeatureLabel };
+                                      }
+                                      setFeatureDefs(updated);
+                                    }
+                                    setEditingFeatureIndex(null);
+                                    setEditFeatureLabel('');
+                                    setEditLinkUrl('');
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90"
+                                  style={{ background: '#1a1a2e', color: '#fff' }}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingFeatureIndex(null);
+                                    setEditFeatureLabel('');
+                                    setEditLinkUrl('');
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 hover:bg-gray-50 transition-all"
+                                >
+                                  Cancel
+                                </button>
+                                {isCustomLink && (
+                                  <button
+                                    onClick={() => {
+                                      const updated = featureDefs.filter((_, i) => i !== idx);
+                                      setFeatureDefs(updated);
+                                      const linkData = f.linkData;
+                                      if (linkData) {
+                                        const newCustomLinks = customLinks.filter(l => l.url !== linkData.url);
+                                        setCustomLinks(newCustomLinks);
+                                        setArtKeyData((prev) => ({ ...prev, links: newCustomLinks }));
+                                      }
+                                      setEditingFeatureIndex(null);
+                                      setEditFeatureLabel('');
+                                      setEditLinkUrl('');
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-red-600 ml-auto"
+                                    style={{ background: '#ef4444', color: '#fff' }}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                          <div
+                            onDragOver={(e) => handleFeatureDragOver(e, idx)}
+                            onDragEnd={handleFeatureDragEnd}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all group/row"
+                            style={{
+                              borderColor: rowActive ? '#c7d2fe' : '#f0f0f0',
+                              background: rowActive ? '#f8f9ff' : '#fafafa',
+                              opacity: draggedFeature === idx ? 0.5 : 1,
+                            }}
+                          >
+                            <div
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', String(idx));
+                                handleFeatureDragStart(idx);
+                              }}
+                              className="text-gray-300 group-hover/row:text-gray-400 transition-colors text-xs cursor-grab active:cursor-grabbing"
+                              title="Drag to reorder"
+                              aria-label="Drag to reorder"
+                            >
+                              ⋮⋮
+                            </div>
+                            {!isCustomLink && !isComingSoon && (
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFeature(f.field);
+                                }}
+                                className="w-9 h-5 rounded-full relative cursor-pointer transition-all"
+                                style={{ background: artKeyData.features[f.field] ? '#1a1a2e' : '#d1d5db' }}
+                              >
+                                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all" style={{ left: artKeyData.features[f.field] ? '18px' : '2px' }} />
+                              </div>
+                            )}
+                            {isComingSoon && (
+                              <div
+                                className="w-9 h-5 rounded-full relative shrink-0 cursor-not-allowed opacity-60"
+                                style={{ background: '#d1d5db' }}
+                                title="Coming soon"
+                                aria-hidden
+                              >
+                                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm" style={{ left: '2px' }} />
+                              </div>
+                            )}
+                            {isCustomLink && (
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const updated = [...featureDefs];
+                                  updated[idx] = { ...updated[idx], enabled: !(f as any).enabled };
+                                  setFeatureDefs(updated);
+                                }}
+                                className="w-9 h-5 rounded-full relative cursor-pointer transition-all"
+                                style={{ background: (f as any).enabled ? '#1a1a2e' : '#d1d5db' }}
+                              >
+                                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all" style={{ left: (f as any).enabled ? '18px' : '2px' }} />
+                              </div>
+                            )}
+                            <span 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isComingSoon) return;
+                                if (isCustomLink) {
+                                  const updated = [...featureDefs];
+                                  updated[idx] = { ...updated[idx], enabled: !(f as any).enabled };
+                                  setFeatureDefs(updated);
+                                } else if (f.field) {
+                                  toggleFeature(f.field);
+                                }
+                              }}
+                              className={`flex-1 text-xs font-medium ${isComingSoon ? 'cursor-default text-gray-500' : 'cursor-pointer'}`}
+                              style={{ color: isComingSoon ? undefined : '#333' }}
+                            >
+                              {f.label}
+                            </span>
+                            {isCustomLink && f.linkData && (
+                              <span
+                                className="text-[10px] text-gray-400 max-w-[80px] truncate hidden sm:block"
+                                title={f.linkData.url}
+                              >
+                                {f.linkData.url.replace('https://', '').replace('http://', '').substring(0, 20)}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-gray-500 hidden lg:inline max-w-[100px] truncate shrink-0">
+                              {featureTypeLabel(f)}
+                            </span>
+                            <span
+                              className={
+                                isComingSoon
+                                  ? 'text-[10px] px-2 py-0.5 rounded-full border border-amber-300 bg-white text-amber-900 font-medium shrink-0'
+                                  : `text-[10px] px-1.5 py-0.5 rounded border shrink-0 font-medium ${
+                                      rowStatus === 'ready'
+                                        ? 'border-emerald-200 text-emerald-800 bg-emerald-50'
+                                        : rowStatus === 'needs-setup'
+                                          ? 'border-amber-200 text-amber-900 bg-amber-50'
+                                          : 'border-gray-200 text-gray-500 bg-gray-50'
+                                    }`
+                              }
+                            >
+                              {isComingSoon ? 'Coming soon' : rowStatusLabel}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedFeatureIndex((prev) => (prev === idx ? null : idx));
+                                if (f.key === 'gallery') setOpenedGallery('images');
+                                if (f.key === 'video') setOpenedGallery('videos');
+                              }}
+                              className="text-gray-500 hover:text-gray-700 px-1.5 py-0.5 text-xs rounded border border-transparent hover:border-gray-200 shrink-0"
+                              aria-expanded={expandedFeatureIndex === idx}
+                              aria-label={expandedFeatureIndex === idx ? 'Collapse row details' : 'Expand row details'}
+                            >
+                              {expandedFeatureIndex === idx ? '▼' : '▶'}
+                            </button>
+                            {!isComingSoon && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingFeatureIndex(idx);
+                                  setEditFeatureLabel(f.label);
+                                  if (isCustomLink && f.linkData) {
+                                    setEditLinkUrl(f.linkData.url);
+                                  }
+                                }}
+                                className="text-gray-400 hover:text-gray-600 p-1.5 text-xs rounded-md hover:bg-gray-100 transition-all"
+                                title="Edit"
+                              >
+                                ✏️
+                              </button>
+                            )}
+                          </div>
+                        {expandedFeatureIndex === idx ? (
+                          <div className="border-t border-gray-100 bg-slate-50/80 px-3 py-3 text-xs text-gray-600 space-y-2">
+                            <p className="font-medium text-gray-700">{featureTypeLabel(f)}</p>
+                            {isComingSoon ? (
+                              <p>Continuing Story isn&apos;t available yet. It will show here when released.</p>
+                            ) : isCustomLink ? (
+                              <p>Edit the label and URL with the pencil icon, or use the toggle to disable this link.</p>
+                            ) : !(f.field && artKeyData.features[f.field]) ? (
+                              <p>Turn this row on to configure it. Use the <strong>Configure Buttons</strong> accordion for uploads and settings.</p>
+                            ) : f.key === 'spotify' ? (
+                              <p>Open <strong>Configure Buttons</strong> and set your Spotify playlist URL (and autoplay) there.</p>
+                            ) : f.key === 'gallery' ? (
+                              <p>In <strong>Configure Buttons</strong>, use <strong>Upload images</strong> (image gallery column).</p>
+                            ) : f.key === 'video' ? (
+                              <p>In <strong>Configure Buttons</strong>, set featured video and uploads in the video gallery column.</p>
+                            ) : f.key === 'guestbook' ? (
+                              <p>Guestbook signing and moderation are in <strong>Configure Buttons</strong> under Review / Actions.</p>
+                            ) : f.key === 'favorites' ? (
+                              <p>Edit favorite cards in <strong>Configure Buttons</strong>.</p>
+                            ) : (
+                              <p>Finish setup in <strong>Configure Buttons</strong> when this action is on.</p>
+                            )}
+                          </div>
+                        ) : null}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+            {/* Add New Link Button - Simplified */}
+              <Card title="Add Content">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wide" style={{ color: '#888' }}>Button Name</label>
+                    <input
+                      type="text"
+                      value={newLinkLabel}
+                      onChange={(e) => setNewLinkLabel(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
+                      placeholder="e.g., Instagram, Website, Portfolio"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wide" style={{ color: '#888' }}>URL</label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-400">🔗</span>
+                      <input
+                        type="url"
+                        value={newLinkUrl}
+                        onChange={(e) => setNewLinkUrl(e.target.value)}
+                        className="flex-1 px-3 py-2.5 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
+                        placeholder="https://..."
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleAddLink}
+                    className="w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                    style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)', color: '#fff' }}
+                  >
+                    + Add Link Button
+                  </button>
+                  <p className="text-[11px] text-gray-400 text-center">
+                    Adds a <strong>Link</strong> row above that you can toggle, edit, and reorder with other buttons.
+                  </p>
+                </div>
+              </Card>
+      </>
+    );
+  }
+
   return (
     <div style={{ background: '#f5f5f7' }} className="min-h-screen">
       {/* Top Bar */}
@@ -1303,7 +2066,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                 </button>
               )}
               <div>
-                <h1 className="text-lg sm:text-xl font-bold font-playfair text-white flex items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-normal font-playfair text-white flex items-center gap-2">
                   <span className="text-amber-400">✦</span>
                   {modeHeading}
                 </h1>
@@ -1319,9 +2082,21 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     Customizing: {customizationData.productName} - ${customizationData.totalPrice}
                   </p>
                 )}
+                {editorMode === 'customer' && customerPortalBlocked && (
+                  <p className="text-[11px] text-amber-200 max-w-xl mt-1.5 leading-snug">
+                    Finish setup before continuing: {portalSaveValidation.summary}
+                    <button
+                      type="button"
+                      onClick={focusFirstPortalIssue}
+                      className="ml-2 underline font-medium text-white hover:text-amber-100"
+                    >
+                      Go to first issue
+                    </button>
+                  </p>
+                )}
               </div>
             </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap items-center">
                 <button
                   onClick={() => handleSave(false)}
                   disabled={isSaving}
@@ -1335,7 +2110,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     <button
                       onClick={handleSaveAndContinue}
                       disabled={isSaving}
-                      className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50"
+                      title={
+                        customerPortalBlocked
+                          ? `${portalSaveValidation.summary} — click for details and jump to the first item`
+                          : undefined
+                      }
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed ${customerPortalBlocked && !isSaving ? 'ring-2 ring-amber-300/80 ring-offset-2 ring-offset-[#1a1a2e]' : ''}`}
                       style={{ background: 'rgba(255,255,255,0.95)', color: '#1a1a2e' }}
                     >
                       {isSaving ? 'Saving...' : 'Save & Continue →'}
@@ -1343,7 +2123,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     <button
                       onClick={handleSaveAndCheckout}
                       disabled={isSaving}
-                      className="px-4 py-2 rounded-lg font-semibold text-sm transition-all hover:opacity-90 disabled:opacity-50"
+                      title={
+                        customerPortalBlocked
+                          ? `${portalSaveValidation.summary} — click for details and jump to the first item`
+                          : undefined
+                      }
+                      className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed ${customerPortalBlocked && !isSaving ? 'ring-2 ring-amber-300/80 ring-offset-2 ring-offset-[#1a1a2e]' : ''}`}
                       style={{ background: 'linear-gradient(135deg, #C9A962, #D4AF37)', color: '#1a1a2e' }}
                     >
                       {isSaving ? 'Saving...' : 'Save & Checkout'}
@@ -1356,12 +2141,15 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Left Preview */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-24 border border-[#e2e2e0]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+          {/* Left Preview — stacked on small screens; fixed ~5/12 width from lg so controls stay primary */}
+          <div className="space-y-4 min-w-0 lg:col-span-5">
+            <div
+              id="artkey-live-preview"
+              className="bg-white rounded-2xl shadow-lg p-5 sm:p-6 border border-[#e2e2e0] max-w-md mx-auto w-full lg:max-w-none lg:mx-0 lg:sticky lg:top-24"
+            >
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold font-playfair" style={{ color: COLOR_ACCENT }}>Live Preview</h3>
+                <h3 className="text-lg font-normal font-playfair" style={{ color: COLOR_ACCENT }}>Live Preview</h3>
                 <div className="flex gap-2 p-1 rounded-lg" style={{ background: COLOR_ALT }}>
                   <button
                     onClick={() => setPreviewDevice('mobile')}
@@ -1381,9 +2169,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               </div>
 
               {previewDevice === 'mobile' && (
-                // Mobile preview: Fullscreen, no phone container
-                <div className="w-full rounded-xl overflow-hidden border-2" style={{ borderColor: '#e2e2e0', ...getPreviewBackground(), minHeight: '600px' }}>
-                  <div className="h-full w-full pt-6 pb-6 px-6 flex flex-col items-center text-center min-h-[600px]">
+                // Mobile preview: contained width so it does not dominate the column
+                <div
+                  className="w-full max-w-[380px] mx-auto rounded-xl overflow-hidden border-2"
+                  style={{ borderColor: '#e2e2e0', ...getPreviewBackground(), minHeight: '520px' }}
+                >
+                  <div className="h-full w-full pt-6 pb-6 px-5 flex flex-col items-center text-center min-h-[520px]">
                     {(artKeyData.theme.header_icon && artKeyData.theme.header_icon !== 'none') && (
                       <div className="mb-2 mt-16">
                         <ElegantIcon 
@@ -1395,7 +2186,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       </div>
                     )}
                     <h1
-                      className="text-2xl md:text-3xl font-bold mb-3 break-words"
+                      className="text-2xl md:text-3xl font-normal mb-3 break-words"
                       style={{
                         fontFamily: getFontFamily(artKeyData.theme.font),
                         color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
@@ -1482,7 +2273,7 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       </div>
                     )}
                     <h1
-                      className="text-2xl md:text-3xl font-bold mb-3 break-words"
+                      className="text-2xl md:text-3xl font-normal mb-3 break-words"
                       style={{
                         fontFamily: getFontFamily(artKeyData.theme.font),
                         color: artKeyData.theme.title_style === 'gradient' ? 'transparent' : artKeyData.theme.title_color,
@@ -1547,27 +2338,126 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
             </div>
           </div>
 
-          {/* Right Editor */}
-          <div className="space-y-6">
-            {/* Step 1 chooser */}
+          {/* Right Editor — same shell feel as preview: single panel, accordions nested inside */}
+          <div className="min-w-0 lg:col-span-7">
+            <div className="rounded-2xl border border-[#e2e2e0] bg-white shadow-lg p-5 sm:p-6 min-w-0 lg:sticky lg:top-24 space-y-4">
             {designMode === null && (
-              <Card title="Start Style" step="1">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <PrimaryButton onClick={() => setDesignMode('template')} icon={<CustomIcon name="art" size={40} color={COLOR_ACCENT} />} accent>
-                    Start with a Style
-                    <div className="text-sm text-[#444] mt-1">Pick a mini portal preview, then personalize it</div>
-                  </PrimaryButton>
-                  <PrimaryButton onClick={() => setDesignMode('custom')} icon={<CustomIcon name="sparkle" size={40} color={COLOR_ACCENT} />}>
-                    Start Blank
-                    <div className="text-sm text-[#444] mt-1">Begin with a clean ArtKey Portal canvas</div>
-                  </PrimaryButton>
-                </div>
-              </Card>
+              <PortalAccordionSection
+                sectionId="choosePath"
+                title="Choose a Starting Point"
+                status={portalAccordionStatuses.choosePath}
+                openSection={openPortalAccordion}
+                setOpenSection={setOpenPortalAccordion}
+                innerRef={accordionScrollRefs.choosePath}
+              >
+                <Card title="Choose a Starting Point" step="1">
+                  <p className="text-xs text-gray-500 mb-4">
+                    Pick <strong>Use a Template</strong> for a styled starting layout (background included), or <strong>Build Manually</strong> to start from a blank canvas and choose your background first.
+                  </p>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <PrimaryButton
+                      onClick={() => {
+                        setDesignMode('template');
+                        setOpenPortalAccordion('chooseTemplate');
+                      }}
+                      icon={<CustomIcon name="art" size={40} color={COLOR_ACCENT} />}
+                      accent
+                    >
+                      Use a Template
+                      <div className="text-sm text-[#444] mt-1">Pick a mini portal preview, then personalize it</div>
+                    </PrimaryButton>
+                    <PrimaryButton
+                      onClick={() => {
+                        setDesignMode('custom');
+                        setOpenPortalAccordion('selectBackground');
+                      }}
+                      icon={<CustomIcon name="sparkle" size={40} color={COLOR_ACCENT} />}
+                    >
+                      Build Manually
+                      <div className="text-sm text-[#444] mt-1">Begin with a clean ArtKey Portal canvas</div>
+                    </PrimaryButton>
+                  </div>
+                </Card>
+              </PortalAccordionSection>
             )}
 
-            {/* Template selection */}
-            {designMode === 'template' && (
-              <Card title="Start Style" step="1" onBack={() => setDesignMode(null)}>
+            {designMode !== null && (
+            <div className="flex flex-col gap-4 min-w-0">
+              <div className="order-1">
+                <PortalAccordionSection
+                  sectionId="choosePath"
+                  title="Choose a Starting Point"
+                  status={portalAccordionStatuses.choosePath}
+                  openSection={openPortalAccordion}
+                  setOpenSection={setOpenPortalAccordion}
+                  innerRef={accordionScrollRefs.choosePath}
+                >
+                  <Card title="Choose a Starting Point" step="1">
+                    <p className="text-sm mb-3" style={{ color: COLOR_ACCENT }}>
+                      Current path:{' '}
+                      <strong>{designMode === 'template' ? 'Use a Template' : 'Build Manually'}</strong>
+                    </p>
+                    <div className="flex flex-wrap gap-2.5">
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all hover:opacity-95 cursor-pointer shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                        style={{
+                          borderColor: '#1a1a2e',
+                          color: '#fff',
+                          background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                        }}
+                        onClick={() => {
+                          if (designMode === 'template') {
+                            setDesignMode('custom');
+                            setOpenPortalAccordion('selectBackground');
+                          } else {
+                            setDesignMode('template');
+                            setOpenPortalAccordion('chooseTemplate');
+                          }
+                        }}
+                      >
+                        {designMode === 'template' ? 'Switch to Build Manually' : 'Switch to Use a Template'}
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all hover:bg-gray-50 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                        style={{
+                          background: COLOR_PRIMARY,
+                          color: COLOR_ACCENT,
+                          borderColor: '#d8d8d6',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                        }}
+                        onClick={() => {
+                          setDesignMode(null);
+                          setOpenPortalAccordion('choosePath');
+                        }}
+                      >
+                        Change starting choice…
+                      </button>
+                    </div>
+                  </Card>
+                </PortalAccordionSection>
+              </div>
+
+              {designMode === 'template' && (
+              <div className="order-2">
+                <PortalAccordionSection
+                  sectionId="chooseTemplate"
+                  title="Choose a Template"
+                  status={portalAccordionStatuses.chooseTemplate}
+                  openSection={openPortalAccordion}
+                  setOpenSection={setOpenPortalAccordion}
+                  innerRef={accordionScrollRefs.chooseTemplate}
+                >
+                  <Card
+                    title="Choose a Template"
+                    step="2"
+                    onBack={() => {
+                      setDesignMode(null);
+                      setOpenPortalAccordion('choosePath');
+                    }}
+                  >
                 {/* Category Tabs */}
                 <div className="flex gap-1.5 mb-5 p-1 rounded-xl bg-gray-100">
                   {TEMPLATE_CATEGORIES.map((cat) => (
@@ -1678,11 +2568,21 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   </div>
                 </Carousel>
               </Card>
-            )}
+                </PortalAccordionSection>
+              </div>
+              )}
 
-            {/* Custom background */}
-            {designMode === 'custom' && (
-              <Card title="Start Style" step="1" onBack={() => setDesignMode(null)}>
+              {designMode === 'custom' && (
+              <div className="order-2">
+                <PortalAccordionSection
+                  sectionId="selectBackground"
+                  title="Select a Background"
+                  status={portalAccordionStatuses.selectBackground}
+                  openSection={openPortalAccordion}
+                  setOpenSection={setOpenPortalAccordion}
+                  innerRef={accordionScrollRefs.selectBackground}
+                >
+              <Card title="Select a Background" step="2" onBack={() => { setDesignMode(null); setOpenPortalAccordion('choosePath'); }}>
                 <Tabs value={bgTab} onChange={setBgTab} tabs={[
                   { id: 'solid', label: 'Solid Color' },
                   { id: 'stock', label: 'Stock Photos' },
@@ -1766,11 +2666,485 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   </button>
                 )}
               </Card>
+                </PortalAccordionSection>
+              </div>
+              )}
+
+              <div className={designMode === 'template' ? 'order-3' : 'order-6'}>
+            <PortalAccordionSection
+              sectionId="configureButtons"
+              title="Configure Buttons"
+              status={portalAccordionStatuses.configureButtons}
+              openSection={openPortalAccordion}
+              setOpenSection={setOpenPortalAccordion}
+              innerRef={accordionScrollRefs.configureButtons}
+            >
+            {designMode === 'template' && <AddButtonsPanel />}
+            {!(
+              artKeyData.features.enable_spotify ||
+              artKeyData.features.enable_gallery ||
+              artKeyData.features.enable_video ||
+              artKeyData.features.enable_favorites ||
+              artKeyData.features.show_guestbook
+            ) ? (
+              <p className="text-sm text-gray-500 px-1 py-2">
+                {designMode === 'template' ? (
+                  <>When you turn on actions in the list above, their setup (uploads, playlist URL, guestbook, favorites) will appear below.</>
+                ) : (
+                  <>When you turn on actions in <strong>Add Buttons</strong>, their setup (uploads, playlist URL, guestbook, favorites) will show up in this section.</>
+                )}
+              </p>
+            ) : null}
+
+            {(artKeyData.features.enable_spotify || artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
+            <div className="space-y-6 pt-2">
+            {/* Step 5 Spotify */}
+            {artKeyData.features.enable_spotify && (
+              <Card title="Playlist (Spotify)">
+                <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Playlist URL</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔗</span>
+                  <input
+                    type="url"
+                    value={artKeyData.spotify.url}
+                    onChange={(e) => setArtKeyData((prev) => ({ ...prev, spotify: { ...prev.spotify, url: e.target.value } }))}
+                    className="flex-1 px-3 py-2 rounded-lg text-sm"
+                    style={{ border: '1px solid #d8d8d6' }}
+                    placeholder="https://open.spotify.com/playlist/..."
+                  />
+                </div>
+                <label className="flex items-center gap-2 mt-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={artKeyData.spotify.autoplay}
+                    onChange={(e) => setArtKeyData((prev) => ({ ...prev, spotify: { ...prev.spotify, autoplay: e.target.checked } }))}
+                  />
+                  <span>Auto-play when page loads</span>
+                </label>
+              </Card>
             )}
 
+            {/* Step 6 Media */}
+            {(artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
+              <Card title="Upload images · Featured video & video gallery">
+                <div className="grid grid-cols-2 gap-4">
+                  <div 
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      !artKeyData.features.enable_gallery 
+                        ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200' 
+                        : openedGallery === 'videos'
+                        ? 'opacity-50 cursor-pointer bg-gray-100 border-gray-300'
+                        : openedGallery === 'images'
+                        ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                        : 'border-gray-300 bg-gray-50 cursor-pointer'
+                    }`}
+                    onClick={() => {
+                      if (artKeyData.features.enable_gallery) {
+                        setOpenedGallery(openedGallery === 'images' ? null : 'images');
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className={`font-semibold text-sm ${!artKeyData.features.enable_gallery ? 'text-gray-400' : ''}`}>
+                        📸 Image Gallery
+                      </h4>
+                      {openedGallery === 'images' && <span className="text-xs text-blue-600">▼ Open</span>}
+                      {openedGallery !== 'images' && artKeyData.features.enable_gallery && <span className="text-xs text-gray-500">▶ Closed</span>}
+                      {!artKeyData.features.enable_gallery && <span className="text-xs text-gray-400">Disabled</span>}
+                    </div>
+                    {openedGallery === 'images' && artKeyData.features.enable_gallery && (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <MediaColumn
+                          title="Images"
+                          items={artKeyData.uploadedImages}
+                          onRemove={(idx) => setArtKeyData((prev) => ({ ...prev, uploadedImages: prev.uploadedImages.filter((_, i) => i !== idx) }))}
+                          onUpload={handleImageUpload}
+                          accept="image/*"
+                          inputId="image-upload"
+                          buttonLabel="+ Upload"
+                          uploadStatus={imageUploadStatus}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div 
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      !artKeyData.features.enable_video 
+                        ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200' 
+                        : openedGallery === 'images'
+                        ? 'opacity-50 cursor-pointer bg-gray-100 border-gray-300'
+                        : openedGallery === 'videos'
+                        ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                        : 'border-gray-300 bg-gray-50 cursor-pointer'
+                    }`}
+                    onClick={() => {
+                      if (artKeyData.features.enable_video) {
+                        setOpenedGallery(openedGallery === 'videos' ? null : 'videos');
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className={`font-semibold text-sm ${!artKeyData.features.enable_video ? 'text-gray-400' : ''}`}>
+                        🎥 Video Gallery
+                      </h4>
+                      {openedGallery === 'videos' && <span className="text-xs text-blue-600">▼ Open</span>}
+                      {openedGallery !== 'videos' && artKeyData.features.enable_video && <span className="text-xs text-gray-500">▶ Closed</span>}
+                      {!artKeyData.features.enable_video && <span className="text-xs text-gray-400">Disabled</span>}
+                    </div>
+                    {openedGallery === 'videos' && artKeyData.features.enable_video && (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <MediaColumn
+                          title="Videos"
+                          items={artKeyData.uploadedVideos}
+                          onRemove={(idx) => {
+                            const removedUrl = artKeyData.uploadedVideos[idx];
+                            setArtKeyData((prev) => {
+                              const newVideos = prev.uploadedVideos.filter((_, i) => i !== idx);
+                              const newFeatured = prev.featured_video?.video_url === removedUrl ? null : prev.featured_video;
+                              return { ...prev, uploadedVideos: newVideos, featured_video: newFeatured };
+                            });
+                          }}
+                          onUpload={handleVideoUpload}
+                          accept="video/*"
+                          inputId="video-upload"
+                          buttonLabel="+ Upload"
+                          isVideo
+                          featuredVideoUrl={artKeyData.featured_video?.video_url || null}
+                          onSetFeatured={handleSetFeaturedVideo}
+                          featuredVideoLabel={artKeyData.featured_video?.button_label}
+                          uploadStatus={videoUploadStatus}
+                          onUpdateFeaturedLabel={(label) => {
+                            if (artKeyData.featured_video) {
+                              setArtKeyData((prev) => ({
+                                ...prev,
+                                featured_video: prev.featured_video ? { ...prev.featured_video, button_label: label } : null,
+                              }));
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
+            </div>
+            )}
+
+            {artKeyData.features.enable_favorites && (
+            <div className="space-y-6 pt-4 mt-4 border-t border-gray-100">
+              <Card title="Favorites">
+              <p className="text-xs text-gray-500 mb-3">
+                Add up to {MAX_PORTAL_FAVORITES} favorites. Turn <strong>Favorites</strong> on in{' '}
+                {designMode === 'template' ? (
+                  <>the button list above</>
+                ) : (
+                  <><strong>Add Buttons</strong></>
+                )}{' '}
+                and drag it to reorder. Each card can mix title, description, image, and link — a row is saved only if at least one field is filled after trimming; http(s) URLs are validated and invalid URLs are dropped. Thumbnail: paste an image URL or upload (upload replaces the URL field). All text is trimmed on save.
+              </p>
+              <div className="space-y-4">
+                {getFavoritesFromState().map((raw: any, index: number) => {
+                  const item = raw || {};
+                  const linkUrlVal = String(item.linkUrl || item.url || '');
+                  const thumbDisplay = String(item.thumbnailUrl || item.thumbnail || item.image || '');
+                  return (
+                    <div
+                      key={String(item.id || index)}
+                      className="rounded-xl border border-gray-200 p-4 space-y-3"
+                      style={{ background: COLOR_ALT }}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: COLOR_ACCENT }}>
+                          Favorite {index + 1}
+                        </span>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => {
+                              const list = [...getFavoritesFromState()];
+                              if (index <= 0) return;
+                              [list[index - 1], list[index]] = [list[index], list[index - 1]];
+                              updatePortalFavorites(list);
+                            }}
+                            className="px-2 py-1 text-xs rounded-lg border border-gray-300 bg-white disabled:opacity-40"
+                          >
+                            Up
+                          </button>
+                          <button
+                            type="button"
+                            disabled={index >= getFavoritesFromState().length - 1}
+                            onClick={() => {
+                              const list = [...getFavoritesFromState()];
+                              if (index >= list.length - 1) return;
+                              [list[index + 1], list[index]] = [list[index], list[index + 1]];
+                              updatePortalFavorites(list);
+                            }}
+                            className="px-2 py-1 text-xs rounded-lg border border-gray-300 bg-white disabled:opacity-40"
+                          >
+                            Down
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const list = getFavoritesFromState().filter((_: any, i: number) => i !== index);
+                              updatePortalFavorites(list);
+                            }}
+                            className="px-2 py-1 text-xs rounded-lg border border-red-200 text-red-700 bg-white"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium mb-1 uppercase tracking-wide text-gray-500">Title (optional)</label>
+                        <input
+                          type="text"
+                          value={String(item.title || '')}
+                          onChange={(e) => {
+                            const list = [...getFavoritesFromState()];
+                            list[index] = { ...list[index], title: e.target.value };
+                            updatePortalFavorites(list);
+                          }}
+                          className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200"
+                          placeholder="Short title"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium mb-1 uppercase tracking-wide text-gray-500">Link URL (optional)</label>
+                        <input
+                          type="url"
+                          value={linkUrlVal}
+                          onChange={(e) => {
+                            const list = [...getFavoritesFromState()];
+                            list[index] = { ...list[index], linkUrl: e.target.value };
+                            updatePortalFavorites(list);
+                          }}
+                          className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200"
+                          placeholder="https://..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium mb-1 uppercase tracking-wide text-gray-500">Description (optional)</label>
+                        <textarea
+                          value={String(item.description || item.writeup || '')}
+                          onChange={(e) => {
+                            const list = [...getFavoritesFromState()];
+                            list[index] = { ...list[index], description: e.target.value, writeup: e.target.value };
+                            updatePortalFavorites(list);
+                          }}
+                          rows={2}
+                          className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200"
+                          placeholder="Optional"
+                        />
+                      </div>
+                      <div>
+                        <span className="block text-[11px] font-medium mb-2 uppercase tracking-wide text-gray-500">Thumbnail (optional)</span>
+                        <p className="text-[10px] text-gray-500 mb-2">Paste a direct image URL and/or upload; uploading replaces the URL with your hosted image.</p>
+                        {thumbDisplay.trim() ? (
+                          <div className="flex items-center gap-2 mb-2">
+                            <img src={thumbDisplay.trim()} alt="" className="h-14 w-14 object-cover rounded-lg border border-gray-200" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const list = [...getFavoritesFromState()];
+                                list[index] = { ...list[index], thumbnailUrl: '', thumbnail: '', image: '' };
+                                updatePortalFavorites(list);
+                              }}
+                              className="text-xs text-red-600 underline"
+                            >
+                              Clear thumbnail
+                            </button>
+                          </div>
+                        ) : null}
+                        <input
+                          type="url"
+                          value={thumbDisplay}
+                          onChange={(e) => {
+                            const list = [...getFavoritesFromState()];
+                            list[index] = { ...list[index], thumbnailUrl: e.target.value };
+                            updatePortalFavorites(list);
+                          }}
+                          className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 mb-2"
+                          placeholder="https://…/image.jpg"
+                        />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          id={`fav-upload-${index}`}
+                          onChange={(e) => handleFavoriteImageUpload(index, e)}
+                        />
+                        <label
+                          htmlFor={`fav-upload-${index}`}
+                          className="inline-block px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer border border-gray-300 bg-white"
+                        >
+                          Upload image…
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+                {getFavoritesFromState().length < MAX_PORTAL_FAVORITES && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nid =
+                        typeof crypto !== 'undefined' && crypto.randomUUID
+                          ? crypto.randomUUID()
+                          : `fav-${Date.now()}`;
+                      const list = [
+                        ...getFavoritesFromState(),
+                        { id: nid, linkUrl: '', title: '', description: '', thumbnailUrl: '' },
+                      ];
+                      updatePortalFavorites(list);
+                    }}
+                    className="w-full px-4 py-3 rounded-xl text-sm font-semibold border-2 border-dashed border-gray-300 text-gray-600 hover:bg-gray-50"
+                  >
+                    + Add favorite ({getFavoritesFromState().length}/{MAX_PORTAL_FAVORITES})
+                  </button>
+                )}
+              </div>
+              </Card>
+            </div>
+            )}
+
+            {(artKeyData.features.show_guestbook || artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
+            <div className="space-y-6 pt-4 mt-4 border-t border-gray-100">
+              <Card title="Guestbook settings & guest uploads">
+                {artKeyData.features.show_guestbook && (
+                  <SettingsBlock title="📖 Guestbook Settings">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={artKeyData.features.gb_btn_view}
+                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_btn_view: e.target.checked } }))}
+                      />
+                      <span>Allow guests to view the Guestbook</span>
+                    </label>
+                    <div className="flex gap-2 mt-2">
+                      {['open', 'closed', 'scheduled'].map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_signing_status: v } }))}
+                          className="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                          style={{
+                            background: artKeyData.features.gb_signing_status === v ? (v === 'open' ? '#22c55e' : v === 'closed' ? '#ef4444' : '#3b82f6') : '#e5e7eb',
+                            color: artKeyData.features.gb_signing_status === v ? '#fff' : '#444',
+                          }}
+                        >
+                          {v === 'open' ? '✅ Open' : v === 'closed' ? '🚫 Closed' : '📅 Scheduled'}
+                        </button>
+                      ))}
+                    </div>
+                    {artKeyData.features.gb_signing_status === 'scheduled' && (
+                      <div className="grid grid-cols-2 gap-3 mt-3 p-3 rounded-lg" style={{ background: '#e0f2fe' }}>
+                        <div>
+                          <label className="block text-xs font-medium mb-1">Start Date</label>
+                          <input
+                            type="datetime-local"
+                            value={artKeyData.features.gb_signing_start}
+                            onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_signing_start: e.target.value } }))}
+                            className="w-full px-2 py-1.5 rounded-lg text-sm"
+                            style={{ border: '1px solid #d8d8d6' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium mb-1">End Date</label>
+                          <input
+                            type="datetime-local"
+                            value={artKeyData.features.gb_signing_end}
+                            onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_signing_end: e.target.value } }))}
+                            className="w-full px-2 py-1.5 rounded-lg text-sm"
+                            style={{ border: '1px solid #d8d8d6' }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <label className="flex items-center gap-2 text-sm mt-3">
+                      <input
+                        type="checkbox"
+                        checked={artKeyData.features.gb_require_approval}
+                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_require_approval: e.target.checked } }))}
+                      />
+                      <span>🛡️ Require approval before entries appear</span>
+                    </label>
+                    {(() => {
+                      const gbAuth = resolveUploadAuth();
+                      return (
+                        <GuestbookModerationPanel
+                          publicToken={gbAuth.publicToken}
+                          ownerToken={gbAuth.ownerToken}
+                        />
+                      );
+                    })()}
+                  </SettingsBlock>
+                )}
+
+                {artKeyData.features.enable_gallery && (
+                  <SettingsBlock title="📸 Image Gallery Settings">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={artKeyData.features.allow_img_uploads}
+                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, allow_img_uploads: e.target.checked } }))}
+                      />
+                      <span>Allow guests to upload images</span>
+                    </label>
+                    {artKeyData.features.allow_img_uploads && (
+                      <div className="mt-2 p-3 rounded-lg" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                        <div className="text-sm font-medium" style={{ color: '#b45309' }}>🛡️ Moderation enabled</div>
+                        <p className="text-xs mt-1" style={{ color: '#92400e' }}>Guest uploads require approval.</p>
+                      </div>
+                    )}
+                  </SettingsBlock>
+                )}
+
+                {artKeyData.features.enable_video && (
+                  <SettingsBlock title="🎥 Video Gallery Settings">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={artKeyData.features.allow_vid_uploads}
+                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, allow_vid_uploads: e.target.checked } }))}
+                      />
+                      <span>Allow guests to upload videos</span>
+                    </label>
+                    {artKeyData.features.allow_vid_uploads && (
+                      <div className="mt-2 p-3 rounded-lg" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                        <div className="text-sm font-medium" style={{ color: '#b45309' }}>🛡️ Moderation enabled</div>
+                        <p className="text-xs mt-1" style={{ color: '#92400e' }}>Guest uploads require approval.</p>
+                      </div>
+                    )}
+                  </SettingsBlock>
+                )}
+
+              </Card>
+            </div>
+            )}
+
+            </PortalAccordionSection>
+              </div>
+
+              <div className={designMode === 'template' ? 'order-4' : 'order-3'}>
+            <PortalAccordionSection
+              sectionId="branding"
+              title="Portal Design"
+              status={portalAccordionStatuses.branding}
+              openSection={openPortalAccordion}
+              setOpenSection={setOpenPortalAccordion}
+              innerRef={accordionScrollRefs.branding}
+            >
             {/* Step 2 Title */}
-            {designMode !== null && (
-              <Card title="Portal Branding" step="2">
+              <Card title="Portal Design" step="2">
+                <p className="text-xs text-gray-500 mb-3">
+                  {designMode === 'template' ? (
+                    <>Your template includes a preset background and layout. Adjust title, colors, and fonts here.</>
+                  ) : (
+                    <>Set your page background in <strong>Select a Background</strong>, then refine title and colors here.</>
+                  )}
+                </p>
                 <input
                   type="text"
                   value={artKeyData.title}
@@ -1779,37 +3153,35 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                   style={{ border: '2px solid #e2e2e0' }}
                   placeholder="Enter your title..."
                 />
-                {designMode === 'custom' && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-semibold mb-2" style={{ color: COLOR_ACCENT }}>Title Color</h4>
-                    <ColorPicker
-                      page={titleColorPage}
-                      setPage={setTitleColorPage}
-                      pages={3}
-                      label={(page) => (page === 0 ? 'Page 1' : page === 1 ? 'Page 2' : 'Page 3')}
-                      colors={buttonColors}
-                      selected={artKeyData.theme.title_color}
-                      onSelect={(c) => handleColorSelect(c, 'title')}
-                      onCustomColor={() => {
-                        setShowColorPicker({ type: 'title' });
-                      }}
-                    />
-                    {showColorPicker.type === 'title' && (
-                      <AdvancedColorPickerPopover
-                        title="Title Color"
-                        value={getColorTargetValue('title')}
-                        alpha={colorAlpha.title}
-                        recentColors={recentColors}
-                        onChange={(value, alpha) => handleAdvancedColorChange('title', value, alpha)}
-                        onSelectRecent={(value) => handleAdvancedColorChange('title', value, 1)}
-                        onClose={() => setShowColorPicker({ type: null })}
-                        palette={{ primary: COLOR_PRIMARY, alt: COLOR_ALT, accent: COLOR_ACCENT }}
-                      />
-                    )}
-                  </div>
-                )}
                 <div className="mt-4">
-                  <label className="block text-sm font-semibold mb-2" style={{ color: COLOR_ACCENT }}>Font</label>
+                  <h4 className="text-sm font-semibold mb-2" style={{ color: COLOR_ACCENT }}>Title Color</h4>
+                  <ColorPicker
+                    page={titleColorPage}
+                    setPage={setTitleColorPage}
+                    pages={3}
+                    label={(page) => (page === 0 ? 'Page 1' : page === 1 ? 'Page 2' : 'Page 3')}
+                    colors={buttonColors}
+                    selected={artKeyData.theme.title_color}
+                    onSelect={(c) => handleColorSelect(c, 'title')}
+                    onCustomColor={() => {
+                      setShowColorPicker({ type: 'title' });
+                    }}
+                  />
+                  {showColorPicker.type === 'title' && (
+                    <AdvancedColorPickerPopover
+                      title="Title Color"
+                      value={getColorTargetValue('title')}
+                      alpha={colorAlpha.title}
+                      recentColors={recentColors}
+                      onChange={(value, alpha) => handleAdvancedColorChange('title', value, alpha)}
+                      onSelectRecent={(value) => handleAdvancedColorChange('title', value, 1)}
+                      onClose={() => setShowColorPicker({ type: null })}
+                      palette={{ primary: COLOR_PRIMARY, alt: COLOR_ALT, accent: COLOR_ACCENT }}
+                    />
+                  )}
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold mb-2" style={{ color: COLOR_ACCENT }}>Title Font</label>
                   <select
                     value={artKeyData.theme.font}
                     onChange={(e) => setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, font: e.target.value } }))}
@@ -1819,11 +3191,35 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     {fonts.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                   </select>
                 </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold mb-2" style={{ color: COLOR_ACCENT }}>Body text color</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={/^#[0-9a-fA-F]{6}$/.test(artKeyData.theme.text_color) ? artKeyData.theme.text_color : '#111111'}
+                      onChange={(e) =>
+                        setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, text_color: e.target.value } }))
+                      }
+                      className="h-10 w-14 rounded cursor-pointer border border-gray-200 bg-white"
+                      aria-label="Body text color"
+                    />
+                    <span className="text-xs text-gray-500">Applies to supporting text on the portal.</span>
+                  </div>
+                </div>
               </Card>
-            )}
+            </PortalAccordionSection>
+            </div>
 
+              <div className={designMode === 'template' ? 'order-5' : 'order-4'}>
+            <PortalAccordionSection
+              sectionId="buttonStyle"
+              title="Button Styling"
+              status={portalAccordionStatuses.buttonStyle}
+              openSection={openPortalAccordion}
+              setOpenSection={setOpenPortalAccordion}
+              innerRef={accordionScrollRefs.buttonStyle}
+            >
             {/* Step 3 Features & Colors */}
-            {designMode !== null && (
               <Card title="Button Styling" step="3">
                 <div className="mb-4 p-4 rounded-lg" style={{ background: '#f5f5f3' }}>
                   <h4 className="text-sm font-semibold mb-3">Button Color</h4>
@@ -1989,479 +3385,27 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                     ))}
                   </div>
                 </div>
-
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4 flex items-center gap-2">
-                  <span className="text-xs">⋮⋮</span>
-                  <span className="text-[11px] text-slate-500">Toggle features on/off and drag to reorder their display order.</span>
-                </div>
-
-                <div className="space-y-2">
-                  {featureDefs.map((f, idx) => {
-                    const isCustomLink = f.type === 'custom_link';
-                    return (
-                      <div key={f.key}>
-                        {editingFeatureIndex === idx ? (
-                          // Edit mode
-                          <div className="p-3 rounded-xl border border-blue-200 bg-blue-50/50">
-                            <div className="space-y-2">
-                              <input
-                                type="text"
-                                value={editFeatureLabel}
-                                onChange={(e) => setEditFeatureLabel(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
-                                autoFocus
-                                placeholder="Enter button name"
-                              />
-                              {isCustomLink && (
-                                <input
-                                  type="url"
-                                  value={editLinkUrl}
-                                  onChange={(e) => setEditLinkUrl(e.target.value)}
-                                  className="w-full px-3 py-2 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
-                                  placeholder="https://..."
-                                />
-                              )}
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => {
-                                    if (editFeatureLabel.trim()) {
-                                      const updated = [...featureDefs];
-                                      if (isCustomLink) {
-                                        // Update custom link
-                                        const linkData = { label: editFeatureLabel, url: editLinkUrl };
-                                        updated[idx] = { ...updated[idx], label: editFeatureLabel, linkData };
-                                        // Update customLinks array - find by matching the old linkData
-                                        const oldLinkData = f.linkData;
-                                        if (oldLinkData) {
-                                          const linkIndex = customLinks.findIndex(l => l.url === oldLinkData.url && l.label === oldLinkData.label);
-                                          if (linkIndex >= 0) {
-                                            const newCustomLinks = [...customLinks];
-                                            newCustomLinks[linkIndex] = linkData;
-                                            setCustomLinks(newCustomLinks);
-                                            setArtKeyData((prev) => ({ ...prev, links: newCustomLinks }));
-                                          }
-                                        }
-                                      } else {
-                                        updated[idx] = { ...updated[idx], label: editFeatureLabel };
-                                      }
-                                      setFeatureDefs(updated);
-                                    }
-                                    setEditingFeatureIndex(null);
-                                    setEditFeatureLabel('');
-                                    setEditLinkUrl('');
-                                  }}
-                                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-90"
-                                  style={{ background: '#1a1a2e', color: '#fff' }}
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setEditingFeatureIndex(null);
-                                    setEditFeatureLabel('');
-                                    setEditLinkUrl('');
-                                  }}
-                                  className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 hover:bg-gray-50 transition-all"
-                                >
-                                  Cancel
-                                </button>
-                                {isCustomLink && (
-                                  <button
-                                    onClick={() => {
-                                      const updated = featureDefs.filter((_, i) => i !== idx);
-                                      setFeatureDefs(updated);
-                                      const linkData = f.linkData;
-                                      if (linkData) {
-                                        const newCustomLinks = customLinks.filter(l => l.url !== linkData.url);
-                                        setCustomLinks(newCustomLinks);
-                                        setArtKeyData((prev) => ({ ...prev, links: newCustomLinks }));
-                                      }
-                                      setEditingFeatureIndex(null);
-                                      setEditFeatureLabel('');
-                                      setEditLinkUrl('');
-                                    }}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-red-600 ml-auto"
-                                    style={{ background: '#ef4444', color: '#fff' }}
-                                  >
-                                    Delete
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          // Display mode
-                          <div
-                            onDragOver={(e) => handleFeatureDragOver(e, idx)}
-                            onDragEnd={handleFeatureDragEnd}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all group/row"
-                            style={{
-                              borderColor: (isCustomLink ? (f as any).enabled : artKeyData.features[f.field]) ? '#c7d2fe' : '#f0f0f0',
-                              background: (isCustomLink ? (f as any).enabled : artKeyData.features[f.field]) ? '#f8f9ff' : '#fafafa',
-                              opacity: draggedFeature === idx ? 0.5 : 1,
-                            }}
-                          >
-                            <div
-                              draggable
-                              onDragStart={(e) => {
-                                e.dataTransfer.effectAllowed = 'move';
-                                e.dataTransfer.setData('text/plain', String(idx));
-                                handleFeatureDragStart(idx);
-                              }}
-                              className="text-gray-300 group-hover/row:text-gray-400 transition-colors text-xs cursor-grab active:cursor-grabbing"
-                              title="Drag to reorder"
-                              aria-label="Drag to reorder"
-                            >
-                              ⋮⋮
-                            </div>
-                            {!isCustomLink && (
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleFeature(f.field);
-                                }}
-                                className="w-9 h-5 rounded-full relative cursor-pointer transition-all"
-                                style={{ background: artKeyData.features[f.field] ? '#1a1a2e' : '#d1d5db' }}
-                              >
-                                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all" style={{ left: artKeyData.features[f.field] ? '18px' : '2px' }} />
-                              </div>
-                            )}
-                            {isCustomLink && (
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const updated = [...featureDefs];
-                                  updated[idx] = { ...updated[idx], enabled: !(f as any).enabled };
-                                  setFeatureDefs(updated);
-                                }}
-                                className="w-9 h-5 rounded-full relative cursor-pointer transition-all"
-                                style={{ background: (f as any).enabled ? '#1a1a2e' : '#d1d5db' }}
-                              >
-                                <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all" style={{ left: (f as any).enabled ? '18px' : '2px' }} />
-                              </div>
-                            )}
-                            <span 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (isCustomLink) {
-                                  const updated = [...featureDefs];
-                                  updated[idx] = { ...updated[idx], enabled: !(f as any).enabled };
-                                  setFeatureDefs(updated);
-                                } else {
-                                  toggleFeature(f.field);
-                                }
-                              }}
-                              className="flex-1 text-xs font-medium cursor-pointer" 
-                              style={{ color: '#333' }}
-                            >
-                              {f.label}
-                            </span>
-                            {isCustomLink && f.linkData && (
-                              <span
-                                className="text-[10px] text-gray-400 max-w-[80px] truncate hidden sm:block"
-                                title={f.linkData.url}
-                              >
-                                {f.linkData.url.replace('https://', '').replace('http://', '').substring(0, 20)}
-                              </span>
-                            )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingFeatureIndex(idx);
-                                setEditFeatureLabel(f.label);
-                                if (isCustomLink && f.linkData) {
-                                  setEditLinkUrl(f.linkData.url);
-                                }
-                              }}
-                              className="text-gray-400 hover:text-gray-600 p-1.5 text-xs rounded-md hover:bg-gray-100 transition-all"
-                              title="Edit"
-                            >
-                              ✏️
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
               </Card>
+            </PortalAccordionSection>
+            </div>
+
+            {designMode === 'custom' && (
+              <div className="order-5">
+            <PortalAccordionSection
+              sectionId="addButtons"
+              title="Add Buttons"
+              status={portalAccordionStatuses.addButtons}
+              openSection={openPortalAccordion}
+              setOpenSection={setOpenPortalAccordion}
+              innerRef={accordionScrollRefs.addButtons}
+            >
+              <AddButtonsPanel />
+            </PortalAccordionSection>
+              </div>
             )}
-
-            {/* Add New Link Button - Simplified */}
-            {designMode !== null && (
-              <Card title="Add Content">
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wide" style={{ color: '#888' }}>Button Name</label>
-                    <input
-                      type="text"
-                      value={newLinkLabel}
-                      onChange={(e) => setNewLinkLabel(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
-                      placeholder="e.g., Instagram, Website, Portfolio"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium mb-1.5 uppercase tracking-wide" style={{ color: '#888' }}>URL</label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-400">🔗</span>
-                      <input
-                        type="url"
-                        value={newLinkUrl}
-                        onChange={(e) => setNewLinkUrl(e.target.value)}
-                        className="flex-1 px-3 py-2.5 rounded-lg text-sm border border-gray-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-200 outline-none"
-                        placeholder="https://..."
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleAddLink}
-                    className="w-full px-4 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-                    style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)', color: '#fff' }}
-                  >
-                    + Add Link Button
-                  </button>
-                  <p className="text-[11px] text-gray-400 text-center">
-                    Your link will appear as a toggleable button in the features list above
-                  </p>
-                </div>
-              </Card>
+            </div>
             )}
-
-            {/* Step 5 Spotify */}
-            {designMode !== null && artKeyData.features.enable_spotify && (
-              <Card title="Add Content">
-                <label className="block text-xs font-medium mb-1" style={{ color: '#555' }}>Playlist URL</label>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🔗</span>
-                  <input
-                    type="url"
-                    value={artKeyData.spotify.url}
-                    onChange={(e) => setArtKeyData((prev) => ({ ...prev, spotify: { ...prev.spotify, url: e.target.value } }))}
-                    className="flex-1 px-3 py-2 rounded-lg text-sm"
-                    style={{ border: '1px solid #d8d8d6' }}
-                    placeholder="https://open.spotify.com/playlist/..."
-                  />
-                </div>
-                <label className="flex items-center gap-2 mt-3 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={artKeyData.spotify.autoplay}
-                    onChange={(e) => setArtKeyData((prev) => ({ ...prev, spotify: { ...prev.spotify, autoplay: e.target.checked } }))}
-                  />
-                  <span>Auto-play when page loads</span>
-                </label>
-              </Card>
-            )}
-
-            {/* Step 6 Media */}
-            {designMode !== null && (artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
-              <Card title="Add Content">
-                <div className="grid grid-cols-2 gap-4">
-                  <div 
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      !artKeyData.features.enable_gallery 
-                        ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200' 
-                        : openedGallery === 'videos'
-                        ? 'opacity-50 cursor-pointer bg-gray-100 border-gray-300'
-                        : openedGallery === 'images'
-                        ? 'border-blue-500 bg-blue-50 cursor-pointer'
-                        : 'border-gray-300 bg-gray-50 cursor-pointer'
-                    }`}
-                    onClick={() => {
-                      if (artKeyData.features.enable_gallery) {
-                        setOpenedGallery(openedGallery === 'images' ? null : 'images');
-                      }
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className={`font-semibold text-sm ${!artKeyData.features.enable_gallery ? 'text-gray-400' : ''}`}>
-                        📸 Image Gallery
-                      </h4>
-                      {openedGallery === 'images' && <span className="text-xs text-blue-600">▼ Open</span>}
-                      {openedGallery !== 'images' && artKeyData.features.enable_gallery && <span className="text-xs text-gray-500">▶ Closed</span>}
-                      {!artKeyData.features.enable_gallery && <span className="text-xs text-gray-400">Disabled</span>}
-                    </div>
-                    {openedGallery === 'images' && artKeyData.features.enable_gallery && (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <MediaColumn
-                          title="Images"
-                          items={artKeyData.uploadedImages}
-                          onRemove={(idx) => setArtKeyData((prev) => ({ ...prev, uploadedImages: prev.uploadedImages.filter((_, i) => i !== idx) }))}
-                          onUpload={handleImageUpload}
-                          accept="image/*"
-                          inputId="image-upload"
-                          buttonLabel="+ Upload"
-                          uploadStatus={imageUploadStatus}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div 
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      !artKeyData.features.enable_video 
-                        ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200' 
-                        : openedGallery === 'images'
-                        ? 'opacity-50 cursor-pointer bg-gray-100 border-gray-300'
-                        : openedGallery === 'videos'
-                        ? 'border-blue-500 bg-blue-50 cursor-pointer'
-                        : 'border-gray-300 bg-gray-50 cursor-pointer'
-                    }`}
-                    onClick={() => {
-                      if (artKeyData.features.enable_video) {
-                        setOpenedGallery(openedGallery === 'videos' ? null : 'videos');
-                      }
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className={`font-semibold text-sm ${!artKeyData.features.enable_video ? 'text-gray-400' : ''}`}>
-                        🎥 Video Gallery
-                      </h4>
-                      {openedGallery === 'videos' && <span className="text-xs text-blue-600">▼ Open</span>}
-                      {openedGallery !== 'videos' && artKeyData.features.enable_video && <span className="text-xs text-gray-500">▶ Closed</span>}
-                      {!artKeyData.features.enable_video && <span className="text-xs text-gray-400">Disabled</span>}
-                    </div>
-                    {openedGallery === 'videos' && artKeyData.features.enable_video && (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <MediaColumn
-                          title="Videos"
-                          items={artKeyData.uploadedVideos}
-                          onRemove={(idx) => {
-                            const removedUrl = artKeyData.uploadedVideos[idx];
-                            setArtKeyData((prev) => {
-                              const newVideos = prev.uploadedVideos.filter((_, i) => i !== idx);
-                              const newFeatured = prev.featured_video?.video_url === removedUrl ? null : prev.featured_video;
-                              return { ...prev, uploadedVideos: newVideos, featured_video: newFeatured };
-                            });
-                          }}
-                          onUpload={handleVideoUpload}
-                          accept="video/*"
-                          inputId="video-upload"
-                          buttonLabel="+ Upload"
-                          isVideo
-                          featuredVideoUrl={artKeyData.featured_video?.video_url || null}
-                          onSetFeatured={handleSetFeaturedVideo}
-                          featuredVideoLabel={artKeyData.featured_video?.button_label}
-                          uploadStatus={videoUploadStatus}
-                          onUpdateFeaturedLabel={(label) => {
-                            if (artKeyData.featured_video) {
-                              setArtKeyData((prev) => ({
-                                ...prev,
-                                featured_video: prev.featured_video ? { ...prev.featured_video, button_label: label } : null,
-                              }));
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {/* Step 7 Settings */}
-            {designMode !== null && (artKeyData.features.show_guestbook || artKeyData.features.enable_gallery || artKeyData.features.enable_video) && (
-              <Card title="Review / Actions">
-                {artKeyData.features.show_guestbook && (
-                  <SettingsBlock title="📖 Guestbook Settings">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={artKeyData.features.gb_btn_view}
-                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_btn_view: e.target.checked } }))}
-                      />
-                      <span>Allow guests to view the Guestbook</span>
-                    </label>
-                    <div className="flex gap-2 mt-2">
-                      {['open', 'closed', 'scheduled'].map((v) => (
-                        <button
-                          key={v}
-                          onClick={() => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_signing_status: v } }))}
-                          className="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all"
-                          style={{
-                            background: artKeyData.features.gb_signing_status === v ? (v === 'open' ? '#22c55e' : v === 'closed' ? '#ef4444' : '#3b82f6') : '#e5e7eb',
-                            color: artKeyData.features.gb_signing_status === v ? '#fff' : '#444',
-                          }}
-                        >
-                          {v === 'open' ? '✅ Open' : v === 'closed' ? '🚫 Closed' : '📅 Scheduled'}
-                        </button>
-                      ))}
-                    </div>
-                    {artKeyData.features.gb_signing_status === 'scheduled' && (
-                      <div className="grid grid-cols-2 gap-3 mt-3 p-3 rounded-lg" style={{ background: '#e0f2fe' }}>
-                        <div>
-                          <label className="block text-xs font-medium mb-1">Start Date</label>
-                          <input
-                            type="datetime-local"
-                            value={artKeyData.features.gb_signing_start}
-                            onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_signing_start: e.target.value } }))}
-                            className="w-full px-2 py-1.5 rounded-lg text-sm"
-                            style={{ border: '1px solid #d8d8d6' }}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium mb-1">End Date</label>
-                          <input
-                            type="datetime-local"
-                            value={artKeyData.features.gb_signing_end}
-                            onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_signing_end: e.target.value } }))}
-                            className="w-full px-2 py-1.5 rounded-lg text-sm"
-                            style={{ border: '1px solid #d8d8d6' }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                    <label className="flex items-center gap-2 text-sm mt-3">
-                      <input
-                        type="checkbox"
-                        checked={artKeyData.features.gb_require_approval}
-                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, gb_require_approval: e.target.checked } }))}
-                      />
-                      <span>🛡️ Require approval before entries appear</span>
-                    </label>
-                  </SettingsBlock>
-                )}
-
-                {artKeyData.features.enable_gallery && (
-                  <SettingsBlock title="📸 Image Gallery Settings">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={artKeyData.features.allow_img_uploads}
-                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, allow_img_uploads: e.target.checked } }))}
-                      />
-                      <span>Allow guests to upload images</span>
-                    </label>
-                    {artKeyData.features.allow_img_uploads && (
-                      <div className="mt-2 p-3 rounded-lg" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
-                        <div className="text-sm font-medium" style={{ color: '#b45309' }}>🛡️ Moderation enabled</div>
-                        <p className="text-xs mt-1" style={{ color: '#92400e' }}>Guest uploads require approval.</p>
-                      </div>
-                    )}
-                  </SettingsBlock>
-                )}
-
-                {artKeyData.features.enable_video && (
-                  <SettingsBlock title="🎥 Video Gallery Settings">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={artKeyData.features.allow_vid_uploads}
-                        onChange={(e) => setArtKeyData((prev) => ({ ...prev, features: { ...prev.features, allow_vid_uploads: e.target.checked } }))}
-                      />
-                      <span>Allow guests to upload videos</span>
-                    </label>
-                    {artKeyData.features.allow_vid_uploads && (
-                      <div className="mt-2 p-3 rounded-lg" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
-                        <div className="text-sm font-medium" style={{ color: '#b45309' }}>🛡️ Moderation enabled</div>
-                        <p className="text-xs mt-1" style={{ color: '#92400e' }}>Guest uploads require approval.</p>
-                      </div>
-                    )}
-                  </SettingsBlock>
-                )}
-
-              </Card>
-            )}
+            </div>
 
             {/* Step 8: QR Code & Skeleton Key — REMOVED: QR placement is handled in the Customization Studio canvas */}
             {false && (
@@ -2748,10 +3692,10 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
       {saveModal?.show && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 animate-in fade-in">
-            <h3 className="text-lg font-bold mb-3" style={{ color: COLOR_ACCENT }}>
-              {saveModal.url ? 'ArtKey Saved' : 'Notice'}
+            <h3 className="text-lg font-normal mb-3" style={{ color: COLOR_ACCENT }}>
+              {saveModal.url ? 'ArtKey Saved' : saveModal.message.startsWith('Finish your portal') ? 'Finish setup' : 'Notice'}
             </h3>
-            <p className="text-sm text-gray-700 mb-4">{saveModal.message}</p>
+            <p className="text-sm text-gray-700 mb-4 whitespace-pre-wrap break-words">{saveModal.message}</p>
             {saveModal.url && (
               <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-500 mb-1">Portal URL</label>
@@ -2804,6 +3748,62 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
 }
 
 // Helper Components
+function PortalAccordionSection({
+  sectionId,
+  title,
+  status,
+  openSection,
+  setOpenSection,
+  children,
+  innerRef,
+}: {
+  sectionId: PortalAccordionId;
+  title: string;
+  status: 'complete' | 'needs-setup' | 'coming-soon';
+  openSection: PortalAccordionId | null;
+  setOpenSection: React.Dispatch<React.SetStateAction<PortalAccordionId | null>>;
+  children: React.ReactNode;
+  innerRef?: React.RefObject<HTMLDivElement | null>;
+}) {
+  const open = openSection === sectionId;
+  const showStatusChip = status === 'needs-setup' || status === 'coming-soon';
+  const statusClass =
+    status === 'needs-setup'
+      ? 'bg-amber-50 text-amber-900 border-amber-200'
+      : 'bg-slate-100 text-slate-600 border-slate-200';
+  const statusLabel = status === 'needs-setup' ? 'Needs setup' : 'Coming Soon';
+  return (
+    <div
+      ref={innerRef}
+      className="rounded-xl border border-[#e8e8e6] bg-[#fafaf9] shadow-sm overflow-hidden ring-1 ring-black/[0.03]"
+    >
+      <button
+        type="button"
+        onClick={() => {
+          setOpenSection((prev) => (prev === sectionId ? null : sectionId));
+        }}
+        className="w-full flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 text-left hover:bg-white/80 transition-colors gap-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a1a2e]/25"
+        aria-expanded={open}
+      >
+        <h3 className="text-base font-normal font-playfair" style={{ color: COLOR_ACCENT }}>
+          {title}
+        </h3>
+        <div className="flex items-center gap-2 shrink-0">
+          {showStatusChip ? (
+            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${statusClass}`}>{statusLabel}</span>
+          ) : null}
+          <span className="text-gray-400 text-sm" aria-hidden>
+            {open ? '▼' : '▶'}
+          </span>
+        </div>
+      </button>
+      {open ? (
+        <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-0 border-t border-gray-200/80 bg-white space-y-4">{children}</div>
+      ) : null}
+    </div>
+  );
+}
+
 function Card({ title, step, children, onBack }: { title: string; step?: string; children: React.ReactNode; onBack?: () => void }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-100">
@@ -2812,7 +3812,7 @@ function Card({ title, step, children, onBack }: { title: string; step?: string;
           <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs text-white" style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)' }}>{step}</div>
         )}
         <div className="flex-1">
-          <h3 className="text-lg font-bold font-playfair" style={{ color: COLOR_ACCENT }}>{title}</h3>
+          <h3 className="text-lg font-normal font-playfair" style={{ color: COLOR_ACCENT }}>{title}</h3>
         </div>
         {onBack && (
           <button

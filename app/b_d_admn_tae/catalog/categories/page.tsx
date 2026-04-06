@@ -18,7 +18,7 @@ interface Category {
   parentId?: string | null;
   categoryType?: string;
   pathLabel?: string;
-  icon: string;
+  icon?: string | null;
   taeBaseFee: number;
   requiresQrCode: boolean;
   active: boolean;
@@ -34,7 +34,6 @@ const EMPTY_FORM = {
   name: "",
   parentId: "",
   categoryType: "leaf",
-  icon: "",
   taeBaseFee: "0",
   requiresQrCode: false,
   active: true,
@@ -73,7 +72,6 @@ export default function AdminCategoriesPage() {
       name: c.name,
       parentId: c.parentId || "",
       categoryType: c.categoryType || "leaf",
-      icon: c.icon || "",
       taeBaseFee: (c.taeBaseFee || 0).toString(),
       requiresQrCode: c.requiresQrCode,
       active: c.active,
@@ -91,7 +89,7 @@ export default function AdminCategoriesPage() {
         name: form.name,
         parentId: form.parentId || null,
         categoryType: form.categoryType || "leaf",
-        icon: form.icon || undefined,
+        icon: null,
         taeBaseFee: parseFloat(form.taeBaseFee) || 0,
         requiresQrCode: form.requiresQrCode,
         active: form.active,
@@ -153,7 +151,7 @@ export default function AdminCategoriesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-brand-dark font-playfair">Categories</h1>
+          <h1 className="text-2xl font-normal text-brand-dark font-playfair">Categories</h1>
           <p className="text-sm text-brand-medium mt-1">{categories.length} categories</p>
         </div>
         <button
@@ -186,8 +184,7 @@ export default function AdminCategoriesPage() {
         ) : (
           <div className="divide-y divide-brand-light">
             <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-[10px] uppercase tracking-wider text-brand-medium font-medium bg-brand-lightest">
-              <div className="col-span-1">Icon</div>
-              <div className="col-span-3">Name</div>
+              <div className="col-span-4">Name</div>
               <div className="col-span-2">TAE ID</div>
               <div className="col-span-1">Products</div>
               <div className="col-span-2">Base Fee</div>
@@ -196,8 +193,7 @@ export default function AdminCategoriesPage() {
             </div>
             {categories.map((c) => (
               <div key={c.id} className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-brand-lightest/50 transition-colors">
-                <div className="col-span-1 text-lg">{c.icon || "📦"}</div>
-                <div className="col-span-3">
+                <div className="col-span-4">
                   <div className="text-sm font-medium text-brand-dark">{c.pathLabel || c.name}</div>
                   <div className="text-[10px] text-brand-medium">{c.slug}</div>
                 </div>
@@ -291,27 +287,15 @@ export default function AdminCategoriesPage() {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Icon (emoji)</label>
-                  <input
-                    type="text"
-                    value={form.icon}
-                    onChange={(e) => setForm({ ...form, icon: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    placeholder="e.g. 🎨"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">TAE Base Fee ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={form.taeBaseFee}
-                    onChange={(e) => setForm({ ...form, taeBaseFee: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">TAE Base Fee ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form.taeBaseFee}
+                  onChange={(e) => setForm({ ...form, taeBaseFee: e.target.value })}
+                  className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest max-w-xs"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -126,7 +126,7 @@ export default function CatalogV2ListingsPage() {
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-brand-dark font-playfair">
+          <h1 className="text-2xl font-normal text-brand-dark font-playfair">
             Catalog V2 Listings
           </h1>
           <p className="text-sm text-brand-medium mt-1">

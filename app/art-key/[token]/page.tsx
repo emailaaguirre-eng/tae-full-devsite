@@ -27,6 +27,9 @@ export default function ArtKeyPortalPage() {
   const featuredVideoUrl = portal.featuredVideo?.video_url || null;
   const favorites = getPortalFavorites(portal);
   const hasFavorites = favorites.length > 0;
+  /** Respect explicit enable_favorites; older portals without the flag keep the old “show when non-empty” behavior. */
+  const favoritesVisible =
+    features.enable_favorites !== false && (features.enable_favorites === true || hasFavorites);
   const rawFeatureDefs = Array.isArray(portal.customizations?.featureDefs)
     ? portal.customizations.featureDefs
     : [];
@@ -88,7 +91,7 @@ export default function ArtKeyPortalPage() {
             if (f.key === "guestbook" && features.show_guestbook) {
               return { key: "guestbook", href: `/art-key/${token}/guestbook`, label: f.label || "Guestbook" };
             }
-            if (f.key === "favorites" && hasFavorites) {
+            if (f.key === "favorites" && favoritesVisible) {
               return { key: "favorites", href: `/art-key/${token}/favorites`, label: f.label || "Favorites" };
             }
 
@@ -136,7 +139,7 @@ export default function ArtKeyPortalPage() {
           features.show_guestbook
             ? { key: "guestbook", href: `/art-key/${token}/guestbook`, label: "Guestbook" }
             : null,
-          hasFavorites
+          favoritesVisible
             ? { key: "favorites", href: `/art-key/${token}/favorites`, label: "Favorites" }
             : null,
           ...(features.enable_custom_links
@@ -149,7 +152,7 @@ export default function ArtKeyPortalPage() {
             : []),
         ].flatMap((button: any) => (Array.isArray(button) ? button : button ? [button] : []));
 
-  if (hasFavorites && !buttons.some((button: any) => button.key === "favorites")) {
+  if (favoritesVisible && !buttons.some((button: any) => button.key === "favorites")) {
     buttons = [...buttons, { key: "favorites", href: `/art-key/${token}/favorites`, label: "Favorites" }];
   }
 

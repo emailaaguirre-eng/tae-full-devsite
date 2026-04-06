@@ -15,6 +15,7 @@
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, eq } from "@/lib/db";
 import { saveDatabase } from "@/db";
+import { parseVariantMatrix } from "@/lib/product-watermark";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,47 @@ interface BackfillOptions {
   syncGallery?: boolean;
 }
 
+interface ProductMapping {
+  printfulProductId: number;
+  printfulVariantId: number | null;
+}
+
+function toPositiveInt(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  const int = Math.trunc(n);
+  return int > 0 ? int : null;
+}
+
+function resolveProductMapping(p: any): ProductMapping | null {
+  const topLevelProductId = toPositiveInt(p.printfulProductId);
+  if (topLevelProductId) {
+    return {
+      printfulProductId: topLevelProductId,
+      printfulVariantId: toPositiveInt(p.printfulVariantId),
+    };
+  }
+
+  const activeMappedRows = parseVariantMatrix(p.printfulDataJson).filter((row) => {
+    if (row.active === false) return false;
+    return !!toPositiveInt(row.printfulProductId);
+  });
+
+  if (activeMappedRows.length === 0) return null;
+
+  const preferredRow =
+    activeMappedRows.find((row) => (row.frame || "").trim().toLowerCase() === "framed") ||
+    activeMappedRows[0];
+
+  const printfulProductId = toPositiveInt(preferredRow.printfulProductId);
+  if (!printfulProductId) return null;
+
+  return {
+    printfulProductId,
+    printfulVariantId: toPositiveInt(preferredRow.printfulVariantId),
+  };
+}
+
 async function fetchPrintfulData(printfulProductId: number): Promise<PfCacheEntry | null> {
   // Try catalog endpoint first
   const catalogRes = await pfFetch(`/products/${printfulProductId}`);
@@ -111,7 +153,7 @@ async function fetchPrintfulData(printfulProductId: number): Promise<PfCacheEntr
 }
 
 function isMappedProduct(p: any) {
-  return !!p.printfulProductId;
+  return !!resolveProductMapping(p);
 }
 
 function isMissingHero(p: any) {
@@ -147,7 +189,11 @@ export async function GET() {
     const active = allProducts.filter((p) => p.active);
     const activeMapped = active.filter((p) => isMappedProduct(p));
     const eligible = activeMapped.filter((p) => isMissingHero(p));
-    const uniqueProductIds = [...new Set(eligible.map((p) => p.printfulProductId).filter(Boolean))];
+    const uniqueProductIds = [
+      ...new Set(
+        eligible.map((p) => resolveProductMapping(p)?.printfulProductId).filter(Boolean)
+      ),
+    ];
 
     return NextResponse.json({
       success: true,
@@ -211,7 +257,9 @@ export async function POST(req: Request) {
 
     // Cache Printful data by productId to avoid duplicate calls
     const pfCache = new Map<number, PfCacheEntry | null>();
-    const uniqueIds = [...new Set(targets.map((p) => p.printfulProductId!))];
+    const uniqueIds = [
+      ...new Set(targets.map((p) => resolveProductMapping(p)?.printfulProductId).filter(Boolean)),
+    ] as number[];
     const errors: Array<{ id: string; message: string }> = [];
 
     for (const pfId of uniqueIds) {
@@ -238,15 +286,30 @@ export async function POST(req: Request) {
     }> = [];
 
     for (const product of targets) {
-      const pfData = pfCache.get(product.printfulProductId!);
-      if (!pfData) {
+      const mapping = resolveProductMapping(product);
+      if (!mapping) {
         skippedCount++;
-        const message = `No Printful data for product ${product.printfulProductId}`;
+        const message = "No usable Printful mapping on parent or variantMatrix";
         errors.push({ id: product.id, message });
         results.push({
           id: product.id,
           slug: product.slug,
-          printfulProductId: product.printfulProductId,
+          printfulProductId: null,
+          status: "skipped",
+          reason: message,
+        });
+        continue;
+      }
+
+      const pfData = pfCache.get(mapping.printfulProductId);
+      if (!pfData) {
+        skippedCount++;
+        const message = `No Printful data for product ${mapping.printfulProductId}`;
+        errors.push({ id: product.id, message });
+        results.push({
+          id: product.id,
+          slug: product.slug,
+          printfulProductId: mapping.printfulProductId,
           status: "skipped",
           reason: message,
         });
@@ -254,8 +317,8 @@ export async function POST(req: Request) {
       }
 
       // Pick best image: variant-specific > product-level > first variant with image
-      const matchingVariant = product.printfulVariantId
-        ? pfData.variants.find((v) => v.id === product.printfulVariantId)
+      const matchingVariant = mapping.printfulVariantId
+        ? pfData.variants.find((v) => v.id === mapping.printfulVariantId)
         : null;
 
       const heroImage =
@@ -271,7 +334,7 @@ export async function POST(req: Request) {
         results.push({
           id: product.id,
           slug: product.slug,
-          printfulProductId: product.printfulProductId,
+          printfulProductId: mapping.printfulProductId,
           status: "skipped",
           reason: message,
         });
@@ -299,7 +362,7 @@ export async function POST(req: Request) {
         results.push({
           id: product.id,
           slug: product.slug,
-          printfulProductId: product.printfulProductId,
+          printfulProductId: mapping.printfulProductId,
           status: "would_update",
           heroImage,
         });
@@ -317,11 +380,15 @@ export async function POST(req: Request) {
 
       const now = new Date().toISOString();
       const nextHeroImage = options.force || isMissingHero(product) ? heroImage : product.heroImage;
+      const nextGalleryImages =
+        options.force || isMissingGallery(product)
+          ? (galleryUrls.length > 0 ? JSON.stringify(galleryUrls) : product.galleryImages)
+          : product.galleryImages;
       await db
         .update(shopProducts)
         .set({
           heroImage: nextHeroImage,
-          galleryImages: galleryUrls.length > 0 ? JSON.stringify(galleryUrls) : product.galleryImages,
+          galleryImages: nextGalleryImages,
           printfulDataJson: JSON.stringify({
             ...existingPrintfulData,
             product: { ...(existingPrintfulData.product || {}), image: pfData.productImage },
@@ -346,7 +413,7 @@ export async function POST(req: Request) {
       results.push({
         id: product.id,
         slug: product.slug,
-        printfulProductId: product.printfulProductId,
+        printfulProductId: mapping.printfulProductId,
         status: "updated",
         heroImage,
       });

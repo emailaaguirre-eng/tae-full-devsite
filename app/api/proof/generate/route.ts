@@ -19,16 +19,13 @@
  *   customerEmail?: string,
  * }
  *
- * Response:
+ * Response (per item):
  * {
- *   proofs: [{
- *     cartItemId: string,
- *     portalToken: string,       // public token (in the QR URL)
- *     ownerToken: string,        // separate owner token for editing
- *     portalUrl: string,
- *     editUrl: string,
- *     proofFiles: [{ placement: string, dataUrl: string }],
- *   }]
+ *   cartItemId, portalToken, ownerToken, portalUrl, editUrl,
+ *   displayProofFiles: [...],  // watermarked — customer review only
+ *   productionFiles: [...],    // clean composited — fulfillment / Printful
+ *   proofFiles: [...],          // alias of displayProofFiles (backward compatible)
+ *   proofSnapshotId: string,    // persisted server snapshot (approve + orders)
  * }
  */
 import { NextResponse } from "next/server";
@@ -38,6 +35,7 @@ import { compositeQrOntoDesign } from "@/lib/composite";
 import {
   getDb,
   artKeys,
+  checkoutProofSnapshots,
   eq,
   and,
   generateId,
@@ -47,6 +45,7 @@ import {
 import { getArtKeyTemplateById } from "@/lib/artkeyTemplates";
 import { saveDatabase } from "@/db";
 import { enforceRequestRateLimit } from "@/lib/request-rate-limit";
+import { normalizeCheckoutEmail } from "@/lib/checkout-proof-email";
 
 const ARTKEY_DOMAIN =
   process.env.ARTKEY_DOMAIN || "artkey.theartfulexperience.com";
@@ -59,6 +58,10 @@ function dataUrlToBuffer(dataUrl: string): Buffer {
 
 function bufferToDataUrl(buffer: Buffer, mime: string): string {
   return `data:${mime};base64,${buffer.toString("base64")}`;
+}
+
+function isImageDataUrl(value: unknown): value is string {
+  return typeof value === "string" && /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(value);
 }
 
 async function applyProofWatermark(dataUrl: string): Promise<string> {
@@ -105,6 +108,7 @@ export async function POST(req: Request) {
 
     const db = await getDb();
     const now = new Date().toISOString();
+    const customerEmailNorm = normalizeCheckoutEmail(customerEmail);
     const proofs = [];
 
     for (const item of items) {
@@ -118,13 +122,16 @@ export async function POST(req: Request) {
       } = item;
 
       if (!requiresQrCode || !designFiles || designFiles.length === 0) {
+        const files = designFiles || [];
         proofs.push({
           cartItemId,
           portalToken: null,
           ownerToken: null,
           portalUrl: null,
           editUrl: null,
-          proofFiles: designFiles || [],
+          productionFiles: files,
+          displayProofFiles: files,
+          proofFiles: files,
         });
         continue;
       }
@@ -238,6 +245,13 @@ export async function POST(req: Request) {
       // Step 3: Composite QR onto each design file that has the template
       const proofFiles = [];
       for (const df of designFiles) {
+        if (!df?.placement || !isImageDataUrl(df?.dataUrl)) {
+          console.warn(
+            `Skipping invalid design file for ${cartItemId}/${String(df?.placement || "unknown")}`
+          );
+          continue;
+        }
+
         if (
           artKeyTemplatePosition &&
           df.placement === artKeyTemplatePosition.placement
@@ -273,12 +287,44 @@ export async function POST(req: Request) {
         }
       }
 
-      const proofFilesWithWatermark = await Promise.all(
+      if (proofFiles.length === 0) {
+        throw new Error(`No valid proof image files for cart item ${cartItemId}`);
+      }
+
+      const displayProofFiles = await Promise.all(
         proofFiles.map(async (file: { placement: string; dataUrl: string }) => ({
           ...file,
           dataUrl: await applyProofWatermark(file.dataUrl),
         }))
       );
+
+      const productionFiles = proofFiles.map((f: { placement: string; dataUrl: string }) => ({
+        placement: f.placement,
+        dataUrl: f.dataUrl,
+      }));
+
+      const proofSnapshotId = generateId();
+      const metaJson = JSON.stringify({
+        portalToken: publicToken,
+        ownerToken,
+        portalUrl,
+        editUrl,
+        reusedPortal,
+        qrCodeDataUrl: qrDataUrl,
+      });
+
+      await db.insert(checkoutProofSnapshots).values({
+        id: proofSnapshotId,
+        cartItemId: String(cartItemId),
+        artKeyId: portalId,
+        publicToken,
+        customerEmail: customerEmailNorm,
+        displayProofFilesJson: JSON.stringify(displayProofFiles),
+        productionFilesJson: JSON.stringify(productionFiles),
+        metaJson,
+        createdAt: now,
+        approvedAt: null,
+      });
 
       proofs.push({
         cartItemId,
@@ -289,7 +335,10 @@ export async function POST(req: Request) {
         editUrl,
         qrCodeDataUrl: qrDataUrl,
         reusedPortal,
-        proofFiles: proofFilesWithWatermark,
+        productionFiles,
+        displayProofFiles,
+        proofFiles: displayProofFiles,
+        proofSnapshotId,
       });
     }
 

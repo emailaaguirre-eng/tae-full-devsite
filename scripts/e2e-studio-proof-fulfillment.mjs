@@ -98,6 +98,27 @@ async function main() {
   assert(proofRes.res.ok && proofRes.data.success, `Proof generation failed: ${proofRes.data?.error || "unknown"}`);
   const proof = proofRes.data.proofs?.[0];
   assert(proof?.proofFiles?.length, "No proof files generated");
+  assert(
+    Array.isArray(proof.productionFiles) && proof.productionFiles.length > 0,
+    "No productionFiles (clean) in proof response"
+  );
+  assert(
+    typeof proof.proofSnapshotId === "string" && proof.proofSnapshotId.length > 0,
+    "proofSnapshotId missing from proof response"
+  );
+
+  const approveRes = await getJson("/api/proof/approve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      proofSnapshotId: proof.proofSnapshotId,
+      customerEmail: proofPayload.customerEmail,
+    }),
+  });
+  assert(
+    approveRes.res.ok && approveRes.data.success,
+    `Proof approve failed: ${approveRes.data?.error || "unknown"}`
+  );
 
   const inputPlacements = new Set(designFiles.map((f) => normalizePlacement(f.placement)));
   const outputPlacements = new Set(proof.proofFiles.map((f) => normalizePlacement(f.placement)));
@@ -131,8 +152,9 @@ async function main() {
         printfulVariantId: product.printfulVariantId,
         productSlug: product.slug,
         designDraftId: null,
-        designFiles: proof.proofFiles,
+        designFiles: [],
         requiresQrCode: true,
+        approvedProofSnapshotId: proof.proofSnapshotId,
         portalToken: proof.portalToken,
         portalUrl: proof.portalUrl,
         artKeyData: proofPayload.items[0].artKeyData,

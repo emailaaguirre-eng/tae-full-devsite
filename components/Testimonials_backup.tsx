@@ -52,7 +52,7 @@ export default function Testimonials() {
     <section id="testimonials" className="py-20" style={{ backgroundColor: '#ffffff' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4">
             What our Clients & Friends Say
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
@@ -82,7 +82,7 @@ export default function Testimonials() {
               {/* Content - expands on hover */}
               <div className="p-6 transition-all duration-500 group-hover:p-8 flex-1 flex flex-col">
                 <div className="mb-4">
-                  <h3 className="text-xl font-bold text-brand-darkest mb-1 group-hover:text-2xl transition-all duration-500">
+                  <h3 className="text-xl font-normal text-brand-darkest mb-1 group-hover:text-2xl transition-all duration-500">
                     {testimonial.name}
                   </h3>
                   <p className="text-sm text-brand-dark group-hover:text-base transition-all duration-500">

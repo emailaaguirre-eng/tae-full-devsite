@@ -19,6 +19,76 @@ const dbPath = getDatabasePath();
 let sqliteDb: SqlJsDatabase | null = null;
 let drizzleDb: ReturnType<typeof drizzle> | null = null;
 
+function ensureShopProductColumns(db: SqlJsDatabase) {
+  const result = db.exec("PRAGMA table_info('ShopProduct')");
+  const rows = result[0]?.values || [];
+  const columns = new Set(rows.map((row) => String(row[1])));
+
+  if (!columns.has('artworkSourceUrl')) {
+    db.run("ALTER TABLE ShopProduct ADD COLUMN artworkSourceUrl TEXT");
+  }
+  if (!columns.has('artistId')) {
+    db.run("ALTER TABLE ShopProduct ADD COLUMN artistId TEXT");
+  }
+  if (!columns.has('coCreatorId')) {
+    db.run("ALTER TABLE ShopProduct ADD COLUMN coCreatorId TEXT");
+  }
+}
+
+function ensureGuestbookShareEmailColumn(db: SqlJsDatabase) {
+  const result = db.exec("PRAGMA table_info('GuestbookEntry')");
+  const rows = result[0]?.values || [];
+  const columns = new Set(rows.map((row) => String(row[1])));
+  if (!columns.has("shareEmailWithHost")) {
+    db.run('ALTER TABLE "GuestbookEntry" ADD COLUMN shareEmailWithHost INTEGER DEFAULT 0');
+  }
+}
+
+function ensureShopProductImagesTable(db: SqlJsDatabase) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS "ShopProductImage" (
+      "id" TEXT PRIMARY KEY NOT NULL,
+      "productId" TEXT NOT NULL,
+      "imageUrl" TEXT NOT NULL,
+      "title" TEXT,
+      "description" TEXT,
+      "sortOrder" INTEGER DEFAULT 0,
+      "isHero" INTEGER DEFAULT 0,
+      "isActive" INTEGER DEFAULT 1,
+      "sourceType" TEXT DEFAULT 'general',
+      "variantKey" TEXT,
+      "variantId" TEXT,
+      "size" TEXT,
+      "frame" TEXT,
+      "frameColor" TEXT,
+      "material" TEXT,
+      "orientation" TEXT,
+      "format" TEXT,
+      "createdAt" TEXT,
+      "updatedAt" TEXT,
+      FOREIGN KEY ("productId") REFERENCES "ShopProduct"("id")
+    )
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS "ix_shop_product_image_product" ON "ShopProductImage" ("productId")`);
+}
+
+function ensureCheckoutProofSnapshotsTable(db: SqlJsDatabase) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS "CheckoutProofSnapshot" (
+      "id" TEXT PRIMARY KEY NOT NULL,
+      "cartItemId" TEXT NOT NULL,
+      "artKeyId" TEXT,
+      "publicToken" TEXT,
+      "customerEmail" TEXT,
+      "displayProofFilesJson" TEXT NOT NULL,
+      "productionFilesJson" TEXT NOT NULL,
+      "metaJson" TEXT NOT NULL,
+      "createdAt" TEXT NOT NULL,
+      "approvedAt" TEXT
+    )
+  `);
+}
+
 // Initialize the database
 async function initDatabase(): Promise<SqlJsDatabase> {
   if (sqliteDb) {
@@ -50,6 +120,11 @@ async function initDatabase(): Promise<SqlJsDatabase> {
       fs.mkdirSync(dir, { recursive: true });
     }
   }
+
+  ensureShopProductColumns(sqliteDb);
+  ensureGuestbookShareEmailColumn(sqliteDb);
+  ensureShopProductImagesTable(sqliteDb);
+  ensureCheckoutProofSnapshotsTable(sqliteDb);
 
   return sqliteDb;
 }

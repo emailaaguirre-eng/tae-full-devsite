@@ -4,16 +4,29 @@
  *
  * Query params:
  *   ?category=slug    — filter by category slug
+ *   ?tag=label       — filter by tag in printfulDataJson meta (case-insensitive)
  *   ?search=term      — search by name
  *   ?type=customizable|artist|cocreator — filter by product source
+ *   ?artistId=id       — with artistSlug: match column artistId first, else meta artistSlug
+ *   ?coCreatorId=id    — with coCreatorSlug: match column coCreatorId first, else meta slug
  *   ?featured=true    — featured products only
  *   ?limit=N          — max results (default 50)
  *   ?group=true|false — collapse variants into grouped cards (default true)
  */
 import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, eq, desc, like, and } from "@/lib/db";
-import { buildProductPreviewUrl, parseRequiresQrCode } from "@/lib/product-watermark";
-import { computeRetailPrice, parsePricingSettings } from "@/lib/product-pricing";
+import {
+  buildProductPreviewUrl,
+  parseRequiresQrCode,
+  parseArtistSlug,
+  parseCoCreatorSlug,
+  productMetaHasTag,
+} from "@/lib/product-watermark";
+import {
+  computeRetailPrice,
+  minActiveVariantMatrixShopPrice,
+  parsePricingSettings,
+} from "@/lib/product-pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +43,13 @@ export async function GET(req: Request) {
     const db = await getDb();
     const { searchParams } = new URL(req.url);
     const categorySlug = searchParams.get("category");
+    const tagFilter = (searchParams.get("tag") || "").trim();
     const search = searchParams.get("search");
+    const type = (searchParams.get("type") || "").toLowerCase();
+    const artistSlug = (searchParams.get("artistSlug") || "").trim();
+    const artistIdParam = (searchParams.get("artistId") || "").trim();
+    const coCreatorSlug = (searchParams.get("coCreatorSlug") || "").trim();
+    const coCreatorIdParam = (searchParams.get("coCreatorId") || "").trim();
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 200);
     const shouldGroup = searchParams.get("group") !== "false";
 
@@ -61,7 +80,66 @@ export async function GET(req: Request) {
       );
     }
 
+    if (type === "artist") {
+      products = products.filter(
+        (p) =>
+          !!(parseArtistSlug(p.printfulDataJson) || String(p.artistId || "").trim())
+      );
+    } else if (type === "cocreator") {
+      products = products.filter(
+        (p) =>
+          !!(parseCoCreatorSlug(p.printfulDataJson) || String(p.coCreatorId || "").trim())
+      );
+    } else if (type === "customizable") {
+      products = products.filter((p) => {
+        try {
+          const parsed = JSON.parse(p.printfulDataJson || "{}");
+          return parsed?.customizable !== false;
+        } catch {
+          return true;
+        }
+      });
+    }
+
+    if (artistIdParam || artistSlug) {
+      products = products.filter((p) => {
+        const rowId = String(p.artistId || "").trim();
+        if (artistIdParam && artistSlug) {
+          if (rowId) return rowId === artistIdParam;
+          return (parseArtistSlug(p.printfulDataJson) || "") === artistSlug;
+        }
+        if (artistIdParam) return rowId === artistIdParam;
+        return (parseArtistSlug(p.printfulDataJson) || "") === artistSlug;
+      });
+    }
+
+    if (coCreatorIdParam || coCreatorSlug) {
+      products = products.filter((p) => {
+        const rowId = String(p.coCreatorId || "").trim();
+        if (coCreatorIdParam && coCreatorSlug) {
+          if (rowId) return rowId === coCreatorIdParam;
+          return (parseCoCreatorSlug(p.printfulDataJson) || "") === coCreatorSlug;
+        }
+        if (coCreatorIdParam) return rowId === coCreatorIdParam;
+        return (parseCoCreatorSlug(p.printfulDataJson) || "") === coCreatorSlug;
+      });
+    }
+
+    if (tagFilter) {
+      products = products.filter((p) =>
+        productMetaHasTag(p.printfulDataJson, tagFilter)
+      );
+    }
+
     const retailPriceFor = (p: typeof products[number]) => {
+      const fromMatrix = minActiveVariantMatrixShopPrice({
+        printfulBasePrice: p.printfulBasePrice,
+        taeAddOnFee: p.taeAddOnFee,
+        printfulDataJson: p.printfulDataJson,
+      });
+      if (fromMatrix != null && Number.isFinite(fromMatrix)) {
+        return fromMatrix;
+      }
       const pricing = parsePricingSettings(p.printfulDataJson);
       return computeRetailPrice({
         printfulBasePrice: p.printfulBasePrice,
@@ -98,6 +176,8 @@ export async function GET(req: Request) {
         paperType: p.paperType,
         orientation: p.orientation,
         requiresQrCode,
+        artistSlug: parseArtistSlug(p.printfulDataJson) || null,
+        coCreatorSlug: parseCoCreatorSlug(p.printfulDataJson) || null,
         categoryId: p.categoryId,
         categoryName: cat?.name || "Uncategorized",
         categorySlug: cat?.slug || "",
@@ -163,6 +243,8 @@ export async function GET(req: Request) {
               paperType: null,
               orientation: null,
               requiresQrCode,
+              artistSlug: parseArtistSlug(rep.printfulDataJson) || null,
+              coCreatorSlug: parseCoCreatorSlug(rep.printfulDataJson) || null,
               categoryId: rep.categoryId,
               categoryName: cat?.name || "Uncategorized",
               categorySlug: cat?.slug || "",

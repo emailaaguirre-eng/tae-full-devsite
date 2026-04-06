@@ -114,6 +114,63 @@ export async function GET(req: Request) {
       return NextResponse.json({ startedAt, storeId, action, productId, ...r });
     }
 
+    // === ACTION: productdesc (clean product description/debug view) ===
+    if (action === "productdesc") {
+      if (!productId) {
+        return NextResponse.json(
+          { startedAt, action, error: "productId is required" },
+          { status: 400 }
+        );
+      }
+
+      const r = await pfFetch("/products/" + productId);
+
+      if (!r.ok) {
+        return NextResponse.json({ startedAt, storeId, action, productId, ...r });
+      }
+
+      const body = r.body?.result || {};
+      const sourceVariants = Array.isArray(body?.sync_variants)
+        ? body.sync_variants
+        : Array.isArray(body?.variants)
+          ? body.variants
+          : [];
+
+      const variantSamples = sourceVariants.slice(0, 8).map((v: any) => ({
+        id: v?.id ?? v?.variant_id ?? null,
+        name: v?.name || null,
+        size: v?.size || null,
+        color: v?.color || null,
+        colorCode: v?.color_code || null,
+        retailPrice: v?.retail_price ?? v?.price ?? null,
+      }));
+
+      return NextResponse.json({
+        startedAt,
+        storeId,
+        action,
+        productId,
+        ok: true,
+        product: {
+          id: body?.id ?? productId,
+          title: body?.title || null,
+          type: body?.type_name || body?.type || null,
+          brand: body?.brand || null,
+          model: body?.model || null,
+          description:
+            body?.description ||
+            body?.details ||
+            body?.short_description ||
+            null,
+          image: body?.image || body?.product?.image || null,
+          optionGroups: body?.option_groups || [],
+          options: body?.options || [],
+          variantCount: sourceVariants.length,
+          variantSamples,
+        },
+      });
+    }
+
     // === ACTION: variant ===
     if (action === "variant") {
       if (!variantId) {

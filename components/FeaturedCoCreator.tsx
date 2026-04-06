@@ -11,7 +11,7 @@ export default function FeaturedCoCreator() {
     <section className="py-20" style={{ backgroundColor: '#ffffff' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4 font-playfair">
             Featured CoCreator
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
@@ -32,7 +32,7 @@ export default function FeaturedCoCreator() {
             
             {/* CoCreator Bio */}
             <div className="p-8 md:p-12 flex flex-col justify-center">
-              <h3 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-4 font-playfair">
+              <h3 className="text-3xl md:text-4xl font-normal text-brand-darkest mb-4 font-playfair">
                 {featuredCoCreator.name}
               </h3>
               <div className="mb-4">

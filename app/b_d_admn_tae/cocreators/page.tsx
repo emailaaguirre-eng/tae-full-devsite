@@ -132,7 +132,7 @@ export default function AdminCoCreatorsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">CoCreators</h1>
+          <h1 className="text-2xl font-normal text-gray-900">CoCreators</h1>
           <p className="text-sm text-gray-500 mt-1">
             Manage cocreators displayed on the /cocreators page. {items.length} cocreator{items.length !== 1 ? "s" : ""}.
           </p>

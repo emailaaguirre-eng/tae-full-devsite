@@ -11,10 +11,11 @@ export default function CollectorsSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-brand-dark mb-3 font-playfair">
+          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4 font-playfair">
             For Collectors, Boutique Hotels, Restaurants & Special Spaces
           </h2>
-          <p className="text-lg text-brand-medium">
+          <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
+          <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
             Please contact us to talk about these options
           </p>
         </div>
@@ -32,7 +33,7 @@ export default function CollectorsSection() {
                   className="object-cover"
                 />
               </div>
-              <h3 className="text-3xl font-bold text-brand-darkest mb-2 font-playfair">
+              <h3 className="text-3xl font-normal text-brand-darkest mb-2 font-playfair">
                 Original Paintings
               </h3>
               <p className="text-brand-medium text-lg mb-6">
@@ -59,7 +60,7 @@ export default function CollectorsSection() {
                   className="object-cover"
                 />
               </div>
-              <h3 className="text-3xl font-bold text-brand-darkest mb-2 font-playfair">
+              <h3 className="text-3xl font-normal text-brand-darkest mb-2 font-playfair">
                 Commissions
               </h3>
               <p className="text-brand-medium text-lg mb-6">

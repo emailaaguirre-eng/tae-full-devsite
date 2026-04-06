@@ -73,7 +73,7 @@ const SHOP_CATEGORIES = [
   {
     taeId: 'TAE-WALL',
     slug: 'wall-art',
-    name: 'Wall Art',
+    name: 'ArtPrint',
     description: 'Premium prints for your walls in various sizes.',
     icon: '🖼️',
     gelatoCatalogUid: 'posters',

@@ -111,7 +111,7 @@ async function main() {
     { slug: 'invitations',     name: 'Invitations',     icon: '✉️',  fee: 1.00, qr: 1, sort: 2 },
     { slug: 'announcements',   name: 'Announcements',   icon: '📜', fee: 0.75, qr: 0, sort: 3 },
     { slug: 'postcards',       name: 'Postcards',       icon: '🃏', fee: 0.40, qr: 0, sort: 4 },
-    { slug: 'wall-art',        name: 'Wall Art',        icon: '🖼️',  fee: 3.00, qr: 0, sort: 5 },
+    { slug: 'wall-art',        name: 'ArtPrint',        icon: '🖼️',  fee: 3.00, qr: 0, sort: 5 },
     { slug: 'canvas-prints',   name: 'Canvas Prints',   icon: '🎨', fee: 8.00, qr: 0, sort: 6 },
     { slug: 'framed-prints',   name: 'Framed Prints',   icon: '📷', fee: 8.00, qr: 0, sort: 7 },
   ];

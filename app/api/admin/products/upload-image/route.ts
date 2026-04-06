@@ -2,21 +2,25 @@
  * Admin: Upload product image
  * POST /api/admin/products/upload-image
  *
- * multipart/form-data: file + productId + kind ("hero"|"gallery")
+ * multipart/form-data: file + productId + kind
+ *   ("hero"|"gallery"|"artworkSource"|"variantSample")
  * Saves to public/uploads/products/{slug}/{timestamp}-{safeFilename}
- * Returns { success, url }
+ * Returns { success, url, kind }
+ * Note: "variantSample" writes the file only (tAE-hosted URL); does not update galleryImages.
  */
 import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
 import { getDb, shopProducts, eq } from "@/lib/db";
 import { saveDatabase } from "@/db";
+import { reconcileImagesTableWithProductColumns } from "@/lib/shop-product-images";
 
 export const dynamic = "force-dynamic";
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
 const MAX_GALLERY = parseInt(process.env.MAX_GALLERY_IMAGES || "30", 10);
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_KINDS = ["hero", "gallery", "artworkSource", "variantSample"] as const;
 
 function sanitize(name: string): string {
   return name
@@ -37,6 +41,9 @@ export async function POST(req: Request) {
     }
     if (!productId) {
       return NextResponse.json({ success: false, error: "productId is required" }, { status: 400 });
+    }
+    if (!ALLOWED_KINDS.includes(kind as (typeof ALLOWED_KINDS)[number])) {
+      return NextResponse.json({ success: false, error: "Invalid kind" }, { status: 400 });
     }
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
@@ -59,7 +66,11 @@ export async function POST(req: Request) {
 
     if (kind === "gallery") {
       let existing: string[] = [];
-      try { existing = product.galleryImages ? JSON.parse(product.galleryImages) : []; } catch { /* ok */ }
+      try {
+        existing = product.galleryImages ? JSON.parse(product.galleryImages) : [];
+      } catch {
+        /* ok */
+      }
       if (existing.length >= MAX_GALLERY) {
         return NextResponse.json(
           { success: false, error: `Gallery limit reached (${MAX_GALLERY} images max)` },
@@ -84,16 +95,39 @@ export async function POST(req: Request) {
     const url = `/uploads/products/${slug}/${filename}`;
 
     if (kind === "hero") {
-      await db.update(shopProducts).set({ heroImage: url, updatedAt: new Date().toISOString() }).where(eq(shopProducts.id, productId));
+      await db
+        .update(shopProducts)
+        .set({ heroImage: url, updatedAt: new Date().toISOString() })
+        .where(eq(shopProducts.id, productId));
+      const p2 = await db.select().from(shopProducts).where(eq(shopProducts.id, productId)).get();
+      await reconcileImagesTableWithProductColumns(db, productId, p2?.heroImage ?? null, p2?.galleryImages ?? null);
     } else if (kind === "gallery") {
       let gallery: string[] = [];
-      try { gallery = product.galleryImages ? JSON.parse(product.galleryImages) : []; } catch { /* ok */ }
+      try {
+        gallery = product.galleryImages ? JSON.parse(product.galleryImages) : [];
+      } catch {
+        /* ok */
+      }
       gallery.push(url);
-      await db.update(shopProducts).set({
-        galleryImages: JSON.stringify(gallery),
-        updatedAt: new Date().toISOString(),
-      }).where(eq(shopProducts.id, productId));
+      await db
+        .update(shopProducts)
+        .set({
+          galleryImages: JSON.stringify(gallery),
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(shopProducts.id, productId));
+      const p2 = await db.select().from(shopProducts).where(eq(shopProducts.id, productId)).get();
+      await reconcileImagesTableWithProductColumns(db, productId, p2?.heroImage ?? null, p2?.galleryImages ?? null);
+    } else if (kind === "artworkSource") {
+      await db
+        .update(shopProducts)
+        .set({
+          artworkSourceUrl: url,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(shopProducts.id, productId));
     }
+    // variantSample: file only; do not mutate galleryImages or other columns
 
     await saveDatabase();
 
