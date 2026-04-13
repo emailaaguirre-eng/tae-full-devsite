@@ -18,6 +18,20 @@ interface CoCreator {
   thumbnailImage?: string;
 }
 
+interface CollaborationProduct {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  heroImage: string | null;
+  basePrice: number;
+  hasMultipleVariants?: boolean;
+  variantCount?: number;
+  categoryName: string;
+  categoryIcon: string;
+  requiresQrCode: boolean;
+}
+
 function firstNonEmpty(...candidates: Array<string | undefined | null>): string {
   for (const c of candidates) {
     if (c != null && String(c).trim() !== "") return String(c).trim();
@@ -40,15 +54,21 @@ export default function CoCreatorDetailPage() {
   const staticMatch = staticCreators.find((c) => c.slug === slug);
 
   const [creator, setCreator] = useState<CoCreator | null>(staticMatch || null);
+  /** `undefined` = cocreators API not finished; `null` = no DB row for slug; `string` = CoCreator.id */
+  const [coCreatorDbId, setCoCreatorDbId] = useState<string | null | undefined>(undefined);
+  const [collabProducts, setCollabProducts] = useState<CollaborationProduct[]>([]);
+  const [collabLoading, setCollabLoading] = useState(false);
 
   useEffect(() => {
+    setCoCreatorDbId(undefined);
+    const s = staticCreators.find((c) => c.slug === slug);
     fetch("/api/cocreators")
       .then((r) => r.json())
       .then((res) => {
         if (res.source === "db" && res.data.length > 0) {
           const dbMatch = res.data.find((c: any) => c.slug === slug);
           if (dbMatch) {
-            const s = staticMatch;
+            setCoCreatorDbId(typeof dbMatch.id === "string" && dbMatch.id.trim() ? dbMatch.id.trim() : null);
             setCreator({
               name: firstNonEmpty(dbMatch.name, s?.name),
               title: firstNonEmpty(dbMatch.title, s?.title),
@@ -72,11 +92,43 @@ export default function CoCreatorDetailPage() {
                 s?.thumbnailImage
               ),
             });
+          } else {
+            setCoCreatorDbId(null);
           }
+        } else {
+          setCoCreatorDbId(null);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setCoCreatorDbId(null);
+      });
   }, [slug]);
+
+  useEffect(() => {
+    if (coCreatorDbId === undefined || coCreatorDbId === null) {
+      setCollabProducts([]);
+      setCollabLoading(false);
+      return;
+    }
+    const params = new URLSearchParams({
+      coCreatorId: coCreatorDbId,
+      coCreatorSlug: slug,
+      group: "false",
+      limit: "50",
+    });
+    setCollabLoading(true);
+    fetch(`/api/products?${params}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.success && Array.isArray(data.data)) {
+          setCollabProducts(data.data as CollaborationProduct[]);
+        } else {
+          setCollabProducts([]);
+        }
+      })
+      .catch(() => setCollabProducts([]))
+      .finally(() => setCollabLoading(false));
+  }, [coCreatorDbId, slug]);
 
   if (!creator) {
     return (
@@ -116,6 +168,11 @@ export default function CoCreatorDetailPage() {
   const heroImg = creator.mountainImage || creator.heroImage;
   const hideSecondImage =
     slug === "kimber-cross" || slug === "lance-jones";
+
+  const formatPrice = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toFixed(2) : "0.00";
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -209,11 +266,92 @@ export default function CoCreatorDetailPage() {
         <p className="text-brand-darkest/60 mb-10">
           Products and experiences created with {creator.name.split(" ")[0]}.
         </p>
-        <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
-          <p className="text-brand-darkest/50 text-lg">
-            Collaboration products coming soon.
-          </p>
-        </div>
+        {coCreatorDbId === undefined ? (
+          <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
+            <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-brand-dark" />
+            <p className="mt-4 text-brand-darkest/50 text-sm">Loading collaborations…</p>
+          </div>
+        ) : coCreatorDbId === null ? (
+          <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
+            <p className="text-brand-darkest/60 text-lg">
+              Collaboration products are available when this co-creator is synced from the site directory.
+            </p>
+          </div>
+        ) : collabLoading ? (
+          <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
+            <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-brand-dark" />
+            <p className="mt-4 text-brand-darkest/50 text-sm">Loading products…</p>
+          </div>
+        ) : collabProducts.length === 0 ? (
+          <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
+            <p className="text-brand-darkest/60 text-lg">
+              No collaboration products are linked yet. Check back soon or browse the shop.
+            </p>
+            <Link
+              href="/shop"
+              className="inline-block mt-6 text-sm font-semibold text-brand-dark hover:text-brand-darkest"
+            >
+              Browse shop →
+            </Link>
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {collabProducts.map((product) => (
+              <Link
+                key={product.id}
+                href={`/shop/${product.slug}`}
+                className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1 group"
+              >
+                <div className="relative h-56 bg-gradient-to-br from-brand-light to-brand-medium overflow-hidden">
+                  {product.heroImage ? (
+                    <Image
+                      src={product.heroImage}
+                      alt={product.name}
+                      fill
+                      className="object-contain group-hover:scale-105 transition-transform duration-300"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-6xl text-brand-darkest/20">
+                        {product.categoryIcon || "🖼️"}
+                      </span>
+                    </div>
+                  )}
+                  {product.requiresQrCode && (
+                    <span className="absolute top-3 right-3 bg-brand-dark/80 text-white text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide">
+                      ArtKey
+                    </span>
+                  )}
+                </div>
+                <div className="p-5">
+                  <p className="text-[11px] font-semibold text-brand-medium uppercase tracking-wider mb-1">
+                    {product.categoryName}
+                  </p>
+                  <h3 className="text-lg font-normal text-brand-darkest mb-1 line-clamp-1 group-hover:text-brand-dark transition-colors">
+                    {product.name}
+                  </h3>
+                  {product.hasMultipleVariants && product.variantCount ? (
+                    <p className="text-xs text-brand-darkest/50 mb-2">
+                      {product.variantCount} options available
+                    </p>
+                  ) : null}
+                  <p className="text-sm text-brand-darkest/70 line-clamp-2 mb-4">
+                    {product.description || "Premium quality customizable product."}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xl font-bold text-brand-dark">
+                      ${formatPrice(product.basePrice)}
+                    </span>
+                    <span className="text-sm font-semibold text-brand-medium group-hover:text-brand-dark transition-colors">
+                      View &rarr;
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 text-center">

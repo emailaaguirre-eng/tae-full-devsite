@@ -52,53 +52,31 @@ export default async function AboutUs() {
             <div className="bg-brand-lightest rounded-2xl p-8 md:p-10 shadow-lg space-y-4">
               <h2 className="text-3xl md:text-4xl font-normal text-brand-darkest font-playfair">The Artful Experience</h2>
               <p className="text-lg text-brand-darkest leading-relaxed">
-                Welcome to The Artful Experience Gallery and Upload Center—where soul-stirring art and images become a living portal.
-                Give a gift that will never be forgotten, even if that gift is for you.
+                What happens when a globe-travelling entrepreneur sits down with an artist and lifestyle coach for a curious conversation?
               </p>
               <p className="text-lg text-brand-darkest leading-relaxed">
-                From original paintings and photography (even photos from your phone) to holiday cards, wedding announcements, personal milestones, and meaningful moments, each piece is designed to live beyond the surface.
+                You get The Artful Experience.
               </p>
               <p className="text-lg text-brand-darkest leading-relaxed">
-                Discover our ArtKey™ technology that lets you upload videos, music, and time-released e-gift cards embedded in the art.
-                When the recipient scans the ArtKey™ or QR code, they unlock your message, video, song, or surprise.
+                A place where art, technology, and storytelling come together to turn meaningful images into living portals filled with videos, music, messages, memories, and moments that continue to grow over time.
               </p>
               <p className="text-lg text-brand-darkest leading-relaxed">
-                Choose your path: upload your own image and personalize it, or select art from our gallery of internationally recognized artists.
-                Every option supports layered media so your story travels with the piece.
+                Because in the end, life isn&apos;t about things.
               </p>
+              <p className="text-lg text-brand-darkest leading-relaxed">
+                It&apos;s about people, stories, and the legacy we leave behind.
+              </p>
+              <div className="pt-2 space-y-5 border-t border-brand-light/40 mt-2">
+                <div className="space-y-0.5">
+                  <p className="text-lg font-semibold text-brand-darkest font-playfair">Bryant</p>
+                  <p className="text-base text-brand-darkest/80 leading-relaxed">Entrepreneur & explorer</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-lg font-semibold text-brand-darkest font-playfair">Deanna</p>
+                  <p className="text-base text-brand-darkest/80 leading-relaxed">Artist & storyteller</p>
+                </div>
+              </div>
             </div>
-          </div>
-
-          {/* What is an ArtKey™ */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 md:p-10 space-y-4">
-            <h3 className="text-3xl font-normal text-brand-darkest font-playfair">What is an ArtKey™?</h3>
-            <p className="text-lg text-brand-darkest leading-relaxed">
-              Each painting or print is embedded with an ArtKey™—a discreet digital touchpoint that unlocks a personalized experience.
-              By simply scanning near the artist's signature, the artwork opens a hidden world of music, messages, videos, and exclusive surprises.
-            </p>
-            <p className="text-lg text-brand-darkest leading-relaxed">
-              When you purchase our art or images as a gift, we give you control through our "upload center" to sync your desired content.
-            </p>
-            <p className="text-lg text-brand-darkest leading-relaxed">
-              Recipients can then discover voice notes, heartfelt messages, behind-the-scenes stories, or even special videos from the artist or brand.
-              Some ArtKey™ portals are time-released, revealing their contents only on meaningful dates like birthdays, anniversaries, or other milestones.
-              Others unfold as living experiences—sharing evolving playlists, recipes, stories, or reflections over time.
-            </p>
-            <p className="text-lg text-brand-darkest leading-relaxed">
-              ArtKey™ technology transforms a piece of art from something you admire into something that connects, surprises, and evolves. You get to decide!
-            </p>
-            <div>
-              <h4 className="text-2xl font-normal text-brand-darkest font-playfair mb-2">Who this is for?</h4>
-              <ul className="list-disc list-inside text-brand-darkest space-y-1">
-                <li>Gift givers who want to leave a lasting impression</li>
-                <li>Art collectors who want the artist’s narrative</li>
-                <li>AirBnb owners who want to bring their art and images to life</li>
-                <li>Artists and photographers who want to share their narrative</li>
-              </ul>
-            </div>
-            <p className="text-lg text-brand-darkest leading-relaxed">
-              Whether it’s a framed piece, a postcard, or a one-of-a-kind commission, The Artful Experience invites people into a deeper kind of exchange—one that lives long after the moment passes.
-            </p>
           </div>
         </div>
       </div>
