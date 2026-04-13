@@ -99,18 +99,50 @@ function legacyVirtualImages(
   return rows;
 }
 
+function isApiSourceRow(row: ProductImagePublic): boolean {
+  return (row.sourceType || "").trim().toLowerCase() === "api";
+}
+
+/**
+ * Merges DB gallery rows with legacy hero/gallery columns.
+ * Manual uploads (non-api rows + legacy URLs) take priority over Printful (sourceType api) rows.
+ */
 export function mergeLegacyAndDbImages(
   productId: string,
   heroImage: string | null | undefined,
   galleryImagesJson: string | null | undefined,
   dbRows: (typeof shopProductImages.$inferSelect)[]
 ): ProductImagePublic[] {
-  if (dbRows.length > 0) {
-    return [...dbRows]
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-      .map(mapRowToPublic);
+  const legacy = legacyVirtualImages(productId, heroImage, galleryImagesJson);
+  const dbMapped = [...dbRows]
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map(mapRowToPublic);
+
+  const nonApiRows = dbMapped.filter((r) => !isApiSourceRow(r));
+  const apiRows = dbMapped.filter((r) => isApiSourceRow(r));
+
+  const seen = new Set<string>();
+  const manualPool: ProductImagePublic[] = [];
+  for (const r of nonApiRows) {
+    const u = (r.imageUrl || "").trim();
+    if (!u) continue;
+    manualPool.push(r);
+    seen.add(u);
   }
-  return legacyVirtualImages(productId, heroImage, galleryImagesJson);
+  for (const r of legacy) {
+    const u = (r.imageUrl || "").trim();
+    if (!u || seen.has(u)) continue;
+    manualPool.push(r);
+    seen.add(u);
+  }
+
+  if (manualPool.length > 0) {
+    return normalizeHeroFlags(manualPool);
+  }
+  if (apiRows.length > 0) {
+    return normalizeHeroFlags(apiRows);
+  }
+  return normalizeHeroFlags(legacy);
 }
 
 export async function loadImagesByProductIds(

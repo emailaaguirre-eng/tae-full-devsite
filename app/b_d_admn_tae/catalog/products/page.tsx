@@ -54,6 +54,16 @@ function localImageId() {
   return `local_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** Must stay in sync with POST /api/admin/products/upload-image */
+const MAX_PRODUCT_IMAGE_UPLOAD_BYTES = 20 * 1024 * 1024;
+
+function productImageFileTooLargeMessage(file: File): string | null {
+  if (file.size > MAX_PRODUCT_IMAGE_UPLOAD_BYTES) {
+    return `File "${file.name}" is too large. Maximum size is 20 MB.`;
+  }
+  return null;
+}
+
 interface ProductVariantMatrixRow {
   id: string;
   /** Stationery: flat (e.g. postcard-style) vs bifold (folded card); drives Printful catalog slice */
@@ -1386,6 +1396,12 @@ export default function AdminProductsPage() {
   const handleArtworkSourceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !imageEditProduct) return;
+    const sizeErr = productImageFileTooLargeMessage(file);
+    if (sizeErr) {
+      setImgError(sizeErr);
+      e.target.value = "";
+      return;
+    }
     setArtworkSourceUploading(true);
     setImgError(null);
     try {
@@ -1620,6 +1636,11 @@ export default function AdminProductsPage() {
     try {
       for (const file of Array.from(files)) {
         if (next.length >= 30) break;
+        const sizeErr = productImageFileTooLargeMessage(file);
+        if (sizeErr) {
+          setImgError(sizeErr);
+          break;
+        }
         const result = await uploadProductImage(file, imageEditProduct.id, "gallery");
         if (result.success && result.data?.url) {
           const url = result.data.url as string;
@@ -1937,6 +1958,21 @@ export default function AdminProductsPage() {
     setSaving(true);
     setError("");
     try {
+      if (draftHeroFile) {
+        const heroErr = productImageFileTooLargeMessage(draftHeroFile);
+        if (heroErr) {
+          setError(heroErr);
+          return;
+        }
+      }
+      for (const f of draftGalleryFiles) {
+        const gErr = productImageFileTooLargeMessage(f);
+        if (gErr) {
+          setError(gErr);
+          return;
+        }
+      }
+
       const mergedTaeAddon = variationUpcharge + taePrice;
       const payload: Record<string, any> = {
         name: form.name,
@@ -2464,6 +2500,7 @@ export default function AdminProductsPage() {
                     onChange={(e) => setDraftHeroFile(e.target.files?.[0] || null)}
                     className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
                   />
+                  <p className="text-[10px] text-brand-medium mt-1">JPEG, PNG, or WebP. Max 20 MB.</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Gallery Image Uploads</label>
@@ -2474,6 +2511,7 @@ export default function AdminProductsPage() {
                     onChange={(e) => setDraftGalleryFiles(Array.from(e.target.files || []))}
                     className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
                   />
+                  <p className="text-[10px] text-brand-medium mt-1">JPEG, PNG, or WebP. Max 20 MB each.</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -3628,95 +3666,6 @@ export default function AdminProductsPage() {
                   </div>
                 )}
               </div>
-              </AdminAccordionSection>
-
-              <AdminAccordionSection title="Pricing">
-                <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider -mt-1 mb-1">
-                  Pricing builder
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Printful Base Price ($)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.printfulBasePrice}
-                      onChange={(e) => setForm({ ...form, printfulBasePrice: e.target.value })}
-                      className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Variation Upcharge ($)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.variationUpcharge}
-                      onChange={(e) => setForm({ ...form, variationUpcharge: e.target.value })}
-                      className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Artist Royalty ($)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.artistRoyalty}
-                      onChange={(e) => setForm({ ...form, artistRoyalty: e.target.value })}
-                      className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">theAE Price ($)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.taePrice}
-                      onChange={(e) => setForm({ ...form, taePrice: e.target.value })}
-                      className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">Sale Price ($)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.salePrice}
-                      onChange={(e) => setForm({ ...form, salePrice: e.target.value })}
-                      className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">% Discount</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      value={form.discountPercent}
-                      onChange={(e) => setForm({ ...form, discountPercent: e.target.value })}
-                      className="w-full border border-brand-light px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="bg-brand-lightest border border-brand-light p-2">
-                    <div className="text-brand-medium">Total Retail</div>
-                    <div className="text-brand-dark font-semibold">${totalRetail.toFixed(2)}</div>
-                  </div>
-                  <div className="bg-brand-lightest border border-brand-light p-2">
-                    <div className="text-brand-medium">Discounted Price</div>
-                    <div className="text-brand-dark font-semibold">${discountedRetail.toFixed(2)}</div>
-                  </div>
-                  <div className="bg-brand-lightest border border-brand-light p-2">
-                    <div className="text-brand-medium">Printful + Variation</div>
-                    <div className="text-brand-dark font-semibold">${(providerCost + variationUpcharge).toFixed(2)}</div>
-                  </div>
-                </div>
               </AdminAccordionSection>
 
               <AdminAccordionSection title="Advanced (optional)" defaultOpen={false}>

@@ -14,6 +14,7 @@ interface ArtistWork {
 }
 
 interface Artist {
+  id?: string;
   name: string;
   title: string;
   image: string;
@@ -25,6 +26,13 @@ interface Artist {
   portfolio?: ArtistWork[];
 }
 
+interface ShopProductCard {
+  slug: string;
+  name: string;
+  heroImage: string | null;
+  basePrice: number;
+}
+
 export default function ArtistDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -33,6 +41,7 @@ export default function ArtistDetailPage() {
   const staticMatch = staticArtists.find((a) => a.slug === slug);
 
   const [artist, setArtist] = useState<Artist | null>(staticMatch || null);
+  const [shopProducts, setShopProducts] = useState<ShopProductCard[]>([]);
 
   useEffect(() => {
     fetch("/api/gallery")
@@ -42,6 +51,7 @@ export default function ArtistDetailPage() {
           const dbMatch = res.data.find((a: any) => a.slug === slug);
           if (dbMatch) {
             setArtist({
+              id: typeof dbMatch.id === "string" ? dbMatch.id : undefined,
               name: dbMatch.name,
               title: dbMatch.title || "",
               image: dbMatch.thumbnailImage || dbMatch.bioImage || "",
@@ -56,6 +66,30 @@ export default function ArtistDetailPage() {
       })
       .catch(() => {});
   }, [slug]);
+
+  useEffect(() => {
+    if (!artist?.slug) return;
+    const params = new URLSearchParams({ limit: "50", group: "false" });
+    if (artist.id) params.set("artistId", artist.id);
+    params.set("artistSlug", artist.slug);
+    fetch(`/api/products?${params}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          setShopProducts(
+            res.data.map((p: any) => ({
+              slug: p.slug,
+              name: p.name,
+              heroImage: p.heroImage ?? null,
+              basePrice: Number(p.basePrice) || 0,
+            }))
+          );
+        } else {
+          setShopProducts([]);
+        }
+      })
+      .catch(() => setShopProducts([]));
+  }, [artist?.id, artist?.slug]);
 
   if (!artist) {
     return (
@@ -141,6 +175,48 @@ export default function ArtistDetailPage() {
           </div>
         </div>
       </div>
+
+      {shopProducts.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-brand-light/40">
+          <h2 className="text-3xl font-normal text-brand-darkest font-playfair mb-2">
+            Shop — prints &amp; products
+          </h2>
+          <p className="text-brand-darkest/60 mb-10">
+            Available for purchase from theAE shop.
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {shopProducts.map((p) => (
+              <Link
+                key={p.slug}
+                href={`/shop/${p.slug}`}
+                className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all group"
+              >
+                <div className="relative aspect-square bg-gradient-to-br from-brand-light to-brand-medium overflow-hidden">
+                  {p.heroImage ? (
+                    <Image
+                      src={p.heroImage}
+                      alt={p.name}
+                      fill
+                      className="object-contain group-hover:scale-105 transition-transform duration-300"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-brand-darkest/25 text-5xl">
+                      ◆
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-brand-darkest mb-1 line-clamp-2">{p.name}</h3>
+                  <span className="text-lg font-bold text-brand-dark">
+                    ${p.basePrice.toFixed(2)}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {portfolio.length > 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

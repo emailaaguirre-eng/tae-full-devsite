@@ -3,7 +3,7 @@
  * GET /api/products — List products for the storefront
  *
  * Query params:
- *   ?category=slug    — filter by category slug
+ *   ?category=slug    — filter by category slug (includes products in that category OR linked to Artist/CoCreator with the same slug)
  *   ?tag=label       — filter by tag in printfulDataJson meta (case-insensitive)
  *   ?search=term      — search by name
  *   ?type=customizable|artist|cocreator — filter by product source
@@ -14,7 +14,15 @@
  *   ?group=true|false — collapse variants into grouped cards (default true)
  */
 import { NextResponse } from "next/server";
-import { getDb, shopProducts, shopCategories, eq, desc, like, and } from "@/lib/db";
+import {
+  getDb,
+  shopProducts,
+  shopCategories,
+  artists,
+  coCreators,
+  eq,
+  desc,
+} from "@/lib/db";
 import {
   buildProductPreviewUrl,
   parseRequiresQrCode,
@@ -66,7 +74,30 @@ export async function GET(req: Request) {
     if (categorySlug) {
       const cat = categories.find((c) => c.slug === categorySlug);
       if (cat) {
-        products = products.filter((p) => p.categoryId === cat.id);
+        const slugNorm = categorySlug.trim().toLowerCase();
+        const artistForSlug = await db
+          .select()
+          .from(artists)
+          .where(eq(artists.slug, categorySlug))
+          .get();
+        const coCreatorForSlug = await db
+          .select()
+          .from(coCreators)
+          .where(eq(coCreators.slug, categorySlug))
+          .get();
+
+        products = products.filter((p) => {
+          if (p.categoryId === cat.id) return true;
+          const rowArtistId = String(p.artistId || "").trim();
+          const rowCoId = String(p.coCreatorId || "").trim();
+          if (artistForSlug && rowArtistId === artistForSlug.id) return true;
+          if (coCreatorForSlug && rowCoId === coCreatorForSlug.id) return true;
+          const metaArtist = (parseArtistSlug(p.printfulDataJson) || "").trim().toLowerCase();
+          const metaCo = (parseCoCreatorSlug(p.printfulDataJson) || "").trim().toLowerCase();
+          if (slugNorm && metaArtist === slugNorm) return true;
+          if (slugNorm && metaCo === slugNorm) return true;
+          return false;
+        });
       } else {
         products = [];
       }
@@ -102,26 +133,80 @@ export async function GET(req: Request) {
     }
 
     if (artistIdParam || artistSlug) {
+      let resolvedArtistId: string | null = null;
+      let resolvedArtistSlugNorm: string | null = null;
+      if (artistIdParam) {
+        const byId = await db.select().from(artists).where(eq(artists.id, artistIdParam)).get();
+        if (byId) {
+          resolvedArtistId = byId.id;
+          resolvedArtistSlugNorm = String(byId.slug || "")
+            .trim()
+            .toLowerCase();
+        }
+      }
+      if (artistSlug && !resolvedArtistSlugNorm) {
+        const bySlug = await db.select().from(artists).where(eq(artists.slug, artistSlug)).get();
+        if (bySlug) {
+          resolvedArtistId = bySlug.id;
+          resolvedArtistSlugNorm = String(bySlug.slug || "")
+            .trim()
+            .toLowerCase();
+        }
+      }
+      const slugNorm = (artistSlug || "").trim().toLowerCase();
+      const metaSlugMatch =
+        resolvedArtistSlugNorm ||
+        (slugNorm || null);
+
       products = products.filter((p) => {
         const rowId = String(p.artistId || "").trim();
-        if (artistIdParam && artistSlug) {
-          if (rowId) return rowId === artistIdParam;
-          return (parseArtistSlug(p.printfulDataJson) || "") === artistSlug;
-        }
-        if (artistIdParam) return rowId === artistIdParam;
-        return (parseArtistSlug(p.printfulDataJson) || "") === artistSlug;
+        const metaSlug = (parseArtistSlug(p.printfulDataJson) || "").trim().toLowerCase();
+        if (resolvedArtistId && rowId === resolvedArtistId) return true;
+        if (metaSlugMatch && metaSlug === metaSlugMatch) return true;
+        return false;
       });
     }
 
     if (coCreatorIdParam || coCreatorSlug) {
+      let resolvedCoId: string | null = null;
+      let resolvedCoSlugNorm: string | null = null;
+      if (coCreatorIdParam) {
+        const byId = await db
+          .select()
+          .from(coCreators)
+          .where(eq(coCreators.id, coCreatorIdParam))
+          .get();
+        if (byId) {
+          resolvedCoId = byId.id;
+          resolvedCoSlugNorm = String(byId.slug || "")
+            .trim()
+            .toLowerCase();
+        }
+      }
+      if (coCreatorSlug && !resolvedCoSlugNorm) {
+        const bySlug = await db
+          .select()
+          .from(coCreators)
+          .where(eq(coCreators.slug, coCreatorSlug))
+          .get();
+        if (bySlug) {
+          resolvedCoId = bySlug.id;
+          resolvedCoSlugNorm = String(bySlug.slug || "")
+            .trim()
+            .toLowerCase();
+        }
+      }
+      const coSlugNorm = (coCreatorSlug || "").trim().toLowerCase();
+      const coMetaSlugMatch =
+        resolvedCoSlugNorm ||
+        (coSlugNorm || null);
+
       products = products.filter((p) => {
         const rowId = String(p.coCreatorId || "").trim();
-        if (coCreatorIdParam && coCreatorSlug) {
-          if (rowId) return rowId === coCreatorIdParam;
-          return (parseCoCreatorSlug(p.printfulDataJson) || "") === coCreatorSlug;
-        }
-        if (coCreatorIdParam) return rowId === coCreatorIdParam;
-        return (parseCoCreatorSlug(p.printfulDataJson) || "") === coCreatorSlug;
+        const metaSlug = (parseCoCreatorSlug(p.printfulDataJson) || "").trim().toLowerCase();
+        if (resolvedCoId && rowId === resolvedCoId) return true;
+        if (coMetaSlugMatch && metaSlug === coMetaSlugMatch) return true;
+        return false;
       });
     }
 

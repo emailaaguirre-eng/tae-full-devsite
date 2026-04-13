@@ -658,13 +658,13 @@ export default function ProductDetailPage() {
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Product Images */}
           <div>
-            <div className="relative aspect-square bg-white rounded-2xl shadow-lg overflow-hidden mb-4">
+            <div className="relative aspect-square bg-brand-light rounded-2xl shadow-md overflow-hidden mb-4 ring-1 ring-black/5">
               {mainImageSrc ? (
                 <Image
                   src={mainImageSrc}
                   alt={product.name}
                   fill
-                  className="object-contain p-8"
+                  className="object-contain p-2 sm:p-3 md:p-4"
                   unoptimized
                 />
               ) : (

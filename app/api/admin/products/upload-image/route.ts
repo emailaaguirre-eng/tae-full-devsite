@@ -17,7 +17,7 @@ import { reconcileImagesTableWithProductColumns } from "@/lib/shop-product-image
 
 export const dynamic = "force-dynamic";
 
-const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 const MAX_GALLERY = parseInt(process.env.MAX_GALLERY_IMAGES || "30", 10);
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const ALLOWED_KINDS = ["hero", "gallery", "artworkSource", "variantSample"] as const;
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     }
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { success: false, error: `File too large. Max ${MAX_FILE_SIZE / 1024 / 1024}MB.` },
+        { success: false, error: `File too large. Max ${MAX_FILE_SIZE / 1024 / 1024} MB.` },
         { status: 400 }
       );
     }
