@@ -90,6 +90,8 @@ type VariantImageMeta = {
   color?: string | null;
   active?: boolean;
   galleryMode?: string | null;
+  /** Watermarked preview URLs for admin-ordered Printful picks (from GET /api/products/[slug]). */
+  selectedPrintfulImagePreviews?: string[] | null;
 };
 
 function toVariantIdCandidates(row: VariantImageMeta): number[] {
@@ -345,6 +347,28 @@ export default function ProductDetailPage() {
     parsedImageMeta.variantMatrix,
   ]);
 
+  /** Printful-side URLs for the active variant: manual picks first, else legacy matrix `image` / format match. */
+  const matrixPrintfulUrls = useMemo(() => {
+    if (!currentVariant?.id) {
+      return exactVariantImages.length > 0
+        ? exactVariantImages
+        : formatSpecificImages;
+    }
+    const row = parsedImageMeta.variantMatrix.find(
+      (r) => String(r?.id) === String(currentVariant.id)
+    );
+    const previews = row?.selectedPrintfulImagePreviews;
+    if (Array.isArray(previews) && previews.length > 0) {
+      return previews.filter((u): u is string => typeof u === "string" && u.trim().length > 0);
+    }
+    return exactVariantImages.length > 0 ? exactVariantImages : formatSpecificImages;
+  }, [
+    parsedImageMeta.variantMatrix,
+    currentVariant?.id,
+    exactVariantImages,
+    formatSpecificImages,
+  ]);
+
   const currentMatrixRowGalleryMode = useMemo((): "product" | "printful" | "both" | undefined => {
     if (!currentVariant?.id) return undefined;
     const row = parsedImageMeta.variantMatrix.find((r) => String(r?.id) === String(currentVariant.id));
@@ -369,23 +393,19 @@ export default function ProductDetailPage() {
     ];
 
     const matrixOrFormatOnly =
-      exactVariantImages.length > 0
-        ? exactVariantImages
-        : formatSpecificImages.length > 0
-          ? formatSpecificImages
-          : [];
+      matrixPrintfulUrls.length > 0
+        ? matrixPrintfulUrls
+        : [];
 
     const legacyMatrixBase =
-      exactVariantImages.length > 0
-        ? exactVariantImages
-        : formatSpecificImages.length > 0
-          ? formatSpecificImages
-          : [...new Set(fallback)];
+      matrixPrintfulUrls.length > 0
+        ? matrixPrintfulUrls
+        : [...new Set(fallback)];
 
     const applyVariantHero = (base: string[]) => {
       const vh = currentVariant?.heroImage;
       if (!vh) return base;
-      if (exactVariantImages.length > 0) return base;
+      if (matrixPrintfulUrls.length > 0) return base;
       return [vh, ...base.filter((u) => u !== vh)];
     };
 
@@ -423,8 +443,7 @@ export default function ProductDetailPage() {
   }, [
     variantMatchCtx,
     product,
-    exactVariantImages,
-    formatSpecificImages,
+    matrixPrintfulUrls,
     currentVariant?.heroImage,
     currentMatrixRowGalleryMode,
   ]);

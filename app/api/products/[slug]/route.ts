@@ -8,6 +8,7 @@ import { asc } from "drizzle-orm";
 import {
   buildProductPreviewUrl,
   buildStorefrontMetaImagePreviewUrl,
+  buildMatrixRowSelectedPreviewUrl,
   parseRequiresQrCode,
   parseFamilyKey,
   parseSemanticProductType,
@@ -38,7 +39,7 @@ const STOREFRONT_META_ROW_KEYS = [
 
 type StorefrontMetaListKey = "variantMatrix" | "variantImages" | "siblingVariants";
 
-function sanitizeStorefrontMetaRow(row: unknown): Record<string, unknown> | null {
+function sanitizeStorefrontMetaRow(row: unknown, productId: string): Record<string, unknown> | null {
   if (!row || typeof row !== "object" || Array.isArray(row)) return null;
   const src = row as Record<string, unknown>;
 
@@ -77,6 +78,28 @@ function sanitizeStorefrontMetaRow(row: unknown): Record<string, unknown> | null
       if (t) out[key] = t;
     }
   }
+
+  const gm = src.galleryMode;
+  if (gm === "product" || gm === "printful" || gm === "both") {
+    out.galleryMode = gm;
+  }
+
+  const sel = src.selectedPrintfulImages;
+  if (Array.isArray(sel) && sel.length > 0 && productId) {
+    const previews: string[] = [];
+    for (let i = 0; i < sel.length; i++) {
+      const it = sel[i];
+      if (!it || typeof it !== "object") continue;
+      const o = it as Record<string, unknown>;
+      const url = typeof o.url === "string" ? o.url.trim() : "";
+      if (!url || !/^https?:\/\//i.test(url)) continue;
+      previews.push(buildMatrixRowSelectedPreviewUrl(productId, idStr, i));
+    }
+    if (previews.length > 0) {
+      out.selectedPrintfulImagePreviews = previews;
+    }
+  }
+
   return out;
 }
 
@@ -100,7 +123,9 @@ function buildStorefrontMeta(raw: string | null | undefined, productId: string) 
   }
 
   const sanitizeList = (items: unknown[]) =>
-    items.map(sanitizeStorefrontMetaRow).filter((x): x is Record<string, unknown> => x != null);
+    items
+      .map((item) => sanitizeStorefrontMetaRow(item, productId))
+      .filter((x): x is Record<string, unknown> => x != null);
 
   const withPreviewImages = (
     key: StorefrontMetaListKey,

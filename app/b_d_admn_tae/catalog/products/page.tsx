@@ -78,6 +78,8 @@ interface ProductVariantMatrixRow {
    * Omit = previous automatic behavior (shop images win when they match; otherwise mockups).
    */
   galleryMode?: "product" | "printful" | "both";
+  /** Ordered Printful catalog mockups for this row (URLs from Load from Printful). PDP uses these first when set. */
+  selectedPrintfulImages?: { url: string; label: string }[];
 }
 
 interface Product {
@@ -945,6 +947,10 @@ export default function AdminProductsPage() {
   const [draftGalleryFiles, setDraftGalleryFiles] = useState<File[]>([]);
   const [rowPrintfulVariants, setRowPrintfulVariants] = useState<Record<string, PrintfulVariantOption[]>>({});
   const [rowPrintfulLoadingVariants, setRowPrintfulLoadingVariants] = useState<Record<string, boolean>>({});
+  const [pfCatalogOptionsByRow, setPfCatalogOptionsByRow] = useState<
+    Record<string, { url: string; label: string }[]>
+  >({});
+  const [pfCatalogLoadingRowId, setPfCatalogLoadingRowId] = useState<string | null>(null);
   const [matrixMoneyDrafts, setMatrixMoneyDrafts] = useState<Record<string, string>>({});
 
   const editingProductForImages = useMemo(
@@ -2717,6 +2723,127 @@ export default function AdminProductsPage() {
                             <option value="printful">Printful Images Only</option>
                             <option value="both">Combine Both</option>
                           </select>
+                        </div>
+
+                        <div className="rounded-md border border-brand-light/80 bg-white/80 p-3 space-y-2">
+                          <label className="block text-[11px] font-medium text-brand-dark/70">
+                            Printful mockups (this option)
+                          </label>
+                          <p className="text-[10px] text-brand-medium leading-snug">
+                            Load images from the Printful catalog for this row, then click thumbnails to add or remove in
+                            gallery order. When any are selected, the PDP uses these (watermarked) instead of generic
+                            variant images. Clear picks to fall back to Automatic behavior above.
+                          </p>
+                          <div className="flex flex-wrap gap-2 items-center">
+                            <button
+                              type="button"
+                              disabled={
+                                !row.printfulProductId ||
+                                !row.printfulVariantId ||
+                                pfCatalogLoadingRowId === row.id
+                              }
+                              onClick={async () => {
+                                const pid = row.printfulProductId;
+                                const vid = row.printfulVariantId;
+                                if (!pid || !vid) return;
+                                setPfCatalogLoadingRowId(row.id);
+                                try {
+                                  const res = await fetch(
+                                    `/api/admin/test-printful?action=variantcatalogimages&productId=${pid}&variantId=${vid}`,
+                                    { credentials: "same-origin" }
+                                  );
+                                  const data = await res.json().catch(() => null);
+                                  const images = Array.isArray(data?.images) ? data.images : [];
+                                  setPfCatalogOptionsByRow((prev) => ({ ...prev, [row.id]: images }));
+                                  if (!res.ok || !data?.success) {
+                                    setError(data?.error || `Printful images failed (${res.status})`);
+                                  }
+                                } catch (e: unknown) {
+                                  setError(e instanceof Error ? e.message : "Failed to load Printful images");
+                                } finally {
+                                  setPfCatalogLoadingRowId(null);
+                                }
+                              }}
+                              className="text-xs border border-brand-dark text-brand-dark px-2 py-1 rounded hover:bg-brand-dark/10 disabled:opacity-40"
+                            >
+                              {pfCatalogLoadingRowId === row.id ? "Loading…" : "Load from Printful"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!(row.selectedPrintfulImages && row.selectedPrintfulImages.length > 0)}
+                              onClick={() =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  variantMatrix: (Array.isArray(prev.variantMatrix)
+                                    ? prev.variantMatrix
+                                    : []
+                                  ).map((item) =>
+                                    item.id === row.id ? { ...item, selectedPrintfulImages: undefined } : item
+                                  ),
+                                }))
+                              }
+                              className="text-xs text-red-600 hover:text-red-700 disabled:opacity-40"
+                            >
+                              Clear picks
+                            </button>
+                          </div>
+                          {(pfCatalogOptionsByRow[row.id] || []).length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              {(pfCatalogOptionsByRow[row.id] || []).map((entry) => {
+                                const selected = (row.selectedPrintfulImages || []).some((p) => p.url === entry.url);
+                                return (
+                                  <button
+                                    key={entry.url}
+                                    type="button"
+                                    title={entry.label}
+                                    onClick={() =>
+                                      setForm((prev) => ({
+                                        ...prev,
+                                        variantMatrix: (Array.isArray(prev.variantMatrix)
+                                          ? prev.variantMatrix
+                                          : []
+                                        ).map((item) => {
+                                          if (item.id !== row.id) return item;
+                                          const cur = [...(item.selectedPrintfulImages || [])];
+                                          const idx = cur.findIndex((p) => p.url === entry.url);
+                                          if (idx >= 0) cur.splice(idx, 1);
+                                          else cur.push({ url: entry.url, label: entry.label });
+                                          return {
+                                            ...item,
+                                            selectedPrintfulImages: cur.length > 0 ? cur : undefined,
+                                          };
+                                        }),
+                                      }))
+                                    }
+                                    className={`relative w-16 h-16 rounded border-2 overflow-hidden shrink-0 ${
+                                      selected ? "border-brand-dark ring-2 ring-brand-medium/50" : "border-brand-light"
+                                    }`}
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={entry.url}
+                                      alt=""
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-[8px] text-white px-0.5 truncate text-center">
+                                      {entry.label}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {(row.selectedPrintfulImages || []).length > 0 && (
+                            <div className="text-[10px] text-brand-dark/80">
+                              <span className="font-medium">Gallery order: </span>
+                              {(row.selectedPrintfulImages || []).map((p, i) => (
+                                <span key={`${p.url}-${i}`} className="mr-1">
+                                  {i + 1}. {p.label || "Image"}
+                                  {i < (row.selectedPrintfulImages || []).length - 1 ? "," : ""}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

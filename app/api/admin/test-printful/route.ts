@@ -45,6 +45,98 @@ async function pfFetch(path: string) {
   return { ok: true, status: res.status, body: json, path };
 }
 
+type CatalogImageEntry = { url: string; label: string };
+
+function humanPrintfulImageLabel(hint: string, index: number): string {
+  const s = (hint || "").toLowerCase();
+  if (s === "image" || s === "preview_image" || s === "preview_url") return "Main mockup";
+  if (s.includes("front") && !s.includes("inside")) return "Front";
+  if (s.includes("inside")) return "Inside";
+  if (s.includes("back")) return "Back";
+  if (s.includes("open")) return "Open card";
+  if (s.includes("closed")) return "Closed card";
+  if (s.includes("lifestyle")) return "Lifestyle";
+  if (s.includes("flat")) return "Flat";
+  if (s.includes("mockup")) return `Mockup ${index + 1}`;
+  return `Mockup ${index + 1}`;
+}
+
+function pushUniqueUrl(
+  out: CatalogImageEntry[],
+  seen: Set<string>,
+  url: unknown,
+  hint: string
+) {
+  if (typeof url !== "string") return;
+  const u = url.trim();
+  if (!u.startsWith("http")) return;
+  if (seen.has(u)) return;
+  seen.add(u);
+  out.push({ url: u, label: humanPrintfulImageLabel(hint, out.length) });
+}
+
+function collectImagesFromVariantObject(
+  variant: unknown,
+  out: CatalogImageEntry[],
+  seen: Set<string>
+) {
+  if (!variant || typeof variant !== "object" || Array.isArray(variant)) return;
+  const v = variant as Record<string, unknown>;
+  pushUniqueUrl(out, seen, v.image, "image");
+  pushUniqueUrl(out, seen, v.preview_image, "preview_image");
+  pushUniqueUrl(out, seen, v.preview_url, "preview_url");
+  const prevFile = v.preview_file;
+  if (prevFile && typeof prevFile === "object" && !Array.isArray(prevFile)) {
+    pushUniqueUrl(out, seen, (prevFile as Record<string, unknown>).url, "preview_file");
+  }
+  const arr = v.preview_images;
+  if (Array.isArray(arr)) {
+    arr.forEach((x: unknown, i: number) => {
+      const o = x && typeof x === "object" && !Array.isArray(x) ? (x as Record<string, unknown>) : null;
+      const hint = o
+        ? [o.type, o.placement, o.name, o.role, String(i)].filter(Boolean).join(" ")
+        : String(i);
+      pushUniqueUrl(out, seen, o?.url ?? o?.src ?? x, hint);
+    });
+  }
+  const imgs = v.images;
+  if (Array.isArray(imgs)) {
+    imgs.forEach((x: unknown, i: number) => {
+      const o = x && typeof x === "object" && !Array.isArray(x) ? (x as Record<string, unknown>) : null;
+      const hint = o ? [o.type, o.name, String(i)].filter(Boolean).join(" ") : String(i);
+      pushUniqueUrl(out, seen, o?.url ?? o?.src ?? x, hint);
+    });
+  }
+}
+
+async function fetchVariantCatalogImages(
+  productId: number,
+  variantId: number
+): Promise<CatalogImageEntry[]> {
+  const out: CatalogImageEntry[] = [];
+  const seen = new Set<string>();
+
+  const vr = await pfFetch("/products/variant/" + variantId);
+  if (vr.ok && vr.body?.result) {
+    const res = vr.body.result as Record<string, unknown>;
+    collectImagesFromVariantObject(res.variant ?? res, out, seen);
+  }
+
+  const pr = await pfFetch("/products/" + productId);
+  if (pr.ok) {
+    const body = (pr.body?.result || {}) as Record<string, unknown>;
+    const variants = Array.isArray(body.variants) ? body.variants : [];
+    const v = variants.find(
+      (x: unknown) =>
+        Number((x as { id?: unknown })?.id) === variantId ||
+        Number((x as { variant_id?: unknown })?.variant_id) === variantId
+    );
+    if (v) collectImagesFromVariantObject(v, out, seen);
+  }
+
+  return out;
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const action = (searchParams.get("action") || "summary").toLowerCase();
@@ -206,6 +298,31 @@ export async function GET(req: Request) {
         orientation,
         technique,
         ...r,
+      });
+    }
+
+    // === ACTION: variantcatalogimages (mockup URLs for catalog variant — product builder) ===
+    if (action === "variantcatalogimages") {
+      if (!productId || !variantId) {
+        return NextResponse.json(
+          {
+            startedAt,
+            storeId,
+            action,
+            error: "productId and variantId are required",
+          },
+          { status: 400 }
+        );
+      }
+      const images = await fetchVariantCatalogImages(productId, variantId);
+      return NextResponse.json({
+        startedAt,
+        storeId,
+        action,
+        success: true,
+        productId,
+        variantId,
+        images,
       });
     }
 

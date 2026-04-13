@@ -13,6 +13,13 @@ export interface ProductWatermarkSettings {
   transform: ProductWatermarkTransform;
 }
 
+/** Admin-picked Printful catalog mockup URLs for a variant matrix row (order = PDP gallery order). */
+export interface ProductVariantPrintfulPick {
+  url: string;
+  /** Human-readable label (e.g. Front, Back); shown in admin only. */
+  label?: string;
+}
+
 export interface ProductVariantOption {
   id: string;
   /** Stationery: flat vs bifold Printful family (row-level, variantMatrix JSON). */
@@ -33,6 +40,11 @@ export interface ProductVariantOption {
   active?: boolean;
   /** PDP: shop vs Printful image sources (optional; see admin catalog product form). */
   galleryMode?: "product" | "printful" | "both";
+  /**
+   * Ordered Printful catalog images for this row. When set, PDP uses these (via watermarked previews) before
+   * generic matrix `image` / format-matched URLs. Omitted = legacy galleryMode + single `image` behavior.
+   */
+  selectedPrintfulImages?: ProductVariantPrintfulPick[];
 }
 
 export interface ProductMeta {
@@ -360,6 +372,58 @@ export function buildShopProductImagePreviewUrl(productId: string, imageId: stri
 export function buildMatrixRowPreviewUrl(productId: string, matrixRowId: string): string {
   const params = new URLSearchParams({ productId, matrixRowId });
   return `/api/products/preview?${params.toString()}`;
+}
+
+/** Watermarked preview for `variantMatrix[].selectedPrintfulImages[slotIndex]` (see /api/products/preview?matrixRowId=&selectedSlot=). */
+export function buildMatrixRowSelectedPreviewUrl(
+  productId: string,
+  matrixRowId: string,
+  slotIndex: number
+): string {
+  const params = new URLSearchParams({
+    productId,
+    matrixRowId,
+    selectedSlot: String(slotIndex),
+  });
+  return `/api/products/preview?${params.toString()}`;
+}
+
+/** Resolve raw source URL for a matrix row's selected Printful slot (for /api/products/preview). */
+export function findMatrixRowSelectedImageUrl(
+  printfulDataJson: string | null | undefined,
+  matrixRowId: string,
+  slotIndex: number
+): string | null {
+  const rows = parseVariantMatrix(printfulDataJson);
+  const row = rows.find((r) => String(r.id).trim() === String(matrixRowId).trim());
+  const list = row?.selectedPrintfulImages;
+  if (!Array.isArray(list) || slotIndex < 0 || slotIndex >= list.length) return null;
+  const pick = list[slotIndex];
+  if (!pick || typeof pick !== "object") return null;
+  const url = typeof (pick as ProductVariantPrintfulPick).url === "string"
+    ? (pick as ProductVariantPrintfulPick).url.trim()
+    : "";
+  if (!url || !/^https?:\/\//i.test(url)) return null;
+  return url;
+}
+
+/** First watermarked preview URL for matrix row hero (selected picks, else legacy `image`). */
+export function matrixRowPrimaryPreviewUrl(
+  productId: string,
+  row: ProductVariantOption
+): string | null {
+  const picks = row.selectedPrintfulImages;
+  if (Array.isArray(picks) && picks.length > 0) {
+    for (let i = 0; i < picks.length; i++) {
+      const u = typeof picks[i]?.url === "string" ? picks[i].url.trim() : "";
+      if (u && /^https?:\/\//i.test(u)) {
+        return buildMatrixRowSelectedPreviewUrl(productId, row.id, i);
+      }
+    }
+  }
+  const rowImg = row.image ? String(row.image).trim() : "";
+  if (rowImg) return buildMatrixRowPreviewUrl(productId, row.id);
+  return null;
 }
 
 export const STOREFRONT_META_IMAGE_LIST_KEYS = [

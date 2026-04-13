@@ -6,6 +6,7 @@ import { getDb, eq, and, shopProducts, shopProductImages } from "@/lib/db";
 import {
   parseWatermarkSettings,
   STOREFRONT_META_IMAGE_LIST_KEYS,
+  findMatrixRowSelectedImageUrl,
   type StorefrontMetaImageListKey,
 } from "@/lib/product-watermark";
 import { enforceRequestRateLimit } from "@/lib/request-rate-limit";
@@ -114,6 +115,7 @@ export async function GET(req: Request) {
     const productId = searchParams.get("productId");
     const imageId = searchParams.get("imageId");
     const matrixRowId = (searchParams.get("matrixRowId") || "").trim();
+    const selectedSlotRaw = searchParams.get("selectedSlot");
     const metaListRaw = (searchParams.get("metaList") || "").trim();
     const metaRowId = (searchParams.get("metaRowId") || "").trim();
     const kind = searchParams.get("kind") || "hero";
@@ -146,7 +148,15 @@ export async function GET(req: Request) {
         metaRowId
       );
     } else if (matrixRowId) {
-      src = findStorefrontMetaRowImage(product.printfulDataJson, "variantMatrix", matrixRowId);
+      if (selectedSlotRaw !== null && selectedSlotRaw !== "") {
+        const slot = Math.trunc(Number(selectedSlotRaw));
+        if (Number.isFinite(slot) && slot >= 0) {
+          src = findMatrixRowSelectedImageUrl(product.printfulDataJson, matrixRowId, slot);
+        }
+      }
+      if (!src) {
+        src = findStorefrontMetaRowImage(product.printfulDataJson, "variantMatrix", matrixRowId);
+      }
     } else {
       src = getRequestedSource(product, kind, index);
     }
