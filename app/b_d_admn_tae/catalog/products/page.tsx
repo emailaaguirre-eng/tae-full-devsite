@@ -3919,23 +3919,13 @@ export default function AdminProductsPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Hero Image URL</label>
-                    <input
-                      type="text"
-                      value={form.heroImage}
-                      onChange={(e) => setForm({ ...form, heroImage: e.target.value })}
-                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      placeholder="https://..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Artwork Source URL</label>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Production Artwork Source URL</label>
                     <input
                       type="text"
                       value={form.artworkSourceUrl}
                       onChange={(e) => setForm({ ...form, artworkSourceUrl: e.target.value })}
                       className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      placeholder="Canonical non-Printful artwork asset used for future mockup generation"
+                      placeholder="Hidden master artwork asset used for production and fallback mockup/order workflows"
                     />
                     <div className="flex flex-wrap gap-2 mt-2">
                       {currentEditProduct?.artistSlug && artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl && (
@@ -4048,7 +4038,7 @@ export default function AdminProductsPage() {
                   </div>
               </AdminAccordionSection>
 
-              <AdminAccordionSection title="Publishing">
+              <AdminAccordionSection title="Make Product Visible for Shoppers">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -4059,7 +4049,7 @@ export default function AdminProductsPage() {
                   >
                     {form.active && <Check className="w-3 h-3" />}
                   </button>
-                  <span className="text-sm text-brand-dark">Active (visible in shop)</span>
+                  <span className="text-sm text-brand-dark">Visible to Shoppers</span>
                 </div>
               </AdminAccordionSection>
             </div>

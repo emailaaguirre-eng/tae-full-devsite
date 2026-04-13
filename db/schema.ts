@@ -195,6 +195,10 @@ export const orders = sqliteTable('Order', {
   shippingCost: real('shippingCost').default(0),
   totalRoyalties: real('totalRoyalties').default(0),
   total: real('total').default(0),
+  paypalOrderId: text('paypalOrderId'),
+  paypalTransactionId: text('paypalTransactionId'),
+  paypalStatus: text('paypalStatus'),
+  paypalPayerEmail: text('paypalPayerEmail'),
   printfulOrderId: text('gelatoOrderId').unique(), // legacy column name
   printfulStatus: text('gelatoStatus'), // legacy column name
   trackingNumber: text('trackingNumber'),

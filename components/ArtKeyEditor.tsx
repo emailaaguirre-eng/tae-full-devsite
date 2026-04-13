@@ -792,27 +792,184 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     setSaveModal({ show: true, url: '', message });
   };
 
+  const buildPortalDataForPersistence = () => {
+    const favoritesRaw = Array.isArray(artKeyData.customizations?.favorites)
+      ? artKeyData.customizations.favorites
+      : [];
+    const favoritesSanitized = favoritesRaw
+      .map((item: any, index: number) => {
+        const body = normalizeFavoriteBodyFromRaw(item);
+        if (!body) return null;
+        let id = String(item?.id || '').trim();
+        if (!id && typeof crypto !== 'undefined' && crypto.randomUUID) id = crypto.randomUUID();
+        if (!id) {
+          id = `fav-${index}-${(body.linkUrl || body.title || body.thumbnailUrl || body.description || 'x').slice(0, 48)}`;
+        }
+        const out: Record<string, any> = { id };
+        if (body.title) out.title = body.title;
+        if (body.description) out.description = body.description;
+        if (body.linkUrl) out.linkUrl = body.linkUrl;
+        if (body.thumbnailUrl) out.thumbnailUrl = body.thumbnailUrl;
+        return out;
+      })
+      .filter(Boolean)
+      .slice(0, MAX_PORTAL_FAVORITES);
+
+    const featureDefsForSave = featureDefs.map((f) => ({
+      ...f,
+      enabled: f.type === 'coming_soon' ? false : (f as any).enabled !== false,
+    }));
+
+    const customizations = {
+      ...artKeyData.customizations,
+      favorites: favoritesSanitized,
+      ...(productInfo?.requiresQR || productInfo?.requiresSkeletonKey
+        ? {
+            skeleton_key: skeletonKey,
+            qr_position: qrPosition,
+          }
+        : {}),
+      featureDefs: featureDefsForSave,
+    };
+
+    const customLinkEntries = featureDefs.filter(
+      (f) => f.type === 'custom_link' && (f as any).enabled && f.linkData
+    );
+    const rebuiltCustomLinks = customLinkEntries.map((f) => f.linkData!);
+
+    const resolvedPortalToken = (
+      portalToken ||
+      savedPortalToken ||
+      (artKeyData as any)?.portal_token ||
+      ''
+    ).trim();
+
+    const nextFeatures =
+      rebuiltCustomLinks.length > 0
+        ? { ...artKeyData.features, enable_custom_links: true }
+        : artKeyData.features;
+
+    const dataToSave = {
+      ...artKeyData,
+      features: nextFeatures,
+      links: rebuiltCustomLinks.length > 0 ? rebuiltCustomLinks : customLinks,
+      customizations,
+      featureDefs: featureDefsForSave,
+      token: artkeyId,
+    };
+
+    return { resolvedPortalToken, dataToSave };
+  };
+
+  const buildPortalPayloadFromData = (data: Record<string, any>) => ({
+    title: data.title,
+    theme: data.theme,
+    features: data.features,
+    links: data.links || customLinks,
+    spotify: data.spotify,
+    featuredVideo: data.featured_video,
+    customizations: data.customizations,
+    uploadedImages: data.uploadedImages || [],
+    uploadedVideos: data.uploadedVideos || [],
+  });
+
+  const ensurePortalUploadAuth = async () => {
+    const existing = resolveUploadAuth();
+    if (existing.publicToken) return existing;
+
+    const { resolvedPortalToken, dataToSave } = buildPortalDataForPersistence();
+
+    const savePayload = {
+      data: { ...dataToSave, token: resolvedPortalToken || undefined },
+      product_id: productId,
+    };
+
+    const res = await fetch('/api/artkey/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(savePayload),
+    });
+
+    const result = await res.json().catch(() => ({}));
+
+    if (!res.ok || !result?.token) {
+      notifyUploadError(result?.error || result?.message || 'Unable to create the portal before upload.');
+      return null;
+    }
+
+    setSavedPortalToken(result.token);
+
+    if (typeof window !== 'undefined' && result.owner_token) {
+      try {
+        sessionStorage.setItem(`portal_owner_${result.token}`, result.owner_token);
+      } catch {}
+    }
+
+    return {
+      publicToken: String(result.token),
+      ownerToken: String(result.owner_token || '').trim(),
+    };
+  };
+
+  const syncPortalAfterUpload = async (
+    auth: { publicToken: string; ownerToken: string },
+    overrides: Record<string, any>
+  ) => {
+    const { dataToSave } = buildPortalDataForPersistence();
+
+    const merged = {
+      ...dataToSave,
+      ...overrides,
+      theme: overrides.theme || dataToSave.theme,
+      customizations: overrides.customizations || dataToSave.customizations,
+      uploadedImages: overrides.uploadedImages || dataToSave.uploadedImages || [],
+      uploadedVideos: overrides.uploadedVideos || dataToSave.uploadedVideos || [],
+    };
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (auth.ownerToken) {
+      headers['X-Owner-Token'] = auth.ownerToken;
+    }
+
+    const portalRes = await fetch(`/api/portal/${auth.publicToken}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(buildPortalPayloadFromData(merged)),
+    });
+
+    const portalData = await portalRes.json().catch(() => ({}));
+    if (!portalRes.ok || !portalData?.success) {
+      throw new Error(portalData?.error || 'Failed to sync upload to portal.');
+    }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const auth = resolveUploadAuth();
-    if (!auth.publicToken) {
-      notifyUploadError('Upload requires a saved portal token. Save the portal first, then upload.');
-      return;
-    }
-    setImageUploadStatus({ state: 'uploading', message: `Uploading ${files.length} image${files.length > 1 ? 's' : ''}...` });
-    let successCount = 0;
+
+    const auth = await ensurePortalUploadAuth();
+    if (!auth?.publicToken) return;
+
+    setImageUploadStatus({
+      state: 'uploading',
+      message: `Uploading ${files.length} image${files.length > 1 ? 's' : ''}...`,
+    });
+
+    const uploadedUrls: string[] = [];
+
     for (const file of Array.from(files)) {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('publicToken', auth.publicToken);
       if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
+
       try {
         const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
         if (res.ok) {
           const result = await res.json();
-          setArtKeyData((prev) => ({ ...prev, uploadedImages: [...prev.uploadedImages, result.url] }));
-          successCount += 1;
+          if (result?.url) uploadedUrls.push(result.url);
         } else {
           const err = await res.json().catch(() => ({}));
           setImageUploadStatus({ state: 'error', message: err?.error || 'Image upload failed' });
@@ -823,11 +980,23 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         notifyUploadError('Image upload failed');
       }
     }
-    if (successCount > 0) {
-      setImageUploadStatus({
-        state: 'complete',
-        message: `${successCount} image${successCount > 1 ? 's' : ''} uploaded and ready.`,
-      });
+
+    if (uploadedUrls.length > 0) {
+      const nextUploadedImages = [...(artKeyData.uploadedImages || []), ...uploadedUrls];
+      setArtKeyData((prev) => ({ ...prev, uploadedImages: nextUploadedImages }));
+      try {
+        await syncPortalAfterUpload(auth, { uploadedImages: nextUploadedImages });
+        setImageUploadStatus({
+          state: 'complete',
+          message: `${uploadedUrls.length} image${uploadedUrls.length > 1 ? 's' : ''} uploaded and saved.`,
+        });
+      } catch (err: any) {
+        setImageUploadStatus({
+          state: 'error',
+          message: err?.message || 'Image upload saved locally but failed to sync the portal.',
+        });
+        notifyUploadError(err?.message || 'Image upload saved locally but failed to sync the portal.');
+      }
     }
   };
 
@@ -836,15 +1005,15 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     if (!files) return;
     const file = Array.from(files)[0];
     if (!file) return;
-    const auth = resolveUploadAuth();
-    if (!auth.publicToken) {
-      notifyUploadError('Upload requires a saved portal token. Save the portal first, then upload.');
-      return;
-    }
+
+    const auth = await ensurePortalUploadAuth();
+    if (!auth?.publicToken) return;
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('publicToken', auth.publicToken);
     if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
+
     const isMovUpload = file.name.toLowerCase().endsWith('.mov');
     setVideoUploadStatus({
       state: 'uploading',
@@ -852,13 +1021,20 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         ? 'Uploading video and converting to MP4...'
         : 'Uploading video...',
     });
+
     try {
       const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
       if (res.ok) {
         const result = await res.json();
         const videoUrl = result.url || result.fileUrl;
-        setArtKeyData((prev) => ({ ...prev, uploadedVideos: [...prev.uploadedVideos, videoUrl] }));
-        const wasConverted = !!result?.converted || (isMovUpload && String(result?.filename || '').toLowerCase().endsWith('.mp4'));
+        const nextUploadedVideos = [...(artKeyData.uploadedVideos || []), videoUrl];
+        setArtKeyData((prev) => ({ ...prev, uploadedVideos: nextUploadedVideos }));
+        await syncPortalAfterUpload(auth, { uploadedVideos: nextUploadedVideos });
+
+        const wasConverted =
+          !!result?.converted ||
+          (isMovUpload && String(result?.filename || '').toLowerCase().endsWith('.mp4'));
+
         setVideoUploadStatus({
           state: 'complete',
           message: wasConverted ? 'Upload complete. MOV converted to MP4.' : 'Upload complete.',
@@ -871,12 +1047,12 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         });
         notifyUploadError(err?.error || 'Video upload failed');
       }
-    } catch (err) {
+    } catch (err: any) {
       setVideoUploadStatus({
         state: 'error',
-        message: 'Video upload failed',
+        message: err?.message || 'Video upload failed',
       });
-      notifyUploadError('Video upload failed');
+      notifyUploadError(err?.message || 'Video upload failed');
     }
   };
 
@@ -903,26 +1079,32 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
-    const auth = resolveUploadAuth();
-    if (!auth.publicToken) {
-      notifyUploadError('Upload requires a saved portal token. Save the portal first, then upload.');
-      return;
-    }
+
+    const auth = await ensurePortalUploadAuth();
+    if (!auth?.publicToken) return;
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('publicToken', auth.publicToken);
     if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
+
     try {
       const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
       if (res.ok) {
         const result = await res.json();
-        setArtKeyData((prev) => ({ ...prev, theme: { ...prev.theme, bg_image_url: result.url, bg_image_id: result.id || 0 } }));
+        const nextTheme = {
+          ...artKeyData.theme,
+          bg_image_url: result.url,
+          bg_image_id: result.id || 0,
+        };
+        setArtKeyData((prev) => ({ ...prev, theme: nextTheme }));
+        await syncPortalAfterUpload(auth, { theme: nextTheme });
       } else {
         const err = await res.json().catch(() => ({}));
         notifyUploadError(err?.error || 'Background upload failed');
       }
-    } catch (err) {
-      notifyUploadError('Background upload failed');
+    } catch (err: any) {
+      notifyUploadError(err?.message || 'Background upload failed');
     }
   };
 
@@ -942,16 +1124,16 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const handleFavoriteImageUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.[0]) return;
-    const auth = resolveUploadAuth();
-    if (!auth.publicToken) {
-      notifyUploadError('Upload requires a saved portal token. Save the portal first, then upload.');
-      return;
-    }
+
+    const auth = await ensurePortalUploadAuth();
+    if (!auth?.publicToken) return;
+
     const file = files[0];
     const formData = new FormData();
     formData.append('file', file);
     formData.append('publicToken', auth.publicToken);
     if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
+
     try {
       const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
       if (res.ok) {
@@ -962,12 +1144,15 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         cur.thumbnailUrl = url;
         list[index] = cur;
         updatePortalFavorites(list);
+        await syncPortalAfterUpload(auth, {
+          customizations: { ...artKeyData.customizations, favorites: list },
+        });
       } else {
         const err = await res.json().catch(() => ({}));
         notifyUploadError(err?.error || 'Favorite image upload failed');
       }
-    } catch {
-      notifyUploadError('Favorite image upload failed');
+    } catch (err: any) {
+      notifyUploadError(err?.message || 'Favorite image upload failed');
     }
     e.target.value = '';
   };
@@ -2235,14 +2420,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                             </div>
                           );
                         })()}
-
-                        {artKeyData.uploadedImages.length > 0 && (
-                          <div className="grid grid-cols-4 gap-1 mt-3 w-full max-w-sm">
-                            {artKeyData.uploadedImages.slice(0, 4).map((img, idx) => (
-                              <img key={idx} src={img} alt="" className="w-full h-12 object-cover rounded-md border border-white/50 shadow-sm" />
-                            ))}
-                          </div>
-                        )}
                   </div>
                 </div>
               )}
@@ -2322,14 +2499,6 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                             </div>
                           );
                         })()}
-
-                        {artKeyData.uploadedImages.length > 0 && (
-                          <div className="grid grid-cols-4 gap-1 mt-3 w-full max-w-sm">
-                            {artKeyData.uploadedImages.slice(0, 4).map((img, idx) => (
-                              <img key={idx} src={img} alt="" className="w-full h-12 object-cover rounded-md border border-white/50 shadow-sm" />
-                            ))}
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>

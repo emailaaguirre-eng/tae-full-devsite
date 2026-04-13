@@ -1168,7 +1168,8 @@ function PayPalSection({
         ) : (
           <PayPalScriptProvider
             options={{
-              clientId: paypalClientId,
+              "client-id": paypalClientId,
+              components: "buttons",
               currency: "USD",
               intent: "capture",
             }}

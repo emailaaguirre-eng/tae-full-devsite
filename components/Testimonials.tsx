@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { mediaUrl } from "@/lib/media";
 import { useSiteMedia } from "@/hooks/useSiteMedia";
-import StoryCarousel from "@/components/StoryCarousel";
 import { RefinedTm } from "@/components/RefinedTm";
 
 /**
@@ -43,18 +42,6 @@ export default function Testimonials() {
       style={{ backgroundColor: "#ffffff" }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="inline-block text-4xl md:text-5xl font-normal text-brand-dark mb-4 text-center max-w-full">
-            Ways to use your ArtKey
-            <RefinedTm />
-          </h2>
-          <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
-        </div>
-
-        <div className="relative z-20 isolate min-w-0">
-          <StoryCarousel />
-        </div>
-
         <div className="text-center mb-16 mt-16">
           <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4">
             How Our Friends & Clients Use the ArtKey™

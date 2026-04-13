@@ -613,6 +613,7 @@ export default function ProductDetailPage() {
       productSlug: product.slug,
       printfulProductId: product.printfulProductId ?? undefined,
       printfulVariantId: currentVariant?.printfulVariantId ?? product.printfulVariantId ?? undefined,
+      requiresQrCode: !!product.requiresQrCode,
     });
     router.push("/cart");
   };

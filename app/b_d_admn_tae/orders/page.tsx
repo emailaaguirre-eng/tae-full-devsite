@@ -34,6 +34,10 @@ interface Order {
   subtotal: number;
   shippingCost: number;
   total: number;
+  paypalOrderId: string | null;
+  paypalTransactionId: string | null;
+  paypalStatus: string | null;
+  paypalPayerEmail: string | null;
   printfulOrderId: string | null;
   printfulStatus: string | null;
   trackingNumber: string | null;
@@ -285,6 +289,33 @@ export default function AdminOrdersPage() {
                   {viewOrder.printfulStatus && (
                     <div className="text-xs text-brand-medium">{viewOrder.printfulStatus}</div>
                   )}
+                </div>
+              </div>
+
+              {/* Payment */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-brand-dark mb-2">Payment</h4>
+                <div className="border border-brand-light bg-brand-lightest/40">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 py-3">
+                    <div>
+                      <div className="text-[10px] text-brand-medium uppercase tracking-wider mb-1">PayPal Order</div>
+                      <div className="text-sm text-brand-dark break-all">
+                        {viewOrder.paypalOrderId || "Not recorded"}
+                      </div>
+                      {viewOrder.paypalStatus && (
+                        <div className="text-xs text-brand-medium mt-1">{viewOrder.paypalStatus}</div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-brand-medium uppercase tracking-wider mb-1">Transaction</div>
+                      <div className="text-sm text-brand-dark break-all">
+                        {viewOrder.paypalTransactionId || "Not recorded"}
+                      </div>
+                      {viewOrder.paypalPayerEmail && (
+                        <div className="text-xs text-brand-medium mt-1">{viewOrder.paypalPayerEmail}</div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 

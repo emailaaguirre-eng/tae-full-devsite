@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --font-display: "Playfair Display", serif;
+  --font-body: "Inter", sans-serif;
+  --color-text-primary: #141414;
+  --color-text-secondary: rgba(20, 20, 20, 0.72);
+}
+
 @layer base {
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Playfair Display', serif;

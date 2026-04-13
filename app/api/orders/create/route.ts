@@ -244,22 +244,7 @@ export async function POST(req: Request) {
       return item;
     });
 
-    const missingDesignPayload = itemsResolved.find(
-      (item: any) =>
-        !!item?.printfulVariantId &&
-        (!Array.isArray(item.designFiles) ||
-          item.designFiles.length === 0 ||
-          item.designFiles.some((df: any) => !df?.dataUrl || !String(df.dataUrl).startsWith("data:")))
-    );
-    if (missingDesignPayload) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Missing rendered design files for item "${missingDesignPayload.name || "unknown"}".`,
-        },
-        { status: 400 }
-      );
-    }
+    // Design-file validation happens after product lookup and fallback file resolution.
     const now = new Date().toISOString();
     const orderNumber = generateOrderNumber();
     const orderId = generateId();
@@ -399,6 +384,9 @@ export async function POST(req: Request) {
       shippingCost: computedShipping,
       totalRoyalties: computedRoyalties,
       total: computedTotal,
+      paypalOrderId: paypalOrderId || null,
+      paypalTransactionId: paypalTransactionId || null,
+      paypalStatus: paypalOrderId?.startsWith("DEMO") ? "demo" : (paypalOrderId ? "captured" : null),
       createdAt: now,
       updatedAt: now,
     });
@@ -520,6 +508,56 @@ export async function POST(req: Request) {
               }
             }
           }
+        }
+
+        const productMeta = (() => {
+          try {
+            return typeof i?.productForPricing?.printfulDataJson === "string"
+              ? JSON.parse(i.productForPricing.printfulDataJson)
+              : {};
+          } catch {
+            return {};
+          }
+        })();
+
+        const isQrProduct =
+          i?.requiresQrCode === true || productMeta?.requiresQrCode === true;
+        const isNonCustomizable =
+          i?.productForPricing?.customizable === false ||
+          productMeta?.customizable === false;
+
+        if (
+          files.length === 0 &&
+          !isQrProduct &&
+          isNonCustomizable
+        ) {
+          const fallbackArtworkPath =
+            typeof i?.productForPricing?.artworkSourceUrl === "string"
+              ? i.productForPricing.artworkSourceUrl.trim()
+              : "";
+          const publicOrigin =
+            String(
+              process.env.STUDIO_PROOF_PUBLIC_ORIGIN ||
+                process.env.NEXT_PUBLIC_APP_URL ||
+                process.env.NEXT_PUBLIC_SITE_URL ||
+                ""
+            ).trim() || new URL(req.url).origin;
+          const fallbackArtworkUrl = fallbackArtworkPath.startsWith("http")
+            ? fallbackArtworkPath
+            : fallbackArtworkPath.startsWith("/")
+              ? `${publicOrigin}${fallbackArtworkPath}`
+              : "";
+          const fallbackPlacement = requiredPlacements.has("default")
+            ? "default"
+            : Array.from(requiredPlacements)[0] || "default";
+
+          if (fallbackArtworkUrl.startsWith("http")) {
+            files.push({ type: fallbackPlacement, url: fallbackArtworkUrl });
+          }
+        }
+
+        if (files.length === 0) {
+          throw new Error(`Missing rendered design files for product "${i.name}".`);
         }
 
         pfItems.push({

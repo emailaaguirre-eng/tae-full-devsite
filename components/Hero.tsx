@@ -45,7 +45,7 @@ export default function Hero() {
                 </div>
                 <div className="pt-2">
                   <Link
-                    href="/how-to-use-the-artkey"
+                    href="/#how-it-works"
                     className="inline-block bg-brand-dark text-white px-8 py-4 text-base font-medium hover:bg-brand-darkest transition-all duration-300 text-center"
                   >
                     Explore How To Use The ArtKey

@@ -89,6 +89,25 @@ function ensureCheckoutProofSnapshotsTable(db: SqlJsDatabase) {
   `);
 }
 
+function ensureOrderPaypalColumns(db: SqlJsDatabase) {
+  const result = db.exec("PRAGMA table_info('Order')");
+  const rows = result[0]?.values || [];
+  const columns = new Set(rows.map((row) => String(row[1])));
+
+  if (!columns.has('paypalOrderId')) {
+    db.run('ALTER TABLE "Order" ADD COLUMN paypalOrderId TEXT');
+  }
+  if (!columns.has('paypalTransactionId')) {
+    db.run('ALTER TABLE "Order" ADD COLUMN paypalTransactionId TEXT');
+  }
+  if (!columns.has('paypalStatus')) {
+    db.run('ALTER TABLE "Order" ADD COLUMN paypalStatus TEXT');
+  }
+  if (!columns.has('paypalPayerEmail')) {
+    db.run('ALTER TABLE "Order" ADD COLUMN paypalPayerEmail TEXT');
+  }
+}
+
 // Initialize the database
 async function initDatabase(): Promise<SqlJsDatabase> {
   if (sqliteDb) {
@@ -125,6 +144,7 @@ async function initDatabase(): Promise<SqlJsDatabase> {
   ensureGuestbookShareEmailColumn(sqliteDb);
   ensureShopProductImagesTable(sqliteDb);
   ensureCheckoutProofSnapshotsTable(sqliteDb);
+  ensureOrderPaypalColumns(sqliteDb);
 
   return sqliteDb;
 }

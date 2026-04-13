@@ -125,6 +125,12 @@ export default function DesignEditor({
       canvas.on('selection:cleared', () => {
         setSelectedObject(null);
       });
+      canvas.on('object:modified', () => {
+        saveState();
+      });
+      canvas.on('text:editing:exited', () => {
+        saveState();
+      });
 
       // Draw printable area guides
       drawPrintableArea(canvas);
@@ -665,11 +671,15 @@ export default function DesignEditor({
   const addText = () => {
     if (!fabricCanvasRef.current) return;
 
-    const text = new fabric.Text('Double click to edit', {
+    const text = new fabric.Textbox('Double click to edit', {
       left: fabricCanvasRef.current.width! / 2,
       top: fabricCanvasRef.current.height! / 2,
       originX: 'center',
       originY: 'center',
+      width: 260,
+      editable: true,
+      lockRotation: true,
+      centeredRotation: true,
       fontFamily: textSettings.fontFamily,
       fontSize: textSettings.fontSize,
       fill: textSettings.fill,

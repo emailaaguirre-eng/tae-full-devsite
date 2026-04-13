@@ -77,6 +77,55 @@ async function convertMovToMp4(inputPath: string, outputPath: string): Promise<v
   });
 }
 
+async function convertHeicToJpeg(inputPath: string, outputPath: string): Promise<void> {
+  ensurePathWithinDir(inputPath, UPLOAD_DIR);
+  ensurePathWithinDir(outputPath, UPLOAD_DIR);
+
+  const mod = await import('heic-convert');
+  const convert = (mod as any).default || mod;
+  const inputBuffer = fs.readFileSync(inputPath);
+
+  const outputBuffer = await convert({
+    buffer: inputBuffer,
+    format: 'JPEG',
+    quality: 0.92,
+  });
+
+  fs.writeFileSync(outputPath, Buffer.from(outputBuffer));
+}
+
+async function convertBmpToPng(inputPath: string, outputPath: string): Promise<void> {
+  ensurePathWithinDir(inputPath, UPLOAD_DIR);
+  ensurePathWithinDir(outputPath, UPLOAD_DIR);
+
+  await new Promise<void>((resolve, reject) => {
+    const args = [
+      '-y',
+      '-i',
+      inputPath,
+      outputPath,
+    ];
+
+    const child = spawn(FFMPEG_BIN, args, {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+
+    let stderr = '';
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', (err) => reject(err));
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(stderr || `ffmpeg exited with code ${code}`));
+      }
+    });
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -116,6 +165,7 @@ export async function POST(req: Request) {
 
     const allowedTypes = [
       'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+      'image/heic', 'image/heif', 'image/bmp',
       'video/mp4', 'video/webm', 'video/quicktime',
     ];
 
@@ -127,6 +177,9 @@ export async function POST(req: Request) {
       '.gif': 'image/gif',
       '.webp': 'image/webp',
       '.svg': 'image/svg+xml',
+      '.heic': 'image/heic',
+      '.heif': 'image/heif',
+      '.bmp': 'image/bmp',
       '.mp4': 'video/mp4',
       '.webm': 'video/webm',
       '.mov': 'video/quicktime',
@@ -178,8 +231,12 @@ export async function POST(req: Request) {
     let finalFilename = filename;
     let finalFilePath = filepath;
     let finalType = effectiveType;
+    let converted = false;
 
     const shouldConvertMov = isVideo && ext.toLowerCase() === '.mov';
+    const shouldConvertHeic = !isVideo && ['.heic', '.heif'].includes(ext.toLowerCase());
+    const shouldConvertBmp = !isVideo && ext.toLowerCase() === '.bmp';
+
     if (shouldConvertMov) {
       const mp4Filename = `${path.basename(filename, path.extname(filename))}.mp4`;
       const mp4FilePath = path.join(UPLOAD_DIR, mp4Filename);
@@ -195,11 +252,55 @@ export async function POST(req: Request) {
         );
       }
 
-      // Delete original only after successful conversion.
       fs.unlinkSync(filepath);
       finalFilename = mp4Filename;
       finalFilePath = mp4FilePath;
       finalType = 'video/mp4';
+      converted = true;
+    }
+
+    if (shouldConvertHeic) {
+      const jpgFilename = `${path.basename(filename, path.extname(filename))}.jpg`;
+      const jpgFilePath = path.join(UPLOAD_DIR, jpgFilename);
+      ensurePathWithinDir(jpgFilePath, UPLOAD_DIR);
+
+      try {
+        await convertHeicToJpeg(filepath, jpgFilePath);
+      } catch (conversionError: any) {
+        console.error('HEIC to JPEG conversion failed:', conversionError);
+        return NextResponse.json(
+          { success: false, error: 'Image conversion failed. Please try a JPG/PNG, or contact support.' },
+          { status: 500 }
+        );
+      }
+
+      fs.unlinkSync(filepath);
+      finalFilename = jpgFilename;
+      finalFilePath = jpgFilePath;
+      finalType = 'image/jpeg';
+      converted = true;
+    }
+
+    if (shouldConvertBmp) {
+      const pngFilename = `${path.basename(filename, path.extname(filename))}.png`;
+      const pngFilePath = path.join(UPLOAD_DIR, pngFilename);
+      ensurePathWithinDir(pngFilePath, UPLOAD_DIR);
+
+      try {
+        await convertBmpToPng(filepath, pngFilePath);
+      } catch (conversionError: any) {
+        console.error('BMP to PNG conversion failed:', conversionError);
+        return NextResponse.json(
+          { success: false, error: 'BMP conversion failed. Please try another image, or contact support.' },
+          { status: 500 }
+        );
+      }
+
+      fs.unlinkSync(filepath);
+      finalFilename = pngFilename;
+      finalFilePath = pngFilePath;
+      finalType = 'image/png';
+      converted = true;
     }
 
     const finalSize = fs.statSync(finalFilePath).size;
@@ -213,7 +314,7 @@ export async function POST(req: Request) {
       filename: finalFilename,
       size: finalSize,
       type: finalType,
-      converted: shouldConvertMov,
+      converted,
     });
   } catch (err: any) {
     console.error('File upload failed:', err);

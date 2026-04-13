@@ -19,7 +19,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Circle, Group, Image as KonvaImage, Layer, Rect, Stage, Text as KonvaText, Transformer } from "react-konva";
+import { Circle, Group, Image as KonvaImage, Layer, Rect, Stage, Text as KonvaText, Transformer, Line } from "react-konva";
 import Konva from "konva";
 
 import type {
@@ -1111,7 +1111,7 @@ export function CustomizationStudio({
   const currentDesign = designs[activePlacement] || { images: [], texts: [], layoutId: DEFAULT_LAYOUT_ID };
   const currentLayoutId = currentDesign.layoutId || DEFAULT_LAYOUT_ID;
   const currentLayout = useMemo(
-    () => getLayoutById(currentLayoutId) || getLayoutById(DEFAULT_LAYOUT_ID) || getLayoutById("single")!,
+    () => (currentLayoutId === DEFAULT_LAYOUT_ID ? null : getLayoutById(currentLayoutId) || null),
     [currentLayoutId]
   );
   const basicLayouts = useMemo(
@@ -1173,6 +1173,7 @@ export function CustomizationStudio({
     : null;
 
   const slotRects = useMemo(() => {
+    if (!currentLayout) return [];
     return buildSlotRects(currentLayout, canvasWidth, canvasHeight);
   }, [currentLayout, canvasWidth, canvasHeight]);
   const occupiedLayoutSlots = useMemo(() => {
@@ -2293,8 +2294,8 @@ export function CustomizationStudio({
         };
       } else {
         // Keep free images safely inside the visible canvas workspace.
-        const maxW = canvasWidth * 0.65;
-        const maxH = canvasHeight * 0.65;
+        const maxW = canvasWidth * 0.9;
+        const maxH = canvasHeight * 0.9;
         const fitted = fitImageToSlot(img.width, img.height, maxW, maxH);
         const width = Math.min(fitted.width, canvasWidth * 0.9);
         const height = Math.min(fitted.height, canvasHeight * 0.9);
@@ -2358,8 +2359,9 @@ export function CustomizationStudio({
           img.crossOrigin = "anonymous";
 
           img.onload = () => {
-            // Prefer filling empty layout slots first
-            const slotIndex = nextFreeSlot();
+            // Default to freeform image mode. Only auto-slot when a non-default layout is active.
+            const slotIndex =
+              currentLayoutId !== DEFAULT_LAYOUT_ID ? nextFreeSlot() : null;
             if (slotIndex !== null) used.add(slotIndex);
             setUploadedAssets((prev) => {
               if (prev.some((a) => a.src === src)) return prev;
@@ -2484,7 +2486,7 @@ export function CustomizationStudio({
         [activePlacement]: {
           ...prev[activePlacement],
           images: (prev[activePlacement]?.images || []).map((img) =>
-            img.id === id ? constrainImageToSlot({ ...img, ...next }) : img
+            img.id === id ? { ...img, ...next, slotIndex: undefined } : img
           ),
         },
       }));
@@ -3420,7 +3422,7 @@ export function CustomizationStudio({
           >
             <IconRedo /> Redo
           </button>
-          {selectedId && (
+          {selectedId && selectedType !== "text" && (
             <span
               className="text-xs px-2 py-1 rounded"
               style={{
@@ -3776,7 +3778,7 @@ export function CustomizationStudio({
               ))}
             </div>
             <p className="text-xs mt-2" style={{ color: BRAND.medium }}>
-              Active layout: <span style={{ color: BRAND.dark }}>{currentLayout.name}</span>
+              Active layout: <span style={{ color: BRAND.dark }}>{currentLayout ? currentLayout.name : "Freeform"}</span>
             </p>
           </div>
 
@@ -4369,6 +4371,24 @@ export function CustomizationStudio({
               {/* Guides layer (not exported) */}
               <Layer ref={guidesLayerRef} listening={false}>
                 <Group scaleX={displayScale} scaleY={displayScale}>
+                  {/* Canvas center guides */}
+                  <Line
+                    points={[canvasWidth / 2, 0, canvasWidth / 2, canvasHeight]}
+                    stroke="#94a3b8"
+                    strokeWidth={1}
+                    dash={[6, 6]}
+                    opacity={0.45}
+                    listening={false}
+                  />
+                  <Line
+                    points={[0, canvasHeight / 2, canvasWidth, canvasHeight / 2]}
+                    stroke="#94a3b8"
+                    strokeWidth={1}
+                    dash={[6, 6]}
+                    opacity={0.45}
+                    listening={false}
+                  />
+
                   {/* Slot guides */}
                   {slotRects.map((s, i) => (
                     <Group key={`slot-guide-${i}`} listening={false}>
@@ -4785,40 +4805,39 @@ export function CustomizationStudio({
                       )}
                     </>
                   )}
+                  {/* Transformer inside scaled group so handles share the same coordinate space as selected nodes */}
+                  <Transformer
+                    ref={transformerRef}
+                    anchorSize={14}
+                    anchorCornerRadius={3}
+                    borderStroke={BRAND.accent}
+                    borderStrokeWidth={1.5}
+                    anchorStroke={BRAND.accent}
+                    anchorFill={BRAND.white}
+                    rotateEnabled={selectedType !== "text"}
+                    rotateAnchorOffset={30}
+                    rotateAnchorCursor="grab"
+                    rotationSnaps={rotationSnaps}
+                    rotationSnapTolerance={ROTATION_SNAP_TOLERANCE}
+                    keepRatio={false}
+                    anchorStyleFunc={(anchor) => {
+                      if (anchor.hasName("rotater")) {
+                        anchor.cornerRadius(20);
+                        anchor.fill(BRAND.accent);
+                        anchor.stroke(BRAND.white);
+                        anchor.strokeWidth(2);
+                        anchor.width(20);
+                        anchor.height(20);
+                        anchor.offsetX(10);
+                        anchor.offsetY(10);
+                      }
+                    }}
+                    boundBoxFunc={(oldBox, newBox) => {
+                      if (newBox.width < 20 || newBox.height < 20) return oldBox;
+                      return newBox;
+                    }}
+                  />
                 </Group>
-
-                {/* Transformer on top (NOT inside scaled group) to keep handle sizes consistent */}
-                <Transformer
-                  ref={transformerRef}
-                  anchorSize={14}
-                  anchorCornerRadius={3}
-                  borderStroke={BRAND.accent}
-                  borderStrokeWidth={1.5}
-                  anchorStroke={BRAND.accent}
-                  anchorFill={BRAND.white}
-                  rotateEnabled={true}
-                  rotateAnchorOffset={30}
-                  rotateAnchorCursor="grab"
-                  rotationSnaps={rotationSnaps}
-                  rotationSnapTolerance={ROTATION_SNAP_TOLERANCE}
-                  keepRatio={false}
-                  anchorStyleFunc={(anchor) => {
-                    if (anchor.hasName("rotater")) {
-                      anchor.cornerRadius(20);
-                      anchor.fill(BRAND.accent);
-                      anchor.stroke(BRAND.white);
-                      anchor.strokeWidth(2);
-                      anchor.width(20);
-                      anchor.height(20);
-                      anchor.offsetX(10);
-                      anchor.offsetY(10);
-                    }
-                  }}
-                  boundBoxFunc={(oldBox, newBox) => {
-                    if (newBox.width < 20 || newBox.height < 20) return oldBox;
-                    return newBox;
-                  }}
-                />
               </Layer>
             </Stage>
           </div>

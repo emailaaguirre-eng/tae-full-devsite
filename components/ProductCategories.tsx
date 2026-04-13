@@ -9,6 +9,7 @@ const categories = [
     description:
       "Upload your own image, place your ArtKey template, and design a personal QR-powered portal. Greeting cards, prints, canvas, and more.",
     icon: UploadIcon,
+    image: "https://theartfulexperience.com/wp-content/uploads/2026/04/Three-Ways-To-Shop-1-.png",
     items: [
       "Upload your photo or artwork",
       "Place the ArtKey template with QR target",
@@ -23,6 +24,7 @@ const categories = [
     description:
       "Curated works from internationally recognized artists — ready to purchase. Non-customizable, with optional ArtKey portal.",
     icon: GalleryIcon,
+    image: "https://theartfulexperience.com/wp-content/uploads/2026/04/Three-Ways-To-Shop-2.png",
     items: [
       "Artist narratives and inspiration included",
       "Gallery-quality prints and paintings",
@@ -36,6 +38,7 @@ const categories = [
     description:
       "Unique collaborations between The Artful Experience and creative partners. Limited-edition products with a story.",
     icon: HandshakeIcon,
+    image: "https://theartfulexperience.com/wp-content/uploads/2026/04/Three-Ways-To-Shop-3.png",
     items: [
       "Exclusive collaboration products",
       "Limited-edition runs",
@@ -77,6 +80,14 @@ export default function ProductCategories() {
                   <h3 className="text-xl font-normal text-white">
                     {category.title}
                   </h3>
+                </div>
+
+                <div className="relative h-72 bg-white overflow-hidden">
+                  <img
+                    src={category.image}
+                    alt={category.title}
+                    className="absolute inset-x-0 top-0 w-full h-full object-cover object-top"
+                  />
                 </div>
                 <div className="p-6 flex flex-col flex-1">
                   <p className="text-brand-darkest mb-4 text-sm leading-relaxed">

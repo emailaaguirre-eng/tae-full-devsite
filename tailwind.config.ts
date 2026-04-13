@@ -26,6 +26,12 @@ const config: Config = {
       full: "9999px", // keep full for circular elements
     },
     extend: {
+      borderRadius: {
+        md: "0.375rem",
+        lg: "0.5rem",
+        xl: "0.75rem",
+        "2xl": "1rem",
+      },
       colors: {
         brand: {
           lightest: "#f3f3f3",
@@ -36,10 +42,14 @@ const config: Config = {
           accent: "#475569",
           white: "#ffffff",
         },
+        primary: "#000000",
+        secondary: "#918c86",
       },
       fontFamily: {
         playfair: ['"Playfair Display"', "serif"],
         nunito: ["Inter", "sans-serif"],
+        display: ['var(--font-display)', '"Playfair Display"', "serif"],
+        body: ['var(--font-body)', "Inter", "sans-serif"],
       },
     },
   },
