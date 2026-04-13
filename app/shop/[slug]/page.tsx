@@ -8,6 +8,7 @@ import { useCart } from "@/contexts/CartContext";
 import { AdminAccordionSection } from "@/components/admin/AdminAccordionSection";
 import {
   getBestProductImages,
+  dedupePreviewUrlsPreserveOrder,
   type StorefrontProductImage,
   type VariantImageMatchContext,
 } from "@/lib/storefront-product-images";
@@ -16,7 +17,7 @@ interface ProductDetail {
   id: string;
   slug: string;
   name: string;
-  /** Semantic catalog type from printfulDataJson (e.g. art-print, greeting-card) */
+  /** Semantic catalog type (e.g. art-print, greeting-card) */
   productType?: string;
   description: string | null;
   heroImage: string | null;
@@ -45,7 +46,11 @@ interface ProductDetail {
     icon: string;
     description: string | null;
   } | null;
-  printfulDataJson?: string | null;
+  storefrontMeta?: {
+    variantMatrix: VariantImageMeta[];
+    variantImages: VariantImageMeta[];
+    siblingVariants: VariantImageMeta[];
+  };
   productImages?: StorefrontProductImage[];
 }
 
@@ -84,6 +89,7 @@ type VariantImageMeta = {
   frameColor?: string | null;
   color?: string | null;
   active?: boolean;
+  galleryMode?: string | null;
 };
 
 function toVariantIdCandidates(row: VariantImageMeta): number[] {
@@ -222,29 +228,13 @@ export default function ProductDetailPage() {
       .toLowerCase();
 
   const parsedImageMeta = useMemo(() => {
-    try {
-      const rawMeta = product?.printfulDataJson;
-      const parsed =
-        typeof rawMeta === "string"
-          ? JSON.parse(rawMeta || "{}")
-          : rawMeta && typeof rawMeta === "object"
-          ? rawMeta
-          : {};
-      return {
-        variantMatrix: Array.isArray(parsed?.variantMatrix)
-          ? (parsed.variantMatrix as VariantImageMeta[])
-          : [],
-        variantImages: Array.isArray(parsed?.variantImages)
-          ? (parsed.variantImages as VariantImageMeta[])
-          : [],
-        siblingVariants: Array.isArray(parsed?.siblingVariants)
-          ? (parsed.siblingVariants as VariantImageMeta[])
-          : [],
-      };
-    } catch {
-      return { variantMatrix: [], variantImages: [], siblingVariants: [] };
-    }
-  }, [product?.printfulDataJson]);
+    const m = product?.storefrontMeta;
+    return {
+      variantMatrix: Array.isArray(m?.variantMatrix) ? m.variantMatrix : [],
+      variantImages: Array.isArray(m?.variantImages) ? m.variantImages : [],
+      siblingVariants: Array.isArray(m?.siblingVariants) ? m.siblingVariants : [],
+    };
+  }, [product?.storefrontMeta]);
 
   const selectedPrintfulVariantId = useMemo(() => {
     const n = Number(currentVariant?.printfulVariantId);
@@ -355,37 +345,88 @@ export default function ProductDetailPage() {
     parsedImageMeta.variantMatrix,
   ]);
 
+  const currentMatrixRowGalleryMode = useMemo((): "product" | "printful" | "both" | undefined => {
+    if (!currentVariant?.id) return undefined;
+    const row = parsedImageMeta.variantMatrix.find((r) => String(r?.id) === String(currentVariant.id));
+    const m = row?.galleryMode;
+    if (m === "product" || m === "printful" || m === "both") return m;
+    return undefined;
+  }, [parsedImageMeta.variantMatrix, currentVariant?.id]);
+
   const displayImages = useMemo(() => {
     if (!product) return [];
+
     const fromShop = getBestProductImages(
       product.productImages,
       variantMatchCtx,
       product.heroImage,
       product.galleryImages || []
     );
-    if (fromShop.length > 0) {
-      return fromShop;
-    }
+
     const fallback = [
       ...(product.heroImage ? [product.heroImage] : []),
       ...(product.galleryImages || []).filter((url) => !!url && url !== product.heroImage),
     ];
-    const base =
+
+    const matrixOrFormatOnly =
       exactVariantImages.length > 0
         ? exactVariantImages
         : formatSpecificImages.length > 0
-        ? formatSpecificImages
-        : [...new Set(fallback)];
-    const vh = currentVariant?.heroImage;
-    if (!vh) return base;
-    if (exactVariantImages.length > 0) return base;
-    return [vh, ...base.filter((u) => u !== vh)];
+          ? formatSpecificImages
+          : [];
+
+    const legacyMatrixBase =
+      exactVariantImages.length > 0
+        ? exactVariantImages
+        : formatSpecificImages.length > 0
+          ? formatSpecificImages
+          : [...new Set(fallback)];
+
+    const applyVariantHero = (base: string[]) => {
+      const vh = currentVariant?.heroImage;
+      if (!vh) return base;
+      if (exactVariantImages.length > 0) return base;
+      return [vh, ...base.filter((u) => u !== vh)];
+    };
+
+    const mode = currentMatrixRowGalleryMode;
+
+    if (!mode) {
+      if (fromShop.length > 0) {
+        return fromShop;
+      }
+      return applyVariantHero(legacyMatrixBase);
+    }
+
+    if (mode === "product") {
+      if (fromShop.length > 0) {
+        return fromShop;
+      }
+      const baseOnlyLegacy = [...new Set(fallback)];
+      return applyVariantHero(baseOnlyLegacy);
+    }
+
+    if (mode === "printful") {
+      if (matrixOrFormatOnly.length > 0) {
+        return applyVariantHero(matrixOrFormatOnly);
+      }
+      const vh = currentVariant?.heroImage;
+      return vh ? [vh] : [];
+    }
+
+    const shopPart = fromShop.length > 0 ? fromShop : [...new Set(fallback)];
+    const merged = dedupePreviewUrlsPreserveOrder([...shopPart, ...matrixOrFormatOnly]);
+    if (merged.length > 0) {
+      return applyVariantHero(merged);
+    }
+    return applyVariantHero([...new Set(fallback)]);
   }, [
     variantMatchCtx,
     product,
     exactVariantImages,
     formatSpecificImages,
     currentVariant?.heroImage,
+    currentMatrixRowGalleryMode,
   ]);
 
   useEffect(() => {
@@ -833,26 +874,33 @@ export default function ProductDetailPage() {
               {!isGreetingCard && colorOptions.length > 1 && (
                 <AdminAccordionSection title="Frame Color" defaultOpen>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {colorOptions.map((v) => (
+                    {colorOptions.map((opt) => (
                       <button
-                        key={v.id}
-                        onClick={() => handleVariantSelect(v)}
-                        onMouseEnter={() => setHoverVariant(v)}
+                        key={`color-${opt.key}`}
+                        onClick={() => handleVariantSelect(opt.variant)}
+                        onMouseEnter={() => setHoverVariant(opt.variant)}
                         onMouseLeave={() => setHoverVariant(null)}
-                        onFocus={() => setHoverVariant(v)}
+                        onFocus={() => setHoverVariant(opt.variant)}
                         onBlur={() => setHoverVariant(null)}
-                        disabled={!v.inStock || currentVariant?.id === v.id}
-                        className={getOptionButtonClass(currentVariant?.id === v.id, !!v.inStock)}
-                        title={v.pfColor || ""}
+                        disabled={
+                          !opt.variant.inStock || currentVariant?.id === opt.variant.id
+                        }
+                        className={getOptionButtonClass(
+                          currentVariant?.id === opt.variant.id,
+                          !!opt.variant.inStock
+                        )}
+                        title={opt.variant.pfColor || ""}
                       >
                         <div className="flex items-center gap-2">
                           <span
                             className="inline-block w-4 h-4 rounded-sm border border-black/15"
-                            style={{ backgroundColor: v.pfColorCode || "#ccc" }}
+                            style={{
+                              backgroundColor: opt.variant.pfColorCode || "#ccc",
+                            }}
                           />
-                          <span>{v.pfColor || "Color option"}</span>
+                          <span>{opt.variant.pfColor || "Color option"}</span>
                         </div>
-                        {renderOptionPrice(v)}
+                        {renderOptionPrice(opt.variant)}
                       </button>
                     ))}
                   </div>

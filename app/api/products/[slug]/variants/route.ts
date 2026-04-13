@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, eq } from "@/lib/db";
 import {
   buildProductPreviewUrl,
+  buildMatrixRowPreviewUrl,
   parseVariantMatrix,
 } from "@/lib/product-watermark";
 import {
@@ -76,10 +77,12 @@ export async function GET(
       };
       const mappedFromMatrix = activeMatrix.map((row) => {
         const pfVid = Math.trunc(Number(row.printfulVariantId));
-        const rowImg = row.image ? String(row.image) : null;
-        const heroImage =
-          rowImg ||
-          (product.heroImage ? buildProductPreviewUrl(product.id, "hero") : null);
+        const rowImg = row.image ? String(row.image).trim() : "";
+        const heroImage = rowImg
+          ? buildMatrixRowPreviewUrl(product.id, row.id)
+          : product.heroImage
+          ? buildProductPreviewUrl(product.id, "hero")
+          : null;
 
         const rowAny = row as unknown as Record<string, unknown>;
         const { printfulBasePrice, basePrice, taeAddOnFee, artistRoyalty } =

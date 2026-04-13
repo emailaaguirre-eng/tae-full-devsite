@@ -7,14 +7,132 @@ import { getDb, shopProducts, shopCategories, shopProductImages, eq } from "@/li
 import { asc } from "drizzle-orm";
 import {
   buildProductPreviewUrl,
+  buildStorefrontMetaImagePreviewUrl,
   parseRequiresQrCode,
   parseFamilyKey,
   parseSemanticProductType,
+  type StorefrontMetaImageListKey,
 } from "@/lib/product-watermark";
 import { computeRetailPrice, parsePricingSettings } from "@/lib/product-pricing";
 import { buildStorefrontProductImageRows } from "@/lib/storefront-product-image-rows";
 
 export const dynamic = "force-dynamic";
+
+/** Keys allowed on variant image rows exposed to the storefront (shop + studio matrix fallback). */
+const STOREFRONT_META_ROW_KEYS = [
+  "printfulProductId",
+  "printfulVariantId",
+  "active",
+  "image",
+  "size",
+  "material",
+  "paperType",
+  "frame",
+  "frameColor",
+  "color",
+  "format",
+  "printWidth",
+  "printHeight",
+  "printDpi",
+] as const;
+
+type StorefrontMetaListKey = "variantMatrix" | "variantImages" | "siblingVariants";
+
+function sanitizeStorefrontMetaRow(row: unknown): Record<string, unknown> | null {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+  const src = row as Record<string, unknown>;
+
+  const idRaw = src.id ?? src.printfulVariantId;
+  let idStr = "";
+  if (typeof idRaw === "string") idStr = idRaw.trim();
+  else if (typeof idRaw === "number" && Number.isFinite(idRaw)) idStr = String(Math.trunc(idRaw));
+
+  const pfVid = Math.trunc(Number(src.printfulVariantId));
+  const hasPfVid = Number.isFinite(pfVid) && pfVid > 0;
+  if (!idStr && hasPfVid) idStr = String(pfVid);
+  if (!idStr) return null;
+
+  const out: Record<string, unknown> = { id: idStr };
+  for (const key of STOREFRONT_META_ROW_KEYS) {
+    if (!(key in src)) continue;
+    const v = src[key];
+    if (v === undefined || v === null) continue;
+    if (
+      key === "printfulProductId" ||
+      key === "printfulVariantId" ||
+      key === "printWidth" ||
+      key === "printHeight" ||
+      key === "printDpi"
+    ) {
+      const n = Number(v);
+      if (Number.isFinite(n)) out[key] = n;
+      continue;
+    }
+    if (key === "active") {
+      if (typeof v === "boolean") out[key] = v;
+      continue;
+    }
+    if (typeof v === "string") {
+      const t = v.trim();
+      if (t) out[key] = t;
+    }
+  }
+  return out;
+}
+
+function pickStorefrontMetaList(
+  parsed: Record<string, unknown>,
+  key: StorefrontMetaListKey
+): unknown[] {
+  const v = parsed[key];
+  return Array.isArray(v) ? v : [];
+}
+
+function buildStorefrontMeta(raw: string | null | undefined, productId: string) {
+  let parsed: Record<string, unknown> = {};
+  try {
+    if (raw) {
+      const o = JSON.parse(raw);
+      if (o && typeof o === "object" && !Array.isArray(o)) parsed = o as Record<string, unknown>;
+    }
+  } catch {
+    parsed = {};
+  }
+
+  const sanitizeList = (items: unknown[]) =>
+    items.map(sanitizeStorefrontMetaRow).filter((x): x is Record<string, unknown> => x != null);
+
+  const withPreviewImages = (
+    key: StorefrontMetaListKey,
+    rows: Record<string, unknown>[]
+  ): Record<string, unknown>[] =>
+    rows.map((row) => {
+      if (typeof row.image !== "string" || !row.image.trim()) return row;
+      return {
+        ...row,
+        image: buildStorefrontMetaImagePreviewUrl(
+          productId,
+          key as StorefrontMetaImageListKey,
+          String(row.id)
+        ),
+      };
+    });
+
+  return {
+    variantMatrix: withPreviewImages(
+      "variantMatrix",
+      sanitizeList(pickStorefrontMetaList(parsed, "variantMatrix"))
+    ),
+    variantImages: withPreviewImages(
+      "variantImages",
+      sanitizeList(pickStorefrontMetaList(parsed, "variantImages"))
+    ),
+    siblingVariants: withPreviewImages(
+      "siblingVariants",
+      sanitizeList(pickStorefrontMetaList(parsed, "siblingVariants"))
+    ),
+  };
+}
 
 function toNumber(value: unknown, fallback = 0): number {
   const n = Number(value);
@@ -133,6 +251,8 @@ export async function GET(
       parseRequiresQrCode(product.printfulDataJson) ??
       (category?.requiresQrCode ?? false);
 
+    const storefrontMeta = buildStorefrontMeta(product.printfulDataJson, product.id);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -167,7 +287,7 @@ export async function GET(
         requiredPlacements: product.requiredPlacements,
         qrDefaultPosition: product.qrDefaultPosition,
         proofTerms: getProofTerms(product.printfulDataJson),
-        printfulDataJson: product.printfulDataJson,
+        storefrontMeta,
         familyKey: parseFamilyKey(product.printfulDataJson) || null,
         customizable: printfulData?.customizable !== false,
         requiresQrCode,

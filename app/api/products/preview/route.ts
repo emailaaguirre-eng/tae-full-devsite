@@ -3,7 +3,11 @@ import path from "path";
 import { promises as fs } from "fs";
 import sharp from "sharp";
 import { getDb, eq, and, shopProducts, shopProductImages } from "@/lib/db";
-import { parseWatermarkSettings } from "@/lib/product-watermark";
+import {
+  parseWatermarkSettings,
+  STOREFRONT_META_IMAGE_LIST_KEYS,
+  type StorefrontMetaImageListKey,
+} from "@/lib/product-watermark";
 import { enforceRequestRateLimit } from "@/lib/request-rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +38,35 @@ function getRequestedSource(product: any, kind: string, index: number): string |
     } catch {
       return null;
     }
+  }
+  return null;
+}
+
+function parsePrintfulMetaObject(raw: string | null | undefined): Record<string, unknown> {
+  try {
+    if (!raw) return {};
+    const o = JSON.parse(raw);
+    return o && typeof o === "object" && !Array.isArray(o) ? (o as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function findStorefrontMetaRowImage(
+  printfulDataJson: string | null | undefined,
+  metaList: StorefrontMetaImageListKey,
+  rowId: string
+): string | null {
+  const parsed = parsePrintfulMetaObject(printfulDataJson);
+  const arr = Array.isArray(parsed[metaList]) ? (parsed[metaList] as unknown[]) : [];
+  const want = rowId.trim();
+  for (const item of arr) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const o = item as Record<string, unknown>;
+    if (o.id == null) continue;
+    if (String(o.id).trim() !== want) continue;
+    const im = o.image;
+    if (typeof im === "string" && im.trim()) return im.trim();
   }
   return null;
 }
@@ -80,6 +113,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const productId = searchParams.get("productId");
     const imageId = searchParams.get("imageId");
+    const matrixRowId = (searchParams.get("matrixRowId") || "").trim();
+    const metaListRaw = (searchParams.get("metaList") || "").trim();
+    const metaRowId = (searchParams.get("metaRowId") || "").trim();
     const kind = searchParams.get("kind") || "hero";
     const index = Number(searchParams.get("index") || "0");
     if (!productId) {
@@ -100,6 +136,17 @@ export async function GET(req: Request) {
         .where(and(eq(shopProductImages.id, imageId), eq(shopProductImages.productId, productId)))
         .get();
       if (row?.imageUrl) src = row.imageUrl;
+    } else if (metaListRaw && metaRowId) {
+      if (!STOREFRONT_META_IMAGE_LIST_KEYS.includes(metaListRaw as StorefrontMetaImageListKey)) {
+        return NextResponse.json({ success: false, error: "Invalid metaList" }, { status: 400 });
+      }
+      src = findStorefrontMetaRowImage(
+        product.printfulDataJson,
+        metaListRaw as StorefrontMetaImageListKey,
+        metaRowId
+      );
+    } else if (matrixRowId) {
+      src = findStorefrontMetaRowImage(product.printfulDataJson, "variantMatrix", matrixRowId);
     } else {
       src = getRequestedSource(product, kind, index);
     }

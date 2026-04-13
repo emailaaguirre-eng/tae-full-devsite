@@ -559,6 +559,15 @@ export const variantFulfillmentMappings = sqliteTable('VariantFulfillmentMapping
 }));
 
 // =============================================================================
+// App settings (key/value, e.g. PayPal API mode)
+// =============================================================================
+export const appSettings = sqliteTable('AppSetting', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: text('updatedAt'),
+});
+
+// =============================================================================
 // Aliases for backwards compatibility with existing routes
 // =============================================================================
 export const artkeyGuestbookEntries = guestbookEntries;

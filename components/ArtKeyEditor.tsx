@@ -25,6 +25,12 @@ import {
   type ButtonStyle,
   type ArtKeyTemplate,
 } from './artkey/templates';
+import {
+  PORTAL_PAGE_PRESETS,
+  buildCoreFeatureDefsFromPreset,
+  getPortalPagePreset,
+  type PortalPagePresetId,
+} from './artkey/portal-page-presets';
 import { 
   ElegantIcon, 
   ELEGANT_ICONS, 
@@ -723,6 +729,25 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     if (tpl.buttonStyle) setButtonStyle(tpl.buttonStyle);
     setHeaderIcon(tpl.headerIcon || 'none');
     setOpenPortalAccordion('configureButtons');
+  };
+
+  /** Page layout presets: visual template + feature toggles + button order; keeps custom link rows and uploads. */
+  const applyPortalPagePresetById = (presetId: PortalPagePresetId) => {
+    const preset = getPortalPagePreset(presetId);
+    if (!preset) return;
+    const tpl = findTemplate(preset.templateValue);
+    if (tpl) handleTemplateSelect(tpl);
+    setFeatureDefs((prev) => {
+      const linkRows = prev.filter((f) => f.type === 'custom_link');
+      const core = buildCoreFeatureDefsFromPreset(preset);
+      return normalizePortalFeatureDefs([...core, ...linkRows]);
+    });
+    setArtKeyData((prev) => {
+      const hasCustomLinks = Array.isArray(prev.links) && prev.links.length > 0;
+      const nextFeatures = { ...prev.features, ...preset.featuresPatch };
+      if (hasCustomLinks) nextFeatures.enable_custom_links = true;
+      return { ...prev, features: nextFeatures };
+    });
   };
 
   const handleColorSelect = (color: typeof buttonColors[0], type: 'button' | 'title' | 'background') => {
@@ -2848,6 +2873,36 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               setOpenSection={setOpenPortalAccordion}
               innerRef={accordionScrollRefs.configureButtons}
             >
+            <div
+              className="mb-4 rounded-xl border p-3 sm:p-4"
+              style={{ borderColor: '#d8d8d6', background: COLOR_ALT }}
+            >
+              <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: COLOR_ACCENT }}>
+                Quick page layouts
+              </div>
+              <p className="text-[11px] mt-1 leading-snug" style={{ color: '#666' }}>
+                Apply a ready-made mix of colors and actions. Your images, videos, and custom links stay in place;
+                you can still turn actions on or off below.
+              </p>
+              <div className="grid grid-cols-2 gap-2 mt-3 sm:grid-cols-4">
+                {PORTAL_PAGE_PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => applyPortalPagePresetById(p.id)}
+                    className="text-left rounded-lg border px-2.5 py-2 transition-all hover:shadow-sm hover:bg-white/90"
+                    style={{ borderColor: '#c8c8c5', background: COLOR_PRIMARY }}
+                  >
+                    <div className="text-[11px] font-semibold leading-tight" style={{ color: COLOR_ACCENT }}>
+                      {p.label}
+                    </div>
+                    <div className="text-[10px] mt-0.5 leading-snug text-gray-500 line-clamp-3">
+                      {p.description}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
             {designMode === 'template' && <AddButtonsPanel />}
             {!(
               artKeyData.features.enable_spotify ||

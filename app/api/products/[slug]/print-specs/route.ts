@@ -22,7 +22,7 @@ import { resolveShopProductPrintfulIds } from "@/lib/product-watermark";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: { slug: string } }
 ) {
   try {
@@ -56,6 +56,17 @@ export async function GET(
 
     const { printfulProductId, printfulVariantId } = resolved;
 
+    const url = new URL(req.url);
+    const requestedVariant = Math.trunc(
+      Number(
+        url.searchParams.get("printfulVariantId") ||
+          url.searchParams.get("variant_id") ||
+          ""
+      )
+    );
+
+    let printfulVariantIdForResponse = printfulVariantId;
+
     // Fetch print area specs
     const specs = await db
       .select()
@@ -72,9 +83,18 @@ export async function GET(
       const specData = parsePrintAreaSpec(specs[0]);
       if (specData) {
         availablePlacements = specData.available_placements;
+        let variantIdForAreas = printfulVariantId;
+        if (
+          Number.isFinite(requestedVariant) &&
+          requestedVariant > 0 &&
+          specData.variant_printfiles.some((v) => v.variant_id === requestedVariant)
+        ) {
+          variantIdForAreas = requestedVariant;
+        }
+        printfulVariantIdForResponse = variantIdForAreas;
         allAreas =
-          printfulVariantId != null
-            ? resolveAllPrintAreas(specData, printfulVariantId)
+          variantIdForAreas != null
+            ? resolveAllPrintAreas(specData, variantIdForAreas)
             : {};
         fetchedAt = specs[0].fetchedAt;
       }
@@ -110,7 +130,7 @@ export async function GET(
       success: true,
       data: {
         printfulProductId,
-        printfulVariantId,
+        printfulVariantId: printfulVariantIdForResponse,
         availablePlacements,
         printAreas: allAreas,
         fetchedAt,

@@ -31,6 +31,8 @@ export interface ProductVariantOption {
   printHeight?: number;
   printDpi?: number;
   active?: boolean;
+  /** PDP: shop vs Printful image sources (optional; see admin catalog product form). */
+  galleryMode?: "product" | "printful" | "both";
 }
 
 export interface ProductMeta {
@@ -217,6 +219,48 @@ export function parseVariantMatrix(
     }));
 }
 
+/**
+ * Printful variant ID used by the studio and print-specs lookups.
+ * Matches buildSpecFromApiProduct: column wins, then matrix row for URL-selected variant, else first active matrix row.
+ */
+export function resolvePrintfulVariantIdForStudioAndPrintSpecs(
+  productInput: {
+    printfulVariantId?: number | null;
+    printfulDataJson?: string | null;
+    storefrontMeta?: unknown;
+  },
+  selectedPrintfulVariantIdFromUrl: number | null | undefined
+): number | null {
+  const direct = Math.trunc(Number(productInput?.printfulVariantId));
+  if (Number.isFinite(direct) && direct > 0) return direct;
+
+  const metaStr =
+    (typeof productInput?.printfulDataJson === "string" && productInput.printfulDataJson.trim()
+      ? productInput.printfulDataJson
+      : null) ??
+    (productInput?.storefrontMeta !== undefined && productInput.storefrontMeta !== null
+      ? JSON.stringify(productInput.storefrontMeta)
+      : null);
+
+  const rows = parseVariantMatrix(metaStr);
+  const selected = Math.trunc(Number(selectedPrintfulVariantIdFromUrl));
+  if (Number.isFinite(selected) && selected > 0) {
+    const matched = rows.find(
+      (row) =>
+        row?.active !== false &&
+        Math.trunc(Number(row?.printfulVariantId)) === selected
+    );
+    if (matched) return Math.trunc(Number(matched.printfulVariantId));
+  }
+  const fallback = rows.find(
+    (row) =>
+      row?.active !== false &&
+      Number.isFinite(Math.trunc(Number(row?.printfulVariantId))) &&
+      Math.trunc(Number(row?.printfulVariantId)) > 0
+  );
+  return fallback ? Math.trunc(Number(fallback.printfulVariantId)) : null;
+}
+
 type PrintfulSnapshotMeta = ProductMeta & {
   product?: { id?: unknown };
   variant?: { id?: unknown };
@@ -309,5 +353,33 @@ export function buildProductPreviewUrl(
 /** Watermarked preview for a row in ShopProductImage (see /api/products/preview?imageId=). */
 export function buildShopProductImagePreviewUrl(productId: string, imageId: string): string {
   const params = new URLSearchParams({ productId, imageId });
+  return `/api/products/preview?${params.toString()}`;
+}
+
+/** Preview for a variantMatrix row image (see /api/products/preview?matrixRowId=). */
+export function buildMatrixRowPreviewUrl(productId: string, matrixRowId: string): string {
+  const params = new URLSearchParams({ productId, matrixRowId });
+  return `/api/products/preview?${params.toString()}`;
+}
+
+export const STOREFRONT_META_IMAGE_LIST_KEYS = [
+  "variantMatrix",
+  "variantImages",
+  "siblingVariants",
+] as const;
+
+export type StorefrontMetaImageListKey = (typeof STOREFRONT_META_IMAGE_LIST_KEYS)[number];
+
+/** Preview for a storefrontMeta row image (see /api/products/preview?metaList=&metaRowId=). */
+export function buildStorefrontMetaImagePreviewUrl(
+  productId: string,
+  metaList: StorefrontMetaImageListKey,
+  rowId: string
+): string {
+  const params = new URLSearchParams({
+    productId,
+    metaList,
+    metaRowId: rowId.trim(),
+  });
   return `/api/products/preview?${params.toString()}`;
 }

@@ -73,6 +73,11 @@ interface ProductVariantMatrixRow {
   sellPrice?: number | null;
   image?: string | null;
   active?: boolean;
+  /**
+   * PDP gallery: how shop-uploaded photos combine with Printful/mockup URLs for this option.
+   * Omit = previous automatic behavior (shop images win when they match; otherwise mockups).
+   */
+  galleryMode?: "product" | "printful" | "both";
 }
 
 interface Product {
@@ -2504,11 +2509,103 @@ export default function AdminProductsPage() {
               </div>
               </AdminAccordionSection>
 
-              <AdminAccordionSection title={`Variant matrix · ${selectedProductTypeConfig.label}`}>
+              <AdminAccordionSection title="Production art &amp; shopper experience">
+                <p className="text-sm text-brand-medium leading-relaxed">
+                  These choices apply to the whole product. They control the master print file, whether shoppers can
+                  personalize the item in the studio, and whether the ArtKey portal step is required before checkout.
+                </p>
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                    Production artwork source (print file)
+                  </label>
+                  <p className="text-[11px] text-brand-medium mb-2 leading-snug">
+                    Direct URL to the high-resolution image used for production and internal tools. This is separate
+                    from the photos shoppers see on the product page.
+                  </p>
+                  <input
+                    type="text"
+                    value={form.artworkSourceUrl}
+                    onChange={(e) => setForm({ ...form, artworkSourceUrl: e.target.value })}
+                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                    placeholder="https://… (print-ready image)"
+                  />
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {currentEditProduct?.artistSlug && artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({
+                          ...prev,
+                          artworkSourceUrl:
+                            artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl ||
+                            prev.artworkSourceUrl,
+                        }))}
+                        className={BTN_SUBTLE}
+                      >
+                        Use first artist portfolio image
+                      </button>
+                    )}
+                    {currentEditProduct?.coCreatorSlug && coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)?.sourceImageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({
+                          ...prev,
+                          artworkSourceUrl:
+                            coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)?.sourceImageUrl ||
+                            prev.artworkSourceUrl,
+                        }))}
+                        className={BTN_SUBTLE}
+                      >
+                        Use co-creator hero image
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="border border-brand-light rounded-lg p-3 sm:p-4 space-y-3 bg-white/60">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
+                        Customizable product
+                      </div>
+                      <p className="text-[11px] mt-1 text-brand-medium">
+                        When on, shoppers can open this product in the design studio. Turn off for ready-to-ship or
+                        display-only items.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, customizable: !form.customizable })}
+                      className={`px-2.5 py-1 text-xs rounded border ${form.customizable ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
+                      title="Toggle customizable for this product"
+                    >
+                      {form.customizable ? "Yes" : "No"}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 pt-3 border-t border-brand-light">
+                    <div>
+                      <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
+                        Requires ArtKey / QR step
+                      </div>
+                      <p className="text-[11px] mt-1 text-brand-medium">
+                        When required, shoppers complete the ArtKey portal flow before this product can go to checkout.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, requiresQrCode: !form.requiresQrCode })}
+                      className={`px-2.5 py-1 text-xs rounded border ${form.requiresQrCode ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
+                      title="Toggle QR code requirement for this product"
+                    >
+                      {form.requiresQrCode ? "Required" : "Not required"}
+                    </button>
+                  </div>
+                </div>
+              </AdminAccordionSection>
+
+              <AdminAccordionSection title={`Variations / options · ${selectedProductTypeConfig.label}`}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
-                    Rows &amp; fulfillment options
+                    Sizes, finishes &amp; SKUs
                   </div>
                   <button
                     type="button"
@@ -2545,12 +2642,13 @@ export default function AdminProductsPage() {
                     }
                     className="border border-brand-dark text-brand-dark px-3 py-1.5 text-xs font-medium hover:bg-brand-dark/10 transition-colors"
                   >
-                    Add Variant Row
+                    Add variation row
                   </button>
                 </div>
 
-                <div className="text-sm text-brand-medium">
-                  Configure valid option rows for this {selectedProductTypeConfig.label.toLowerCase()} parent product.
+                <div className="text-sm text-brand-medium leading-relaxed">
+                  Each row is one purchasable choice (for example a size or paper). Shoppers pick from these options on
+                  the product page; match each row to the right Printful product and variant.
                 </div>
 
                 {Array.isArray(form.variantMatrix) && form.variantMatrix.length > 0 ? (
@@ -2569,7 +2667,7 @@ export default function AdminProductsPage() {
                         className="border border-brand-light/70 rounded-lg p-4 space-y-3 bg-brand-lightest/40"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <div className="text-xs font-semibold text-brand-dark">Variant Row {index + 1}</div>
+                          <div className="text-xs font-semibold text-brand-dark">Variation {index + 1}</div>
                           <button
                             type="button"
                             onClick={() =>
@@ -2584,6 +2682,41 @@ export default function AdminProductsPage() {
                           >
                             Remove
                           </button>
+                        </div>
+
+                        <div className="rounded-md border border-brand-light/80 bg-white/80 p-3 space-y-2">
+                          <label className="block text-[11px] font-medium text-brand-dark/70">
+                            Product page images (this option)
+                          </label>
+                          <p className="text-[10px] text-brand-medium leading-snug">
+                            Choose how photos you upload for the listing work together with Printful mockups for this
+                            option. Leave on Automatic unless you see the wrong mix on the shop.
+                          </p>
+                          <select
+                            value={row.galleryMode ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setForm((prev) => ({
+                                ...prev,
+                                variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map(
+                                  (item) =>
+                                    item.id === row.id
+                                      ? {
+                                          ...item,
+                                          galleryMode:
+                                            v === "product" || v === "printful" || v === "both" ? v : undefined,
+                                        }
+                                      : item
+                                ),
+                              }));
+                            }}
+                            className="w-full border border-brand-light px-3 py-2 text-sm bg-white max-w-xl"
+                          >
+                            <option value="">Automatic</option>
+                            <option value="product">Product Images Only</option>
+                            <option value="printful">Printful Images Only</option>
+                            <option value="both">Combine Both</option>
+                          </select>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -3720,6 +3853,10 @@ export default function AdminProductsPage() {
               </AdminAccordionSection>
 
               <AdminAccordionSection title="Advanced (optional)" defaultOpen={false}>
+                  <p className="text-sm text-brand-medium leading-relaxed">
+                    Optional catalog details, legacy Printful IDs, proof copy, and watermark. Day-to-day setup for
+                    shoppers and production lives in the sections above.
+                  </p>
                   <div>
                     <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
                       Proof Terms &amp; Conditions
@@ -3824,45 +3961,6 @@ export default function AdminProductsPage() {
                     </p>
                   </div>
 
-                  <div className="border border-brand-light rounded-lg p-3 sm:p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
-                          Customizable
-                        </div>
-                        <p className="text-[11px] mt-1 text-brand-medium">
-                          Controls whether this product can be customized in the studio.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, customizable: !form.customizable })}
-                        className={`px-2.5 py-1 text-xs rounded border ${form.customizable ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
-                        title="Toggle customizable for this product"
-                      >
-                        {form.customizable ? "Enabled" : "Disabled"}
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 pt-3 border-t border-brand-light">
-                      <div>
-                        <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
-                          Requires QR Code
-                        </div>
-                        <p className="text-[11px] mt-1 text-brand-medium">
-                          Controls whether studio requires the ArtKey Portal step for this product.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, requiresQrCode: !form.requiresQrCode })}
-                        className={`px-2.5 py-1 text-xs rounded border ${form.requiresQrCode ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
-                        title="Toggle QR code requirement for this product"
-                      >
-                        {form.requiresQrCode ? "Required" : "Not Required"}
-                      </button>
-                    </div>
-                  </div>
                   <div className="grid grid-cols-2 gap-4">
 
                     <div>
@@ -3916,46 +4014,6 @@ export default function AdminProductsPage() {
                         className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                         placeholder="e.g. Glossy"
                       />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Production Artwork Source URL</label>
-                    <input
-                      type="text"
-                      value={form.artworkSourceUrl}
-                      onChange={(e) => setForm({ ...form, artworkSourceUrl: e.target.value })}
-                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      placeholder="Hidden master artwork asset used for production and fallback mockup/order workflows"
-                    />
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {currentEditProduct?.artistSlug && artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setForm((prev) => ({
-                            ...prev,
-                            artworkSourceUrl:
-                              artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl ||
-                              prev.artworkSourceUrl,
-                          }))}
-                          className={BTN_SUBTLE}
-                        >
-                          Use First Artist Portfolio Image
-                        </button>
-                      )}
-                      {currentEditProduct?.coCreatorSlug && coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)?.sourceImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setForm((prev) => ({
-                            ...prev,
-                            artworkSourceUrl:
-                              coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)?.sourceImageUrl ||
-                              prev.artworkSourceUrl,
-                          }))}
-                          className={BTN_SUBTLE}
-                        >
-                          Use Co-Creator Hero Image
-                        </button>
-                      )}
                     </div>
                   </div>
                   <div className="border border-brand-light rounded-lg p-4 space-y-3">
@@ -4489,12 +4547,12 @@ export default function AdminProductsPage() {
                                   </button>
                                 </div>
                                 <p className="text-[10px] text-brand-medium">
-                                  Choose values from this product&apos;s variant matrix where possible. Leave &quot;(Any)&quot;
+                                  Choose values from this product&apos;s variations where possible. Leave &quot;(Any)&quot;
                                   when that dimension should not constrain matching.
                                 </p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                   <div>
-                                    <label className="block text-[10px] text-brand-medium mb-0.5">Matrix row</label>
+                                    <label className="block text-[10px] text-brand-medium mb-0.5">Variation row</label>
                                     <select
                                       value={row.variantKey || ""}
                                       onChange={(e) => {

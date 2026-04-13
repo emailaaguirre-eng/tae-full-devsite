@@ -8,7 +8,10 @@ import dynamic from "next/dynamic";
 import { ProductSpec, Placement, DesignState } from "@/customization-studio/types";
 import Link from "next/link";
 import { ARTKEY_TEMPLATES } from "@/lib/artkeyTemplates";
-import { parseVariantMatrix } from "@/lib/product-watermark";
+import {
+  parseVariantMatrix,
+  resolvePrintfulVariantIdForStudioAndPrintSpecs,
+} from "@/lib/product-watermark";
 import { encodeDesignFilesForStudioRegister } from "@/lib/studio-register-compress";
 import { customerPlacementLabel } from "@/lib/customer-placement-label";
 import { customerStudioProofMessageFromApi } from "@/lib/customer-proof-errors";
@@ -217,7 +220,7 @@ function buildSpecFromApiProduct(
     const direct = Math.trunc(Number(productInput?.printfulProductId));
     if (Number.isFinite(direct) && direct > 0) return direct;
 
-    const rows = parseVariantMatrix(productInput?.printfulDataJson);
+    const rows = parseVariantMatrix(productInput?.storefrontMeta ? JSON.stringify(productInput.storefrontMeta) : null);
     const selectedVariantId = Math.trunc(
       Number(selectedPrintfulVariantId ?? productInput?.printfulVariantId)
     );
@@ -249,36 +252,11 @@ function buildSpecFromApiProduct(
     return undefined;
   };
   const resolvePrintfulVariantId = (productInput: any): number | undefined => {
-    const direct = Math.trunc(Number(productInput?.printfulVariantId));
-    if (Number.isFinite(direct) && direct > 0) return direct;
-
-    const rows = parseVariantMatrix(productInput?.printfulDataJson);
-    const selectedVariantId = Math.trunc(
-      Number(selectedPrintfulVariantId ?? productInput?.printfulVariantId)
+    const v = resolvePrintfulVariantIdForStudioAndPrintSpecs(
+      productInput,
+      selectedPrintfulVariantId ?? null
     );
-
-    if (Number.isFinite(selectedVariantId) && selectedVariantId > 0) {
-      const matchedRow = rows.find((row: any) => {
-        const rowVariantId = Math.trunc(Number(row?.printfulVariantId));
-        return (
-          row?.active !== false &&
-          Number.isFinite(rowVariantId) &&
-          rowVariantId === selectedVariantId
-        );
-      });
-      if (matchedRow?.printfulVariantId) {
-        return Math.trunc(Number(matchedRow.printfulVariantId));
-      }
-    }
-
-    const fallbackRow = rows.find((row: any) => {
-      const rowVariantId = Math.trunc(Number(row?.printfulVariantId));
-      return row?.active !== false && Number.isFinite(rowVariantId) && rowVariantId > 0;
-    });
-    if (fallbackRow?.printfulVariantId) {
-      return Math.trunc(Number(fallbackRow.printfulVariantId));
-    }
-    return undefined;
+    return v ?? undefined;
   };
   const numOr = (value: unknown, fallback: number) => {
     const n = Number(value);
@@ -468,10 +446,16 @@ function StudioContent() {
       .catch(() => {});
   }, [slugParam]);
 
-  // Fetch print area specs + surface map for API mode
+  // Fetch print area specs + surface map for API mode (variant must match studio SKU or printfile sizes drift).
   useEffect(() => {
-    if (!slugParam) return;
-    fetch(`/api/products/${slugParam}/print-specs`)
+    if (!slugParam || !apiProduct) return;
+    const vid = resolvePrintfulVariantIdForStudioAndPrintSpecs(
+      apiProduct,
+      variantIdParam ? Math.trunc(Number(variantIdParam)) : null
+    );
+    const qs =
+      vid != null && Number.isFinite(vid) && vid > 0 ? `?printfulVariantId=${vid}` : "";
+    fetch(`/api/products/${slugParam}/print-specs${qs}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success && data.data) {
@@ -482,7 +466,7 @@ function StudioContent() {
         }
       })
       .catch(() => {});
-  }, [slugParam]);
+  }, [slugParam, apiProduct, variantIdParam]);
 
   // Determine product spec
   const isApiMode = !!slugParam && !!apiProduct;

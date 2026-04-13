@@ -1145,12 +1145,53 @@ function PayPalSection({
   disabled?: boolean;
   disabledReason?: string;
 }) {
-  const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
   const [paypalError, setPaypalError] = useState<string | null>(null);
+  const [payPalConfigLoading, setPayPalConfigLoading] = useState(true);
+  const [sdkClientId, setSdkClientId] = useState<string | null>(null);
+  const [serverPaypalMode, setServerPaypalMode] = useState<"sandbox" | "live" | null>(null);
 
-  if (paypalClientId) {
+  useEffect(() => {
+    fetch("/api/paypal/public-mode")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.mode === "live" || d?.mode === "sandbox") setServerPaypalMode(d.mode);
+        if (typeof d?.clientId === "string" && d.clientId.trim()) {
+          setSdkClientId(d.clientId.trim());
+        } else {
+          setSdkClientId(null);
+        }
+      })
+      .catch(() => {
+        setSdkClientId(null);
+      })
+      .finally(() => setPayPalConfigLoading(false));
+  }, []);
+
+  if (payPalConfigLoading) {
+    return (
+      <div className="py-4 text-center">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-dark" />
+        <p className="text-sm text-brand-darkest/60">Loading PayPal…</p>
+      </div>
+    );
+  }
+
+  if (sdkClientId) {
     return (
       <div className="py-4">
+        {serverPaypalMode && (
+          <div
+            className={`mb-3 text-xs font-semibold px-3 py-2 rounded-lg border ${
+              serverPaypalMode === "live"
+                ? "bg-red-50 text-red-900 border-red-200"
+                : "bg-amber-50 text-amber-900 border-amber-200"
+            }`}
+            role="status"
+          >
+            PayPal server mode:{" "}
+            {serverPaypalMode === "live" ? "LIVE (production API)" : "SANDBOX"}
+          </div>
+        )}
         {paypalError && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
             {paypalError}
@@ -1167,8 +1208,10 @@ function PayPalSection({
           </div>
         ) : (
           <PayPalScriptProvider
+            key={`${serverPaypalMode ?? "unknown"}-${sdkClientId}`}
             options={{
-              "client-id": paypalClientId,
+              clientId: sdkClientId,
+              "client-id": sdkClientId,
               components: "buttons",
               currency: "USD",
               intent: "capture",
@@ -1218,12 +1261,19 @@ function PayPalSection({
     );
   }
 
-  // Demo mode: no PayPal credentials configured
+  // Demo mode: no PayPal credentials for the effective mode (see lib/paypal-effective-mode.ts)
   return (
     <div className="text-center py-8">
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
         <p className="text-xs text-amber-800">
-          Demo mode — Set <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">NEXT_PUBLIC_PAYPAL_CLIENT_ID</code>, <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">PAYPAL_CLIENT_ID</code>, and <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">PAYPAL_CLIENT_SECRET</code> to enable real PayPal payments.
+          Demo mode — Configure{" "}
+          <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">PAYPAL_SANDBOX_CLIENT_ID</code>,{" "}
+          <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">PAYPAL_SANDBOX_CLIENT_SECRET</code>{" "}
+          (sandbox) and{" "}
+          <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">PAYPAL_LIVE_CLIENT_ID</code>,{" "}
+          <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">PAYPAL_LIVE_CLIENT_SECRET</code>{" "}
+          (live) on the server. Checkout loads the matching public client ID from{" "}
+          <code className="bg-amber-100 px-1 py-0.5 rounded text-[10px]">/api/paypal/public-mode</code>.
         </p>
       </div>
       <button

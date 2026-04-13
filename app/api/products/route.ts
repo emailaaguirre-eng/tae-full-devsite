@@ -153,22 +153,13 @@ export async function GET(req: Request) {
       const requiresQrCode =
         parseRequiresQrCode(p.printfulDataJson) ??
         (cat?.requiresQrCode ?? false);
-      let fallbackHero: string | null = null;
-      if (!p.heroImage && p.printfulDataJson) {
-        try {
-          const parsed = JSON.parse(p.printfulDataJson);
-          fallbackHero = parsed?.variant?.image || parsed?.product?.image || null;
-        } catch {
-          fallbackHero = null;
-        }
-      }
       return {
         id: p.id,
         taeId: p.taeId,
         slug: p.slug,
         name: p.name,
         description: cleanDescription(p.description),
-        heroImage: p.heroImage ? buildProductPreviewUrl(p.id, "hero") : fallbackHero,
+        heroImage: p.heroImage ? buildProductPreviewUrl(p.id, "hero") : null,
         basePrice: retailPriceFor(p),
         hasMultipleVariants: false,
         variantCount: 1,
@@ -217,15 +208,6 @@ export async function GET(req: Request) {
             const productTypeName = cat?.name || rep.name.split(" — ")[0] || rep.name;
 
             const withImage = variants.find((v) => v.heroImage) || rep;
-            let fallbackHero: string | null = null;
-            if (!withImage.heroImage && withImage.printfulDataJson) {
-              try {
-                const parsed = JSON.parse(withImage.printfulDataJson);
-                fallbackHero = parsed?.variant?.image || parsed?.product?.image || null;
-              } catch {
-                fallbackHero = null;
-              }
-            }
 
             return {
               id: rep.id,
@@ -235,7 +217,7 @@ export async function GET(req: Request) {
               description: cleanDescription(cat?.description || rep.description),
               heroImage: withImage.heroImage
                 ? buildProductPreviewUrl(withImage.id, "hero")
-                : fallbackHero,
+                : null,
               basePrice: lowestPrice,
               hasMultipleVariants: variants.length > 1,
               variantCount: variants.length,

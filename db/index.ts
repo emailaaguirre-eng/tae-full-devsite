@@ -108,6 +108,16 @@ function ensureOrderPaypalColumns(db: SqlJsDatabase) {
   }
 }
 
+function ensureAppSettingsTable(db: SqlJsDatabase) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS "AppSetting" (
+      "key" TEXT PRIMARY KEY NOT NULL,
+      "value" TEXT NOT NULL,
+      "updatedAt" TEXT
+    )
+  `);
+}
+
 // Initialize the database
 async function initDatabase(): Promise<SqlJsDatabase> {
   if (sqliteDb) {
@@ -145,6 +155,7 @@ async function initDatabase(): Promise<SqlJsDatabase> {
   ensureShopProductImagesTable(sqliteDb);
   ensureCheckoutProofSnapshotsTable(sqliteDb);
   ensureOrderPaypalColumns(sqliteDb);
+  ensureAppSettingsTable(sqliteDb);
 
   return sqliteDb;
 }

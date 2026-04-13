@@ -3437,40 +3437,56 @@ export function CustomizationStudio({
             </span>
           )}
 
-          {/* Zoom */}
+          {/* Zoom (label clarifies this only changes on-screen view, not export size) */}
           <div className="mx-1 h-6 w-px hidden sm:block" style={{ background: BRAND.light }} />
-          <button
-            onClick={handleZoomOut}
-            className="flex items-center justify-center w-8 h-8 rounded"
-            style={{ background: BRAND.light, color: BRAND.dark }}
-            title="Zoom out"
-          >
-            <IconMinus />
-          </button>
-          <button
-            onClick={handleZoomReset}
-            className="px-2 py-2 rounded text-sm font-mono min-w-[3.5rem] text-center"
-            style={{ background: BRAND.light, color: BRAND.dark }}
-            title="Reset zoom"
-          >
-            {Math.round(zoomLevel * 100)}%
-          </button>
-          <button
-            onClick={handleZoomIn}
-            className="flex items-center justify-center w-8 h-8 rounded"
-            style={{ background: BRAND.light, color: BRAND.dark }}
-            title="Zoom in"
-          >
-            <IconPlus />
-          </button>
-          <button
-            onClick={handleZoomFit}
-            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm"
-            style={{ background: BRAND.light, color: BRAND.dark }}
-            title="Fit canvas to view"
-          >
-            <IconFit /> Fit
-          </button>
+          <div className="flex items-center gap-1" role="group" aria-label="Canvas zoom">
+            <span
+              className="hidden sm:inline text-[10px] font-semibold uppercase tracking-wide pr-0.5"
+              style={{ color: BRAND.medium }}
+            >
+              Zoom
+            </span>
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              className="flex items-center justify-center w-8 h-8 rounded"
+              style={{ background: BRAND.light, color: BRAND.dark }}
+              title="Zoom out (view only)"
+              aria-label="Zoom out"
+            >
+              <IconMinus />
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomReset}
+              className="px-2 py-2 rounded text-sm font-mono min-w-[3.5rem] text-center"
+              style={{ background: BRAND.light, color: BRAND.dark }}
+              title="Reset zoom to 100%"
+              aria-label={`Zoom ${Math.round(zoomLevel * 100)} percent, click to reset`}
+            >
+              {Math.round(zoomLevel * 100)}%
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              className="flex items-center justify-center w-8 h-8 rounded"
+              style={{ background: BRAND.light, color: BRAND.dark }}
+              title="Zoom in (view only)"
+              aria-label="Zoom in"
+            >
+              <IconPlus />
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomFit}
+              className="flex items-center gap-1.5 px-3 py-2 rounded text-sm"
+              style={{ background: BRAND.light, color: BRAND.dark }}
+              title="Fit the canvas to your screen"
+              aria-label="Fit canvas to view"
+            >
+              <IconFit /> Fit
+            </button>
+          </div>
 
           {/* Export */}
           <div className="mx-1 h-6 w-px hidden sm:block" style={{ background: BRAND.light }} />
@@ -3633,8 +3649,13 @@ export function CustomizationStudio({
                 </button>
               ))}
             </div>
-            <label className="flex items-center gap-1 text-[11px] shrink-0" style={{ color: BRAND.medium }}>
-              Lh
+            <label
+              className="flex items-center gap-1 text-[11px] shrink-0"
+              style={{ color: BRAND.medium }}
+              title="Line height (spacing between lines)"
+            >
+              <span className="hidden sm:inline">Line</span>
+              <span className="sm:hidden">Ln</span>
               <input
                 type="number"
                 min={0.8}
@@ -3644,10 +3665,16 @@ export function CustomizationStudio({
                 onChange={(e) => setTextLineHeight(Math.max(0.8, Math.min(3, Number(e.target.value) || 1.2)))}
                 className="w-12 border rounded px-1 py-1 text-xs"
                 style={{ borderColor: BRAND.light, background: BRAND.white }}
+                aria-label="Line height"
               />
             </label>
-            <label className="flex items-center gap-1 text-[11px] shrink-0" style={{ color: BRAND.medium }}>
-              Sp
+            <label
+              className="flex items-center gap-1 text-[11px] shrink-0"
+              style={{ color: BRAND.medium }}
+              title="Letter spacing (tracking)"
+            >
+              <span className="hidden sm:inline">Space</span>
+              <span className="sm:hidden">Sp</span>
               <input
                 type="number"
                 min={-5}
@@ -3657,6 +3684,7 @@ export function CustomizationStudio({
                 onChange={(e) => setTextLetterSpacing(Math.max(-5, Math.min(40, Number(e.target.value) || 0)))}
                 className="w-12 border rounded px-1 py-1 text-xs"
                 style={{ borderColor: BRAND.light, background: BRAND.white }}
+                aria-label="Letter spacing"
               />
             </label>
           </div>
@@ -3691,7 +3719,15 @@ export function CustomizationStudio({
           <div className="flex-1 overflow-auto">
           {/* Image Tools */}
           <div className="p-4 border-b" style={{ borderColor: BRAND.light }}>
-            <h3 className="font-semibold mb-3">Images</h3>
+            <h3 className="font-semibold mb-1">Images</h3>
+            <p className="text-[11px] mb-3 leading-snug" style={{ color: BRAND.medium }}>
+              For side:{" "}
+              <span className="font-medium" style={{ color: BRAND.dark }}>
+                {getLabel(activePlacement)}
+              </span>
+              . Uploads stay in this list; use <span className="font-medium" style={{ color: BRAND.dark }}>Add</span>{" "}
+              to place on the canvas.
+            </p>
             <input
               ref={fileInputRef}
               type="file"
@@ -3941,10 +3977,16 @@ export function CustomizationStudio({
           {/* Decorative Elements */}
           <div className="p-4 border-b" style={{ borderColor: BRAND.light }}>
             <button
+              type="button"
               onClick={() => setPanelStates(p => ({ ...p, decoratives: !p.decoratives }))}
               className="w-full flex items-center justify-between mb-2"
             >
-              <h3 className="font-semibold">Decorative Elements</h3>
+              <div className="text-left">
+                <h3 className="font-semibold">Decorative Elements</h3>
+                <p className="text-[10px] font-normal mt-0.5" style={{ color: BRAND.medium }}>
+                  Borders & overlays for {getLabel(activePlacement)}
+                </p>
+              </div>
               <span style={{ color: BRAND.medium, transform: panelStates.decoratives ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
             </button>
             
@@ -4055,7 +4097,7 @@ export function CustomizationStudio({
                     className="w-full border rounded px-2 py-2 text-sm"
                     style={{ borderColor: BRAND.light }}
                   >
-                    <option value="free">Free</option>
+                    <option value="free">Full canvas (not in a layout slot)</option>
                     {slotRects.map((_, i) => (
                       <option key={i} value={String(i)}>
                         Slot {i + 1}
@@ -4341,7 +4383,11 @@ export function CustomizationStudio({
         {/* Canvas Area */}
         <div ref={canvasContainerRef} className="flex-1 min-h-0 w-full overflow-hidden p-2 lg:p-2.5 flex flex-col items-center justify-center min-w-0">
           {productSpec.placements.length > 1 && (
-            <div className="lg:hidden w-full max-w-full flex gap-1.5 overflow-x-auto pb-2 shrink-0 justify-center">
+            <div className="lg:hidden w-full max-w-full shrink-0 pb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-center mb-1.5" style={{ color: BRAND.medium }}>
+                Print side
+              </p>
+              <div className="flex gap-1.5 overflow-x-auto justify-center">
               {productSpec.placements.map((p) => (
                 <button
                   key={p}
@@ -4357,6 +4403,7 @@ export function CustomizationStudio({
                   {getLabel(p)}
                 </button>
               ))}
+              </div>
             </div>
           )}
           <div className="inline-block rounded-lg shadow-xl overflow-hidden relative max-w-full" style={{ background: BRAND.white, border: `1px solid ${BRAND.light}` }}>
@@ -4841,11 +4888,22 @@ export function CustomizationStudio({
               </Layer>
             </Stage>
           </div>
+          <p className="text-[11px] mt-2 text-center max-w-[min(100%,48rem)] px-2 leading-snug" style={{ color: BRAND.medium }}>
+            <span className="font-medium" style={{ color: BRAND.dark }}>
+              {getLabel(activePlacement)}
+            </span>
+            {" · "}
+            {canvasWidth}×{canvasHeight}px print area
+            {productSpec.printDpi ? ` · ${productSpec.printDpi} DPI` : ""}
+          </p>
         </div>
 
         {/* Right Sidebar - surface previews (uniform card sizes) */}
         <div className="hidden lg:block w-52 xl:w-56 2xl:w-64 flex-shrink-0 border-l p-3 2xl:p-4 overflow-auto" style={{ background: BRAND.white, borderColor: BRAND.light }}>
-          <h3 className="font-semibold mb-3 text-sm">Preview</h3>
+          <h3 className="font-semibold mb-1 text-sm">Print sides</h3>
+          <p className="text-[10px] mb-3 leading-snug" style={{ color: BRAND.medium }}>
+            Click a thumbnail to edit that surface. Each side has its own layers and layout.
+          </p>
 
           <div className="space-y-3">
             {productSpec.placements.map((p) => (
