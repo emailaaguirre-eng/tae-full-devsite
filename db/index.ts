@@ -72,6 +72,28 @@ function ensureShopProductImagesTable(db: SqlJsDatabase) {
   db.run(`CREATE INDEX IF NOT EXISTS "ix_shop_product_image_product" ON "ShopProductImage" ("productId")`);
 }
 
+function ensureProductMediaLibraryTable(db: SqlJsDatabase) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS "ProductMediaLibrary" (
+      "id" TEXT PRIMARY KEY NOT NULL,
+      "imageUrl" TEXT NOT NULL,
+      "originalFilename" TEXT,
+      "mimeType" TEXT,
+      "byteSize" INTEGER,
+      "width" INTEGER,
+      "height" INTEGER,
+      "title" TEXT,
+      "keywords" TEXT,
+      "sourceType" TEXT DEFAULT 'uploaded',
+      "createdAt" TEXT,
+      "updatedAt" TEXT
+    )
+  `);
+  db.run(
+    `CREATE INDEX IF NOT EXISTS "ix_product_media_library_created" ON "ProductMediaLibrary" ("createdAt")`
+  );
+}
+
 function ensureCheckoutProofSnapshotsTable(db: SqlJsDatabase) {
   db.run(`
     CREATE TABLE IF NOT EXISTS "CheckoutProofSnapshot" (
@@ -143,6 +165,7 @@ async function initDatabase(): Promise<SqlJsDatabase> {
   ensureShopProductColumns(sqliteDb);
   ensureGuestbookShareEmailColumn(sqliteDb);
   ensureShopProductImagesTable(sqliteDb);
+  ensureProductMediaLibraryTable(sqliteDb);
   ensureCheckoutProofSnapshotsTable(sqliteDb);
   ensureOrderPaypalColumns(sqliteDb);
 

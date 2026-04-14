@@ -158,6 +158,32 @@ export const shopProductImages = sqliteTable(
 );
 
 // =============================================================================
+// Product Media Library — reusable shopper-facing product images (Phase 1)
+// Not production artwork; not proof/mockup storage.
+// =============================================================================
+export const productMediaLibrary = sqliteTable(
+  'ProductMediaLibrary',
+  {
+    id: text('id').primaryKey(),
+    imageUrl: text('imageUrl').notNull(),
+    originalFilename: text('originalFilename'),
+    mimeType: text('mimeType'),
+    byteSize: integer('byteSize'),
+    width: integer('width'),
+    height: integer('height'),
+    title: text('title'),
+    keywords: text('keywords'),
+    /** uploaded | printful_import (reserved for later) */
+    sourceType: text('sourceType').default('uploaded'),
+    createdAt: text('createdAt'),
+    updatedAt: text('updatedAt'),
+  },
+  (table) => ({
+    createdIdx: index('ix_product_media_library_created').on(table.createdAt),
+  })
+);
+
+// =============================================================================
 // Artwork to Category Links - Which products can artworks be sold as
 // =============================================================================
 export const artworkProductLinks = sqliteTable('ArtworkProductLink', {
