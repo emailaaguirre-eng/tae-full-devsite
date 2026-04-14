@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import path from "path";
 import { promises as fs } from "fs";
 import sharp from "sharp";
-import { getDb, eq, and, shopProducts, shopProductImages } from "@/lib/db";
+import { getDb, eq, and, shopProducts, shopProductImages, productMediaLibrary } from "@/lib/db";
 import { parseWatermarkSettings } from "@/lib/product-watermark";
+import { parseLibraryGalleryIdsJson } from "@/lib/product-library-ids";
 import { enforceRequestRateLimit } from "@/lib/request-rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -93,7 +94,20 @@ export async function GET(req: Request) {
     }
 
     let src: string | null = null;
-    if (imageId) {
+    const libraryAssetIdParam = searchParams.get("libraryAssetId");
+    if (libraryAssetIdParam?.trim()) {
+      const aid = libraryAssetIdParam.trim();
+      const heroOk = (product.libraryHeroMediaId || "").trim() === aid;
+      const galOk = parseLibraryGalleryIdsJson(product.libraryGalleryMediaIdsJson).includes(aid);
+      if (!heroOk && !galOk) {
+        return NextResponse.json(
+          { success: false, error: "Library asset not assigned to this product" },
+          { status: 404 }
+        );
+      }
+      const libRow = await db.select().from(productMediaLibrary).where(eq(productMediaLibrary.id, aid)).get();
+      if (libRow?.imageUrl) src = libRow.imageUrl.trim();
+    } else if (imageId) {
       const row = await db
         .select()
         .from(shopProductImages)

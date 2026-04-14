@@ -28,6 +28,7 @@ import {
 } from "@/lib/stationery-printful-catalog";
 import { AdminAccordionSection } from "@/components/admin/AdminAccordionSection";
 import { normalizeHeroFlags } from "@/lib/product-image-ui";
+import { galleryIdsJsonFromList, parseLibraryGalleryIdsJson } from "@/lib/product-library-ids";
 
 type ProductImageSource = "general" | "variant" | "api";
 
@@ -143,6 +144,9 @@ interface Product {
   };
   createdAt: string;
   updatedAt: string;
+  /** Product Media Library (Phase 2) — storefront hero / global gallery assignments */
+  libraryHeroMediaId?: string | null;
+  libraryGalleryMediaIdsJson?: string | null;
   productImages?: {
     id: string;
     imageUrl: string;
@@ -644,7 +648,6 @@ const PRODUCT_TYPE_MATRIX_FIELDS: Record<
       | "printfulProductId"
       | "printfulVariantId"
       | "providerCost"
-      | "variationUpcharge"
       | "artistRoyalty"
       | "taeAddOnFee"
       | "sellPrice"
@@ -661,7 +664,6 @@ const PRODUCT_TYPE_MATRIX_FIELDS: Record<
       "printfulProductId",
       "printfulVariantId",
       "providerCost",
-      "variationUpcharge",
       "artistRoyalty",
       "taeAddOnFee",
       "sellPrice",
@@ -676,7 +678,6 @@ const PRODUCT_TYPE_MATRIX_FIELDS: Record<
       "printfulProductId",
       "printfulVariantId",
       "providerCost",
-      "variationUpcharge",
       "artistRoyalty",
       "taeAddOnFee",
       "sellPrice",
@@ -691,7 +692,6 @@ const PRODUCT_TYPE_MATRIX_FIELDS: Record<
       "printfulProductId",
       "printfulVariantId",
       "providerCost",
-      "variationUpcharge",
       "artistRoyalty",
       "taeAddOnFee",
       "sellPrice",
@@ -705,7 +705,6 @@ const PRODUCT_TYPE_MATRIX_FIELDS: Record<
       "printfulProductId",
       "printfulVariantId",
       "providerCost",
-      "variationUpcharge",
       "artistRoyalty",
       "taeAddOnFee",
       "sellPrice",
@@ -720,7 +719,6 @@ const PRODUCT_TYPE_MATRIX_FIELDS: Record<
       "printfulProductId",
       "printfulVariantId",
       "providerCost",
-      "variationUpcharge",
       "artistRoyalty",
       "taeAddOnFee",
       "sellPrice",
@@ -735,7 +733,6 @@ const PRODUCT_TYPE_MATRIX_FIELDS: Record<
       "printfulProductId",
       "printfulVariantId",
       "providerCost",
-      "variationUpcharge",
       "artistRoyalty",
       "taeAddOnFee",
       "sellPrice",
@@ -768,8 +765,6 @@ const EMPTY_FORM = {
   artistId: "",
   coCreatorSlug: "",
   coCreatorId: "",
-  familyKey: "",
-  tags: "",
   heroImage: "",
   galleryImages: "[]",
   artworkSourceUrl: "",
@@ -790,25 +785,10 @@ const EMPTY_FORM = {
 const DEFAULT_MARGIN_TARGET = 0.45;
 const DEFAULT_ARTIST_ROYALTY = 0;
 
-function normalizeTagsFromForm(input: string): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const part of input.split(",")) {
-    const t = part.trim();
-    if (!t) continue;
-    const key = t.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(t);
-  }
-  return out;
-}
-
 type MatrixMoneyField =
   | "providerCost"
   | "taeAddOnFee"
   | "artistRoyalty"
-  | "variationUpcharge"
   | "sellPrice";
 
 function matrixMoneyKey(rowId: string, field: MatrixMoneyField) {
@@ -846,7 +826,6 @@ function computeMatrixRowShopPreview(
     printfulBasePrice: string;
     taeAddOnFee: string;
     artistRoyalty: string;
-    variationUpcharge: string;
   }
 ) {
   const toN = (v: unknown, fb: number) => {
@@ -860,8 +839,7 @@ function computeMatrixRowShopPreview(
   const tae = toN(row.taeAddOnFee, productTae);
   const defaultArt = Math.max(0, parseFloat(formPricing.artistRoyalty) || DEFAULT_ARTIST_ROYALTY);
   const art = toN(row.artistRoyalty, defaultArt);
-  const defaultVar = Math.max(0, parseFloat(formPricing.variationUpcharge) || 0);
-  const up = toN(rowAny.variationUpcharge, defaultVar);
+  const up = toN(rowAny.variationUpcharge, 0);
   const components = Math.max(0, printfulBase + tae + art + up);
   const sellOverride = finiteMatrixSellOverride(row.sellPrice);
   const displayed = sellOverride != null ? sellOverride : components;
@@ -928,6 +906,15 @@ export default function AdminProductsPage() {
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [artworkSourceUploading, setArtworkSourceUploading] = useState(false);
   const [imgError, setImgError] = useState<string | null>(null);
+  const [libHeroId, setLibHeroId] = useState<string | null>(null);
+  const [libGalleryIds, setLibGalleryIds] = useState<string[]>([]);
+  const [libraryPicker, setLibraryPicker] = useState<null | "hero" | "gallery">(null);
+  const [libraryAssets, setLibraryAssets] = useState<
+    { id: string; imageUrl: string; title: string | null; originalFilename: string | null }[]
+  >([]);
+  const [libraryPickerLoading, setLibraryPickerLoading] = useState(false);
+  const [librarySaving, setLibrarySaving] = useState(false);
+  const [galleryLibSelection, setGalleryLibSelection] = useState<Set<string>>(() => new Set());
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   type ProductFormTab = "details" | "images";
   const [productFormTab, setProductFormTab] = useState<ProductFormTab>("details");
@@ -1019,7 +1006,6 @@ export default function AdminProductsPage() {
       | "printfulProductId"
       | "printfulVariantId"
       | "providerCost"
-      | "variationUpcharge"
       | "artistRoyalty"
       | "taeAddOnFee"
       | "sellPrice"
@@ -1528,6 +1514,8 @@ export default function AdminProductsPage() {
     const merged = mergeProductWithFormDraft(p);
     setImageEditProduct(merged);
     setGalleryDraft(productImagesFromProduct(merged));
+    setLibHeroId(merged.libraryHeroMediaId?.trim() || null);
+    setLibGalleryIds(parseLibraryGalleryIdsJson(merged.libraryGalleryMediaIdsJson));
   }, [editId, products, mergeProductWithFormDraft]);
 
   const setProductFormTabAndMaybeLoadImages = useCallback(
@@ -1620,6 +1608,78 @@ export default function AdminProductsPage() {
       await loadProducts();
     },
     [router, loadProducts, editId]
+  );
+
+  const persistLibraryAssignments = useCallback(
+    async (nextHero: string | null, nextGallery: string[]) => {
+      if (!editId) return;
+      setLibrarySaving(true);
+      setImgError(null);
+      try {
+        const { res, data } = await adminFetchJson(
+          `/api/admin/store-products/${editId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              libraryHeroMediaId: nextHero,
+              libraryGalleryMediaIdsJson: galleryIdsJsonFromList(nextGallery),
+            }),
+          },
+          () => router.push("/b_d_admn_tae/login")
+        );
+        if (!res.ok || !data?.success) {
+          setImgError(data?.error || "Failed to save library assignments");
+          return;
+        }
+        const detail = await adminFetchJson(
+          `/api/admin/store-products/${editId}`,
+          undefined,
+          () => router.push("/b_d_admn_tae/login")
+        );
+        if (detail.res.ok && detail.data?.success && detail.data?.data) {
+          const saved = detail.data.data as Product;
+          setImageEditProduct(mergeProductWithFormDraft(saved));
+          setGalleryDraft(productImagesFromProduct(saved));
+        }
+        setLibHeroId(nextHero);
+        setLibGalleryIds([...nextGallery]);
+        await loadProducts();
+      } finally {
+        setLibrarySaving(false);
+        setLibraryPicker(null);
+        setGalleryLibSelection(new Set());
+      }
+    },
+    [editId, router, loadProducts, mergeProductWithFormDraft]
+  );
+
+  const openLibraryPicker = useCallback(
+    async (mode: "hero" | "gallery") => {
+      setLibraryPicker(mode);
+      setGalleryLibSelection(new Set());
+      setLibraryPickerLoading(true);
+      setImgError(null);
+      try {
+        const { res, data } = await adminFetchJson(
+          "/api/admin/product-media-library",
+          undefined,
+          () => router.push("/b_d_admn_tae/login")
+        );
+        if (res.ok && data?.success && Array.isArray(data.data)) {
+          setLibraryAssets(data.data);
+        } else {
+          setLibraryAssets([]);
+          setImgError(data?.error || "Could not load Product Media Library");
+        }
+      } catch {
+        setLibraryAssets([]);
+        setImgError("Could not load Product Media Library");
+      } finally {
+        setLibraryPickerLoading(false);
+      }
+    },
+    [router]
   );
 
   const handleGalleryImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1923,8 +1983,6 @@ export default function AdminProductsPage() {
       artistId: p.artistId || "",
       coCreatorSlug: p.coCreatorSlug || "",
       coCreatorId: p.coCreatorId || "",
-      familyKey: p.familyKey || "",
-      tags: Array.isArray(p.tags) ? p.tags.join(", ") : "",
       heroImage: p.heroImage || "",
       galleryImages: p.galleryImages || "[]",
       artworkSourceUrl: p.artworkSourceUrl || "",
@@ -2002,8 +2060,6 @@ export default function AdminProductsPage() {
         artistId: form.artistId.trim() || null,
         coCreatorSlug: form.coCreatorSlug.trim() || null,
         coCreatorId: form.coCreatorId.trim() || null,
-        familyKey: form.familyKey.trim() || null,
-        tags: normalizeTagsFromForm(form.tags || ""),
         heroImage: form.heroImage || null,
         galleryImages: form.galleryImages || null,
         artworkSourceUrl: form.artworkSourceUrl || null,
@@ -2540,6 +2596,227 @@ export default function AdminProductsPage() {
                   </select>
                 </div>
               </div>
+
+              <div className="mt-6 pt-5 border-t border-brand-light/60 space-y-4">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-brand-dark/70">
+                  Core linkage &amp; shopper flow
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                      Artist
+                    </label>
+                    <select
+                      value={form.artistSlug}
+                      onChange={(e) => {
+                        const slug = e.target.value;
+                        const opt = artists.find((a) => a.slug === slug);
+                        setForm({
+                          ...form,
+                          artistSlug: slug,
+                          artistId: opt?.id || "",
+                        });
+                      }}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                    >
+                      <option value="">None</option>
+                      {artists.map((artist) => (
+                        <option key={artist.slug} value={artist.slug}>
+                          {artist.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] mt-1 text-brand-medium">
+                      Links this product to a gallery artist (ID + slug in product meta).
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                      CoCreator
+                    </label>
+                    <select
+                      value={form.coCreatorSlug}
+                      onChange={(e) => {
+                        const slug = e.target.value;
+                        const opt = coCreators.find((c) => c.slug === slug);
+                        setForm({
+                          ...form,
+                          coCreatorSlug: slug,
+                          coCreatorId: opt?.id || "",
+                        });
+                      }}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                    >
+                      <option value="">None</option>
+                      {coCreators.map((creator) => (
+                        <option key={creator.slug} value={creator.slug}>
+                          {creator.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] mt-1 text-brand-medium">
+                      Links this product to a co-creator (ID + slug in product meta).
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between gap-3 border border-brand-light rounded-lg p-3 bg-white">
+                    <div>
+                      <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
+                        Customizable
+                      </div>
+                      <p className="text-[11px] mt-1 text-brand-medium">
+                        Studio customization allowed for this product.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, customizable: !form.customizable })}
+                      className={`px-2.5 py-1 text-xs rounded border shrink-0 ${form.customizable ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
+                      title="Toggle customizable for this product"
+                    >
+                      {form.customizable ? "Yes" : "No"}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border border-brand-light rounded-lg p-3 bg-white">
+                    <div>
+                      <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
+                        Requires QR / ArtKey portal
+                      </div>
+                      <p className="text-[11px] mt-1 text-brand-medium">
+                        When on, studio flow expects ArtKey portal setup for this product.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, requiresQrCode: !form.requiresQrCode })}
+                      className={`px-2.5 py-1 text-xs rounded border shrink-0 ${form.requiresQrCode ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
+                      title="Toggle QR code requirement for this product"
+                    >
+                      {form.requiresQrCode ? "Required" : "Off"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-5 border-t border-brand-light/60 space-y-4">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-brand-dark/70">
+                  Printful &amp; production defaults
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                      Printful Product ID
+                    </label>
+                    <input
+                      type="text"
+                      value={form.printfulProductId}
+                      onChange={(e) => setForm({ ...form, printfulProductId: e.target.value })}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      placeholder="e.g. 358"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                      Printful Variant ID
+                    </label>
+                    <input
+                      type="text"
+                      value={form.printfulVariantId}
+                      onChange={(e) => setForm({ ...form, printfulVariantId: e.target.value })}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      placeholder="e.g. 10163"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                      Size Label
+                    </label>
+                    <input
+                      type="text"
+                      value={form.sizeLabel}
+                      onChange={(e) => setForm({ ...form, sizeLabel: e.target.value })}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      placeholder='e.g. 5" x 7"'
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                      Paper Type
+                    </label>
+                    <input
+                      type="text"
+                      value={form.paperType}
+                      onChange={(e) => setForm({ ...form, paperType: e.target.value })}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      placeholder="e.g. Matte"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                      Finish Type
+                    </label>
+                    <input
+                      type="text"
+                      value={form.finishType}
+                      onChange={(e) => setForm({ ...form, finishType: e.target.value })}
+                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                      placeholder="e.g. Glossy"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
+                    Production artwork source URL
+                  </label>
+                  <input
+                    type="text"
+                    value={form.artworkSourceUrl}
+                    onChange={(e) => setForm({ ...form, artworkSourceUrl: e.target.value })}
+                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
+                    placeholder="Master artwork for production / mockups (optional)"
+                  />
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {currentEditProduct?.artistSlug &&
+                      artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              artworkSourceUrl:
+                                artists.find((artist) => artist.slug === currentEditProduct.artistSlug)
+                                  ?.sourceImageUrl || prev.artworkSourceUrl,
+                            }))
+                          }
+                          className={BTN_SUBTLE}
+                        >
+                          Use first artist portfolio image
+                        </button>
+                      )}
+                    {currentEditProduct?.coCreatorSlug &&
+                      coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)
+                        ?.sourceImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              artworkSourceUrl:
+                                coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)
+                                  ?.sourceImageUrl || prev.artworkSourceUrl,
+                            }))
+                          }
+                          className={BTN_SUBTLE}
+                        >
+                          Use co-creator hero image
+                        </button>
+                      )}
+                  </div>
+                </div>
+              </div>
               </AdminAccordionSection>
 
               <AdminAccordionSection title={`Variant matrix · ${selectedProductTypeConfig.label}`}>
@@ -2598,7 +2875,6 @@ export default function AdminProductsPage() {
                         printfulBasePrice: form.printfulBasePrice,
                         taeAddOnFee: form.taeAddOnFee,
                         artistRoyalty: form.artistRoyalty,
-                        variationUpcharge: form.variationUpcharge,
                       });
                       const isStationeryMatrix = STATIONERY_PRODUCT_TYPES.has(form.productType || "");
                       return (
@@ -3389,44 +3665,6 @@ export default function AdminProductsPage() {
                           </div>
                           <div>
                             <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
-                              Variation upcharge ($)
-                            </label>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              value={
-                                matrixMoneyDrafts[matrixMoneyKey(row.id, "variationUpcharge")] ??
-                                matrixMoneyCommittedDisplay(row, "variationUpcharge")
-                              }
-                              onChange={(e) =>
-                                setMatrixMoneyDrafts((prev) => ({
-                                  ...prev,
-                                  [matrixMoneyKey(row.id, "variationUpcharge")]: e.target.value,
-                                }))
-                              }
-                              onBlur={(e) => {
-                                const key = matrixMoneyKey(row.id, "variationUpcharge");
-                                const raw = e.target.value;
-                                setMatrixMoneyDrafts((prev) => {
-                                  const next = { ...prev };
-                                  delete next[key];
-                                  return next;
-                                });
-                                const num = parseMoneyInputToNumberOrNull(raw);
-                                setForm((prev) => ({
-                                  ...prev,
-                                  variantMatrix: (
-                                    Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
-                                  ).map((item) =>
-                                    item.id === row.id ? { ...item, variationUpcharge: num } : item
-                                  ),
-                                }));
-                              }}
-                              className="w-full border border-brand-light px-3 py-2 text-sm bg-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
                               Artist royalty ($)
                             </label>
                             <input
@@ -3668,7 +3906,15 @@ export default function AdminProductsPage() {
               </div>
               </AdminAccordionSection>
 
-              <AdminAccordionSection title="Advanced (optional)" defaultOpen={false}>
+              <AdminAccordionSection title="Advanced — proof &amp; watermark" defaultOpen={false}>
+                  <p className="text-[11px] text-brand-medium mb-4 leading-relaxed">
+                    <span className="font-semibold text-brand-dark">Watermark scope:</span> Settings are saved in product
+                    meta and applied only when images are served through{" "}
+                    <code className="text-[10px] bg-brand-lightest px-1">GET /api/products/preview</code> (watermarked WebP
+                    for tAE-hosted hero/gallery and ShopProductImage previews). Direct Printful-hosted image URLs are
+                    intentionally not watermarked—this is expected, not a bug. No broader watermark pipeline unless a future
+                    project requires it.
+                  </p>
                   <div>
                     <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
                       Proof Terms &amp; Conditions
@@ -3680,232 +3926,6 @@ export default function AdminProductsPage() {
                       className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                       placeholder="Shown during proof approval before payment for this product."
                     />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                        Artist
-                      </label>
-                      <select
-                        value={form.artistSlug}
-                        onChange={(e) => {
-                          const slug = e.target.value;
-                          const opt = artists.find((a) => a.slug === slug);
-                          setForm({
-                            ...form,
-                            artistSlug: slug,
-                            artistId: opt?.id || "",
-                          });
-                        }}
-                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      >
-                        <option value="">None</option>
-                        {artists.map((artist) => (
-                          <option key={artist.slug} value={artist.slug}>
-                            {artist.name}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[11px] mt-1 text-brand-medium">
-                        Optional. Links this product to an artist via stable ID (and slug in meta for legacy pages).
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                        CoCreator
-                      </label>
-                      <select
-                        value={form.coCreatorSlug}
-                        onChange={(e) => {
-                          const slug = e.target.value;
-                          const opt = coCreators.find((c) => c.slug === slug);
-                          setForm({
-                            ...form,
-                            coCreatorSlug: slug,
-                            coCreatorId: opt?.id || "",
-                          });
-                        }}
-                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      >
-                        <option value="">None</option>
-                        {coCreators.map((creator) => (
-                          <option key={creator.slug} value={creator.slug}>
-                            {creator.name}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[11px] mt-1 text-brand-medium">
-                        Optional. Links via stable co-creator ID (and meta slug for legacy).
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                      Product Family Key
-                    </label>
-                    <input
-                      type="text"
-                      value={form.familyKey}
-                      onChange={(e) => setForm({ ...form, familyKey: e.target.value })}
-                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      placeholder="e.g. desert-bloom-art-print"
-                    />
-                    <p className="text-[11px] mt-1 text-brand-medium">
-                      Use the same family key on related variants so one art print can offer multiple materials, sizes,
-                      and frame options together.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                      Tags
-                    </label>
-                    <input
-                      type="text"
-                      value={form.tags}
-                      onChange={(e) => setForm({ ...form, tags: e.target.value })}
-                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      placeholder="e.g. featured, stationery (comma-separated)"
-                    />
-                    <p className="text-[11px] mt-1 text-brand-medium">
-                      Optional. Stored on the product for filtering (e.g. <code className="text-[10px]">/api/products?tag=featured</code>).
-                    </p>
-                  </div>
-
-                  <div className="border border-brand-light rounded-lg p-3 sm:p-4 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
-                          Customizable
-                        </div>
-                        <p className="text-[11px] mt-1 text-brand-medium">
-                          Controls whether this product can be customized in the studio.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, customizable: !form.customizable })}
-                        className={`px-2.5 py-1 text-xs rounded border ${form.customizable ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
-                        title="Toggle customizable for this product"
-                      >
-                        {form.customizable ? "Enabled" : "Disabled"}
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 pt-3 border-t border-brand-light">
-                      <div>
-                        <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
-                          Requires QR Code
-                        </div>
-                        <p className="text-[11px] mt-1 text-brand-medium">
-                          Controls whether studio requires the ArtKey Portal step for this product.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, requiresQrCode: !form.requiresQrCode })}
-                        className={`px-2.5 py-1 text-xs rounded border ${form.requiresQrCode ? "bg-brand-dark text-white border-brand-dark" : "bg-white text-brand-dark border-brand-light"}`}
-                        title="Toggle QR code requirement for this product"
-                      >
-                        {form.requiresQrCode ? "Required" : "Not Required"}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-
-                    <div>
-                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Printful Product ID</label>
-                      <input
-                        type="text"
-                        value={form.printfulProductId}
-                        onChange={(e) => setForm({ ...form, printfulProductId: e.target.value })}
-                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                        placeholder="e.g. 358"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Printful Variant ID</label>
-                      <input
-                        type="text"
-                        value={form.printfulVariantId}
-                        onChange={(e) => setForm({ ...form, printfulVariantId: e.target.value })}
-                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                        placeholder="e.g. 10163"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Size Label</label>
-                      <input
-                        type="text"
-                        value={form.sizeLabel}
-                        onChange={(e) => setForm({ ...form, sizeLabel: e.target.value })}
-                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                        placeholder='e.g. 5" x 7"'
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Paper Type</label>
-                      <input
-                        type="text"
-                        value={form.paperType}
-                        onChange={(e) => setForm({ ...form, paperType: e.target.value })}
-                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                        placeholder="e.g. Matte"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Finish Type</label>
-                      <input
-                        type="text"
-                        value={form.finishType}
-                        onChange={(e) => setForm({ ...form, finishType: e.target.value })}
-                        className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                        placeholder="e.g. Glossy"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Production Artwork Source URL</label>
-                    <input
-                      type="text"
-                      value={form.artworkSourceUrl}
-                      onChange={(e) => setForm({ ...form, artworkSourceUrl: e.target.value })}
-                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      placeholder="Hidden master artwork asset used for production and fallback mockup/order workflows"
-                    />
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {currentEditProduct?.artistSlug && artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setForm((prev) => ({
-                            ...prev,
-                            artworkSourceUrl:
-                              artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl ||
-                              prev.artworkSourceUrl,
-                          }))}
-                          className={BTN_SUBTLE}
-                        >
-                          Use First Artist Portfolio Image
-                        </button>
-                      )}
-                      {currentEditProduct?.coCreatorSlug && coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)?.sourceImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setForm((prev) => ({
-                            ...prev,
-                            artworkSourceUrl:
-                              coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)?.sourceImageUrl ||
-                              prev.artworkSourceUrl,
-                          }))}
-                          className={BTN_SUBTLE}
-                        >
-                          Use Co-Creator Hero Image
-                        </button>
-                      )}
-                    </div>
                   </div>
                   <div className="border border-brand-light rounded-lg p-4 space-y-3">
                     <div className="flex items-center justify-between">
@@ -4244,6 +4264,111 @@ export default function AdminProductsPage() {
                       <p className="text-[10px] text-brand-medium mt-2">Use a non-Printful artwork asset here. This is the canonical source for future mockup generation.</p>
                     </div>
                   </div>
+                </div>
+
+                <div className="border border-brand-light/80 rounded-lg p-4 bg-white/80 space-y-3">
+                  <label className="block text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
+                    Product Media Library (storefront)
+                  </label>
+                  <p className="text-[10px] text-brand-medium leading-relaxed">
+                    Optional: pick reusable shopper-facing images from the{" "}
+                    <a
+                      href="/b_d_admn_tae/catalog/product-media"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-brand-dark underline"
+                    >
+                      Product Media Library
+                    </a>
+                    . When set, these are preferred over manual hero/gallery URLs on the storefront. Production artwork
+                    above is unchanged.
+                  </p>
+                  {(() => {
+                    const libHeroThumb =
+                      libHeroId &&
+                      imageEditProduct.productImages?.find((r) => r.id === `libasset:${libHeroId}`)?.imageUrl;
+                    return (
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-semibold text-brand-dark">Library hero</div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="w-20 h-20 border border-brand-light bg-gray-50 overflow-hidden shrink-0">
+                            {libHeroThumb ? (
+                              <img src={libHeroThumb} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-brand-medium text-[10px] text-center px-1">
+                                None
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={librarySaving}
+                              onClick={() => void openLibraryPicker("hero")}
+                              className="px-3 py-1.5 text-xs border border-brand-dark text-brand-dark hover:bg-brand-dark/10 disabled:opacity-50"
+                            >
+                              {libHeroId ? "Change" : "Choose from library"}
+                            </button>
+                            {libHeroId && (
+                              <button
+                                type="button"
+                                disabled={librarySaving}
+                                onClick={() => void persistLibraryAssignments(null, libGalleryIds)}
+                                className="px-3 py-1.5 text-xs border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  <div className="space-y-2 pt-2 border-t border-brand-light/60">
+                    <div className="text-[10px] font-semibold text-brand-dark">Library global gallery</div>
+                    <div className="flex flex-wrap gap-2">
+                      {libGalleryIds.map((gid) => {
+                        const url = imageEditProduct.productImages?.find((r) => r.id === `libasset:${gid}`)?.imageUrl;
+                        return (
+                          <div
+                            key={gid}
+                            className="relative w-16 h-16 border border-brand-light bg-gray-50 shrink-0 group"
+                          >
+                            {url ? (
+                              <img src={url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-[8px] text-brand-medium p-0.5 break-all">
+                                {gid.slice(0, 6)}…
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              title="Remove from gallery"
+                              disabled={librarySaving}
+                              onClick={() => {
+                                const next = libGalleryIds.filter((x) => x !== gid);
+                                void persistLibraryAssignments(libHeroId, next);
+                              }}
+                              className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={librarySaving}
+                      onClick={() => void openLibraryPicker("gallery")}
+                      className="px-3 py-1.5 text-xs border border-brand-dark text-brand-dark hover:bg-brand-dark/10 disabled:opacity-50"
+                    >
+                      Add from library…
+                    </button>
+                  </div>
+                  {librarySaving && (
+                    <p className="text-[10px] text-brand-medium">Saving library assignments…</p>
+                  )}
                 </div>
 
                 <div>
@@ -4744,6 +4869,110 @@ export default function AdminProductsPage() {
                     </div>
                   )}
                 </div>
+
+                {libraryPicker && (
+                  <div
+                    className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/40"
+                    role="dialog"
+                    aria-modal="true"
+                    onClick={() => {
+                      if (!libraryPickerLoading && !librarySaving) setLibraryPicker(null);
+                    }}
+                  >
+                    <div
+                      className="bg-white max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col border border-brand-light shadow-lg rounded-lg"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="px-3 py-2 border-b border-brand-light flex justify-between items-center">
+                        <span className="text-sm font-medium text-brand-dark">
+                          {libraryPicker === "hero"
+                            ? "Choose library hero"
+                            : "Add library gallery images"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => !libraryPickerLoading && !librarySaving && setLibraryPicker(null)}
+                          className="text-brand-medium hover:text-brand-dark"
+                          aria-label="Close"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="p-3 overflow-y-auto flex-1 min-h-0">
+                        {libraryPickerLoading ? (
+                          <p className="text-sm text-brand-medium">Loading…</p>
+                        ) : libraryAssets.length === 0 ? (
+                          <p className="text-sm text-brand-medium">No assets in library yet.</p>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            {libraryAssets.map((a) => {
+                              const selected = galleryLibSelection.has(a.id);
+                              return (
+                                <button
+                                  key={a.id}
+                                  type="button"
+                                  disabled={librarySaving}
+                                  onClick={() => {
+                                    if (libraryPicker === "hero") {
+                                      void persistLibraryAssignments(a.id, libGalleryIds);
+                                      return;
+                                    }
+                                    setGalleryLibSelection((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(a.id)) next.delete(a.id);
+                                      else next.add(a.id);
+                                      return next;
+                                    });
+                                  }}
+                                  className={`border rounded overflow-hidden text-left ${
+                                    libraryPicker === "gallery" && selected
+                                      ? "ring-2 ring-brand-dark"
+                                      : "border-brand-light"
+                                  } disabled:opacity-50`}
+                                >
+                                  <img
+                                    src={a.imageUrl}
+                                    alt=""
+                                    className="w-full aspect-square object-cover"
+                                  />
+                                  <div className="p-1 text-[9px] text-brand-dark truncate">
+                                    {a.title || a.originalFilename || a.id}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      {libraryPicker === "gallery" && (
+                        <div className="px-3 py-2 border-t border-brand-light flex justify-end gap-2">
+                          <button
+                            type="button"
+                            className={BTN_SUBTLE}
+                            onClick={() => !librarySaving && setLibraryPicker(null)}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={librarySaving || galleryLibSelection.size === 0}
+                            className={BTN_PRIMARY}
+                            onClick={() => {
+                              const add = [...galleryLibSelection];
+                              const merged = [...libGalleryIds];
+                              for (const id of add) {
+                                if (!merged.includes(id)) merged.push(id);
+                              }
+                              void persistLibraryAssignments(libHeroId, merged);
+                            }}
+                          >
+                            Add selected
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
             </div>
           </div>,
           imagesTabMountNode

@@ -13,6 +13,8 @@ import {
 } from "@/lib/product-watermark";
 import { computeRetailPrice, parsePricingSettings } from "@/lib/product-pricing";
 import { buildStorefrontProductImageRows } from "@/lib/storefront-product-image-rows";
+import { parseLibraryGalleryIdsJson } from "@/lib/product-library-ids";
+import { buildLibraryResolvedForMerge, fetchProductMediaUrlMap } from "@/lib/product-library-assignments";
 
 export const dynamic = "force-dynamic";
 
@@ -102,11 +104,24 @@ export async function GET(
       .where(eq(shopProductImages.productId, product.id))
       .orderBy(asc(shopProductImages.sortOrder))
       .all();
+
+    const libIds: string[] = [];
+    const h = (product.libraryHeroMediaId || "").trim();
+    if (h) libIds.push(h);
+    libIds.push(...parseLibraryGalleryIdsJson(product.libraryGalleryMediaIdsJson));
+    const libUrlMap = await fetchProductMediaUrlMap(db, libIds);
+    const libraryResolved = buildLibraryResolvedForMerge(
+      product.libraryHeroMediaId,
+      product.libraryGalleryMediaIdsJson,
+      libUrlMap
+    );
+
     const productImages = buildStorefrontProductImageRows(
       product.id,
       product.heroImage,
       product.galleryImages,
-      imageRows
+      imageRows,
+      libraryResolved
     );
 
     let printfulData: any = {};

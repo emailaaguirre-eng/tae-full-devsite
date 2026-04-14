@@ -35,6 +35,10 @@ import {
   minActiveVariantMatrixShopPrice,
   parsePricingSettings,
 } from "@/lib/product-pricing";
+import {
+  collectLibraryAssetIdsFromProducts,
+  fetchProductMediaUrlMap,
+} from "@/lib/product-library-assignments";
 
 export const dynamic = "force-dynamic";
 
@@ -216,6 +220,21 @@ export async function GET(req: Request) {
       );
     }
 
+    const libAssetIds = collectLibraryAssetIdsFromProducts(products);
+    const libUrlMap = await fetchProductMediaUrlMap(db, libAssetIds);
+
+    const storefrontCardHeroUrl = (p: (typeof products)[number]): string | null => {
+      const lid = (p.libraryHeroMediaId || "").trim();
+      if (lid && libUrlMap.has(lid)) {
+        return `/api/products/preview?${new URLSearchParams({
+          productId: p.id,
+          libraryAssetId: lid,
+        }).toString()}`;
+      }
+      if (p.heroImage) return buildProductPreviewUrl(p.id, "hero");
+      return null;
+    };
+
     const retailPriceFor = (p: typeof products[number]) => {
       const fromMatrix = minActiveVariantMatrixShopPrice({
         printfulBasePrice: p.printfulBasePrice,
@@ -239,7 +258,7 @@ export async function GET(req: Request) {
         parseRequiresQrCode(p.printfulDataJson) ??
         (cat?.requiresQrCode ?? false);
       let fallbackHero: string | null = null;
-      if (!p.heroImage && p.printfulDataJson) {
+      if (!p.heroImage && !(p.libraryHeroMediaId || "").trim() && p.printfulDataJson) {
         try {
           const parsed = JSON.parse(p.printfulDataJson);
           fallbackHero = parsed?.variant?.image || parsed?.product?.image || null;
@@ -247,13 +266,14 @@ export async function GET(req: Request) {
           fallbackHero = null;
         }
       }
+      const primaryHero = storefrontCardHeroUrl(p);
       return {
         id: p.id,
         taeId: p.taeId,
         slug: p.slug,
         name: p.name,
         description: cleanDescription(p.description),
-        heroImage: p.heroImage ? buildProductPreviewUrl(p.id, "hero") : fallbackHero,
+        heroImage: primaryHero ?? fallbackHero,
         basePrice: retailPriceFor(p),
         hasMultipleVariants: false,
         variantCount: 1,
@@ -301,9 +321,14 @@ export async function GET(req: Request) {
             // Use category name as display name (e.g. "Greeting Cards") instead of variant-specific name
             const productTypeName = cat?.name || rep.name.split(" — ")[0] || rep.name;
 
-            const withImage = variants.find((v) => v.heroImage) || rep;
+            const withImage =
+              variants.find((v) => (v.libraryHeroMediaId || "").trim() || v.heroImage) || rep;
             let fallbackHero: string | null = null;
-            if (!withImage.heroImage && withImage.printfulDataJson) {
+            if (
+              !withImage.heroImage &&
+              !(withImage.libraryHeroMediaId || "").trim() &&
+              withImage.printfulDataJson
+            ) {
               try {
                 const parsed = JSON.parse(withImage.printfulDataJson);
                 fallbackHero = parsed?.variant?.image || parsed?.product?.image || null;
@@ -311,6 +336,7 @@ export async function GET(req: Request) {
                 fallbackHero = null;
               }
             }
+            const primaryHero = storefrontCardHeroUrl(withImage);
 
             return {
               id: rep.id,
@@ -318,9 +344,7 @@ export async function GET(req: Request) {
               slug: rep.slug,
               name: productTypeName,
               description: cleanDescription(cat?.description || rep.description),
-              heroImage: withImage.heroImage
-                ? buildProductPreviewUrl(withImage.id, "hero")
-                : fallbackHero,
+              heroImage: primaryHero ?? fallbackHero,
               basePrice: lowestPrice,
               hasMultipleVariants: variants.length > 1,
               variantCount: variants.length,

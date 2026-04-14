@@ -33,6 +33,12 @@ function ensureShopProductColumns(db: SqlJsDatabase) {
   if (!columns.has('coCreatorId')) {
     db.run("ALTER TABLE ShopProduct ADD COLUMN coCreatorId TEXT");
   }
+  if (!columns.has('libraryHeroMediaId')) {
+    db.run("ALTER TABLE ShopProduct ADD COLUMN libraryHeroMediaId TEXT");
+  }
+  if (!columns.has('libraryGalleryMediaIdsJson')) {
+    db.run("ALTER TABLE ShopProduct ADD COLUMN libraryGalleryMediaIdsJson TEXT");
+  }
 }
 
 function ensureGuestbookShareEmailColumn(db: SqlJsDatabase) {

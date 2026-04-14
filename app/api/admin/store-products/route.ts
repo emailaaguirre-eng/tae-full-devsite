@@ -25,6 +25,11 @@ import {
 import { DEFAULT_PRICING, computeRetailPrice, parsePricingSettings } from '@/lib/product-pricing';
 import { ensureStoreCategoryHierarchy } from '@/lib/store-category-tree';
 import { loadImagesByProductIds, mergeLegacyAndDbImages } from '@/lib/shop-product-images';
+import {
+  buildLibraryResolvedForMerge,
+  collectLibraryAssetIdsFromProducts,
+  fetchProductMediaUrlMap,
+} from '@/lib/product-library-assignments';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +79,8 @@ export async function GET(req: Request) {
 
     const productIds = products.map((p) => p.id);
     const imagesByProduct = await loadImagesByProductIds(db, productIds);
+    const libAssetIds = collectLibraryAssetIdsFromProducts(products);
+    const libUrlMap = await fetchProductMediaUrlMap(db, libAssetIds);
 
     const buildPathLabel = (categoryId: string | null | undefined): string => {
       if (!categoryId) return "";
@@ -92,7 +99,18 @@ export async function GET(req: Request) {
       const cat = catMap.get(p.categoryId || '');
       const pricing = parsePricingSettings(p.printfulDataJson);
       const dbImg = imagesByProduct.get(p.id) || [];
-      const productImages = mergeLegacyAndDbImages(p.id, p.heroImage, p.galleryImages, dbImg);
+      const libraryResolved = buildLibraryResolvedForMerge(
+        p.libraryHeroMediaId,
+        p.libraryGalleryMediaIdsJson,
+        libUrlMap
+      );
+      const productImages = mergeLegacyAndDbImages(
+        p.id,
+        p.heroImage,
+        p.galleryImages,
+        dbImg,
+        libraryResolved
+      );
       return {
         id: p.id,
         slug: p.slug,
@@ -101,6 +119,8 @@ export async function GET(req: Request) {
         productType: parseSemanticProductType(p.printfulDataJson),
         heroImage: p.heroImage,
         galleryImages: p.galleryImages,
+        libraryHeroMediaId: p.libraryHeroMediaId || null,
+        libraryGalleryMediaIdsJson: p.libraryGalleryMediaIdsJson || null,
         productImages,
         artworkSourceUrl: p.artworkSourceUrl || null,
         basePrice: computeRetailPrice({

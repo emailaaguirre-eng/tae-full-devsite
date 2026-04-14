@@ -4,7 +4,8 @@
  * @copyright B&D Servicing LLC 2026
  */
 import { NextResponse } from 'next/server';
-import { getDb, shopProducts, shopProductImages, eq } from '@/lib/db';
+import { inArray } from 'drizzle-orm';
+import { getDb, shopProducts, shopProductImages, productMediaLibrary, eq } from '@/lib/db';
 import { saveDatabase } from '@/db';
 import {
   mergeLegacyAndDbImages,
@@ -17,8 +18,32 @@ import { mergeProductMeta, parseProductMeta, parseRequiresQrCode,
   parseArtistSlug,
   parseCoCreatorSlug, parseFamilyKey, parseCustomizable, parseWatermarkSettings, parseVariantMatrix, parseSemanticProductType, parseProductTags } from '@/lib/product-watermark';
 import { parsePricingSettings } from '@/lib/product-pricing';
+import { galleryIdsJsonFromList, parseLibraryGalleryIdsJson } from '@/lib/product-library-ids';
+import { buildLibraryResolvedForMerge, fetchProductMediaUrlMap } from '@/lib/product-library-assignments';
 
 export const dynamic = 'force-dynamic';
+
+async function validateLibraryAssignmentRefs(
+  db: Awaited<ReturnType<typeof getDb>>,
+  heroId: string | null | undefined,
+  galleryJson: string | null | undefined
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const ids: string[] = [];
+  if (heroId?.trim()) ids.push(heroId.trim());
+  ids.push(...parseLibraryGalleryIdsJson(galleryJson));
+  const uniq = [...new Set(ids)];
+  if (uniq.length === 0) return { ok: true };
+  const rows = await db
+    .select({ id: productMediaLibrary.id })
+    .from(productMediaLibrary)
+    .where(inArray(productMediaLibrary.id, uniq))
+    .all();
+  const found = new Set(rows.map((r) => r.id));
+  for (const x of uniq) {
+    if (!found.has(x)) return { ok: false, error: `Unknown Product Media Library asset: ${x}` };
+  }
+  return { ok: true };
+}
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -29,11 +54,21 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
     }
     const imgRows = await db.select().from(shopProductImages).where(eq(shopProductImages.productId, id)).all();
+    const libIds: string[] = [];
+    if (product.libraryHeroMediaId?.trim()) libIds.push(product.libraryHeroMediaId.trim());
+    libIds.push(...parseLibraryGalleryIdsJson(product.libraryGalleryMediaIdsJson));
+    const libUrlMap = await fetchProductMediaUrlMap(db, libIds);
+    const libraryResolved = buildLibraryResolvedForMerge(
+      product.libraryHeroMediaId,
+      product.libraryGalleryMediaIdsJson,
+      libUrlMap
+    );
     const productImages = mergeLegacyAndDbImages(
       product.id,
       product.heroImage,
       product.galleryImages,
-      imgRows
+      imgRows,
+      libraryResolved
     );
     return NextResponse.json({
       success: true,
@@ -186,6 +221,46 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       const derived = await replaceProductImagesForProduct(db, id, parsed);
       updates.heroImage = derived.heroImage;
       updates.galleryImages = derived.galleryImagesJson;
+    }
+
+    if (body.libraryHeroMediaId !== undefined) {
+      const v = body.libraryHeroMediaId;
+      if (v === null || v === '') {
+        updates.libraryHeroMediaId = null;
+      } else if (typeof v === 'string' && v.trim()) {
+        updates.libraryHeroMediaId = v.trim();
+      } else {
+        return NextResponse.json({ success: false, error: 'Invalid libraryHeroMediaId' }, { status: 400 });
+      }
+    }
+    if (body.libraryGalleryMediaIdsJson !== undefined || body.libraryGalleryMediaIds !== undefined) {
+      const raw = body.libraryGalleryMediaIdsJson ?? body.libraryGalleryMediaIds;
+      if (raw === null || raw === '') {
+        updates.libraryGalleryMediaIdsJson = JSON.stringify([]);
+      } else if (Array.isArray(raw)) {
+        updates.libraryGalleryMediaIdsJson = galleryIdsJsonFromList(raw as string[]);
+      } else if (typeof raw === 'string') {
+        updates.libraryGalleryMediaIdsJson = raw.trim() ? raw : JSON.stringify([]);
+      } else {
+        return NextResponse.json({ success: false, error: 'Invalid library gallery ids' }, { status: 400 });
+      }
+    }
+
+    if (
+      body.libraryHeroMediaId !== undefined ||
+      body.libraryGalleryMediaIdsJson !== undefined ||
+      body.libraryGalleryMediaIds !== undefined
+    ) {
+      const nextHero =
+        updates.libraryHeroMediaId !== undefined ? updates.libraryHeroMediaId : existing.libraryHeroMediaId;
+      const nextGal =
+        updates.libraryGalleryMediaIdsJson !== undefined
+          ? updates.libraryGalleryMediaIdsJson
+          : existing.libraryGalleryMediaIdsJson;
+      const check = await validateLibraryAssignmentRefs(db, nextHero, nextGal);
+      if (!check.ok) {
+        return NextResponse.json({ success: false, error: check.error }, { status: 400 });
+      }
     }
 
     updates.updatedAt = Date.now().toString();

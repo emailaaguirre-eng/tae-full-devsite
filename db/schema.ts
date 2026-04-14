@@ -105,6 +105,11 @@ export const shopProducts = sqliteTable('ShopProduct', {
   galleryImages: text('galleryImages'),
   artworkSourceUrl: text('artworkSourceUrl'),
 
+  /** Product Media Library: optional storefront hero (references ProductMediaLibrary.id). */
+  libraryHeroMediaId: text('libraryHeroMediaId'),
+  /** JSON array of ProductMediaLibrary ids for global storefront gallery (ordered). */
+  libraryGalleryMediaIdsJson: text('libraryGalleryMediaIdsJson'),
+
   /** Optional FK to Artist — preferred linkage for gallery pages vs meta artistSlug alone. */
   artistId: text('artistId').references(() => artists.id),
   /** Optional FK to CoCreator — preferred linkage vs meta coCreatorSlug alone. */

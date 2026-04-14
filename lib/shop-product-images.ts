@@ -9,6 +9,7 @@ import type { getDb } from "@/db";
 import { generateId } from "@/lib/db";
 import { normalizeHeroFlags } from "./product-image-ui";
 import type { ProductImagePublic } from "./product-image-types";
+import type { LibraryResolvedForMerge } from "@/lib/product-library-assignments";
 
 export type DbInstance = Awaited<ReturnType<typeof getDb>>;
 
@@ -103,15 +104,66 @@ function isApiSourceRow(row: ProductImagePublic): boolean {
   return (row.sourceType || "").trim().toLowerCase() === "api";
 }
 
+function libraryVirtualImageRows(productId: string, lib: LibraryResolvedForMerge): ProductImagePublic[] {
+  const rows: ProductImagePublic[] = [];
+  let order = -1_000_000;
+  const heroU = lib.hero?.url?.trim() || "";
+  if (lib.hero?.url?.trim()) {
+    rows.push({
+      id: `libasset:${lib.hero.assetId}`,
+      imageUrl: lib.hero.url.trim(),
+      title: null,
+      description: null,
+      sortOrder: order++,
+      isHero: true,
+      isActive: true,
+      sourceType: "general",
+      variantKey: null,
+      variantId: null,
+      size: null,
+      frame: null,
+      frameColor: null,
+      material: null,
+      orientation: null,
+      format: null,
+    });
+  }
+  for (const g of lib.gallery) {
+    const u = g.url?.trim();
+    if (!u || u === heroU) continue;
+    rows.push({
+      id: `libasset:${g.assetId}`,
+      imageUrl: u,
+      title: null,
+      description: null,
+      sortOrder: order++,
+      isHero: false,
+      isActive: true,
+      sourceType: "general",
+      variantKey: null,
+      variantId: null,
+      size: null,
+      frame: null,
+      frameColor: null,
+      material: null,
+      orientation: null,
+      format: null,
+    });
+  }
+  return rows;
+}
+
 /**
  * Merges DB gallery rows with legacy hero/gallery columns.
+ * Product Media Library assignments (when resolved) are prepended and take priority over manual/legacy rows.
  * Manual uploads (non-api rows + legacy URLs) take priority over Printful (sourceType api) rows.
  */
 export function mergeLegacyAndDbImages(
   productId: string,
   heroImage: string | null | undefined,
   galleryImagesJson: string | null | undefined,
-  dbRows: (typeof shopProductImages.$inferSelect)[]
+  dbRows: (typeof shopProductImages.$inferSelect)[],
+  libraryResolved?: LibraryResolvedForMerge | null
 ): ProductImagePublic[] {
   const legacy = legacyVirtualImages(productId, heroImage, galleryImagesJson);
   const dbMapped = [...dbRows]
@@ -123,6 +175,14 @@ export function mergeLegacyAndDbImages(
 
   const seen = new Set<string>();
   const manualPool: ProductImagePublic[] = [];
+  if (libraryResolved) {
+    for (const r of libraryVirtualImageRows(productId, libraryResolved)) {
+      const u = (r.imageUrl || "").trim();
+      if (!u || seen.has(u)) continue;
+      manualPool.push(r);
+      seen.add(u);
+    }
+  }
   for (const r of nonApiRows) {
     const u = (r.imageUrl || "").trim();
     if (!u) continue;
