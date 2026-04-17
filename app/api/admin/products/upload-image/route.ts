@@ -3,7 +3,7 @@
  * POST /api/admin/products/upload-image
  *
  * multipart/form-data: file + productId + kind
- *   ("hero"|"gallery"|"artworkSource"|"variantSample")
+ *   ("hero"|"gallery"|"artworkSource"|"variantSample"|"variantProductionArtwork")
  * Saves to public/uploads/products/{slug}/{timestamp}-{safeFilename}
  * Returns { success, url, kind }
  * Note: "variantSample" writes the file only (tAE-hosted URL); does not update galleryImages.
@@ -14,13 +14,18 @@ import fs from "fs";
 import { getDb, shopProducts, eq } from "@/lib/db";
 import { saveDatabase } from "@/db";
 import { reconcileImagesTableWithProductColumns } from "@/lib/shop-product-images";
+import {
+  mergeProductMeta,
+  parseProductMeta,
+  type ProductVariantOption,
+} from "@/lib/product-watermark";
 
 export const dynamic = "force-dynamic";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 const MAX_GALLERY = parseInt(process.env.MAX_GALLERY_IMAGES || "30", 10);
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const ALLOWED_KINDS = ["hero", "gallery", "artworkSource", "variantSample"] as const;
+const ALLOWED_KINDS = ["hero", "gallery", "artworkSource", "variantSample", "variantProductionArtwork"] as const;
 
 function sanitize(name: string): string {
   return name
@@ -123,6 +128,38 @@ export async function POST(req: Request) {
         .update(shopProducts)
         .set({
           artworkSourceUrl: url,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(shopProducts.id, productId));
+    } else if (kind === "variantProductionArtwork") {
+      const rowId = String(formData.get("variantMatrixRowId") || "").trim();
+      if (!rowId) {
+        return NextResponse.json(
+          { success: false, error: "variantMatrixRowId is required for variantProductionArtwork" },
+          { status: 400 }
+        );
+      }
+      const meta = parseProductMeta(product.printfulDataJson);
+      const matrix: ProductVariantOption[] = Array.isArray(meta.variantMatrix)
+        ? [...(meta.variantMatrix as ProductVariantOption[])]
+        : [];
+      const idx = matrix.findIndex((r) => typeof r?.id === "string" && r.id.trim() === rowId);
+      if (idx === -1) {
+        return NextResponse.json(
+          { success: false, error: `Variant matrix row not found: ${rowId}` },
+          { status: 400 }
+        );
+      }
+      const prevRow = matrix[idx];
+      const nextMatrix = [...matrix];
+      nextMatrix[idx] = { ...prevRow, productionArtworkUrl: url };
+      const nextJson = mergeProductMeta(product.printfulDataJson, {
+        variantMatrix: nextMatrix,
+      });
+      await db
+        .update(shopProducts)
+        .set({
+          printfulDataJson: nextJson,
           updatedAt: new Date().toISOString(),
         })
         .where(eq(shopProducts.id, productId));

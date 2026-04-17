@@ -27,6 +27,8 @@ export interface ProductVariantOption {
   taeAddOnFee?: number;
   artistRoyalty?: number;
   image?: string;
+  /** Optional production file for this variant; overrides product `artworkSourceUrl` when fulfilling. */
+  productionArtworkUrl?: string | null;
   printWidth?: number;
   printHeight?: number;
   printDpi?: number;
@@ -215,6 +217,33 @@ export function parseVariantMatrix(
       ...item,
       id: item.id.trim(),
     }));
+}
+
+/**
+ * Printful artwork fallback path for non-customizable lines: active matrix row matching
+ * `printfulVariantId` uses `productionArtworkUrl` when set; otherwise `artworkSourceUrl` on the product.
+ */
+export function resolveProductionArtworkSourcePath(
+  product: {
+    artworkSourceUrl?: string | null;
+    printfulDataJson?: string | null;
+  },
+  printfulVariantId: unknown
+): string {
+  const vid = Math.trunc(Number(printfulVariantId));
+  if (Number.isFinite(vid) && vid > 0) {
+    const rows = parseVariantMatrix(product.printfulDataJson);
+    const matched = rows.find(
+      (row) =>
+        row.active !== false && Math.trunc(Number(row.printfulVariantId)) === vid
+    );
+    const rowUrl =
+      matched && typeof matched.productionArtworkUrl === "string"
+        ? matched.productionArtworkUrl.trim()
+        : "";
+    if (rowUrl) return rowUrl;
+  }
+  return typeof product.artworkSourceUrl === "string" ? product.artworkSourceUrl.trim() : "";
 }
 
 type PrintfulSnapshotMeta = ProductMeta & {

@@ -55,7 +55,7 @@ function localImageId() {
   return `local_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** Must stay in sync with POST /api/admin/products/upload-image */
+/** Must stay in sync with POST /api/admin/products/upload-image (incl. variantProductionArtwork). */
 const MAX_PRODUCT_IMAGE_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 function productImageFileTooLargeMessage(file: File): string | null {
@@ -83,6 +83,8 @@ interface ProductVariantMatrixRow {
   taeAddOnFee?: number | null;
   sellPrice?: number | null;
   image?: string | null;
+  /** Optional production file for this variant; overrides product-level artwork when fulfilling. */
+  productionArtworkUrl?: string | null;
   active?: boolean;
 }
 
@@ -905,6 +907,7 @@ export default function AdminProductsPage() {
   const [galleryDraft, setGalleryDraft] = useState<ProductImageEntry[]>([]);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [artworkSourceUploading, setArtworkSourceUploading] = useState(false);
+  const [rowProductionArtworkBusy, setRowProductionArtworkBusy] = useState<Record<string, boolean>>({});
   const [imgError, setImgError] = useState<string | null>(null);
   const [libHeroId, setLibHeroId] = useState<string | null>(null);
   const [libGalleryIds, setLibGalleryIds] = useState<string[]>([]);
@@ -1428,6 +1431,50 @@ export default function AdminProductsPage() {
       loadProducts();
     } catch (err) {
       if (!(err instanceof AdminUnauthorizedError)) setImgError("Failed to remove artwork source");
+    }
+  };
+
+  const handleVariantProductionArtworkUpload = async (
+    rowId: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file || !editId) return;
+    const sizeErr = productImageFileTooLargeMessage(file);
+    if (sizeErr) {
+      setError(sizeErr);
+      e.target.value = "";
+      return;
+    }
+    setError("");
+    setRowProductionArtworkBusy((prev) => ({ ...prev, [rowId]: true }));
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("productId", editId);
+      fd.append("kind", "variantProductionArtwork");
+      fd.append("variantMatrixRowId", rowId);
+      const { res, data } = await adminFetchJson(
+        "/api/admin/products/upload-image",
+        { method: "POST", body: fd },
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (res.ok && data?.success && typeof data?.url === "string") {
+        setForm((prev) => ({
+          ...prev,
+          variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map((item) =>
+            item.id === rowId ? { ...item, productionArtworkUrl: data.url } : item
+          ),
+        }));
+        loadProducts();
+      } else {
+        setError(data?.error || "Production file upload failed");
+      }
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) setError("Production file upload failed");
+    } finally {
+      setRowProductionArtworkBusy((prev) => ({ ...prev, [rowId]: false }));
+      e.target.value = "";
     }
   };
 
@@ -2769,14 +2816,14 @@ export default function AdminProductsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                    Production artwork source URL
+                    Default Production File
                   </label>
                   <input
                     type="text"
                     value={form.artworkSourceUrl}
                     onChange={(e) => setForm({ ...form, artworkSourceUrl: e.target.value })}
                     className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    placeholder="Master artwork for production / mockups (optional)"
+                    placeholder="URL for default production file (optional)"
                   />
                   <div className="flex flex-wrap gap-2 mt-2">
                     {currentEditProduct?.artistSlug &&
@@ -2841,7 +2888,7 @@ export default function AdminProductsPage() {
                             paperType: "",
                             size:
                               prev.productType === "postcard"
-                                ? VARIANT_DROPDOWN_OPTIONS.postcard.sizes[0] ?? ""
+                                ? VARIANT_DROPDOWN_OPTIONS.postcard.sizes?.[0] ?? ""
                                 : "",
                             frame: "",
                             frameColor: "",
@@ -2853,6 +2900,7 @@ export default function AdminProductsPage() {
                             taeAddOnFee: null,
                             sellPrice: null,
                             image: "",
+                            productionArtworkUrl: null,
                             active: true,
                           },
                         ],
@@ -3173,8 +3221,8 @@ export default function AdminProductsPage() {
                           {isStationeryMatrix && form.productType === "greeting-card" && (
                             <p className="sm:col-span-2 text-[10px] text-brand-dark/55 leading-snug -mt-2 mb-0">
                               Use <span className="font-medium">Envelope</span> per row (stored as{" "}
-                              <code className="text-[9px]">frame</code> in row JSON so variant APIs and the shop PDP
-                              stay aligned).
+                              <code className="text-[9px]">frame</code> in row JSON so variant APIs and customer-facing
+                              product images stay aligned).
                             </p>
                           )}
                           <div>
@@ -3781,13 +3829,13 @@ export default function AdminProductsPage() {
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                               <div className="bg-brand-lightest border border-brand-light p-2 rounded">
-                                <div className="text-brand-medium">Displayed on PDP</div>
+                                <div className="text-brand-medium">Customer-facing price</div>
                                 <div className="text-brand-dark font-semibold">
                                   ${rowShopPreview.displayed.toFixed(2)}
                                 </div>
                               </div>
                               <div className="bg-brand-lightest border border-brand-light p-2 rounded">
-                                <div className="text-brand-medium">Components sum</div>
+                                <div className="text-brand-medium">Calculated price</div>
                                 <div className="text-brand-dark font-semibold">
                                   ${rowShopPreview.components.toFixed(2)}
                                 </div>
@@ -3803,8 +3851,8 @@ export default function AdminProductsPage() {
                               Support image
                             </label>
                             <p className="text-[10px] text-brand-medium leading-snug">
-                              Assigns an existing product image for this row on the shop PDP (when different from the
-                              product hero). Upload images only in{" "}
+                              Assigns an existing product image for this row in customer-facing product images (when
+                              different from the product hero). Upload images only in{" "}
                               <span className="font-medium">Product Images</span>.
                             </p>
                             <div className="flex flex-wrap items-center gap-2">
@@ -3892,6 +3940,57 @@ export default function AdminProductsPage() {
                                   )}
                               </div>
                             </details>
+                          </div>
+                          <div className="sm:col-span-2 space-y-2 border-t border-brand-light/60 pt-3 mt-1">
+                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
+                              Production File
+                            </label>
+                            <p className="text-[10px] text-brand-medium leading-snug">
+                              Uses the product-level default if no row-specific file is set.
+                            </p>
+                            {!editId ? (
+                              <p className="text-[10px] text-brand-dark/60">Save the product first to enable upload.</p>
+                            ) : null}
+                            {(row.productionArtworkUrl || "").trim() ? (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <img
+                                  src={(row.productionArtworkUrl || "").trim()}
+                                  alt=""
+                                  className="h-14 w-auto max-w-[120px] object-contain border border-brand-light rounded bg-white"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      variantMatrix: (
+                                        Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
+                                      ).map((item) =>
+                                        item.id === row.id ? { ...item, productionArtworkUrl: null } : item
+                                      ),
+                                    }))
+                                  }
+                                  className="text-xs text-red-600 hover:text-red-700"
+                                >
+                                  Clear from form
+                                </button>
+                                <span className="text-[10px] text-brand-dark/55">
+                                  Click &quot;Update Product&quot; to persist a clear; upload saves immediately.
+                                </span>
+                              </div>
+                            ) : null}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <label className="text-xs text-brand-dark border border-brand-light px-2 py-1 rounded cursor-pointer hover:bg-brand-lightest/80 disabled:opacity-40">
+                                {rowProductionArtworkBusy[row.id] ? "Uploading…" : "Upload file"}
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  className="hidden"
+                                  disabled={!editId || !!rowProductionArtworkBusy[row.id]}
+                                  onChange={(ev) => handleVariantProductionArtworkUpload(row.id, ev)}
+                                />
+                              </label>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -4225,13 +4324,13 @@ export default function AdminProductsPage() {
             )}
             <div className="space-y-6">
                 <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-2 uppercase tracking-wider">Artwork Source (Canonical)</label>
+                  <label className="block text-xs font-medium text-brand-dark/70 mb-2 uppercase tracking-wider">Default Production File</label>
                   <div className="flex items-start gap-4">
                     {imageEditProduct.artworkSourceUrl ? (
                       <div className="relative group">
                         <img
                           src={imageEditProduct.artworkSourceUrl}
-                          alt="Artwork source"
+                          alt="Default production file"
                           className="w-40 h-28 object-cover border border-brand-light"
                           onError={(e) => { (e.target as HTMLImageElement).src = ""; }}
                         />
@@ -4252,7 +4351,7 @@ export default function AdminProductsPage() {
                     <div className="flex-1">
                       <label className="inline-flex items-center gap-2 px-4 py-2 text-sm border border-brand-dark text-brand-dark cursor-pointer hover:bg-brand-dark/10 transition-colors">
                         <Upload className="w-4 h-4" />
-                        {artworkSourceUploading ? "Uploading..." : imageEditProduct.artworkSourceUrl ? "Replace" : "Upload Artwork Source"}
+                        {artworkSourceUploading ? "Uploading..." : imageEditProduct.artworkSourceUrl ? "Replace" : "Upload default production file"}
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/webp"
@@ -4261,7 +4360,10 @@ export default function AdminProductsPage() {
                           className="hidden"
                         />
                       </label>
-                      <p className="text-[10px] text-brand-medium mt-2">Use a non-Printful artwork asset here. This is the canonical source for future mockup generation.</p>
+                      <p className="text-[10px] text-brand-medium mt-2">
+                        Use a non-Printful artwork asset here. This is the product-level default when variant rows have
+                        no row-specific production file.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -4280,7 +4382,7 @@ export default function AdminProductsPage() {
                     >
                       Product Media Library
                     </a>
-                    . When set, these are preferred over manual hero/gallery URLs on the storefront. Production artwork
+                    . When set, these are preferred over manual hero/gallery URLs on the storefront. Default production file
                     above is unchanged.
                   </p>
                   {(() => {

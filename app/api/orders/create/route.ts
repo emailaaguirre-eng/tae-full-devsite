@@ -44,7 +44,7 @@ import {
   sanitizeQuantity,
 } from "@/lib/pricing-engine";
 import { parsePricingSettings } from "@/lib/product-pricing";
-import { parseVariantMatrix } from "@/lib/product-watermark";
+import { parseVariantMatrix, resolveProductionArtworkSourcePath } from "@/lib/product-watermark";
 
 function generateOrderNumber(): string {
   const prefix = "TAE";
@@ -531,10 +531,10 @@ export async function POST(req: Request) {
           !isQrProduct &&
           isNonCustomizable
         ) {
-          const fallbackArtworkPath =
-            typeof i?.productForPricing?.artworkSourceUrl === "string"
-              ? i.productForPricing.artworkSourceUrl.trim()
-              : "";
+          const fallbackArtworkPath = resolveProductionArtworkSourcePath(
+            i?.productForPricing,
+            i?.printfulVariantId
+          );
           const publicOrigin =
             String(
               process.env.STUDIO_PROOF_PUBLIC_ORIGIN ||
