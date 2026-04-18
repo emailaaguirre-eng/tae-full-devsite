@@ -2063,6 +2063,42 @@ export default function AdminProductsPage() {
         [rowId]: finalList,
       }));
       backfillProviderCostForRow(finalList);
+
+      const selectedVariantId = (() => {
+        const row = (Array.isArray(form.variantMatrix) ? form.variantMatrix : []).find((r) => r.id === rowId);
+        return matrixRowPrintfulVariantIdNum(row?.printfulVariantId);
+      })();
+
+      const selectedHasCatalogPrice =
+        selectedVariantId != null &&
+        finalList.some((v) => v.id === selectedVariantId && v.catalogPrice != null);
+
+      if (selectedVariantId != null && !selectedHasCatalogPrice) {
+        try {
+          const vr = await fetch(
+            `/api/admin/test-printful?action=variant&variantId=${selectedVariantId}`,
+            { credentials: "same-origin" }
+          );
+          const vd = await vr.json().catch(() => null);
+          const detail = vd?.body?.result || {};
+          const detailPrice = parsePrintfulCatalogPriceForProviderCost(detail);
+          if (detailPrice != null) {
+            setMatrixMoneyDrafts((prev) => {
+              const next = { ...prev };
+              delete next[matrixMoneyKey(rowId, "providerCost")];
+              return next;
+            });
+            setForm((prev) => ({
+              ...prev,
+              variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map((item) =>
+                item.id === rowId ? { ...item, providerCost: detailPrice } : item
+              ),
+            }));
+          }
+        } catch {
+          // Keep silent fallback behavior; UI can still save a manual provider cost if needed.
+        }
+      }
     } catch (err: any) {
       if (fallbackVariants.length > 0) {
         setRowPrintfulVariants((prev) => ({ ...prev, [rowId]: fallbackVariants }));
@@ -2085,7 +2121,6 @@ export default function AdminProductsPage() {
       const pid = autoResolvedPrintfulProductId(pt, row);
       if (pid == null) continue;
       if (
-        pt === "canvas-print" &&
         rowPrintfulVariants[row.id] === undefined &&
         !rowPrintfulLoadingVariants[row.id]
       ) {

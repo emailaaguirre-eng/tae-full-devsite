@@ -145,6 +145,7 @@ export default function ProductDetailPage() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [hoverVariant, setHoverVariant] = useState<VariantOption | null>(null);
+  const [hasUserSelectedOption, setHasUserSelectedOption] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -391,6 +392,19 @@ export default function ProductDetailPage() {
     currentVariant?.heroImage,
   ]);
 
+  const initialHeroPreview = useMemo(() => {
+    const generalRows = (product?.productImages || []).filter((row) => {
+      const st = String(row.sourceType || "general").trim().toLowerCase();
+      return row.isActive !== false && (st === "general" || st === "api");
+    });
+    const generalHero = generalRows.find((row) => row.isHero) || generalRows[0] || null;
+    return generalHero?.previewUrl || product?.heroImage || displayImages[0] || null;
+  }, [product, displayImages]);
+
+  useEffect(() => {
+    setHasUserSelectedOption(false);
+  }, [slug]);
+
   useEffect(() => {
     setActiveImageIndex(0);
   }, [currentVariant?.id]);
@@ -562,6 +576,7 @@ export default function ProductDetailPage() {
   const handleVariantSelect = (variant: VariantOption) => {
     setHoverVariant(null);
     if (variant.id === currentVariant?.id) return;
+    setHasUserSelectedOption(true);
     if (variant.slug === slug) {
       setSelectedVariantId(variant.id);
       return;
@@ -585,7 +600,9 @@ export default function ProductDetailPage() {
     !!hoverVariant && hoverVariant.id !== currentVariant?.id;
   const mainImageSrc = shouldUseHoverPreview
     ? hoverPreviewFirst || hoveredImage || displayImages[activeImageIndex] || displayImages[0] || null
-    : displayImages[activeImageIndex] || displayImages[0] || null;
+    : !hasUserSelectedOption && activeImageIndex === 0
+    ? initialHeroPreview
+    : displayImages[activeImageIndex] || displayImages[0] || initialHeroPreview || null;
 
   const handleStartCustomizing = () => {
     if (!canCustomize) return;

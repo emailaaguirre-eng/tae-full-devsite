@@ -18,10 +18,13 @@ import {
   getDb,
   shopProducts,
   shopCategories,
+  shopProductImages,
   artists,
   coCreators,
   eq,
   desc,
+  asc,
+  inArray,
 } from "@/lib/db";
 import {
   buildProductPreviewUrl,
@@ -223,7 +226,44 @@ export async function GET(req: Request) {
     const libAssetIds = collectLibraryAssetIdsFromProducts(products);
     const libUrlMap = await fetchProductMediaUrlMap(db, libAssetIds);
 
+    const productIds = products.map((p) => p.id);
+    const productImageRows =
+      productIds.length > 0
+        ? await db
+            .select()
+            .from(shopProductImages)
+            .where(inArray(shopProductImages.productId, productIds))
+            .orderBy(asc(shopProductImages.sortOrder))
+            .all()
+        : [];
+
+    const generalHeroPreviewByProductId = new Map<string, string>();
+    const generalFirstPreviewByProductId = new Map<string, string>();
+
+    for (const row of productImageRows) {
+      const activeVal = row.isActive as unknown;
+      if (activeVal === false || Number(activeVal) === 0) continue;
+      const st = String(row.sourceType || "general").trim().toLowerCase();
+      if (st !== "general" && st !== "api") continue;
+
+      const preview = `/api/products/preview?${new URLSearchParams({
+        productId: row.productId,
+        imageId: row.id,
+      }).toString()}`;
+
+      if (!generalFirstPreviewByProductId.has(row.productId)) {
+        generalFirstPreviewByProductId.set(row.productId, preview);
+      }
+      if (row.isHero && !generalHeroPreviewByProductId.has(row.productId)) {
+        generalHeroPreviewByProductId.set(row.productId, preview);
+      }
+    }
+
     const storefrontCardHeroUrl = (p: (typeof products)[number]): string | null => {
+      const productImageHero =
+        generalHeroPreviewByProductId.get(p.id) ||
+        generalFirstPreviewByProductId.get(p.id);
+      if (productImageHero) return productImageHero;
       const lid = (p.libraryHeroMediaId || "").trim();
       if (lid && libUrlMap.has(lid)) {
         return `/api/products/preview?${new URLSearchParams({

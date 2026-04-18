@@ -177,7 +177,10 @@ export function getBestProductImages(
 
   const exact = specificPool.filter((r) => exactMetadataMatch(r, selectedOptions));
   if (exact.length > 0) {
-    return pack(exact);
+    return dedupePreviewUrlsPreserveOrder([
+      ...pack(exact),
+      ...pack(generalPool),
+    ]);
   }
 
   const scored = specificPool
@@ -193,7 +196,10 @@ export function getBestProductImages(
   if (scored.length > 0) {
     const best = scored[0].score;
     const tied = scored.filter((x) => x.score === best).map((x) => x.row);
-    return pack(tied);
+    return dedupePreviewUrlsPreserveOrder([
+      ...pack(tied),
+      ...pack(generalPool),
+    ]);
   }
 
   if (generalPool.length > 0) {
