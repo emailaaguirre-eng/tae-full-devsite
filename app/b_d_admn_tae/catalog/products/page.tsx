@@ -1671,6 +1671,15 @@ export default function AdminProductsPage() {
         setGalleryDraftSync(productImagesFromProduct(merged));
         setLibHeroId(merged.libraryHeroMediaId?.trim() || null);
         setLibGalleryIds(parseLibraryGalleryIdsJson(merged.libraryGalleryMediaIdsJson));
+
+        const libRes = await adminFetchJson(
+          "/api/admin/product-media-library",
+          undefined,
+          () => router.push("/b_d_admn_tae/login")
+        );
+        if (libRes.res.ok && libRes.data?.success && Array.isArray(libRes.data.data)) {
+          setLibraryAssets(libRes.data.data);
+        }
       }
     },
     [router, overlayFormDraftBasicsOnProduct]
@@ -4329,8 +4338,10 @@ export default function AdminProductsPage() {
                   </p>
                   {(() => {
                     const libHeroThumb =
-                      libHeroId &&
-                      imageEditProduct.productImages?.find((r) => r.id === `libasset:${libHeroId}`)?.imageUrl;
+                      (libHeroId && libraryAssets.find((a) => a.id === libHeroId)?.imageUrl) ||
+                      (libHeroId &&
+                        imageEditProduct.productImages?.find((r) => r.id === `libasset:${libHeroId}`)?.imageUrl) ||
+                      null;
                     return (
                       <div className="space-y-2">
                         <div className="text-[10px] font-semibold text-brand-dark">Library hero</div>
@@ -4372,7 +4383,9 @@ export default function AdminProductsPage() {
                     <div className="text-[10px] font-semibold text-brand-dark">Library global gallery</div>
                     <div className="flex flex-wrap gap-2">
                       {libGalleryIds.map((gid) => {
-                        const url = imageEditProduct.productImages?.find((r) => r.id === `libasset:${gid}`)?.imageUrl;
+                        const url =
+                          libraryAssets.find((a) => a.id === gid)?.imageUrl ||
+                          imageEditProduct.productImages?.find((r) => r.id === `libasset:${gid}`)?.imageUrl;
                         return (
                           <div
                             key={gid}
