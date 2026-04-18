@@ -18,6 +18,12 @@ export type ProductImageSourceType = (typeof PRODUCT_IMAGE_SOURCE_TYPES)[number]
 
 export type { ProductImagePublic } from "./product-image-types";
 
+function normalizeSourceType(raw: unknown): ProductImageSourceType {
+  const s = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (s === "variant" || s === "api") return s;
+  return "general";
+}
+
 function mapRowToPublic(r: typeof shopProductImages.$inferSelect): ProductImagePublic {
   return {
     id: r.id,
@@ -27,7 +33,7 @@ function mapRowToPublic(r: typeof shopProductImages.$inferSelect): ProductImageP
     sortOrder: r.sortOrder ?? 0,
     isHero: !!r.isHero,
     isActive: r.isActive !== false,
-    sourceType: r.sourceType || "general",
+    sourceType: normalizeSourceType(r.sourceType),
     variantKey: r.variantKey ?? null,
     variantId: r.variantId ?? null,
     size: r.size ?? null,
@@ -155,7 +161,8 @@ function libraryVirtualImageRows(productId: string, lib: LibraryResolvedForMerge
 
 /**
  * Merges DB gallery rows with legacy hero/gallery columns.
- * Product Media Library assignments (when resolved) are prepended and take priority over manual/legacy rows.
+ * ShopProductImage rows (non-api) are merged first so variant targeting survives URL collisions with
+ * library or legacy rows. Library URLs still apply when they do not duplicate a DB row.
  * Manual uploads (non-api rows + legacy URLs) take priority over Printful (sourceType api) rows.
  */
 export function mergeLegacyAndDbImages(
@@ -175,6 +182,13 @@ export function mergeLegacyAndDbImages(
 
   const seen = new Set<string>();
   const manualPool: ProductImagePublic[] = [];
+  /** DB + manual rows before library placeholders so variant rules survive URL collisions. */
+  for (const r of nonApiRows) {
+    const u = (r.imageUrl || "").trim();
+    if (!u || seen.has(u)) continue;
+    manualPool.push(r);
+    seen.add(u);
+  }
   if (libraryResolved) {
     for (const r of libraryVirtualImageRows(productId, libraryResolved)) {
       const u = (r.imageUrl || "").trim();
@@ -182,12 +196,6 @@ export function mergeLegacyAndDbImages(
       manualPool.push(r);
       seen.add(u);
     }
-  }
-  for (const r of nonApiRows) {
-    const u = (r.imageUrl || "").trim();
-    if (!u || seen.has(u)) continue;
-    manualPool.push(r);
-    seen.add(u);
   }
   for (const r of legacy) {
     const u = (r.imageUrl || "").trim();
@@ -226,12 +234,6 @@ export async function loadImagesByProductIds(
     map.set(r.productId, list);
   }
   return map;
-}
-
-function normalizeSourceType(raw: unknown): ProductImageSourceType {
-  const s = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-  if (s === "variant" || s === "api") return s;
-  return "general";
 }
 
 function deriveHeroAndGalleryFromPublic(rows: ProductImagePublic[]): {
@@ -280,6 +282,15 @@ export function parseIncomingProductImages(raw: unknown): IncomingProductImage[]
     const o = item as Record<string, unknown>;
     const url = typeof o.imageUrl === "string" ? o.imageUrl.trim() : "";
     if (!url) continue;
+    const variantIdRaw = o.variantId;
+    const variantIdNorm =
+      typeof variantIdRaw === "string"
+        ? variantIdRaw
+        : typeof variantIdRaw === "number" && Number.isFinite(variantIdRaw)
+          ? String(Math.trunc(variantIdRaw))
+          : variantIdRaw === null
+            ? null
+            : undefined;
     out.push({
       imageUrl: url,
       title: typeof o.title === "string" ? o.title : o.title === null ? null : undefined,
@@ -290,7 +301,7 @@ export function parseIncomingProductImages(raw: unknown): IncomingProductImage[]
       isActive: typeof o.isActive === "boolean" ? o.isActive : undefined,
       sourceType: typeof o.sourceType === "string" ? o.sourceType : undefined,
       variantKey: typeof o.variantKey === "string" ? o.variantKey : o.variantKey === null ? null : undefined,
-      variantId: typeof o.variantId === "string" ? o.variantId : o.variantId === null ? null : undefined,
+      variantId: variantIdNorm,
       size: typeof o.size === "string" ? o.size : o.size === null ? null : undefined,
       frame: typeof o.frame === "string" ? o.frame : o.frame === null ? null : undefined,
       frameColor:

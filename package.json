@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test:routing-smoke": "node scripts/routing-smoke.mjs",
+    "test:shop-product-images": "npx tsx scripts/test-shop-product-images-regression.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build",

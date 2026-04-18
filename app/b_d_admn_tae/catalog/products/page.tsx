@@ -27,7 +27,7 @@ import {
   type StationeryPrintfulPickerProduct,
 } from "@/lib/stationery-printful-catalog";
 import { AdminAccordionSection } from "@/components/admin/AdminAccordionSection";
-import { normalizeHeroFlags } from "@/lib/product-image-ui";
+import { normalizeHeroFlags, normalizeProductImageSourceType } from "@/lib/product-image-ui";
 import { galleryIdsJsonFromList, parseLibraryGalleryIdsJson } from "@/lib/product-library-ids";
 
 type ProductImageSource = "general" | "variant" | "api";
@@ -53,6 +53,13 @@ interface ProductImageEntry {
 
 function localImageId() {
   return `local_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** `variantMatrix` JSON may store Printful variant id as number or string — normalize for catalog lookups. */
+function matrixRowPrintfulVariantIdNum(raw: unknown): number | null {
+  if (raw == null || raw === "") return null;
+  const n = Math.trunc(Number(raw));
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /** Must stay in sync with POST /api/admin/products/upload-image (incl. variantProductionArtwork). */
@@ -196,10 +203,14 @@ function productImagesFromProduct(p: Product): ProductImageEntry[] {
       sortOrder: typeof img.sortOrder === "number" ? img.sortOrder : i,
       isHero: !!img.isHero,
       isActive: img.isActive !== false,
-      sourceType:
-        img.sourceType === "variant" || img.sourceType === "api" ? img.sourceType : "general",
+      sourceType: normalizeProductImageSourceType(img.sourceType),
       variantKey: img.variantKey ?? null,
-      variantId: img.variantId ?? null,
+      variantId:
+        typeof img.variantId === "number" && Number.isFinite(img.variantId)
+          ? String(Math.trunc(img.variantId))
+          : typeof img.variantId === "string"
+            ? img.variantId
+            : null,
       size: img.size ?? null,
       frame: img.frame ?? null,
       frameColor: img.frameColor ?? null,
@@ -340,16 +351,23 @@ function buildImageModalRuleOptions(matrix: ProductVariantMatrixRow[] | undefine
   };
 }
 
+function imageRuleFieldTrim(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "number" && Number.isFinite(v)) return String(Math.trunc(v));
+  if (typeof v === "string") return v.trim();
+  return String(v).trim();
+}
+
 function hasRestrictiveImageMetadata(row: ProductImageEntry): boolean {
   return !!(
-    (row.variantKey && row.variantKey.trim()) ||
-    (row.variantId && row.variantId.trim()) ||
-    (row.size && row.size.trim()) ||
-    (row.frame && row.frame.trim()) ||
-    (row.frameColor && row.frameColor.trim()) ||
-    (row.material && row.material.trim()) ||
-    (row.orientation && row.orientation.trim()) ||
-    (row.format && row.format.trim())
+    imageRuleFieldTrim(row.variantKey) ||
+    imageRuleFieldTrim(row.variantId) ||
+    imageRuleFieldTrim(row.size) ||
+    imageRuleFieldTrim(row.frame) ||
+    imageRuleFieldTrim(row.frameColor) ||
+    imageRuleFieldTrim(row.material) ||
+    imageRuleFieldTrim(row.orientation) ||
+    imageRuleFieldTrim(row.format)
   );
 }
 
@@ -361,7 +379,7 @@ function imageEntryStorefrontSummary(
   displayHint: string;
   targetingBadge: "default-gallery" | "option-targeted" | "api-import";
 } {
-  const st = row.sourceType;
+  const st = normalizeProductImageSourceType(row.sourceType);
   if (st === "api") {
     return {
       appliesTo: "All variants · default gallery",
@@ -395,7 +413,8 @@ function imageEntryStorefrontSummary(
     const mr = ruleOpts.matrixRows.find((m) => m.id === row.variantKey!.trim());
     human.push(mr ? mr.label : `Matrix ${row.variantKey.trim().slice(0, 10)}`);
   }
-  if (row.variantId?.trim()) human.push(`Printful ${row.variantId.trim()}`);
+  const vidLabel = imageRuleFieldTrim(row.variantId);
+  if (vidLabel) human.push(`Printful ${vidLabel}`);
   const applies = human.length > 0 ? human.join(" · ") : "Custom variant rules";
   const hint =
     human.length > 0
@@ -452,7 +471,12 @@ function parseMoneyInputToNumberOrNull(raw: string): number | null {
 }
 
 function parsePrintfulCatalogPriceForProviderCost(variant: any): number | null {
-  const raw = variant?.price;
+  const raw =
+    variant?.price ??
+    variant?.retail_price ??
+    variant?.retailPrice ??
+    variant?.variant?.price ??
+    null;
   const s = raw == null ? "" : String(raw).trim().replace(/,/g, "");
   if (s === "") return null;
   const n = Number.parseFloat(s);
@@ -460,11 +484,12 @@ function parsePrintfulCatalogPriceForProviderCost(variant: any): number | null {
 }
 
 function providerCostFromVariantOptions(
-  variantId: number | null,
+  variantId: unknown,
   options: PrintfulVariantOption[]
 ): number | null {
-  if (variantId == null) return null;
-  const opt = options.find((v) => v.id === variantId);
+  const vid = matrixRowPrintfulVariantIdNum(variantId);
+  if (vid == null) return null;
+  const opt = options.find((v) => v.id === vid);
   return opt?.catalogPrice != null ? opt.catalogPrice : null;
 }
 
@@ -755,7 +780,7 @@ function applyAutoPrintfulResolutionToRow(
     vidResolved != null ? providerCostFromVariantOptions(vidResolved, options) : null;
 
   const productChanged = row.printfulProductId !== pid;
-  let nextVariant = row.printfulVariantId ?? null;
+  let nextVariant = matrixRowPrintfulVariantIdNum(row.printfulVariantId);
   let nextProvider = row.providerCost ?? null;
 
   if (productChanged) {
@@ -1073,11 +1098,26 @@ export default function AdminProductsPage() {
   const [productFormTab, setProductFormTab] = useState<ProductFormTab>("details");
   const [imagesTabMountNode, setImagesTabMountNode] = useState<HTMLDivElement | null>(null);
   const imageRuleMatrix = useMemo((): ProductVariantMatrixRow[] | undefined => {
+    if (
+      productFormTab === "images" &&
+      imageEditProduct &&
+      Array.isArray(imageEditProduct.variantMatrix) &&
+      imageEditProduct.variantMatrix.length > 0
+    ) {
+      return imageEditProduct.variantMatrix as ProductVariantMatrixRow[];
+    }
     if (showForm && editId) {
       return Array.isArray(form.variantMatrix) ? (form.variantMatrix as ProductVariantMatrixRow[]) : undefined;
     }
     return imageEditProduct?.variantMatrix;
-  }, [showForm, editId, form.variantMatrix, imageEditProduct?.variantMatrix]);
+  }, [
+    productFormTab,
+    imageEditProduct,
+    showForm,
+    editId,
+    form.variantMatrix,
+    imageEditProduct?.variantMatrix,
+  ]);
   const imageModalRuleOptions = useMemo(
     () => buildImageModalRuleOptions(imageRuleMatrix),
     [imageRuleMatrix]
@@ -1606,17 +1646,14 @@ export default function AdminProductsPage() {
     }
   }, [router]);
 
-  /** Merge saved product with current form fields for the Images tab / modal. */
-  const mergeProductWithFormDraft = useCallback(
+  /** Unsaved name + artwork URL only — never replace server `variantMatrix` / `productImages` with stale form. */
+  const overlayFormDraftBasicsOnProduct = useCallback(
     (p: Product): Product => ({
       ...p,
       name: form.name.trim() || p.name,
       artworkSourceUrl: (form.artworkSourceUrl || "").trim() || p.artworkSourceUrl || null,
-      variantMatrix: Array.isArray(form.variantMatrix)
-        ? (form.variantMatrix as ProductVariantMatrixRow[])
-        : p.variantMatrix ?? [],
     }),
-    [form.name, form.artworkSourceUrl, form.variantMatrix]
+    [form.name, form.artworkSourceUrl]
   );
 
   const loadFreshProductForImages = useCallback(
@@ -1628,7 +1665,7 @@ export default function AdminProductsPage() {
       );
       if (detail.res.ok && detail.data?.success && detail.data?.data) {
         const fresh = detail.data.data as Product;
-        const merged = mergeProductWithFormDraft(fresh);
+        const merged = overlayFormDraftBasicsOnProduct(fresh);
         setImgError(null);
         setImageEditProduct(merged);
         setGalleryDraftSync(productImagesFromProduct(merged));
@@ -1636,7 +1673,7 @@ export default function AdminProductsPage() {
         setLibGalleryIds(parseLibraryGalleryIdsJson(merged.libraryGalleryMediaIdsJson));
       }
     },
-    [router, mergeProductWithFormDraft]
+    [router, overlayFormDraftBasicsOnProduct]
   );
 
   const applyImagesTabContext = useCallback(() => {
@@ -1765,7 +1802,7 @@ export default function AdminProductsPage() {
         );
         if (detail.res.ok && detail.data?.success && detail.data?.data) {
           const saved = detail.data.data as Product;
-          setImageEditProduct(mergeProductWithFormDraft(saved));
+          setImageEditProduct(overlayFormDraftBasicsOnProduct(saved));
           setGalleryDraft(productImagesFromProduct(saved));
         }
         setLibHeroId(nextHero);
@@ -1777,7 +1814,7 @@ export default function AdminProductsPage() {
         setGalleryLibSelection(new Set());
       }
     },
-    [editId, router, loadProducts, mergeProductWithFormDraft]
+    [editId, router, loadProducts, overlayFormDraftBasicsOnProduct]
   );
 
   const openLibraryPicker = useCallback(
@@ -1894,9 +1931,7 @@ export default function AdminProductsPage() {
       sortOrder: i,
       isHero: !!r.isHero,
       isActive: r.isActive !== false,
-      sourceType: (r.sourceType === "variant" || r.sourceType === "api"
-        ? r.sourceType
-        : "general") as ProductImageSource,
+      sourceType: normalizeProductImageSourceType(r.sourceType) as ProductImageSource,
       variantKey: r.variantKey ?? null,
       variantId: r.variantId ?? null,
       size: r.size ?? null,
@@ -1951,8 +1986,15 @@ export default function AdminProductsPage() {
         ...prev,
         variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map((item) => {
           if (item.id !== rowId) return item;
-          const vid = item.printfulVariantId;
-          if (vid == null || item.providerCost != null) return item;
+          const vid = matrixRowPrintfulVariantIdNum(item.printfulVariantId);
+          if (vid == null) return item;
+          const rawPc = item.providerCost as unknown;
+          const hasFiniteProvider =
+            rawPc !== null &&
+            rawPc !== undefined &&
+            rawPc !== "" &&
+            Number.isFinite(Number(rawPc));
+          if (hasFiniteProvider) return item;
           const opt = options.find((v) => v.id === vid);
           if (opt?.catalogPrice == null) return item;
           return { ...item, providerCost: opt.catalogPrice };
@@ -2328,7 +2370,7 @@ export default function AdminProductsPage() {
             if (detail.res.ok && detail.data?.success && detail.data?.data) {
               const saved = detail.data.data as Product;
               setImgError(null);
-              setImageEditProduct(mergeProductWithFormDraft(saved));
+              setImageEditProduct(overlayFormDraftBasicsOnProduct(saved));
               setGalleryDraft(productImagesFromProduct(saved));
             }
             setProductFormTab("images");
