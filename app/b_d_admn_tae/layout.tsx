@@ -23,8 +23,8 @@ import {
 
 const NAV_ITEMS = [
   { href: ARTKEY_ADMIN_DASHBOARD_PATH, label: "Dashboard", icon: LayoutDashboard },
-  { href: "/b_d_admn_tae/catalog/products", label: "Products", icon: Package },
   { href: "/b_d_admn_tae/catalog/product-media", label: "Product media", icon: Images },
+  { href: "/b_d_admn_tae/catalog/products", label: "Products", icon: Package },
   { href: "/b_d_admn_tae/catalog-v2/listings", label: "Catalog V2", icon: Package },
   { href: "/b_d_admn_tae/catalog/categories", label: "Categories", icon: Grid3X3 },
   { href: "/b_d_admn_tae/gallery", label: "Gallery", icon: Palette },

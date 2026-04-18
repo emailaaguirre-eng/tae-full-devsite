@@ -653,6 +653,140 @@ function filterPostcardVariantList(
   return list.filter((v) => postcardVariantMatchesRowSize(v, rowSize || ""));
 }
 
+/** Match matrix size labels to Printful fallback sizes (e.g. 8″×10″ vs 8" x 10"). */
+function dimensionPairFromSizeLabel(label: string): [number, number] | null {
+  const nums = label.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+  if (nums.length >= 2) return [nums[0], nums[1]];
+  return null;
+}
+
+function variantRowDimensionMatch(
+  rowSize: string | null | undefined,
+  variant: PrintfulVariantOption
+): boolean {
+  const rp = dimensionPairFromSizeLabel((rowSize || "").trim());
+  if (!rp) return false;
+  const blob = `${variant.size || ""} ${variant.name || ""}`;
+  const vp = dimensionPairFromSizeLabel(blob);
+  if (!vp) return false;
+  return rp[0] === vp[0] && rp[1] === vp[1];
+}
+
+/** Auto map option rows → Printful catalog product for art-print / canvas-print / postcard only. */
+function autoResolvedPrintfulProductId(
+  productType: string,
+  row: ProductVariantMatrixRow
+): number | null {
+  if (productType === "postcard") return 433;
+  if (productType === "canvas-print") {
+    const f = (row.frame || "").trim();
+    if (f === "Unframed") return 3;
+    if (f === "Framed") return 614;
+    return null;
+  }
+  if (productType === "art-print") {
+    const paper = (row.paperType || "").trim();
+    const frame = (row.frame || "").trim();
+    if (paper === "Enhanced Matte Paper" && frame === "Unframed") return 1;
+    if (paper === "Enhanced Matte Paper" && frame === "Framed") return 2;
+    if (paper === "Premium Luster Paper" && frame === "Unframed") return 171;
+    if (paper === "Premium Luster Paper" && frame === "Framed") return 172;
+    return null;
+  }
+  return null;
+}
+
+function autoResolvePrintfulOptionList(
+  productType: string,
+  row: ProductVariantMatrixRow,
+  productId: number,
+  liveVariants: PrintfulVariantOption[] | undefined
+): PrintfulVariantOption[] {
+  if (productType === "postcard") {
+    return filterPostcardVariantList(PRINTFUL_FALLBACK_VARIANTS[433] || [], row.size, productType);
+  }
+  if (productType === "art-print") {
+    if (row.frame === "Framed") {
+      const fc = (row.frameColor || "Black").trim();
+      return PRINTFUL_FRAMED_FALLBACK_VARIANTS[productId]?.[fc] || [];
+    }
+    return PRINTFUL_FALLBACK_VARIANTS[productId] || [];
+  }
+  if (productType === "canvas-print") {
+    const live = liveVariants || [];
+    if (!live.length) return [];
+    const frameColor = (row.frameColor || "Black").trim();
+    if (row.frame === "Framed") {
+      const filtered = live.filter((variant) =>
+        (variant.name || "").toLowerCase().includes(frameColor.toLowerCase())
+      );
+      return filtered.length ? filtered : live;
+    }
+    return live;
+  }
+  return [];
+}
+
+function pickUnambiguousAutoVariantId(
+  productType: string,
+  row: ProductVariantMatrixRow,
+  options: PrintfulVariantOption[]
+): number | null {
+  if (!options.length) return null;
+  if (options.length === 1) return options[0].id;
+  const rs = (row.size || "").trim();
+  if (!rs) return null;
+  const matches = options.filter((v) => variantRowDimensionMatch(row.size, v));
+  if (matches.length === 1) return matches[0].id;
+  return null;
+}
+
+function applyAutoPrintfulResolutionToRow(
+  productType: string,
+  row: ProductVariantMatrixRow,
+  live: PrintfulVariantOption[] | undefined
+): ProductVariantMatrixRow | null {
+  const pid = autoResolvedPrintfulProductId(productType, row);
+  if (pid == null) return null;
+
+  const options = autoResolvePrintfulOptionList(productType, row, pid, live);
+  const vidResolved = pickUnambiguousAutoVariantId(productType, row, options);
+  const nextCost =
+    vidResolved != null ? providerCostFromVariantOptions(vidResolved, options) : null;
+
+  const productChanged = row.printfulProductId !== pid;
+  let nextVariant = row.printfulVariantId ?? null;
+  let nextProvider = row.providerCost ?? null;
+
+  if (productChanged) {
+    nextVariant = vidResolved ?? null;
+    nextProvider = vidResolved != null && nextCost != null ? nextCost : null;
+  } else if (vidResolved != null) {
+    if (nextVariant !== vidResolved) {
+      nextVariant = vidResolved;
+      nextProvider = nextCost ?? nextProvider;
+    } else if (nextCost != null && nextProvider !== nextCost) {
+      nextProvider = nextCost;
+    }
+  }
+
+  const nextRow: ProductVariantMatrixRow = {
+    ...row,
+    printfulProductId: pid,
+    printfulVariantId: nextVariant,
+    providerCost: nextProvider,
+  };
+
+  if (
+    row.printfulProductId === nextRow.printfulProductId &&
+    row.printfulVariantId === nextRow.printfulVariantId &&
+    row.providerCost === nextRow.providerCost
+  ) {
+    return null;
+  }
+  return nextRow;
+}
+
 const PRODUCT_TYPE_MATRIX_FIELDS: Record<
   string,
   {
@@ -922,9 +1056,7 @@ export default function AdminProductsPage() {
   const [imageEditProduct, setImageEditProduct] = useState<Product | null>(null);
   const [galleryDraft, setGalleryDraft] = useState<ProductImageEntry[]>([]);
   const [galleryUploading, setGalleryUploading] = useState(false);
-  const [artworkSourceUploading, setArtworkSourceUploading] = useState(false);
   const [rowProductionArtworkBusy, setRowProductionArtworkBusy] = useState<Record<string, boolean>>({});
-  const [rowSupportImageBusy, setRowSupportImageBusy] = useState<Record<string, boolean>>({});
   const [imgError, setImgError] = useState<string | null>(null);
   const [libHeroId, setLibHeroId] = useState<string | null>(null);
   const [libGalleryIds, setLibGalleryIds] = useState<string[]>([]);
@@ -958,55 +1090,6 @@ export default function AdminProductsPage() {
   const [rowPrintfulVariants, setRowPrintfulVariants] = useState<Record<string, PrintfulVariantOption[]>>({});
   const [rowPrintfulLoadingVariants, setRowPrintfulLoadingVariants] = useState<Record<string, boolean>>({});
   const [matrixMoneyDrafts, setMatrixMoneyDrafts] = useState<Record<string, string>>({});
-
-  const editingProductForImages = useMemo(
-    () => (editId ? products.find((p) => p.id === editId) ?? null : null),
-    [products, editId]
-  );
-
-  const matrixImageLibraryEntries = useMemo(() => {
-    const entries: { url: string; label: string }[] = [];
-    const seen = new Set<string>();
-    const p = editingProductForImages;
-    if (p?.productImages && p.productImages.length > 0) {
-      const sorted = [...p.productImages].sort(
-        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
-      );
-      for (const img of sorted) {
-        if (img.isActive === false) continue;
-        const u = (img.imageUrl || "").trim();
-        if (!u || seen.has(u)) continue;
-        seen.add(u);
-        const label =
-          (typeof img.title === "string" && img.title.trim()) ||
-          (img.isHero ? "Hero image" : `Image ${entries.length + 1}`);
-        entries.push({ url: u, label });
-      }
-      return entries;
-    }
-    const hero = (form.heroImage || "").trim();
-    if (hero) {
-      entries.push({ url: hero, label: "Hero image" });
-      seen.add(hero);
-    }
-    try {
-      const g = JSON.parse(form.galleryImages || "[]");
-      if (Array.isArray(g)) {
-        let galleryIdx = 0;
-        for (const u of g) {
-          if (typeof u !== "string" || !u.trim()) continue;
-          const t = u.trim();
-          if (seen.has(t)) continue;
-          seen.add(t);
-          galleryIdx += 1;
-          entries.push({ url: t, label: `Gallery image ${galleryIdx}` });
-        }
-      }
-    } catch {
-      /* ok */
-    }
-    return entries;
-  }, [editingProductForImages, form.heroImage, form.galleryImages]);
 
   useEffect(() => {
     setMatrixMoneyDrafts({});
@@ -1399,58 +1482,6 @@ export default function AdminProductsPage() {
     return { success: !!(res.ok && data?.success), data };
   };
 
-  const handleArtworkSourceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !imageEditProduct) return;
-    const sizeErr = productImageFileTooLargeMessage(file);
-    if (sizeErr) {
-      setImgError(sizeErr);
-      e.target.value = "";
-      return;
-    }
-    setArtworkSourceUploading(true);
-    setImgError(null);
-    try {
-      const result = await uploadProductImage(file, imageEditProduct.id, "artworkSource");
-      if (result.success) {
-        setImageEditProduct({ ...imageEditProduct, artworkSourceUrl: result.data.url });
-        if (editId === imageEditProduct.id) {
-          setForm((prev) => ({ ...prev, artworkSourceUrl: result.data.url || "" }));
-        }
-        loadProducts();
-      } else {
-        setImgError(result.data?.error || "Upload failed");
-      }
-    } catch (err) {
-      if (!(err instanceof AdminUnauthorizedError)) setImgError("Upload failed");
-    } finally {
-      setArtworkSourceUploading(false);
-    }
-    e.target.value = "";
-  };
-
-  const handleRemoveArtworkSource = async () => {
-    if (!imageEditProduct) return;
-    try {
-      const { res, data } = await adminFetchJson(`/api/admin/store-products/${imageEditProduct.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artworkSourceUrl: null }),
-      }, () => router.push("/b_d_admn_tae/login"));
-      if (!res.ok || !data?.success) {
-        setImgError(data?.error || "Failed to remove artwork source");
-        return;
-      }
-      setImageEditProduct({ ...imageEditProduct, artworkSourceUrl: null });
-      if (editId === imageEditProduct.id) {
-        setForm((prev) => ({ ...prev, artworkSourceUrl: "" }));
-      }
-      loadProducts();
-    } catch (err) {
-      if (!(err instanceof AdminUnauthorizedError)) setImgError("Failed to remove artwork source");
-    }
-  };
-
   const handleVariantProductionArtworkUpload = async (
     rowId: string,
     e: React.ChangeEvent<HTMLInputElement>
@@ -1491,40 +1522,6 @@ export default function AdminProductsPage() {
       if (!(err instanceof AdminUnauthorizedError)) setError("Production file upload failed");
     } finally {
       setRowProductionArtworkBusy((prev) => ({ ...prev, [rowId]: false }));
-      e.target.value = "";
-    }
-  };
-
-  const handleVariantSupportImageUpload = async (rowId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !editId) return;
-    const sizeErr = productImageFileTooLargeMessage(file);
-    if (sizeErr) {
-      setError(sizeErr);
-      e.target.value = "";
-      return;
-    }
-    setError("");
-    setRowSupportImageBusy((prev) => ({ ...prev, [rowId]: true }));
-    try {
-      const result = await uploadProductImage(file, editId, "gallery");
-      if (result.success && typeof result.data?.url === "string") {
-        const url = result.data.url;
-        setForm((prev) => ({
-          ...prev,
-          variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map((item) =>
-            item.id === rowId ? { ...item, image: url } : item
-          ),
-          galleryImages: appendGalleryUrlToJson(prev.galleryImages || "[]", url),
-        }));
-        loadProducts();
-      } else {
-        setError(result.data?.error || "Variant image upload failed");
-      }
-    } catch (err) {
-      if (!(err instanceof AdminUnauthorizedError)) setError("Variant image upload failed");
-    } finally {
-      setRowSupportImageBusy((prev) => ({ ...prev, [rowId]: false }));
       e.target.value = "";
     }
   };
@@ -2005,6 +2002,49 @@ export default function AdminProductsPage() {
       setRowPrintfulLoadingVariants((prev) => ({ ...prev, [rowId]: false }));
     }
   }, []);
+
+  useEffect(() => {
+    if (!showForm) return;
+    const pt = form.productType || "";
+    if (pt !== "art-print" && pt !== "canvas-print" && pt !== "postcard") return;
+    if (!Array.isArray(form.variantMatrix) || form.variantMatrix.length === 0) return;
+
+    for (const row of form.variantMatrix) {
+      const pid = autoResolvedPrintfulProductId(pt, row);
+      if (pid == null) continue;
+      if (
+        pt === "canvas-print" &&
+        rowPrintfulVariants[row.id] === undefined &&
+        !rowPrintfulLoadingVariants[row.id]
+      ) {
+        void loadRowPrintfulVariants(row.id, pid);
+      }
+    }
+
+    setForm((prev) => {
+      if (!Array.isArray(prev.variantMatrix)) return prev;
+      let changed = false;
+      const nextMatrix = prev.variantMatrix.map((row) => {
+        const patched = applyAutoPrintfulResolutionToRow(
+          pt,
+          row,
+          rowPrintfulVariants[row.id]
+        );
+        if (!patched) return row;
+        changed = true;
+        return patched;
+      });
+      if (!changed) return prev;
+      return { ...prev, variantMatrix: nextMatrix };
+    });
+  }, [
+    showForm,
+    form.variantMatrix,
+    form.productType,
+    rowPrintfulVariants,
+    rowPrintfulLoadingVariants,
+    loadRowPrintfulVariants,
+  ]);
 
   useEffect(() => {
     loadProducts();
@@ -2630,74 +2670,38 @@ export default function AdminProductsPage() {
                   className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Product Type</label>
-                  <select
-                    value={form.productType || "art-print"}
-                    onChange={(e) => setForm({ ...form, productType: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                  >
-                    <option value="art-print">ArtPrint</option>
-                    <option value="canvas-print">Canvas Prints</option>
-                    <option value="greeting-card">Greeting Cards</option>
-                    <option value="postcard">Postcards</option>
-                    <option value="invitation">Invitations</option>
-                    <option value="announcement">Announcements</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Hero Image Upload</label>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => setDraftHeroFile(e.target.files?.[0] || null)}
-                    className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
-                  />
-                  <p className="text-[10px] text-brand-medium mt-1">JPEG, PNG, or WebP. Max 20 MB.</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Gallery Image Uploads</label>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    multiple
-                    onChange={(e) => setDraftGalleryFiles(Array.from(e.target.files || []))}
-                    className="w-full border border-brand-light px-3 py-2 text-sm bg-brand-lightest"
-                  />
-                  <p className="text-[10px] text-brand-medium mt-1">JPEG, PNG, or WebP. Max 20 MB each.</p>
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Product Type</label>
+                <select
+                  value={form.productType || "art-print"}
+                  onChange={(e) => setForm({ ...form, productType: e.target.value })}
+                  className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest max-w-md"
+                >
+                  <option value="art-print">ArtPrint</option>
+                  <option value="canvas-print">Canvas Prints</option>
+                  <option value="greeting-card">Greeting Cards</option>
+                  <option value="postcard">Postcards</option>
+                  <option value="invitation">Invitations</option>
+                  <option value="announcement">Announcements</option>
+                </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Category *</label>
-                  <select
-                    value={form.categoryId}
-                    onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                  >
-                    <option value="">Select...</option>
-                    {leafCategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.pathLabel || c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Print Provider</label>
-                  <select
-                    value={form.printProvider}
-                    onChange={(e) => setForm({ ...form, printProvider: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                  >
-                    <option value="printful">Printful</option>
-                    <option value="custom">theAE</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Category *</label>
+                <select
+                  value={form.categoryId}
+                  onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                  className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest max-w-md"
+                >
+                  <option value="">Select...</option>
+                  {leafCategories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.pathLabel || c.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="mt-6 pt-5 border-t border-brand-light/60 space-y-4">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-brand-dark/70">
-                  Core linkage &amp; shopper flow
+                  Gallery &amp; Collaboration Placement
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -2793,125 +2797,6 @@ export default function AdminProductsPage() {
                     >
                       {form.requiresQrCode ? "Required" : "Off"}
                     </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 pt-5 border-t border-brand-light/60 space-y-4">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-brand-dark/70">
-                  Printful &amp; production defaults
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                      Printful Product ID
-                    </label>
-                    <input
-                      type="text"
-                      value={form.printfulProductId}
-                      onChange={(e) => setForm({ ...form, printfulProductId: e.target.value })}
-                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      placeholder="e.g. 358"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                      Printful Variant ID
-                    </label>
-                    <input
-                      type="text"
-                      value={form.printfulVariantId}
-                      onChange={(e) => setForm({ ...form, printfulVariantId: e.target.value })}
-                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      placeholder="e.g. 10163"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                      Size Label
-                    </label>
-                    <input
-                      type="text"
-                      value={form.sizeLabel}
-                      onChange={(e) => setForm({ ...form, sizeLabel: e.target.value })}
-                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      placeholder='e.g. 5" x 7"'
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                      Paper Type
-                    </label>
-                    <input
-                      type="text"
-                      value={form.paperType}
-                      onChange={(e) => setForm({ ...form, paperType: e.target.value })}
-                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      placeholder="e.g. Matte"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                      Finish Type
-                    </label>
-                    <input
-                      type="text"
-                      value={form.finishType}
-                      onChange={(e) => setForm({ ...form, finishType: e.target.value })}
-                      className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                      placeholder="e.g. Glossy"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                    Default Production File
-                  </label>
-                  <input
-                    type="text"
-                    value={form.artworkSourceUrl}
-                    onChange={(e) => setForm({ ...form, artworkSourceUrl: e.target.value })}
-                    className="w-full border border-brand-light px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-medium bg-brand-lightest"
-                    placeholder="URL for default production file (optional)"
-                  />
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {currentEditProduct?.artistSlug &&
-                      artists.find((artist) => artist.slug === currentEditProduct.artistSlug)?.sourceImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              artworkSourceUrl:
-                                artists.find((artist) => artist.slug === currentEditProduct.artistSlug)
-                                  ?.sourceImageUrl || prev.artworkSourceUrl,
-                            }))
-                          }
-                          className={BTN_SUBTLE}
-                        >
-                          Use first artist portfolio image
-                        </button>
-                      )}
-                    {currentEditProduct?.coCreatorSlug &&
-                      coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)
-                        ?.sourceImageUrl && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setForm((prev) => ({
-                              ...prev,
-                              artworkSourceUrl:
-                                coCreators.find((creator) => creator.slug === currentEditProduct.coCreatorSlug)
-                                  ?.sourceImageUrl || prev.artworkSourceUrl,
-                            }))
-                          }
-                          className={BTN_SUBTLE}
-                        >
-                          Use co-creator hero image
-                        </button>
-                      )}
                   </div>
                 </div>
               </div>
@@ -3897,118 +3782,14 @@ export default function AdminProductsPage() {
                               <code className="text-[9px]">GET /api/products/[slug]/variants</code> matrix pricing.
                             </p>
                           </div>
-                          <div className="sm:col-span-2 space-y-2">
-                            <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
-                              Support image
-                            </label>
-                            <p className="text-[10px] text-brand-medium leading-snug">
-                              This is the photo shoppers see for this specific variant (size / frame / options). It
-                              should be one of your product&apos;s customer-facing images—the same pool as the hero
-                              and gallery. Use upload here, or pick from the list, or manage everything under{" "}
-                              <span className="font-medium">Product Images</span>.
-                            </p>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setProductFormTabAndMaybeLoadImages("images");
-                                }}
-                                disabled={!editId}
-                                className="text-xs text-brand-dark underline decoration-brand-light hover:decoration-brand-dark disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
-                              >
-                                Open Product Images tab
-                              </button>
-                              <label className="text-xs text-brand-dark border border-brand-light px-2 py-1 rounded cursor-pointer hover:bg-brand-lightest/80 disabled:opacity-40">
-                                {rowSupportImageBusy[row.id] ? "Uploading…" : "Upload variant image"}
-                                <input
-                                  type="file"
-                                  accept="image/jpeg,image/png,image/webp"
-                                  className="hidden"
-                                  disabled={!editId || !!rowSupportImageBusy[row.id]}
-                                  onChange={(ev) => handleVariantSupportImageUpload(row.id, ev)}
-                                />
-                              </label>
-                            </div>
-                            <select
-                              value={(() => {
-                                const img = (row.image || "").trim();
-                                if (!img) return "";
-                                if (matrixImageLibraryEntries.some((e) => e.url === img)) return img;
-                                return "__custom__";
-                              })()}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                if (v === "__custom__") return;
-                                setForm((prev) => ({
-                                  ...prev,
-                                  variantMatrix: (
-                                    Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
-                                  ).map((item) =>
-                                    item.id === row.id ? { ...item, image: v || null } : item
-                                  ),
-                                }));
-                              }}
-                              className="w-full max-w-md border border-brand-light px-2 py-1.5 text-xs bg-white"
-                            >
-                              <option value="">No support image</option>
-                              {matrixImageLibraryEntries.map((e) => (
-                                <option key={e.url} value={e.url}>
-                                  {e.label}
-                                </option>
-                              ))}
-                              {(row.image || "").trim() !== "" &&
-                                !matrixImageLibraryEntries.some((e) => e.url === (row.image || "").trim()) && (
-                                  <option value="__custom__" disabled>
-                                    Custom path (see Advanced)
-                                  </option>
-                                )}
-                            </select>
-                            {(row.image || "").trim() !== "" &&
-                              !matrixImageLibraryEntries.some((e) => e.url === (row.image || "").trim()) && (
-                                <p className="text-[10px] text-brand-medium">
-                                  Current URL is not in hero/gallery. Clear below or add that file under Product Images.
-                                </p>
-                              )}
-                            <details className="mt-2 rounded border border-dashed border-brand-light/40 bg-brand-lightest/20 p-2 text-[10px] text-brand-dark/55 opacity-80 hover:opacity-100 transition-opacity">
-                              <summary className="cursor-pointer select-none text-brand-dark/50 hover:text-brand-dark/80">
-                                Manual image URL (advanced)
-                              </summary>
-                              <div className="mt-2 space-y-1">
-                                <input
-                                  type="text"
-                                  value={row.image ?? ""}
-                                  onChange={(e) =>
-                                    setForm((prev) => ({
-                                      ...prev,
-                                      variantMatrix: (
-                                        Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []
-                                      ).map((item) =>
-                                        item.id === row.id
-                                          ? { ...item, image: e.target.value || null }
-                                          : item
-                                      ),
-                                    }))
-                                  }
-                                  className="w-full border border-brand-light px-3 py-2 text-sm bg-white"
-                                  placeholder="/uploads/products/your-product-slug/filename.webp"
-                                />
-                                {(row.image || "").trim() !== "" &&
-                                  !(row.image || "").trim().startsWith("/uploads/") && (
-                                    <p className="text-[10px] text-amber-800/90">
-                                      This path does not look like a tAE upload under{" "}
-                                      <code className="text-[9px]">/uploads/</code>. Prefer Product Images for
-                                      shopper-facing assets.
-                                    </p>
-                                  )}
-                              </div>
-                            </details>
-                          </div>
                           <div className="sm:col-span-2 space-y-2 border-t border-brand-light/60 pt-3 mt-1">
                             <label className="block text-[11px] font-medium text-brand-dark/70 mb-1">
                               Production File
                             </label>
                             <p className="text-[10px] text-brand-medium leading-snug">
-                              Uses the product-level default if no row-specific file is set.
+                              High-resolution production artwork for this variant row only (fulfillment / print file).
+                              Upload a row-specific file when the print pipeline needs different art than shopper
+                              previews.
                             </p>
                             {!editId ? (
                               <p className="text-[10px] text-brand-dark/60">Save the product first to enable upload.</p>
@@ -4385,51 +4166,6 @@ export default function AdminProductsPage() {
               </div>
             )}
             <div className="space-y-6">
-                <div>
-                  <label className="block text-xs font-medium text-brand-dark/70 mb-2 uppercase tracking-wider">Default Production File</label>
-                  <div className="flex items-start gap-4">
-                    {imageEditProduct.artworkSourceUrl ? (
-                      <div className="relative group">
-                        <img
-                          src={imageEditProduct.artworkSourceUrl}
-                          alt="Default production file"
-                          className="w-40 h-28 object-cover border border-brand-light"
-                          onError={(e) => { (e.target as HTMLImageElement).src = ""; }}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleRemoveArtworkSource}
-                          className="absolute top-1 right-1 bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Remove"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-40 h-28 border-2 border-dashed border-brand-light flex items-center justify-center text-brand-medium">
-                        <ImageIcon className="w-8 h-8 opacity-30" />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <label className="inline-flex items-center gap-2 px-4 py-2 text-sm border border-brand-dark text-brand-dark cursor-pointer hover:bg-brand-dark/10 transition-colors">
-                        <Upload className="w-4 h-4" />
-                        {artworkSourceUploading ? "Uploading..." : imageEditProduct.artworkSourceUrl ? "Replace" : "Upload default production file"}
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={handleArtworkSourceUpload}
-                          disabled={artworkSourceUploading}
-                          className="hidden"
-                        />
-                      </label>
-                      <p className="text-[10px] text-brand-medium mt-2">
-                        Use a non-Printful artwork asset here. This is the product-level default when variant rows have
-                        no row-specific production file.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 <div className="border border-brand-light/80 rounded-lg p-4 bg-white/80 space-y-3">
                   <label className="block text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
                     Product Media Library (storefront)
@@ -4444,8 +4180,7 @@ export default function AdminProductsPage() {
                     >
                       Product Media Library
                     </a>
-                    . When set, these are preferred over manual hero/gallery URLs on the storefront. Default production file
-                    above is unchanged.
+                    . When set, these are preferred over manual hero/gallery URLs on the storefront.
                   </p>
                   {(() => {
                     const libHeroThumb =
