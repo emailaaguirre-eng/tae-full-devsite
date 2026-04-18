@@ -205,7 +205,10 @@ export default function ProductDetailPage() {
   }, [product, variants]);
 
   useEffect(() => {
-    setSelectedVariantId(variantRows.find((v) => v.isCurrent)?.id || variantRows[0]?.id || null);
+    setSelectedVariantId((prev) => {
+      if (prev && variantRows.some((v) => v.id === prev)) return prev;
+      return variantRows.find((v) => v.isCurrent)?.id || variantRows[0]?.id || null;
+    });
   }, [variantRows]);
 
   const currentVariant = useMemo(() => {
@@ -578,7 +581,9 @@ export default function ProductDetailPage() {
     hoverCatalogPreviewUrls && hoverCatalogPreviewUrls.length > 0
       ? hoverCatalogPreviewUrls[0]
       : null;
-  const mainImageSrc = hoverVariant
+  const shouldUseHoverPreview =
+    !!hoverVariant && hoverVariant.id !== currentVariant?.id;
+  const mainImageSrc = shouldUseHoverPreview
     ? hoverPreviewFirst || hoveredImage || displayImages[activeImageIndex] || displayImages[0] || null
     : displayImages[activeImageIndex] || displayImages[0] || null;
 
@@ -661,6 +666,7 @@ export default function ProductDetailPage() {
             <div className="relative aspect-square bg-brand-light rounded-2xl shadow-md overflow-hidden mb-4 ring-1 ring-black/5">
               {mainImageSrc ? (
                 <Image
+                  key={mainImageSrc}
                   src={mainImageSrc}
                   alt={product.name}
                   fill

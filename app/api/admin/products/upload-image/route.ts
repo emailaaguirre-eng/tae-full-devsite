@@ -3,10 +3,10 @@
  * POST /api/admin/products/upload-image
  *
  * multipart/form-data: file + productId + kind
- *   ("hero"|"gallery"|"artworkSource"|"variantSample"|"variantProductionArtwork")
+ *   ("hero"|"gallery"|"artworkSource"|"productImage"|"variantSample"|"variantProductionArtwork")
  * Saves to public/uploads/products/{slug}/{timestamp}-{safeFilename}
  * Returns { success, url, kind }
- * Note: "variantSample" writes the file only (tAE-hosted URL); does not update galleryImages.
+ * Note: "productImage" and "variantSample" write the file only (tAE-hosted URL); they do not update heroImage/galleryImages.
  */
 import { NextResponse } from "next/server";
 import path from "path";
@@ -25,7 +25,7 @@ export const dynamic = "force-dynamic";
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 const MAX_GALLERY = parseInt(process.env.MAX_GALLERY_IMAGES || "30", 10);
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const ALLOWED_KINDS = ["hero", "gallery", "artworkSource", "variantSample", "variantProductionArtwork"] as const;
+const ALLOWED_KINDS = ["hero", "gallery", "artworkSource", "productImage", "variantSample", "variantProductionArtwork"] as const;
 
 function sanitize(name: string): string {
   return name

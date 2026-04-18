@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams, useRouter } from "next/navigation";
 import { adminFetchJson, AdminUnauthorizedError } from "@/lib/admin/clientFetch";
@@ -1055,6 +1055,7 @@ export default function AdminProductsPage() {
   // Image editor modal
   const [imageEditProduct, setImageEditProduct] = useState<Product | null>(null);
   const [galleryDraft, setGalleryDraft] = useState<ProductImageEntry[]>([]);
+  const galleryDraftRef = useRef<ProductImageEntry[]>([]);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [rowProductionArtworkBusy, setRowProductionArtworkBusy] = useState<Record<string, boolean>>({});
   const [imgError, setImgError] = useState<string | null>(null);
@@ -1094,6 +1095,23 @@ export default function AdminProductsPage() {
   useEffect(() => {
     setMatrixMoneyDrafts({});
   }, [editId]);
+
+  useEffect(() => {
+    galleryDraftRef.current = galleryDraft;
+  }, [galleryDraft]);
+
+  const setGalleryDraftSync = (
+    updater: ProductImageEntry[] | ((prev: ProductImageEntry[]) => ProductImageEntry[])
+  ) => {
+    setGalleryDraft((prev) => {
+      const next =
+        typeof updater === "function"
+          ? (updater as (prev: ProductImageEntry[]) => ProductImageEntry[])(prev)
+          : updater;
+      galleryDraftRef.current = next;
+      return next;
+    });
+  };
 
   const selectedProductTypeConfig =
     PRODUCT_TYPE_MATRIX_FIELDS[form.productType || "art-print"] ||
@@ -1468,7 +1486,7 @@ export default function AdminProductsPage() {
   const uploadProductImage = async (
     file: File,
     productId: string,
-    kind: "hero" | "gallery" | "artworkSource"
+    kind: "hero" | "gallery" | "artworkSource" | "productImage"
   ) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -1601,17 +1619,30 @@ export default function AdminProductsPage() {
     [form.name, form.artworkSourceUrl, form.variantMatrix]
   );
 
+  const loadFreshProductForImages = useCallback(
+    async (productId: string) => {
+      const detail = await adminFetchJson(
+        `/api/admin/store-products/${productId}`,
+        undefined,
+        () => router.push("/b_d_admn_tae/login")
+      );
+      if (detail.res.ok && detail.data?.success && detail.data?.data) {
+        const fresh = detail.data.data as Product;
+        const merged = mergeProductWithFormDraft(fresh);
+        setImgError(null);
+        setImageEditProduct(merged);
+        setGalleryDraftSync(productImagesFromProduct(merged));
+        setLibHeroId(merged.libraryHeroMediaId?.trim() || null);
+        setLibGalleryIds(parseLibraryGalleryIdsJson(merged.libraryGalleryMediaIdsJson));
+      }
+    },
+    [router, mergeProductWithFormDraft]
+  );
+
   const applyImagesTabContext = useCallback(() => {
     if (!editId) return;
-    const p = products.find((pr) => pr.id === editId);
-    if (!p) return;
-    setImgError(null);
-    const merged = mergeProductWithFormDraft(p);
-    setImageEditProduct(merged);
-    setGalleryDraft(productImagesFromProduct(merged));
-    setLibHeroId(merged.libraryHeroMediaId?.trim() || null);
-    setLibGalleryIds(parseLibraryGalleryIdsJson(merged.libraryGalleryMediaIdsJson));
-  }, [editId, products, mergeProductWithFormDraft]);
+    void loadFreshProductForImages(editId);
+  }, [editId, loadFreshProductForImages]);
 
   const setProductFormTabAndMaybeLoadImages = useCallback(
     (tab: ProductFormTab) => {
@@ -1796,7 +1827,7 @@ export default function AdminProductsPage() {
           setImgError(sizeErr);
           break;
         }
-        const result = await uploadProductImage(file, imageEditProduct.id, "gallery");
+        const result = await uploadProductImage(file, imageEditProduct.id, "productImage");
         if (result.success && result.data?.url) {
           const url = result.data.url as string;
           next.push({
@@ -1900,12 +1931,11 @@ export default function AdminProductsPage() {
     await persistProductGallery(imageEditProduct.id, next);
   };
 
-  const handleGalleryFieldChange = async (idx: number, patch: Partial<ProductImageEntry>) => {
-    if (!imageEditProduct) return;
-    const sorted = [...galleryDraft].sort((a, b) => a.sortOrder - b.sortOrder);
-    const next = sorted.map((r, i) => (i === idx ? { ...r, ...patch } : r));
-    setGalleryDraft(next);
-    await persistProductGallery(imageEditProduct.id, next);
+  const handleGalleryFieldChange = (idx: number, patch: Partial<ProductImageEntry>) => {
+    setGalleryDraftSync((prev) => {
+      const sorted = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
+      return sorted.map((r, i) => (i === idx ? { ...r, ...patch } : r));
+    });
   };
 
   const loadRowPrintfulVariants = useCallback(async (rowId: string, productId: number) => {
@@ -2140,9 +2170,7 @@ export default function AdminProductsPage() {
     setShowForm(true);
     if (options?.openImagesTab) {
       setProductFormTab("images");
-      setImgError(null);
-      setImageEditProduct(p);
-      setGalleryDraft(productImagesFromProduct(p));
+      void loadFreshProductForImages(p.id);
     } else {
       setProductFormTab("details");
       setImageEditProduct(null);
@@ -2218,6 +2246,46 @@ export default function AdminProductsPage() {
         active: form.active,
         sortOrder: parseInt(form.sortOrder) || 0,
       };
+
+      if (imageEditProduct) {
+        const sortedDraft = [...galleryDraftRef.current].sort((a, b) => a.sortOrder - b.sortOrder);
+        const forNorm = sortedDraft.map((r, i) => ({
+          id: r.id,
+          imageUrl: r.imageUrl,
+          title: r.title.trim() ? r.title.trim() : null,
+          description: r.description.trim() ? r.description.trim() : null,
+          sortOrder: i,
+          isHero: r.isHero,
+          isActive: r.isActive,
+          sourceType: r.sourceType,
+          variantKey: r.variantKey,
+          variantId: r.variantId,
+          size: r.size,
+          frame: r.frame,
+          frameColor: r.frameColor,
+          material: r.material,
+          orientation: r.orientation,
+          format: r.format,
+        }));
+        const normalizedImages = normalizeHeroFlags(forNorm);
+        payload.productImages = normalizedImages.map((r, i) => ({
+          imageUrl: r.imageUrl,
+          title: r.title,
+          description: r.description,
+          sortOrder: i,
+          isHero: r.isHero,
+          isActive: r.isActive,
+          sourceType: r.sourceType,
+          variantKey: r.variantKey,
+          variantId: r.variantId,
+          size: r.size,
+          frame: r.frame,
+          frameColor: r.frameColor,
+          material: r.material,
+          orientation: r.orientation,
+          format: r.format,
+        }));
+      }
 
       let res;
       let data: any = null;
@@ -4392,7 +4460,7 @@ export default function AdminProductsPage() {
                               type="text"
                               value={row.title}
                               onChange={(e) =>
-                                setGalleryDraft((prev) => {
+                                setGalleryDraftSync((prev) => {
                                   const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
                                   return s.map((r, i) =>
                                     i === idx ? { ...r, title: e.target.value } : r
@@ -4406,7 +4474,7 @@ export default function AdminProductsPage() {
                             <textarea
                               value={row.description}
                               onChange={(e) =>
-                                setGalleryDraft((prev) => {
+                                setGalleryDraftSync((prev) => {
                                   const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
                                   return s.map((r, i) =>
                                     i === idx ? { ...r, description: e.target.value } : r
@@ -4505,7 +4573,7 @@ export default function AdminProductsPage() {
                                       value={row.variantId || ""}
                                       list={ruleOpts.printfulVariantIds.length ? pfVidListId : undefined}
                                       onChange={(e) =>
-                                        setGalleryDraft((prev) => {
+                                        setGalleryDraftSync((prev) => {
                                           const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
                                           return s.map((r, i) =>
                                             i === idx ? { ...r, variantId: e.target.value || null } : r
@@ -4552,7 +4620,7 @@ export default function AdminProductsPage() {
                                         type="text"
                                         value={row.size || ""}
                                         onChange={(e) =>
-                                          setGalleryDraft((prev) => {
+                                          setGalleryDraftSync((prev) => {
                                             const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
                                             return s.map((r, i) =>
                                               i === idx ? { ...r, size: e.target.value || null } : r
@@ -4593,7 +4661,7 @@ export default function AdminProductsPage() {
                                         type="text"
                                         value={row.material || ""}
                                         onChange={(e) =>
-                                          setGalleryDraft((prev) => {
+                                          setGalleryDraftSync((prev) => {
                                             const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
                                             return s.map((r, i) =>
                                               i === idx ? { ...r, material: e.target.value || null } : r
@@ -4634,7 +4702,7 @@ export default function AdminProductsPage() {
                                         type="text"
                                         value={row.frame || ""}
                                         onChange={(e) =>
-                                          setGalleryDraft((prev) => {
+                                          setGalleryDraftSync((prev) => {
                                             const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
                                             return s.map((r, i) =>
                                               i === idx ? { ...r, frame: e.target.value || null } : r
@@ -4675,7 +4743,7 @@ export default function AdminProductsPage() {
                                         type="text"
                                         value={row.frameColor || ""}
                                         onChange={(e) =>
-                                          setGalleryDraft((prev) => {
+                                          setGalleryDraftSync((prev) => {
                                             const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
                                             return s.map((r, i) =>
                                               i === idx ? { ...r, frameColor: e.target.value || null } : r
@@ -4732,7 +4800,7 @@ export default function AdminProductsPage() {
                                         type="text"
                                         value={row.format || ""}
                                         onChange={(e) =>
-                                          setGalleryDraft((prev) => {
+                                          setGalleryDraftSync((prev) => {
                                             const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
                                             return s.map((r, i) =>
                                               i === idx ? { ...r, format: e.target.value || null } : r

@@ -185,7 +185,7 @@ export function mergeLegacyAndDbImages(
   }
   for (const r of nonApiRows) {
     const u = (r.imageUrl || "").trim();
-    if (!u) continue;
+    if (!u || seen.has(u)) continue;
     manualPool.push(r);
     seen.add(u);
   }
@@ -315,7 +315,11 @@ export async function replaceProductImagesForProduct(
     ...r,
     sortOrder: r.sortOrder ?? i,
   }));
-  const publicRows: ProductImagePublic[] = withOrder.map((r, i) => ({
+  const deduped = withOrder.filter((r, i, arr) => {
+    const url = (r.imageUrl || "").trim();
+    return !!url && arr.findIndex((x) => (x.imageUrl || "").trim() == url) == i;
+  });
+  const publicRows: ProductImagePublic[] = deduped.map((r, i) => ({
     id: `tmp-${i}`,
     imageUrl: r.imageUrl,
     title: r.title ?? null,
@@ -400,10 +404,19 @@ export async function reconcileImagesTableWithProductColumns(
     ordered.push({ url: t, isHero: false });
   }
 
+  const dedupedOrdered: { url: string; isHero: boolean }[] = [];
+  const seenOrdered = new Set<string>();
+  for (const item of ordered) {
+    const u = item.url.trim();
+    if (!u || seenOrdered.has(u)) continue;
+    seenOrdered.add(u);
+    dedupedOrdered.push(item);
+  }
+
   await db.delete(shopProductImages).where(eq(shopProductImages.productId, productId));
   const now = Date.now().toString();
-  for (let i = 0; i < ordered.length; i++) {
-    const { url, isHero } = ordered[i];
+  for (let i = 0; i < dedupedOrdered.length; i++) {
+    const { url, isHero } = dedupedOrdered[i];
     const prev = byUrl.get(url);
     await db.insert(shopProductImages).values({
       id: prev?.id ?? generateId(),
