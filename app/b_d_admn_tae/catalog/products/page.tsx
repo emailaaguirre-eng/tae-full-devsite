@@ -65,6 +65,22 @@ function productImageFileTooLargeMessage(file: File): string | null {
   return null;
 }
 
+/** Append a URL to the legacy gallery JSON string (keeps form in sync with gallery uploads). */
+function appendGalleryUrlToJson(prevJson: string, url: string): string {
+  let list: string[] = [];
+  try {
+    const parsed = JSON.parse(prevJson || "[]");
+    if (Array.isArray(parsed)) {
+      list = parsed.filter((x): x is string => typeof x === "string" && !!x.trim());
+    }
+  } catch {
+    list = [];
+  }
+  const t = url.trim();
+  if (t && !list.includes(t)) list.push(t);
+  return JSON.stringify(list);
+}
+
 interface ProductVariantMatrixRow {
   id: string;
   /** Stationery: flat (e.g. postcard-style) vs bifold (folded card); drives Printful catalog slice */
@@ -908,6 +924,7 @@ export default function AdminProductsPage() {
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [artworkSourceUploading, setArtworkSourceUploading] = useState(false);
   const [rowProductionArtworkBusy, setRowProductionArtworkBusy] = useState<Record<string, boolean>>({});
+  const [rowSupportImageBusy, setRowSupportImageBusy] = useState<Record<string, boolean>>({});
   const [imgError, setImgError] = useState<string | null>(null);
   const [libHeroId, setLibHeroId] = useState<string | null>(null);
   const [libGalleryIds, setLibGalleryIds] = useState<string[]>([]);
@@ -1474,6 +1491,40 @@ export default function AdminProductsPage() {
       if (!(err instanceof AdminUnauthorizedError)) setError("Production file upload failed");
     } finally {
       setRowProductionArtworkBusy((prev) => ({ ...prev, [rowId]: false }));
+      e.target.value = "";
+    }
+  };
+
+  const handleVariantSupportImageUpload = async (rowId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editId) return;
+    const sizeErr = productImageFileTooLargeMessage(file);
+    if (sizeErr) {
+      setError(sizeErr);
+      e.target.value = "";
+      return;
+    }
+    setError("");
+    setRowSupportImageBusy((prev) => ({ ...prev, [rowId]: true }));
+    try {
+      const result = await uploadProductImage(file, editId, "gallery");
+      if (result.success && typeof result.data?.url === "string") {
+        const url = result.data.url;
+        setForm((prev) => ({
+          ...prev,
+          variantMatrix: (Array.isArray(prev.variantMatrix) ? prev.variantMatrix : []).map((item) =>
+            item.id === rowId ? { ...item, image: url } : item
+          ),
+          galleryImages: appendGalleryUrlToJson(prev.galleryImages || "[]", url),
+        }));
+        loadProducts();
+      } else {
+        setError(result.data?.error || "Variant image upload failed");
+      }
+    } catch (err) {
+      if (!(err instanceof AdminUnauthorizedError)) setError("Variant image upload failed");
+    } finally {
+      setRowSupportImageBusy((prev) => ({ ...prev, [rowId]: false }));
       e.target.value = "";
     }
   };
@@ -3851,8 +3902,9 @@ export default function AdminProductsPage() {
                               Support image
                             </label>
                             <p className="text-[10px] text-brand-medium leading-snug">
-                              Assigns an existing product image for this row in customer-facing product images (when
-                              different from the product hero). Upload images only in{" "}
+                              This is the photo shoppers see for this specific variant (size / frame / options). It
+                              should be one of your product&apos;s customer-facing images—the same pool as the hero
+                              and gallery. Use upload here, or pick from the list, or manage everything under{" "}
                               <span className="font-medium">Product Images</span>.
                             </p>
                             <div className="flex flex-wrap items-center gap-2">
@@ -3866,6 +3918,16 @@ export default function AdminProductsPage() {
                               >
                                 Open Product Images tab
                               </button>
+                              <label className="text-xs text-brand-dark border border-brand-light px-2 py-1 rounded cursor-pointer hover:bg-brand-lightest/80 disabled:opacity-40">
+                                {rowSupportImageBusy[row.id] ? "Uploading…" : "Upload variant image"}
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  className="hidden"
+                                  disabled={!editId || !!rowSupportImageBusy[row.id]}
+                                  onChange={(ev) => handleVariantSupportImageUpload(row.id, ev)}
+                                />
+                              </label>
                             </div>
                             <select
                               value={(() => {
@@ -3907,9 +3969,9 @@ export default function AdminProductsPage() {
                                   Current URL is not in hero/gallery. Clear below or add that file under Product Images.
                                 </p>
                               )}
-                            <details className="text-[10px] text-brand-dark/80">
-                              <summary className="cursor-pointer select-none text-brand-dark/70 hover:text-brand-dark">
-                                Advanced: image path URL
+                            <details className="mt-2 rounded border border-dashed border-brand-light/40 bg-brand-lightest/20 p-2 text-[10px] text-brand-dark/55 opacity-80 hover:opacity-100 transition-opacity">
+                              <summary className="cursor-pointer select-none text-brand-dark/50 hover:text-brand-dark/80">
+                                Manual image URL (advanced)
                               </summary>
                               <div className="mt-2 space-y-1">
                                 <input
