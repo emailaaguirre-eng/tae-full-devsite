@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import { spawn } from 'child_process';
 import { canAdminAccessDemoPortal, hasValidAdminSession, validateOwnerToken } from '@/lib/portal-auth';
 import { validatePortalSession } from '@/lib/portal-session';
@@ -225,15 +227,26 @@ export async function POST(req: Request) {
     const filename = generateFilename(file.name);
     const filepath = path.join(UPLOAD_DIR, filename);
     ensurePathWithinDir(filepath, UPLOAD_DIR);
-    const bytes = await file.arrayBuffer();
-    fs.writeFileSync(filepath, Buffer.from(bytes));
+
+    try {
+      await pipeline(
+        Readable.fromWeb(file.stream() as any),
+        fs.createWriteStream(filepath)
+      );
+    } catch (writeError: any) {
+      console.error('File upload write failed:', writeError);
+      return NextResponse.json(
+        { success: false, error: 'Video upload failed while writing file.' },
+        { status: 500 }
+      );
+    }
 
     let finalFilename = filename;
     let finalFilePath = filepath;
     let finalType = effectiveType;
     let converted = false;
 
-    const shouldConvertMov = isVideo && ext.toLowerCase() === '.mov';
+    const shouldConvertMov = false; // Preserve MOV uploads as-is to avoid large-file conversion failures.
     const shouldConvertHeic = !isVideo && ['.heic', '.heif'].includes(ext.toLowerCase());
     const shouldConvertBmp = !isVideo && ext.toLowerCase() === '.bmp';
 

@@ -28,6 +28,14 @@ export async function POST(req: Request) {
       );
     }
 
+    const uploadedVideos = Array.isArray(data.uploadedVideos) ? data.uploadedVideos : [];
+    if (uploadedVideos.length > 5) {
+      return NextResponse.json(
+        { success: false, error: 'Maximum 5 uploaded videos allowed per portal.' },
+        { status: 400 }
+      );
+    }
+
     const db = await getDb();
     const now = new Date().toISOString();
 

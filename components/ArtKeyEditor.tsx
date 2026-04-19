@@ -1003,57 +1003,76 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const file = Array.from(files)[0];
-    if (!file) return;
+    const selectedFiles = Array.from(files);
+    if (selectedFiles.length === 0) return;
 
     const auth = await ensurePortalUploadAuth();
     if (!auth?.publicToken) return;
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('publicToken', auth.publicToken);
-    if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
-
-    const isMovUpload = file.name.toLowerCase().endsWith('.mov');
     setVideoUploadStatus({
       state: 'uploading',
-      message: isMovUpload
-        ? 'Uploading video and converting to MP4...'
-        : 'Uploading video...',
+      message: `Uploading ${selectedFiles.length} video${selectedFiles.length > 1 ? 's' : ''}...`,
     });
 
-    try {
-      const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
-      if (res.ok) {
+    let nextUploadedVideos = [...(artKeyData.uploadedVideos || [])];
+    const failures: string[] = [];
+    let successCount = 0;
+
+    for (const file of selectedFiles) {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('publicToken', auth.publicToken);
+      if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
+
+      try {
+        const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          failures.push(`${file.name}: ${err?.error || 'Video upload failed'}`);
+          continue;
+        }
+
         const result = await res.json();
         const videoUrl = result.url || result.fileUrl;
-        const nextUploadedVideos = [...(artKeyData.uploadedVideos || []), videoUrl];
+        if (!videoUrl) {
+          failures.push(`${file.name}: upload returned no file URL`);
+          continue;
+        }
+
+        nextUploadedVideos = [...nextUploadedVideos, videoUrl];
         setArtKeyData((prev) => ({ ...prev, uploadedVideos: nextUploadedVideos }));
-        await syncPortalAfterUpload(auth, { uploadedVideos: nextUploadedVideos });
 
-        const wasConverted =
-          !!result?.converted ||
-          (isMovUpload && String(result?.filename || '').toLowerCase().endsWith('.mp4'));
-
-        setVideoUploadStatus({
-          state: 'complete',
-          message: wasConverted ? 'Upload complete. MOV converted to MP4.' : 'Upload complete.',
-        });
-      } else {
-        const err = await res.json().catch(() => ({}));
-        setVideoUploadStatus({
-          state: 'error',
-          message: err?.error || 'Video upload failed',
-        });
-        notifyUploadError(err?.error || 'Video upload failed');
+        try {
+          await syncPortalAfterUpload(auth, { uploadedVideos: nextUploadedVideos });
+          successCount += 1;
+        } catch (syncErr: any) {
+          failures.push(`${file.name}: ${syncErr?.message || 'Uploaded file could not be synced to the portal'}`);
+        }
+      } catch (err: any) {
+        failures.push(`${file.name}: ${err?.message || 'Video upload failed'}`);
       }
-    } catch (err: any) {
+    }
+
+    if (successCount > 0 && failures.length === 0) {
+      setVideoUploadStatus({
+        state: 'complete',
+        message: `${successCount} video${successCount > 1 ? 's' : ''} uploaded.`,
+      });
+    } else if (successCount > 0) {
       setVideoUploadStatus({
         state: 'error',
-        message: err?.message || 'Video upload failed',
+        message: `${successCount} video${successCount > 1 ? 's' : ''} uploaded, but ${failures.length} failed.`,
       });
-      notifyUploadError(err?.message || 'Video upload failed');
+      notifyUploadError(failures.slice(0, 3).join('\n'));
+    } else {
+      setVideoUploadStatus({
+        state: 'error',
+        message: failures[0] || 'Video upload failed',
+      });
+      notifyUploadError(failures.slice(0, 3).join('\n') || 'Video upload failed');
     }
+
+    e.target.value = '';
   };
 
   const handleSetFeaturedVideo = (videoUrl: string, isFeatured: boolean) => {

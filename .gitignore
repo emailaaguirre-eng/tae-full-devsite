@@ -71,3 +71,19 @@ pnpm-debug.log*
 
 # TypeScript cache
 *.tsbuildinfo
+
+.next
+.next.bak-*
+*.bak
+*.bak.*
+1
+
+.next
+.next.bak-*
+*.bak
+*.bak.*
+*.rollback-save.*
+db/*.db
+db/*.db.bak.*
+1
+docs/reference/_import-tae-full-devsite-main/
