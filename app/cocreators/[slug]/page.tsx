@@ -18,6 +18,13 @@ interface CoCreator {
   thumbnailImage?: string;
 }
 
+interface ShopProductCard {
+  slug: string;
+  name: string;
+  heroImage: string | null;
+  basePrice: number;
+}
+
 function firstNonEmpty(...candidates: Array<string | undefined | null>): string {
   for (const c of candidates) {
     if (c != null && String(c).trim() !== "") return String(c).trim();
@@ -40,14 +47,26 @@ export default function CoCreatorDetailPage() {
   const staticMatch = staticCreators.find((c) => c.slug === slug);
 
   const [creator, setCreator] = useState<CoCreator | null>(staticMatch || null);
+  const [coCreatorLookupComplete, setCoCreatorLookupComplete] = useState(false);
+  const [shopProducts, setShopProducts] = useState<ShopProductCard[]>([]);
+  const [collabProductsLoading, setCollabProductsLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/cocreators")
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.source === "db" && res.data.length > 0) {
-          const dbMatch = res.data.find((c: any) => c.slug === slug);
+    let cancelled = false;
+
+    const run = async () => {
+      setCoCreatorLookupComplete(false);
+      setCollabProductsLoading(true);
+      setShopProducts([]);
+
+      let coId: string | null = null;
+      try {
+        const cocRes = await (await fetch("/api/cocreators")).json();
+        if (cancelled) return;
+        if (cocRes.source === "db" && Array.isArray(cocRes.data) && cocRes.data.length > 0) {
+          const dbMatch = cocRes.data.find((c: any) => c.slug === slug);
           if (dbMatch) {
+            coId = String(dbMatch.id || "").trim() || null;
             const s = staticMatch;
             setCreator({
               name: firstNonEmpty(dbMatch.name, s?.name),
@@ -74,9 +93,48 @@ export default function CoCreatorDetailPage() {
             });
           }
         }
-      })
-      .catch(() => {});
-  }, [slug]);
+      } catch {
+        /* keep coId null; still fetch products by slug below */
+      }
+
+      if (cancelled) return;
+      setCoCreatorLookupComplete(true);
+
+      if (!slug) {
+        if (!cancelled) setCollabProductsLoading(false);
+        return;
+      }
+
+      const params = new URLSearchParams({ limit: "50", group: "false" });
+      params.set("coCreatorSlug", slug);
+      if (coId) params.set("coCreatorId", coId);
+      try {
+        const pres = await (await fetch(`/api/products?${params}`)).json();
+        if (cancelled) return;
+        if (pres.success && Array.isArray(pres.data)) {
+          setShopProducts(
+            pres.data.map((p: any) => ({
+              slug: p.slug,
+              name: p.name,
+              heroImage: p.heroImage ?? null,
+              basePrice: Number(p.basePrice) || 0,
+            }))
+          );
+        } else {
+          setShopProducts([]);
+        }
+      } catch {
+        if (!cancelled) setShopProducts([]);
+      } finally {
+        if (!cancelled) setCollabProductsLoading(false);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, staticMatch]);
 
   if (!creator) {
     return (
@@ -209,11 +267,51 @@ export default function CoCreatorDetailPage() {
         <p className="text-brand-darkest/60 mb-10">
           Products and experiences created with {creator.name.split(" ")[0]}.
         </p>
-        <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
-          <p className="text-brand-darkest/50 text-lg">
-            Collaboration products coming soon.
-          </p>
-        </div>
+        {collabProductsLoading || !coCreatorLookupComplete ? (
+          <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
+            <p className="text-brand-darkest/50 text-lg">
+              Loading collaboration products…
+            </p>
+          </div>
+        ) : shopProducts.length > 0 ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {shopProducts.map((p) => (
+              <Link
+                key={p.slug}
+                href={`/shop/${p.slug}`}
+                className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all group"
+              >
+                <div className="relative aspect-square bg-gradient-to-br from-brand-light to-brand-medium overflow-hidden">
+                  {p.heroImage ? (
+                    <Image
+                      src={p.heroImage}
+                      alt={p.name}
+                      fill
+                      className="object-contain group-hover:scale-105 transition-transform duration-300"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-brand-darkest/25 text-5xl">
+                      ◆
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-brand-darkest mb-1 line-clamp-2">{p.name}</h3>
+                  <span className="text-lg font-bold text-brand-dark">
+                    ${p.basePrice.toFixed(2)}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl p-12 shadow-sm text-center">
+            <p className="text-brand-darkest/50 text-lg">
+              Collaboration products coming soon.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 text-center">
