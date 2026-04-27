@@ -4,6 +4,8 @@ export type ArtKeyUseEntry = {
   title: string;
   description: string;
   features: string[];
+  /** When true, feature grid is replaced with a single “coming soon” panel. */
+  comingSoon?: boolean;
 };
 
 /**
@@ -60,6 +62,15 @@ export const ARTKEY_USES: ArtKeyUseEntry[] = [
       "Continued support links",
       "Community connection",
     ],
+  },
+  {
+    slug: "graduate",
+    category: "Graduate",
+    title: "The Milestone",
+    description:
+      "A meaningful way to announce the turning of one chapter into another.",
+    features: [],
+    comingSoon: true,
   },
   {
     slug: "airbnb",
@@ -120,7 +131,7 @@ export const ARTKEY_USES: ArtKeyUseEntry[] = [
     slug: "travel",
     category: "Travel",
     title: "The Postcard",
-    description: "A living postcard or print for your guests.",
+    description: "A living postcard or print to memorialize your trip.",
     features: [
       "Welcome video",
       "Trip photo/video uploads",

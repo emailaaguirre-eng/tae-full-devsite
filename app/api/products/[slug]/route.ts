@@ -6,13 +6,15 @@ import { NextResponse } from "next/server";
 import { getDb, shopProducts, shopCategories, shopProductImages, eq } from "@/lib/db";
 import { asc } from "drizzle-orm";
 import {
-  buildProductPreviewUrl,
   parseRequiresQrCode,
   parseFamilyKey,
   parseSemanticProductType,
 } from "@/lib/product-watermark";
 import { computeRetailPrice, parsePricingSettings } from "@/lib/product-pricing";
-import { buildStorefrontProductImageRows } from "@/lib/storefront-product-image-rows";
+import {
+  buildStorefrontProductImageRows,
+  derivePublicHeroAndGalleryPreviews,
+} from "@/lib/storefront-product-image-rows";
 import { parseLibraryGalleryIdsJson } from "@/lib/product-library-ids";
 import { buildLibraryResolvedForMerge, fetchProductMediaUrlMap } from "@/lib/product-library-assignments";
 
@@ -91,13 +93,6 @@ export async function GET(
       if (cats.length > 0) category = cats[0];
     }
 
-    let gallery: string[] = [];
-    try {
-      gallery = product.galleryImages ? JSON.parse(product.galleryImages) : [];
-    } catch {
-      gallery = [];
-    }
-
     const imageRows = await db
       .select()
       .from(shopProductImages)
@@ -123,6 +118,14 @@ export async function GET(
       imageRows,
       libraryResolved
     );
+
+    const { hero: publicHeroPreview, gallery: publicGalleryPreviews } =
+      derivePublicHeroAndGalleryPreviews(
+        productImages,
+        product.id,
+        product.heroImage,
+        product.galleryImages
+      );
 
     let printfulData: any = {};
     try {
@@ -157,12 +160,8 @@ export async function GET(
         name: product.name,
         productType: parseSemanticProductType(product.printfulDataJson),
         description: cleanDescription(product.description),
-        heroImage: product.heroImage
-          ? buildProductPreviewUrl(product.id, "hero")
-          : null,
-        galleryImages: gallery.map((_url, idx) =>
-          buildProductPreviewUrl(product.id, "gallery", idx)
-        ),
+        heroImage: publicHeroPreview,
+        galleryImages: publicGalleryPreviews,
         productImages,
         basePrice,
         printfulBasePrice,

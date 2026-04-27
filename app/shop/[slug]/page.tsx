@@ -8,6 +8,8 @@ import { useCart } from "@/contexts/CartContext";
 import { AdminAccordionSection } from "@/components/admin/AdminAccordionSection";
 import {
   getBestProductImages,
+  getExactMatchProductImagePreviewUrls,
+  isPrintfulApiSampleSourceRow,
   type StorefrontProductImage,
   type VariantImageMatchContext,
 } from "@/lib/storefront-product-images";
@@ -84,7 +86,149 @@ type VariantImageMeta = {
   frameColor?: string | null;
   color?: string | null;
   active?: boolean;
+  /** High-res print file — must not be used as storefront preview when it equals `image`. */
+  productionArtworkUrl?: string | null;
 };
+
+type ParsedVariantImageMeta = {
+  variantMatrix: VariantImageMeta[];
+  variantImages: VariantImageMeta[];
+  siblingVariants: VariantImageMeta[];
+};
+
+function normDim(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function matrixRowStorefrontImage(row: VariantImageMeta, imageUrl: string | null | undefined): string | null {
+  const img = (imageUrl || "").trim();
+  if (!img) return null;
+  const prod =
+    typeof row.productionArtworkUrl === "string" ? row.productionArtworkUrl.trim() : "";
+  if (prod && img === prod) return null;
+  return img;
+}
+
+function matrixExactImageUrlsForVariant(
+  parsed: ParsedVariantImageMeta,
+  variant: VariantOption | null,
+  printfulVariantId: number | null
+): string[] {
+  if (!variant && (!printfulVariantId || printfulVariantId <= 0)) return [];
+  const urls: string[] = [];
+  const push = (url: string | null, row?: VariantImageMeta) => {
+    const safe = row ? matrixRowStorefrontImage(row, url) : (url || "").trim();
+    if (!safe || urls.includes(safe)) return;
+    urls.push(safe);
+  };
+  const rowMatchesSelectedVariant = (row: VariantImageMeta) => {
+    if (
+      variant?.id != null &&
+      row?.id != null &&
+      String(row.id) === String(variant.id)
+    ) {
+      return true;
+    }
+    if (
+      printfulVariantId &&
+      toVariantIdCandidates(row).includes(printfulVariantId)
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  for (const row of parsed.variantMatrix) {
+    if (!isActiveRow(row)) continue;
+    if (rowMatchesSelectedVariant(row)) push(String(row?.image || ""), row);
+  }
+  for (const row of parsed.variantImages) {
+    if (!isActiveRow(row)) continue;
+    if (rowMatchesSelectedVariant(row)) push(String(row?.image || ""), row);
+  }
+  for (const row of parsed.siblingVariants) {
+    if (!isActiveRow(row)) continue;
+    if (rowMatchesSelectedVariant(row)) push(String(row?.image || ""), row);
+  }
+  return urls;
+}
+
+function formatSpecificMatrixUrlsForVariant(
+  parsed: ParsedVariantImageMeta,
+  v: VariantOption | null
+): string[] {
+  if (!v) return [];
+  const selectedSize = normDim(v.sizeLabel || v.pfSize);
+  const selectedMaterial = normDim(v.paperType);
+  const selectedFrame = normDim(v.finishType);
+  const selectedColor = normDim(v.pfColor);
+  const urls: string[] = [];
+  const push = (url: string | null, row?: VariantImageMeta) => {
+    const safe = row ? matrixRowStorefrontImage(row, url) : (url || "").trim();
+    if (!safe || urls.includes(safe)) return;
+    urls.push(safe);
+  };
+
+  for (const row of parsed.variantMatrix) {
+    if (row?.active === false || !row?.image) continue;
+    const rowSize = normDim(row?.size);
+    const rowMaterial = normDim(row?.paperType || row?.material);
+    const rowFrame = normDim(row?.frame);
+    const rowColor = normDim(row?.frameColor || row?.color);
+
+    const matchesSize = !selectedSize || !rowSize || rowSize === selectedSize;
+    const matchesMaterial =
+      !selectedMaterial || !rowMaterial || rowMaterial === selectedMaterial;
+    const matchesFrame = !selectedFrame || !rowFrame || rowFrame === selectedFrame;
+    const matchesColor = !selectedColor || !rowColor || rowColor === selectedColor;
+
+    if (matchesSize && matchesMaterial && matchesFrame && matchesColor) {
+      push(String(row.image), row);
+    }
+  }
+
+  return urls;
+}
+
+function buildCustomerFacingDisplayUrls(args: {
+  product: ProductDetail;
+  ctx: VariantImageMatchContext;
+  exactMatrixUrls: string[];
+  formatSpecificUrls: string[];
+  variantHero: string | null | undefined;
+}): string[] {
+  const { product, ctx, exactMatrixUrls, formatSpecificUrls, variantHero } = args;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (u: string | null | undefined) => {
+    const t = (u || "").trim();
+    if (!t || seen.has(t)) return;
+    seen.add(t);
+    out.push(t);
+  };
+
+  for (const u of getExactMatchProductImagePreviewUrls(product.productImages, ctx)) {
+    push(u);
+  }
+  for (const u of exactMatrixUrls) push(u);
+  for (const u of formatSpecificUrls) push(u);
+
+  const broader = getBestProductImages(
+    product.productImages,
+    ctx,
+    product.heroImage,
+    product.galleryImages || []
+  );
+  for (const u of broader) push(u);
+
+  push(variantHero);
+  push(product.heroImage);
+  for (const u of product.galleryImages || []) push(u);
+
+  return out;
+}
 
 function toVariantIdCandidates(row: VariantImageMeta): number[] {
   const ids = [row?.id, row?.printfulVariantId]
@@ -225,7 +369,7 @@ export default function ProductDetailPage() {
       .trim()
       .toLowerCase();
 
-  const parsedImageMeta = useMemo(() => {
+  const parsedImageMeta = useMemo((): ParsedVariantImageMeta => {
     try {
       const rawMeta = product?.printfulDataJson;
       const parsed =
@@ -260,107 +404,54 @@ export default function ProductDetailPage() {
     [currentVariant, selectedPrintfulVariantId]
   );
 
-  const hoverCatalogPreviewUrls = useMemo(() => {
+  const hoverCustomerFacingUrls = useMemo(() => {
     if (!product || !hoverVariant) return null;
     const hVid =
       Number.isFinite(Number(hoverVariant.printfulVariantId)) && Number(hoverVariant.printfulVariantId) > 0
         ? Math.trunc(Number(hoverVariant.printfulVariantId))
         : null;
     const hCtx = variantMatchContextFromOption(hoverVariant, hVid);
-    const urls = getBestProductImages(
-      product.productImages,
-      hCtx,
-      product.heroImage,
-      product.galleryImages || []
-    );
+    const exactMat = matrixExactImageUrlsForVariant(parsedImageMeta, hoverVariant, hVid);
+    const fmt = formatSpecificMatrixUrlsForVariant(parsedImageMeta, hoverVariant);
+    const urls = buildCustomerFacingDisplayUrls({
+      product,
+      ctx: hCtx,
+      exactMatrixUrls: exactMat,
+      formatSpecificUrls: fmt,
+      variantHero: hoverVariant.heroImage,
+    });
     return urls.length > 0 ? urls : null;
-  }, [product, hoverVariant]);
+  }, [product, hoverVariant, parsedImageMeta]);
 
-  const exactVariantImages = useMemo(() => {
-    if (!selectedPrintfulVariantId && !currentVariant?.id) return [];
-    const urls: string[] = [];
-    const push = (url?: string | null) => {
-      if (!url || urls.includes(url)) return;
-      urls.push(url);
-    };
-    const rowMatchesSelectedVariant = (row: VariantImageMeta) => {
-      if (
-        currentVariant?.id != null &&
-        row?.id != null &&
-        String(row.id) === String(currentVariant.id)
-      ) {
-        return true;
-      }
-      if (
-        selectedPrintfulVariantId &&
-        toVariantIdCandidates(row).includes(selectedPrintfulVariantId)
-      ) {
-        return true;
-      }
-      return false;
-    };
+  const exactVariantImages = useMemo(
+    () =>
+      matrixExactImageUrlsForVariant(
+        parsedImageMeta,
+        currentVariant,
+        selectedPrintfulVariantId
+      ),
+    [parsedImageMeta, selectedPrintfulVariantId, currentVariant]
+  );
 
-    for (const row of parsedImageMeta.variantMatrix) {
-      if (!isActiveRow(row)) continue;
-      if (rowMatchesSelectedVariant(row)) {
-        push(row?.image);
-      }
-    }
-    for (const row of parsedImageMeta.variantImages) {
-      if (!isActiveRow(row)) continue;
-      if (rowMatchesSelectedVariant(row)) {
-        push(row?.image);
-      }
-    }
-    for (const row of parsedImageMeta.siblingVariants) {
-      if (!isActiveRow(row)) continue;
-      if (rowMatchesSelectedVariant(row)) {
-        push(row?.image);
-      }
-    }
-    return urls;
-  }, [parsedImageMeta, selectedPrintfulVariantId, currentVariant?.id]);
-
-  const formatSpecificImages = useMemo(() => {
-    const selectedSize = normalizeValue(currentVariant?.sizeLabel || currentVariant?.pfSize);
-    const selectedMaterial = normalizeValue(currentVariant?.paperType);
-    const selectedFrame = normalizeValue(currentVariant?.finishType);
-    const selectedColor = normalizeValue(currentVariant?.pfColor);
-    const urls: string[] = [];
-    const push = (url?: string | null) => {
-      if (!url || urls.includes(url)) return;
-      urls.push(url);
-    };
-
-    for (const row of parsedImageMeta.variantMatrix) {
-      if (row?.active === false || !row?.image) continue;
-      const rowSize = normalizeValue(row?.size);
-      const rowMaterial = normalizeValue(row?.paperType || row?.material);
-      const rowFrame = normalizeValue(row?.frame);
-      const rowColor = normalizeValue(row?.frameColor || row?.color);
-
-      const matchesSize = !selectedSize || !rowSize || rowSize === selectedSize;
-      const matchesMaterial = !selectedMaterial || !rowMaterial || rowMaterial === selectedMaterial;
-      const matchesFrame = !selectedFrame || !rowFrame || rowFrame === selectedFrame;
-      const matchesColor = !selectedColor || !rowColor || rowColor === selectedColor;
-
-      if (matchesSize && matchesMaterial && matchesFrame && matchesColor) {
-        push(row.image);
-      }
-    }
-
-    return urls;
-  }, [
-    currentVariant?.finishType,
-    currentVariant?.paperType,
-    currentVariant?.pfColor,
-    currentVariant?.pfSize,
-    currentVariant?.sizeLabel,
-    parsedImageMeta.variantMatrix,
-  ]);
+  const formatSpecificImages = useMemo(
+    () => formatSpecificMatrixUrlsForVariant(parsedImageMeta, currentVariant),
+    [
+      currentVariant,
+      parsedImageMeta.variantMatrix,
+    ]
+  );
 
   const displayImages = useMemo(() => {
     if (!product) return [];
+    if (hasUserSelectedOption) {
+      return buildCustomerFacingDisplayUrls({
+        product,
+        ctx: variantMatchCtx,
+        exactMatrixUrls: exactVariantImages,
+        formatSpecificUrls: formatSpecificImages,
+        variantHero: currentVariant?.heroImage,
+      });
+    }
     const fromShop = getBestProductImages(
       product.productImages,
       variantMatchCtx,
@@ -385,6 +476,7 @@ export default function ProductDetailPage() {
     if (exactVariantImages.length > 0) return base;
     return [vh, ...base.filter((u) => u !== vh)];
   }, [
+    hasUserSelectedOption,
     variantMatchCtx,
     product,
     exactVariantImages,
@@ -394,12 +486,14 @@ export default function ProductDetailPage() {
 
   const initialHeroPreview = useMemo(() => {
     const generalRows = (product?.productImages || []).filter((row) => {
+      if (row.isActive === false || isPrintfulApiSampleSourceRow(row)) return false;
       const st = String(row.sourceType || "general").trim().toLowerCase();
-      return row.isActive !== false && (st === "general" || st === "api");
+      const id = String(row.id || "");
+      return st === "general" || id.startsWith("libasset:");
     });
     const generalHero = generalRows.find((row) => row.isHero) || generalRows[0] || null;
-    return generalHero?.previewUrl || product?.heroImage || displayImages[0] || null;
-  }, [product, displayImages]);
+    return generalHero?.previewUrl || product?.heroImage || null;
+  }, [product]);
 
   useEffect(() => {
     setHasUserSelectedOption(false);
@@ -593,8 +687,8 @@ export default function ProductDetailPage() {
     }`;
   const hoveredImage = hoverVariant?.heroImage || null;
   const hoverPreviewFirst =
-    hoverCatalogPreviewUrls && hoverCatalogPreviewUrls.length > 0
-      ? hoverCatalogPreviewUrls[0]
+    hoverCustomerFacingUrls && hoverCustomerFacingUrls.length > 0
+      ? hoverCustomerFacingUrls[0]
       : null;
   const shouldUseHoverPreview =
     !!hoverVariant && hoverVariant.id !== currentVariant?.id;
@@ -625,12 +719,18 @@ export default function ProductDetailPage() {
   };
 
   const handleAddToCart = () => {
+    const customerFacingCartImage =
+      (hasUserSelectedOption
+        ? displayImages[activeImageIndex] || displayImages[0] || initialHeroPreview
+        : initialHeroPreview) ||
+      product.heroImage ||
+      undefined;
     addToCart({
       id: `${product.id}:${currentVariant?.printfulVariantId ?? "default"}`,
       name: product.name,
       price: Number(currentVariant?.basePrice ?? product.basePrice),
       quantity: 1,
-      imageUrl: currentVariant?.heroImage || product.heroImage || undefined,
+      imageUrl: customerFacingCartImage,
       source: "shop",
       productSlug: product.slug,
       printfulProductId: product.printfulProductId ?? undefined,
@@ -856,26 +956,29 @@ export default function ProductDetailPage() {
               {!isGreetingCard && colorOptions.length > 1 && (
                 <AdminAccordionSection title="Frame Color" defaultOpen>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {colorOptions.map((v) => (
+                    {colorOptions.map((opt) => (
                       <button
-                        key={v.id}
-                        onClick={() => handleVariantSelect(v)}
-                        onMouseEnter={() => setHoverVariant(v)}
+                        key={opt.key}
+                        onClick={() => handleVariantSelect(opt.variant)}
+                        onMouseEnter={() => setHoverVariant(opt.variant)}
                         onMouseLeave={() => setHoverVariant(null)}
-                        onFocus={() => setHoverVariant(v)}
+                        onFocus={() => setHoverVariant(opt.variant)}
                         onBlur={() => setHoverVariant(null)}
-                        disabled={!v.inStock || currentVariant?.id === v.id}
-                        className={getOptionButtonClass(currentVariant?.id === v.id, !!v.inStock)}
-                        title={v.pfColor || ""}
+                        disabled={!opt.variant.inStock || currentVariant?.id === opt.variant.id}
+                        className={getOptionButtonClass(
+                          currentVariant?.id === opt.variant.id,
+                          !!opt.variant.inStock
+                        )}
+                        title={opt.variant.pfColor || ""}
                       >
                         <div className="flex items-center gap-2">
                           <span
                             className="inline-block w-4 h-4 rounded-sm border border-black/15"
-                            style={{ backgroundColor: v.pfColorCode || "#ccc" }}
+                            style={{ backgroundColor: opt.variant.pfColorCode || "#ccc" }}
                           />
-                          <span>{v.pfColor || "Color option"}</span>
+                          <span>{opt.variant.pfColor || "Color option"}</span>
                         </div>
-                        {renderOptionPrice(v)}
+                        {renderOptionPrice(opt.variant)}
                       </button>
                     ))}
                   </div>

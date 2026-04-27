@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Hero from "@/components/Hero";
-import { HomeArtKeyCarouselSection } from "@/components/home-artkey-carousel/HomeArtKeyCarouselSection";
+import { PhoneCarousel } from "@/components/PhoneCarousel";
 import ProductCategories from "@/components/ProductCategories";
 import {
   EveryProductIncludesArtKeySection,
@@ -16,7 +16,7 @@ export default function HomePage() {
   return (
     <>
       <Hero />
-      <HomeArtKeyCarouselSection />
+      <PhoneCarousel />
       <Testimonials />
       <section id="how-it-works">
         <HowItWorksScene />

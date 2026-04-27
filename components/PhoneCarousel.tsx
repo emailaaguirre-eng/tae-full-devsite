@@ -1,96 +1,105 @@
+"use client";
+
+import Link from "next/link";
 import { useEffect, useRef, useCallback, useState } from "react";
 
+/**
+ * `currentIndex === CARD_DATA.length` centers the middle copy’s first slot = `CARD_DATA[0]` (Birth).
+ * Rail order L→R at that index: [5]…[9], [0], [1]…[4] = positions −5…+4:
+ * −5 Travel, −4 Influencers, −3 Realtor, −2 Coaches, −1 Wedding | 0 Birth | +1 Holiday … +4 Artists.
+ */
 const CARD_DATA = [
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Public-Speakers.png",
-    overlay: "rgba(8,15,28,.10), rgba(8,15,28,.34)",
-    top: "Public\nSpeakers",
-    title1: "The Living",
-    title2: "Poster",
-    body: "A collectible poster that opens the story behind the stage",
-    accent: "#4f8ef7",
-  },
-  {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Artists.png",
-    overlay: "rgba(7,10,20,.08), rgba(7,10,20,.42)",
-    top: "Artists",
-    title1: "The Creator",
-    title2: "Portal",
-    body: "A gateway into the story behind the work",
-    accent: "#a78cf2",
-  },
-  {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Wedding.png",
-    overlay: "rgba(7,10,20,.02), rgba(7,10,20,.28)",
-    top: "Wedding",
-    title1: "The",
-    title2: "Keepsake",
-    body: "A living archive for your stories, memories, and legacy",
-    accent: "#f7c5d0",
-  },
-  {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Travel.png",
-    overlay: "rgba(28,10,2,.06), rgba(28,10,2,.34)",
-    top: "Travel",
-    title1: "The",
-    title2: "Postcard",
-    body: "A living postcard or print to memorialize your trip",
-    accent: "#f0a45a",
-  },
-  {
     art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Birth-Announcement.png",
-    overlay: "rgba(12,10,10,.02), rgba(12,10,10,.28)",
     top: "Birth\nAnnouncement",
     title1: "The First",
     title2: "Chapter",
     body: "An elevated birth announcement that becomes a living legacy",
     accent: "#f9d87a",
+    href: "/artkey-uses/birth-announcement",
+  },
+  {
+    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/HolidayCard.png",
+    top: "Holiday\nCard",
+    title1: "Year in",
+    title2: "Review",
+    body: "A holiday card that opens into the story of your year",
+    accent: "#f77b72",
+    href: "/artkey-uses/holiday-card",
+  },
+  {
+    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/graduate_1.jpg",
+    top: "Graduate",
+    title1: "The",
+    title2: "Milestone",
+    body: "A meaningful way to announce the turning of one chapter into another.",
+    accent: "#4ade80",
+    href: "/artkey-uses/graduate",
+  },
+  {
+    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/AirBnb.png",
+    top: "Airbnb",
+    title1: "The",
+    title2: "Experience",
+    body: "A living postcard or print for your guests",
+    accent: "#fb7185",
+    href: "/artkey-uses/airbnb",
+  },
+  {
+    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Artists.png",
+    top: "Artists",
+    title1: "The Creator",
+    title2: "Portal",
+    body: "A gateway into the story behind the work",
+    accent: "#a78cf2",
+    href: "/artkey-uses/artists",
+  },
+  {
+    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/morgan.jpg-1.jpeg",
+    top: "Travel",
+    title1: "The",
+    title2: "Postcard",
+    body: "A living postcard or print to memorialize your trip",
+    accent: "#f0a45a",
+    bgPos: "center 70%",
+    href: "/artkey-uses/travel",
+  },
+  {
+    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Public-Speakers.png",
+    top: "Influencers",
+    title1: "The Living",
+    title2: "Poster",
+    body: "A collectible poster that opens the story behind the stage",
+    accent: "#4f8ef7",
+    href: "/artkey-uses/public-figures-speakers",
   },
   {
     art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Realtor.png",
-    overlay: "rgba(18,12,8,.02), rgba(18,12,8,.30)",
     top: "Realtor",
     title1: "The Closing",
     title2: "Moment",
     body: "A closing gift that keeps your presence long after the keys are handed over",
     accent: "#6ee7c0",
     bottomAlign: "right" as const,
-  },
-  {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/HolidayCard.png",
-    overlay: "rgba(10,18,8,.02), rgba(10,18,8,.28)",
-    top: "Holiday\nCard",
-    title1: "Year in",
-    title2: "Review",
-    body: "A holiday card that opens into the story of your year",
-    accent: "#f77b72",
+    href: "/artkey-uses/realtor",
   },
   {
     art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Coaches.png",
-    overlay: "rgba(8,14,12,.02), rgba(8,14,12,.28)",
     top: "Coaches",
     title1: "Defining",
     title2: "Moment",
     body: "A visual designed for coaches and the clients they guide",
     accent: "#7dd3fc",
+    href: "/artkey-uses/coaches",
   },
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/graduate_1.jpg",
-    overlay: "rgba(10,14,10,.04), rgba(10,14,10,.32)",
-    top: "Graduate",
+    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Wedding.png",
+    top: "Wedding",
     title1: "The",
-    title2: "Milestone",
-    body: "A meaningful way to announce the turning of one chapter into another.",
-    accent: "#4ade80",
-  },
-  {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/AirBnb.png",
-    overlay: "rgba(7,10,18,.02), rgba(7,10,18,.34)",
-    top: "Airbnb",
-    title1: "The",
-    title2: "Experience",
-    body: "A living postcard or print for your guests",
-    accent: "#fb7185",
+    title2: "Keepsake",
+    body: "A living archive for your stories, memories, and legacy",
+    accent: "#f7c5d0",
+    href: "/artkey-uses/wedding",
   },
 ];
 
@@ -102,6 +111,7 @@ const CARD_H = 520;
 export function PhoneCarousel() {
   const railRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const currentIndexRef = useRef(CARD_DATA.length);
   const [currentIndex, setCurrentIndex] = useState(CARD_DATA.length);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
@@ -113,14 +123,14 @@ export function PhoneCarousel() {
   // Tripled dataset for infinite looping
   const allCards = [...CARD_DATA, ...CARD_DATA, ...CARD_DATA];
 
-  const getTranslateX = useCallback(
-    (idx: number) => {
-      const viewCenter = 1280 / 2;
-      const cardCenter = 28 + idx * (CARD_W + GAP) + CARD_W / 2;
-      return viewCenter - cardCenter;
-    },
-    []
-  );
+  const getTranslateX = useCallback((idx: number) => {
+    const stage = stageRef.current;
+    const viewCenter = stage
+      ? stage.getBoundingClientRect().width / 2
+      : CARD_W / 2 + 28;
+    const cardCenter = 28 + idx * (CARD_W + GAP) + CARD_W / 2;
+    return viewCenter - cardCenter;
+  }, []);
 
   const applyPosition = useCallback(
     (idx: number, animated: boolean) => {
@@ -171,6 +181,7 @@ export function PhoneCarousel() {
         if (isHovered) return;
         setCurrentIndex((prev) => {
           const next = prev + 1;
+          currentIndexRef.current = next;
           applyPosition(next, true);
           setIsAnimating(true);
           setActiveIdx(computeActive(next));
@@ -181,6 +192,7 @@ export function PhoneCarousel() {
               if (n >= orig * 2) n -= orig;
               if (n < orig) n += orig;
               if (n !== p) applyPosition(n, false);
+              currentIndexRef.current = n;
               return n;
             });
             setIsAnimating(false);
@@ -198,6 +210,7 @@ export function PhoneCarousel() {
       setIsAnimating(true);
       setCurrentIndex((prev) => {
         const next = prev + dir;
+        currentIndexRef.current = next;
         applyPosition(next, true);
         setActiveIdx(computeActive(next));
         setTimeout(() => {
@@ -207,6 +220,7 @@ export function PhoneCarousel() {
             if (n >= orig * 2) n -= orig;
             if (n < orig) n += orig;
             if (n !== p) applyPosition(n, false);
+            currentIndexRef.current = n;
             return n;
           });
           setIsAnimating(false);
@@ -217,13 +231,32 @@ export function PhoneCarousel() {
     [isAnimating, applyPosition, computeActive]
   );
 
-  // Init
+  currentIndexRef.current = currentIndex;
+
+  // Init: center Birth (`CARD_DATA[0]`) using real stage width once layout exists
   useEffect(() => {
-    applyPosition(CARD_DATA.length, false);
-    setActiveIdx(CARD_DATA.length);
-    // Entrance reveal
+    const center = CARD_DATA.length;
+    applyPosition(center, false);
+    setActiveIdx(center);
+    currentIndexRef.current = center;
+    const raf = requestAnimationFrame(() => {
+      applyPosition(center, false);
+    });
     const t = setTimeout(() => setReveal(true), 80);
-    return () => clearTimeout(t);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
+  }, [applyPosition]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      applyPosition(currentIndexRef.current, false);
+    });
+    ro.observe(stage);
+    return () => ro.disconnect();
   }, [applyPosition]);
 
   // Autoplay
@@ -278,7 +311,7 @@ export function PhoneCarousel() {
       style={{
         width: "100%",
         minHeight: "100vh",
-        background: "#f6f4f1",
+        background: "transparent",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -305,36 +338,6 @@ export function PhoneCarousel() {
           marginTop: 6,
         }}
       >
-        {/* Background glow */}
-        <div
-          style={{
-            position: "absolute",
-            inset: "5% 18% 24%",
-            background:
-              "radial-gradient(circle at center, rgba(255,255,255,.72) 0%, rgba(255,255,255,.34) 26%, rgba(255,255,255,.05) 56%, rgba(255,255,255,0) 76%), radial-gradient(circle at center, rgba(59,130,246,.05) 0%, rgba(59,130,246,0) 55%)",
-            borderRadius: 999,
-            filter: "blur(28px)",
-            pointerEvents: "none",
-            zIndex: 0,
-          }}
-        />
-
-        {/* Rail shadow */}
-        <div
-          style={{
-            position: "absolute",
-            left: "1.5%",
-            right: "1.5%",
-            bottom: 50,
-            height: 126,
-            borderRadius: 999,
-            background:
-              "radial-gradient(ellipse at center, rgba(15,23,42,.22) 0%, rgba(15,23,42,.15) 28%, rgba(15,23,42,.08) 50%, rgba(15,23,42,.03) 70%, rgba(15,23,42,0) 100%)",
-            filter: "blur(18px)",
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
 
         {/* Rail */}
         <div
@@ -354,8 +357,14 @@ export function PhoneCarousel() {
           }}
         >
           {allCards.map((card, idx) => (
-            <div
+            <Link
               key={idx}
+              href={card.href}
+              prefetch={false}
+              className="shrink-0 text-inherit no-underline outline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-accent"
+              aria-label={`Open ${card.top.replace(/\n/g, " ")} — ${card.title1} ${card.title2}`}
+            >
+            <div
               style={{
                 flexShrink: 0,
                 animation: `cardFloat 3.8s ease-in-out infinite alternate`,
@@ -413,20 +422,18 @@ export function PhoneCarousel() {
                 background: "#1f2937",
               }}
             >
-              {/* Art — full vibrancy, no colour overlay */}
+              {/* Art */}
               <div
                 style={{
                   position: "absolute",
                   inset: 0,
                   backgroundImage: `url('${card.art}')`,
                   backgroundSize: "cover",
-                  backgroundPosition: "center",
+                  backgroundPosition: card.bgPos ?? "center",
                   transform: "scale(1.025)",
                   filter: "contrast(1.08) saturate(1.18) brightness(1.04)",
                 }}
               />
-
-
 
               {/* Content */}
               <div
@@ -434,10 +441,12 @@ export function PhoneCarousel() {
                   position: "absolute",
                   inset: 0,
                   zIndex: 4,
-                  padding: "26px 26px 2px",
+                  padding: "26px 26px 36px",
+                  boxSizing: "border-box",
                   display: "flex",
                   flexDirection: "column",
-                  justifyContent: "space-between",
+                  justifyContent: "flex-start",
+                  minHeight: "100%",
                   color: "#ffffff",
                   textShadow: "0 2px 16px rgba(0,0,0,.28)",
                 }}
@@ -445,6 +454,7 @@ export function PhoneCarousel() {
                 {/* Top label */}
                 <div
                   style={{
+                    flexShrink: 0,
                     fontFamily:
                       "'Playfair Display', Georgia, 'Times New Roman', serif",
                     fontSize: 33,
@@ -463,22 +473,17 @@ export function PhoneCarousel() {
                   {card.top}
                 </div>
 
-                {/* Bottom text */}
-                <div style={{ width: "100%", position: "relative", zIndex: 1, textAlign: card.bottomAlign ?? "left" }}>
-                  {/* Bottom gradient */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: -26,
-                      right: -26,
-                      top: -24,
-                      bottom: -24,
-                      background:
-                        "linear-gradient(180deg, rgba(10,12,18,0) 0%, rgba(10,12,18,.12) 16%, rgba(10,12,18,.56) 56%, rgba(10,12,18,.82) 100%)",
-                      zIndex: -1,
-                      pointerEvents: "none",
-                    }}
-                  />
+                {/* Bottom text — marginTop auto pins block to bottom above padding/home bar */}
+                <div
+                  style={{
+                    marginTop: "auto",
+                    flexShrink: 0,
+                    width: "100%",
+                    position: "relative",
+                    zIndex: 1,
+                    textAlign: card.bottomAlign ?? "left",
+                  }}
+                >
                   <h3
                     style={{
                       margin: "0 0 10px",
@@ -502,50 +507,6 @@ export function PhoneCarousel() {
                   >
                     {card.body}
                   </p>
-
-                  {/* CTA button — appears on hover */}
-                  <div
-                    style={{
-                      marginTop: 14,
-                      opacity: hoveredIdx === idx ? 1 : 0,
-                      transform:
-                        hoveredIdx === idx
-                          ? "translateY(0)"
-                          : "translateY(6px)",
-                      transition:
-                        "opacity 240ms ease, transform 240ms ease",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        letterSpacing: "0.12em",
-                        textTransform: "uppercase",
-                        color: card.accent,
-                      }}
-                    >
-                      Explore template
-                    </span>
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 14 14"
-                      fill="none"
-                      style={{ marginTop: 1 }}
-                    >
-                      <path
-                        d="M2 7h10M8 3l4 4-4 4"
-                        stroke={card.accent}
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
                 </div>
               </div>
 
@@ -567,20 +528,9 @@ export function PhoneCarousel() {
             </article>
             </div>{/* end phone frame */}
             </div>
+            </Link>
           ))}
         </div>
-
-        {/* Viewport fade edges */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            zIndex: 6,
-            background:
-              "linear-gradient(90deg, #f6f4f1 0%, rgba(246,244,241,0) 10%, rgba(246,244,241,0) 90%, #f6f4f1 100%)",
-          }}
-        />
 
         {/* Nav buttons */}
         <button

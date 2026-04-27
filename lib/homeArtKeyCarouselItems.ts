@@ -12,9 +12,9 @@ export type HomeArtKeyCarouselItem = {
 
 export const HOME_ARTKEY_CAROUSEL_ITEMS: HomeArtKeyCarouselItem[] = [
   {
-    slug: "public-speakers",
+    slug: "public-figures-speakers",
     label: "Public Speakers",
-    href: "/artkey-uses/public-speakers",
+    href: "/artkey-uses/public-figures-speakers",
     image: "https://theartfulexperience.com/wp-content/uploads/2026/04/Public-Speakers.png",
     top: "Public\nSpeakers",
     title1: "The Living",

@@ -7,6 +7,13 @@ import type { ProductImagePublic, StorefrontProductImage } from "@/lib/product-i
 
 export type { StorefrontProductImage };
 
+/** Printful/API backfill rows — excluded from public storefront hero, gallery, and PDP option fallbacks. */
+export function isPrintfulApiSampleSourceRow(row: ProductImagePublic | null | undefined): boolean {
+  return String(row?.sourceType || "")
+    .trim()
+    .toLowerCase() === "api";
+}
+
 function norm(s: unknown): string {
   return String(s ?? "")
     .trim()
@@ -38,10 +45,14 @@ function hasRestrictiveMetadata(row: ProductImagePublic): boolean {
   );
 }
 
-/** Default catalog: general + API, or variant rows with no restrictive metadata (never loads option-specific rows by default). */
+/**
+ * Default catalog for PDP matching: admin `general` rows, non-restrictive `variant` rows.
+ * Printful `api` / sample rows are never treated as public default catalog (see isPrintfulApiSampleSourceRow).
+ */
 export function isGeneralCatalogRow(row: ProductImagePublic): boolean {
   const st = (row.sourceType || "general").toLowerCase();
-  if (st === "general" || st === "api") return true;
+  if (st === "api") return false;
+  if (st === "general") return true;
   if (st === "variant" && !hasRestrictiveMetadata(row)) return true;
   return false;
 }
@@ -145,9 +156,9 @@ function legacyPreviewList(
  * Priority:
  * 1) Exact match among option-specific rows (restrictive metadata / variant source with IDs or dimensions)
  * 2) Partial match (best score, ties kept, sortOrder preserved within set)
- * 3) General + API rows + non-restrictive variant rows (default catalog)
- * 4) Legacy heroImage + galleryImages preview URLs — only when there are no active merged rows at all
- * 5) Empty array when active rows exist but none match and there is no general/API/legacy-virtual pool (caller uses JSON matrix)
+ * 3) General + non-restrictive variant rows (default catalog; never Printful `api` samples)
+ * 4) Legacy heroImage + galleryImages preview URLs — only when there are no customer-facing rows at all
+ * 5) Empty array when rows exist but none match and there is no general/legacy pool (caller uses JSON matrix)
  *
  * Inactive rows ignored. Duplicate preview URLs removed without reordering collapse.
  */
@@ -158,7 +169,9 @@ export function getBestProductImages(
   legacyGalleryImages: string[] | null | undefined
 ): string[] {
   const legacy = legacyPreviewList(legacyHeroImage, legacyGalleryImages);
-  const active = (productImages || []).filter((r) => r.isActive !== false);
+  const active = (productImages || []).filter(
+    (r) => r.isActive !== false && !isPrintfulApiSampleSourceRow(r)
+  );
 
   if (active.length === 0) {
     return legacy;
@@ -206,6 +219,23 @@ export function getBestProductImages(
     return pack(generalPool);
   }
 
-  // Had only unmatched variant-specific rows and no general/API pool — let PDP use matrix / variant JSON.
+  // Had only unmatched variant-specific rows and no general pool — let PDP use matrix / variant JSON.
   return [];
+}
+
+/**
+ * Preview URLs for shop rows that exactly match the selected variant context (option-targeted rows only).
+ * Used by the PDP to prepend exact storefront images ahead of JSON matrix / broader getBestProductImages.
+ */
+export function getExactMatchProductImagePreviewUrls(
+  productImages: StorefrontProductImage[] | null | undefined,
+  selectedOptions: VariantImageMatchContext
+): string[] {
+  const active = (productImages || []).filter(
+    (r) => r.isActive !== false && !isPrintfulApiSampleSourceRow(r)
+  );
+  const specificPool = active.filter((r) => !isGeneralCatalogRow(r));
+  const exact = specificPool.filter((r) => exactMetadataMatch(r, selectedOptions));
+  if (exact.length === 0) return [];
+  return dedupePreviewUrlsPreserveOrder(orderImagePreviewUrlsHeroFirst(exact));
 }

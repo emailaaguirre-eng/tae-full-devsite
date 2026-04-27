@@ -1,5 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/artkey-uses/public-speakers",
+        destination: "/artkey-uses/public-figures-speakers",
+        permanent: true,
+      },
+    ];
+  },
+
   // Skip TypeScript and ESLint during build
   // These have pre-existing issues that need to be fixed incrementally
   typescript: {
