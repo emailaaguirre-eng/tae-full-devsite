@@ -945,6 +945,136 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
     }
   };
 
+  const uploadPortalAssetFile = async (
+    auth: { publicToken: string; ownerToken: string },
+    file: File
+  ) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('publicToken', auth.publicToken);
+    if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
+
+    const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(result?.error || 'Upload failed');
+    }
+
+    const url = result.url || result.fileUrl;
+    if (!url) {
+      throw new Error('Upload returned no file URL');
+    }
+
+    return url;
+  };
+
+  const generateThumbnailFromVideoUrl = async (videoUrl: string, sourceName = 'video') => {
+    if (typeof document === 'undefined') {
+      throw new Error('Document not available for thumbnail generation.');
+    }
+
+    return await new Promise<File>((resolve, reject) => {
+      const video = document.createElement('video');
+      let settled = false;
+
+      const done = (fn: (value: any) => void, value: any) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        fn(value);
+      };
+
+      const cleanup = () => {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        video.onloadedmetadata = null;
+        video.onloadeddata = null;
+        video.onseeked = null;
+        video.onerror = null;
+      };
+
+      const captureFrame = () => {
+        try {
+          const width = video.videoWidth || 0;
+          const height = video.videoHeight || 0;
+          if (!width || !height) {
+            return done(reject, new Error('Uploaded video did not expose frame dimensions.'));
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            return done(reject, new Error('Could not create thumbnail canvas context.'));
+          }
+
+          ctx.drawImage(video, 0, 0, width, height);
+
+          const baseName = String(sourceName || 'video')
+            .replace(/\.[^.]+$/, '')
+            .replace(/[^a-z0-9_-]+/gi, '-')
+            .replace(/^-+|-+$/g, '') || 'video-thumbnail';
+
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              return done(reject, new Error('Could not encode video thumbnail image.'));
+            }
+
+            done(
+              resolve,
+              new File([blob], `${baseName}-thumbnail.jpg`, {
+                type: 'image/jpeg',
+              })
+            );
+          }, 'image/jpeg', 0.85);
+        } catch (err: any) {
+          done(reject, err instanceof Error ? err : new Error('Thumbnail capture failed.'));
+        }
+      };
+
+      video.preload = 'metadata';
+      video.muted = true;
+      video.playsInline = true;
+      video.crossOrigin = 'anonymous';
+
+      video.onerror = () => {
+        done(reject, new Error('Could not load uploaded video to generate thumbnail.'));
+      };
+
+      video.onloadedmetadata = () => {
+        const duration = Number.isFinite(video.duration) ? video.duration : 0;
+        const targetTime = duration > 1 ? Math.min(1, Math.max(0.1, duration * 0.25)) : 0;
+
+        if (targetTime > 0) {
+          try {
+            video.currentTime = targetTime;
+            return;
+          } catch {}
+        }
+
+        if (video.readyState >= 2) {
+          captureFrame();
+        }
+      };
+
+      video.onloadeddata = () => {
+        if (video.currentTime === 0) {
+          captureFrame();
+        }
+      };
+
+      video.onseeked = () => {
+        captureFrame();
+      };
+
+      video.src = videoUrl;
+      video.load();
+    });
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -1039,7 +1169,19 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
           continue;
         }
 
-        nextUploadedVideos = [...nextUploadedVideos, videoUrl];
+        let uploadedVideoEntry: any = { url: videoUrl };
+
+        try {
+          const generatedThumbFile = await generateThumbnailFromVideoUrl(videoUrl, file.name);
+          const generatedThumbUrl = await uploadPortalAssetFile(auth, generatedThumbFile);
+          if (generatedThumbUrl) {
+            uploadedVideoEntry = { ...uploadedVideoEntry, thumbnailUrl: generatedThumbUrl };
+          }
+        } catch (thumbErr) {
+          console.warn('Auto video thumbnail generation failed:', thumbErr);
+        }
+
+        nextUploadedVideos = [...nextUploadedVideos, uploadedVideoEntry];
         setArtKeyData((prev) => ({ ...prev, uploadedVideos: nextUploadedVideos }));
 
         try {
@@ -3001,6 +3143,16 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                           onSetFeatured={handleSetFeaturedVideo}
                           featuredVideoLabel={artKeyData.featured_video?.button_label}
                           uploadStatus={videoUploadStatus}
+                          onUpdateVideoThumbnail={(idx, thumbnailUrl) => {
+                            setArtKeyData((prev) => {
+                              const nextVideos = [...(prev.uploadedVideos || [])];
+                              const current = nextVideos[idx];
+                              if (!current) return prev;
+                              const normalized = typeof current === 'string' ? { url: current } : current;
+                              nextVideos[idx] = { ...normalized, thumbnailUrl };
+                              return { ...prev, uploadedVideos: nextVideos };
+                            });
+                          }}
                           onUpdateFeaturedLabel={(label) => {
                             if (artKeyData.featured_video) {
                               setArtKeyData((prev) => ({
@@ -4141,9 +4293,9 @@ function ColorPicker({ page, setPage, pages, label, colors, selected, onSelect, 
   );
 }
 
-function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, buttonLabel, isVideo, featuredVideoUrl, onSetFeatured, featuredVideoLabel, onUpdateFeaturedLabel, uploadStatus }: {
+function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, buttonLabel, isVideo, featuredVideoUrl, onSetFeatured, featuredVideoLabel, onUpdateFeaturedLabel, onUpdateVideoThumbnail, uploadStatus }: {
   title: string;
-  items: string[];
+  items: any[];
   onRemove: (idx: number) => void;
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   accept: string;
@@ -4154,6 +4306,7 @@ function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, button
   onSetFeatured?: (url: string, isFeatured: boolean) => void;
   featuredVideoLabel?: string;
   onUpdateFeaturedLabel?: (label: string) => void;
+  onUpdateVideoThumbnail?: (idx: number, thumbnailUrl: string) => void;
   uploadStatus?: {
     state: 'idle' | 'uploading' | 'complete' | 'error';
     message: string;
@@ -4164,38 +4317,90 @@ function MediaColumn({ title, items, onRemove, onUpload, accept, inputId, button
       <h4 className="text-sm font-semibold mb-2" style={{ color: COLOR_ACCENT }}>{title}</h4>
       {items.length > 0 && (
         <div className={isVideo ? 'space-y-2 mb-2' : 'grid grid-cols-3 gap-2 mb-2'}>
-          {items.map((it, idx) => (
-            <div key={idx} className="relative group">
-              {isVideo ? (
-                <>
-                  <video src={it} className="w-full h-20 object-cover rounded-lg" controls />
-                  {isVideo && onSetFeatured && (
-                    <div className="absolute bottom-1 left-1 flex items-center gap-1 bg-black/70 text-white px-2 py-1 rounded text-xs z-10">
+          {items.map((it, idx) => {
+            const videoItem = typeof it === 'string' ? { url: it } : it;
+            const videoUrl = videoItem?.url || '';
+            const videoThumb = videoItem?.thumbnailUrl || '';
+            return (
+            <div key={idx} className="group rounded-lg border border-gray-200 p-2 bg-white space-y-2">
+              <div className="relative">
+                {isVideo ? (
+                  videoThumb ? (
+                    <img src={videoThumb} alt="" className="w-full h-20 object-cover rounded-lg" />
+                  ) : (
+                    <video src={videoUrl} className="w-full h-20 object-cover rounded-lg" controls />
+                  )
+                ) : (
+                  <img src={it as string} alt="" className="w-full h-20 object-cover rounded-lg" />
+                )}
+                <button
+                  onClick={() => onRemove(idx)}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs z-10"
+                >
+                  ×
+                </button>
+              </div>
+              {isVideo && (
+                <div className="mt-2 space-y-2">
+                  {onSetFeatured && (
+                    <label className="flex items-center gap-2 text-xs">
                       <input
                         type="checkbox"
-                        checked={featuredVideoUrl === it}
+                        checked={featuredVideoUrl === videoUrl}
                         onChange={(e) => {
                           e.stopPropagation();
-                          onSetFeatured(it, e.target.checked);
+                          onSetFeatured(videoUrl, e.target.checked);
                         }}
                         className="w-3 h-3 cursor-pointer"
                         title="Mark as Featured Video"
                       />
-                      <span className="text-[10px]">Featured</span>
+                      <span className="text-[11px]" style={{ color: COLOR_ACCENT }}>Featured video</span>
+                    </label>
+                  )}
+                  {onUpdateVideoThumbnail && (
+                    <div>
+                      <label
+                        htmlFor={`${inputId}-thumb-${idx}`}
+                        className="inline-flex px-2 py-1 rounded text-xs cursor-pointer"
+                        style={{ border: '1px solid #d8d8d6', background: '#fff', color: COLOR_ACCENT }}
+                      >
+                        Upload Thumbnail
+                      </label>
+                      <input
+                        id={`${inputId}-thumb-${idx}`}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const auth = await ensurePortalUploadAuth();
+                          if (!auth?.publicToken) return;
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          formData.append('publicToken', auth.publicToken);
+                          if (auth.ownerToken) formData.append('ownerToken', auth.ownerToken);
+                          try {
+                            const res = await fetch('/api/artkey/upload', { method: 'POST', body: formData });
+                            const result = await res.json().catch(() => ({}));
+                            if (!res.ok) throw new Error(result?.error || 'Thumbnail upload failed');
+                            const thumbUrl = result.url || result.fileUrl;
+                            if (!thumbUrl) throw new Error('Thumbnail upload returned no file URL');
+                            onUpdateVideoThumbnail(idx, thumbUrl);
+                          } catch (err: any) {
+                            notifyUploadError(err?.message || 'Thumbnail upload failed');
+                          } finally {
+                            e.target.value = '';
+                          }
+                        }}
+                      />
                     </div>
                   )}
-                </>
-              ) : (
-                <img src={it} alt="" className="w-full h-20 object-cover rounded-lg" />
+                </div>
               )}
-              <button
-                onClick={() => onRemove(idx)}
-                className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs z-10"
-              >
-                ×
-              </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {isVideo && featuredVideoUrl && onUpdateFeaturedLabel && (

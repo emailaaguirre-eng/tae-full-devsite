@@ -25,6 +25,7 @@ export default function ArtKeyPortalPage() {
   const customLinks = portal.links || [];
   const uploadedVideos = Array.isArray(portal.uploadedVideos) ? portal.uploadedVideos : [];
   const featuredVideoUrl = portal.featuredVideo?.video_url || null;
+  const hasAnyVideos = Boolean(featuredVideoUrl) || uploadedVideos.some(Boolean);
   const favorites = getPortalFavorites(portal);
   const hasFavorites = favorites.length > 0;
   /** Respect explicit enable_favorites; older portals without the flag keep the old “show when non-empty” behavior. */
@@ -65,22 +66,11 @@ export default function ArtKeyPortalPage() {
                   label: portal.featuredVideo?.button_label || f.label || "Featured Video",
                 });
               }
-              uploadedVideos.forEach((url: string, idx: number) => {
-                if (!url || url === featuredVideoUrl) return;
-                videoButtons.push({
-                  key: `video-${idx}`,
-                  href: `/art-key/${token}/video?v=${idx}`,
-                  label:
-                    !featuredVideoUrl && videoButtons.length === 0
-                      ? portal.featuredVideo?.button_label || f.label || "Featured Video"
-                      : `Video ${idx + 1}`,
-                });
-              });
-              if (videoButtons.length === 0) {
+              if (hasAnyVideos) {
                 videoButtons.push({
                   key: "video",
                   href: `/art-key/${token}/video`,
-                  label: portal.featuredVideo?.button_label || f.label || "Featured Video",
+                  label: f.label || "Videos",
                 });
               }
               return videoButtons;
@@ -103,35 +93,22 @@ export default function ArtKeyPortalPage() {
             ? { key: "gallery", href: `/art-key/${token}/gallery`, label: "Gallery" }
             : null,
           ...(features.enable_video
-            ? (() => {
-                const videoButtons: Array<{ key: string; href: string; label: string }> = [];
-                if (featuredVideoUrl) {
-                  videoButtons.push({
-                    key: "video-featured",
-                    href: `/art-key/${token}/video?v=featured`,
-                    label: portal.featuredVideo?.button_label || "Featured Video",
-                  });
-                }
-                uploadedVideos.forEach((url: string, idx: number) => {
-                  if (!url || url === featuredVideoUrl) return;
-                  videoButtons.push({
-                    key: `video-${idx}`,
-                    href: `/art-key/${token}/video?v=${idx}`,
-                    label:
-                      !featuredVideoUrl && videoButtons.length === 0
-                        ? portal.featuredVideo?.button_label || "Featured Video"
-                        : `Video ${idx + 1}`,
-                  });
-                });
-                if (videoButtons.length === 0) {
-                  videoButtons.push({
-                    key: "video",
-                    href: `/art-key/${token}/video`,
-                    label: portal.featuredVideo?.button_label || "Featured Video",
-                  });
-                }
-                return videoButtons;
-              })()
+            ? [
+                ...(featuredVideoUrl
+                  ? [{
+                      key: "video-featured",
+                      href: `/art-key/${token}/video?v=featured`,
+                      label: portal.featuredVideo?.button_label || "Featured Video",
+                    }]
+                  : []),
+                ...(hasAnyVideos
+                  ? [{
+                      key: "video",
+                      href: `/art-key/${token}/video`,
+                      label: "Videos",
+                    }]
+                  : []),
+              ]
             : []),
           features.enable_spotify
             ? { key: "spotify", href: `/art-key/${token}/spotify`, label: "Listen" }
