@@ -14,6 +14,22 @@ import {
   type VariantImageMatchContext,
 } from "@/lib/storefront-product-images";
 
+function isBlockedPrintfulImageUrl(url: string | null | undefined): boolean {
+  const value = String(url || "").trim();
+  if (!value) return false;
+  try {
+    const parsed = new URL(value, "https://local.invalid");
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host.includes("printful") ||
+      host.includes("printfulusercontent") ||
+      host.includes("printful-upload")
+    );
+  } catch {
+    return /printful/i.test(value);
+  }
+}
+
 interface ProductDetail {
   id: string;
   slug: string;
@@ -204,7 +220,7 @@ function buildCustomerFacingDisplayUrls(args: {
   const out: string[] = [];
   const push = (u: string | null | undefined) => {
     const t = (u || "").trim();
-    if (!t || seen.has(t)) return;
+    if (!t || isBlockedPrintfulImageUrl(t) || seen.has(t)) return;
     seen.add(t);
     out.push(t);
   };
@@ -382,12 +398,8 @@ export default function ProductDetailPage() {
         variantMatrix: Array.isArray(parsed?.variantMatrix)
           ? (parsed.variantMatrix as VariantImageMeta[])
           : [],
-        variantImages: Array.isArray(parsed?.variantImages)
-          ? (parsed.variantImages as VariantImageMeta[])
-          : [],
-        siblingVariants: Array.isArray(parsed?.siblingVariants)
-          ? (parsed.siblingVariants as VariantImageMeta[])
-          : [],
+        variantImages: [],
+        siblingVariants: [],
       };
     } catch {
       return { variantMatrix: [], variantImages: [], siblingVariants: [] };
@@ -462,8 +474,10 @@ export default function ProductDetailPage() {
       return fromShop;
     }
     const fallback = [
-      ...(product.heroImage ? [product.heroImage] : []),
-      ...(product.galleryImages || []).filter((url) => !!url && url !== product.heroImage),
+      ...(product.heroImage && !isBlockedPrintfulImageUrl(product.heroImage) ? [product.heroImage] : []),
+      ...(product.galleryImages || []).filter(
+        (url) => !!url && url !== product.heroImage && !isBlockedPrintfulImageUrl(url)
+      ),
     ];
     const base =
       exactVariantImages.length > 0
@@ -472,9 +486,10 @@ export default function ProductDetailPage() {
         ? formatSpecificImages
         : [...new Set(fallback)];
     const vh = currentVariant?.heroImage;
-    if (!vh) return base;
+    const safeVh = vh && !isBlockedPrintfulImageUrl(vh) ? vh : null;
+    if (!safeVh) return base;
     if (exactVariantImages.length > 0) return base;
-    return [vh, ...base.filter((u) => u !== vh)];
+    return [safeVh, ...base.filter((u) => u !== safeVh)];
   }, [
     hasUserSelectedOption,
     variantMatchCtx,
@@ -492,7 +507,7 @@ export default function ProductDetailPage() {
       return st === "general" || id.startsWith("libasset:");
     });
     const generalHero = generalRows.find((row) => row.isHero) || generalRows[0] || null;
-    return generalHero?.previewUrl || product?.heroImage || null;
+    return generalHero?.previewUrl || null;
   }, [product]);
 
   useEffect(() => {
@@ -723,7 +738,6 @@ export default function ProductDetailPage() {
       (hasUserSelectedOption
         ? displayImages[activeImageIndex] || displayImages[0] || initialHeroPreview
         : initialHeroPreview) ||
-      product.heroImage ||
       undefined;
     addToCart({
       id: `${product.id}:${currentVariant?.printfulVariantId ?? "default"}`,

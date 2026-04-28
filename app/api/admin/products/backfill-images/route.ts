@@ -182,6 +182,12 @@ function getTargets(products: any[], options: BackfillOptions) {
 }
 
 export async function GET() {
+  return NextResponse.json({
+    success: false,
+    disabled: true,
+    error: "Printful image backfill has been retired. Manual product image management is now the only supported source for storefront images.",
+  }, { status: 410 });
+
   try {
     const missingEnv = validateEnv();
     const db = await getDb();
@@ -219,6 +225,12 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  return NextResponse.json({
+    success: false,
+    disabled: true,
+    error: "Printful image backfill has been retired. Manual product image management is now the only supported source for storefront images.",
+  }, { status: 410 });
+
   try {
     const body = await req.json().catch(() => ({}));
     const options: BackfillOptions = {

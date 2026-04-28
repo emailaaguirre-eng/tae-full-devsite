@@ -2484,30 +2484,6 @@ export default function AdminProductsPage() {
         </div>
         <div className="flex items-center gap-3 flex-wrap justify-end">
           <button
-            onClick={handleBackfillPreflight}
-            disabled={checkingBackfill || backfilling}
-            className={BTN_SECONDARY}
-          >
-            {checkingBackfill ? (
-              <div className="animate-spin w-4 h-4 border-2 border-brand-dark border-t-transparent rounded-full" />
-            ) : (
-              <Search className="w-4 h-4" />
-            )}
-            {checkingBackfill ? "Checking..." : "Check Backfill"}
-          </button>
-          <button
-            onClick={handleBackfillImages}
-            disabled={backfilling || checkingBackfill}
-            className={BTN_SECONDARY}
-          >
-            {backfilling ? (
-              <div className="animate-spin w-4 h-4 border-2 border-brand-dark border-t-transparent rounded-full" />
-            ) : (
-              <Package className="w-4 h-4" />
-            )}
-            {backfilling ? "Backfilling..." : "Backfill Images"}
-          </button>
-          <button
             onClick={handleSyncPrintSpecs}
             disabled={syncingSpecs}
             className={BTN_SECONDARY}
