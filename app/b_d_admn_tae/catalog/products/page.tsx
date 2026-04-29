@@ -358,10 +358,24 @@ function imageRuleFieldTrim(v: unknown): string {
   return String(v).trim();
 }
 
+function parseImageRuleMatchValues(v: unknown): string[] {
+  const raw = imageRuleFieldTrim(v);
+  if (!raw) return [];
+  if (raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return [...new Set(parsed.map((item) => imageRuleFieldTrim(item)).filter(Boolean))];
+      }
+    } catch {}
+  }
+  return [raw];
+}
+
 function hasRestrictiveImageMetadata(row: ProductImageEntry): boolean {
   return !!(
-    imageRuleFieldTrim(row.variantKey) ||
-    imageRuleFieldTrim(row.variantId) ||
+    parseImageRuleMatchValues(row.variantKey).length > 0 ||
+    parseImageRuleMatchValues(row.variantId).length > 0 ||
     imageRuleFieldTrim(row.size) ||
     imageRuleFieldTrim(row.frame) ||
     imageRuleFieldTrim(row.frameColor) ||
@@ -409,16 +423,21 @@ function imageEntryStorefrontSummary(
   if (row.frameColor?.trim()) human.push(row.frameColor.trim());
   if (row.orientation?.trim()) human.push(row.orientation.trim());
   if (row.format?.trim()) human.push(row.format.trim());
-  if (row.variantKey?.trim()) {
-    const mr = ruleOpts.matrixRows.find((m) => m.id === row.variantKey!.trim());
-    human.push(mr ? mr.label : `Matrix ${row.variantKey.trim().slice(0, 10)}`);
+
+  for (const key of parseImageRuleMatchValues(row.variantKey)) {
+    const mr = ruleOpts.matrixRows.find((m) => m.id === key);
+    human.push(mr ? mr.label : `Matrix ${key.slice(0, 10)}`);
   }
-  const vidLabel = imageRuleFieldTrim(row.variantId);
-  if (vidLabel) human.push(`Printful ${vidLabel}`);
-  const applies = human.length > 0 ? human.join(" · ") : "Custom variant rules";
+
+  for (const vid of parseImageRuleMatchValues(row.variantId)) {
+    human.push(`Printful ${vid}`);
+  }
+
+  const dedupedHuman = [...new Set(human)];
+  const applies = dedupedHuman.length > 0 ? dedupedHuman.join(" · ") : "Custom variant rules";
   const hint =
-    human.length > 0
-      ? `Displays when the shopper selection matches: ${human.join(" + ")}. If nothing matches, the storefront falls back to general images.`
+    dedupedHuman.length > 0
+      ? `Displays when the shopper selection matches: ${dedupedHuman.join(" + ")}. If nothing matches, the storefront falls back to general images.`
       : "Variant-specific rules — storefront uses exact/partial matching on these fields.";
   return {
     appliesTo: applies,
@@ -1969,9 +1988,9 @@ export default function AdminProductsPage() {
 
   const handleSetHeroIndex = async (idx: number) => {
     if (!imageEditProduct) return;
-    const sorted = [...galleryDraft].sort((a, b) => a.sortOrder - b.sortOrder);
+    const sorted = [...galleryDraftRef.current].sort((a, b) => a.sortOrder - b.sortOrder);
     const next = sorted.map((r, i) => ({ ...r, isHero: i === idx }));
-    setGalleryDraft(next);
+    setGalleryDraftSync(next);
     await persistProductGallery(imageEditProduct.id, next);
   };
 
@@ -4312,49 +4331,6 @@ export default function AdminProductsPage() {
                     </a>
                     . When set, these are preferred over manual hero/gallery URLs on the storefront.
                   </p>
-                  {(() => {
-                    const libHeroThumb =
-                      (libHeroId && libraryAssets.find((a) => a.id === libHeroId)?.imageUrl) ||
-                      (libHeroId &&
-                        imageEditProduct.productImages?.find((r) => r.id === `libasset:${libHeroId}`)?.imageUrl) ||
-                      null;
-                    return (
-                      <div className="space-y-2">
-                        <div className="text-[10px] font-semibold text-brand-dark">Library hero</div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <div className="w-20 h-20 border border-brand-light bg-gray-50 overflow-hidden shrink-0">
-                            {libHeroThumb ? (
-                              <img src={libHeroThumb} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-brand-medium text-[10px] text-center px-1">
-                                None
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              disabled={librarySaving}
-                              onClick={() => void openLibraryPicker("hero")}
-                              className="px-3 py-1.5 text-xs border border-brand-dark text-brand-dark hover:bg-brand-dark/10 disabled:opacity-50"
-                            >
-                              {libHeroId ? "Change" : "Choose from library"}
-                            </button>
-                            {libHeroId && (
-                              <button
-                                type="button"
-                                disabled={librarySaving}
-                                onClick={() => void persistLibraryAssignments(null, libGalleryIds)}
-                                className="px-3 py-1.5 text-xs border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
                   <div className="space-y-2 pt-2 border-t border-brand-light/60">
                     <div className="text-[10px] font-semibold text-brand-dark">Library global gallery</div>
                     <div className="flex flex-wrap gap-2">
@@ -4570,323 +4546,115 @@ export default function AdminProductsPage() {
                                 <option value="api">API — imported / synced</option>
                               </select>
                             </div>
-                            {row.sourceType === "variant" && (
-                              <div className="rounded border border-brand-light/90 bg-white/80 p-2.5 space-y-2">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <p className="text-[10px] font-semibold text-brand-dark">
-                                    Match storefront selection
+                            {row.sourceType === "variant" && (() => {
+                              const selectedMatrixRows = parseImageRuleMatchValues(row.variantKey);
+                              const serializeMatchValues = (values: string[]) => {
+                                const cleaned = [...new Set(values.map((v) => imageRuleFieldTrim(v)).filter(Boolean))];
+                                if (cleaned.length === 0) return null;
+                                return cleaned.length === 1 ? cleaned[0] : JSON.stringify(cleaned);
+                              };
+                              const buildMatrixPatch = (ids: string[]): Partial<ProductImageEntry> => {
+                                const cleanedIds = [...new Set(ids.map((v) => imageRuleFieldTrim(v)).filter(Boolean))];
+                                const variantIds = cleanedIds
+                                  .map((id) => {
+                                    const mr = ruleOpts.matrixRows.find((m) => m.id === id);
+                                    const raw = mr?.printfulVariantId;
+                                    return raw != null && Number.isFinite(Number(raw))
+                                      ? String(Math.trunc(Number(raw)))
+                                      : "";
+                                  })
+                                  .filter(Boolean);
+                                return {
+                                  variantKey: serializeMatchValues(cleanedIds),
+                                  variantId: serializeMatchValues(variantIds),
+                                  size: null,
+                                  frame: null,
+                                  frameColor: null,
+                                  material: null,
+                                  orientation: null,
+                                  format: null,
+                                };
+                              };
+                              const availableMatrixRows = ruleOpts.matrixRows.filter((m) => !selectedMatrixRows.includes(m.id));
+                              return (
+                                <div className="rounded border border-brand-light/90 bg-white/80 p-2.5 space-y-2">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="text-[10px] font-semibold text-brand-dark">
+                                      Match storefront selection
+                                    </p>
+                                    <button
+                                      type="button"
+                                      className="text-[10px] text-brand-dark underline decoration-brand-light"
+                                      onClick={() => void handleGalleryFieldChange(idx, buildMatrixPatch([]))}
+                                    >
+                                      Clear rules
+                                    </button>
+                                  </div>
+                                  <p className="text-[10px] text-brand-medium leading-snug">
+                                    Choose one or more matrix rows that should use this image. Add more rows when multiple storefront selections should share the same image.
                                   </p>
-                                  <button
-                                    type="button"
-                                    className="text-[10px] text-brand-dark underline decoration-brand-light"
-                                    onClick={() =>
-                                      void handleGalleryFieldChange(idx, {
-                                        variantKey: null,
-                                        variantId: null,
-                                        size: null,
-                                        frame: null,
-                                        frameColor: null,
-                                        material: null,
-                                        orientation: null,
-                                        format: null,
-                                      })
-                                    }
-                                  >
-                                    Clear rules
-                                  </button>
-                                </div>
-                                <p className="text-[10px] text-brand-medium">
-                                  Choose values from this product&apos;s variant matrix where possible. Leave &quot;(Any)&quot;
-                                  when that dimension should not constrain matching.
-                                </p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  <div>
-                                    <label className="block text-[10px] text-brand-medium mb-0.5">Matrix row</label>
-                                    <select
-                                      value={row.variantKey || ""}
-                                      onChange={(e) => {
-                                        const id = e.target.value.trim() || null;
-                                        if (!id) {
-                                          void handleGalleryFieldChange(idx, { variantKey: null });
-                                          return;
-                                        }
-                                        const mr = ruleOpts.matrixRows.find((m) => m.id === id);
-                                        const patch: Partial<ProductImageEntry> = { variantKey: id };
-                                        if (
-                                          mr?.printfulVariantId != null &&
-                                          Number.isFinite(Number(mr.printfulVariantId))
-                                        ) {
-                                          patch.variantId = String(Math.trunc(Number(mr.printfulVariantId)));
-                                        }
-                                        void handleGalleryFieldChange(idx, patch);
-                                      }}
-                                      className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                    >
-                                      <option value="">(Any matrix row)</option>
-                                      {ruleOpts.matrixRows.map((m) => (
-                                        <option key={m.id} value={m.id}>
-                                          {m.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] text-brand-medium mb-0.5">
-                                      Printful variant ID
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={row.variantId || ""}
-                                      list={ruleOpts.printfulVariantIds.length ? pfVidListId : undefined}
-                                      onChange={(e) =>
-                                        setGalleryDraftSync((prev) => {
-                                          const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
-                                          return s.map((r, i) =>
-                                            i === idx ? { ...r, variantId: e.target.value || null } : r
+                                  <div className="space-y-2">
+                                    <div>
+                                      <label className="block text-[10px] text-brand-medium mb-0.5">Matrix row</label>
+                                      <select
+                                        value=""
+                                        onChange={(e) => {
+                                          const id = imageRuleFieldTrim(e.target.value);
+                                          if (!id) return;
+                                          void handleGalleryFieldChange(idx, buildMatrixPatch([...selectedMatrixRows, id]));
+                                        }}
+                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
+                                      >
+                                        <option value="">Add a matrix row...</option>
+                                        {availableMatrixRows.map((m) => (
+                                          <option key={m.id} value={m.id}>
+                                            {m.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    {selectedMatrixRows.length > 0 ? (
+                                      <div className="space-y-2">
+                                        {selectedMatrixRows.map((key, matchIdx) => {
+                                          const mr = ruleOpts.matrixRows.find((m) => m.id === key);
+                                          const label = mr ? mr.label : `Matrix ${key.slice(0, 10)}`;
+                                          return (
+                                            <div
+                                              key={`${row.id}-matrix-${key}-${matchIdx}`}
+                                              className="flex flex-wrap items-center justify-between gap-2 rounded border border-brand-light/80 bg-white px-2 py-1.5"
+                                            >
+                                              <div className="min-w-0">
+                                                <div className="text-[10px] font-medium text-brand-dark">
+                                                  Row {matchIdx + 1}
+                                                </div>
+                                                <div className="text-[10px] text-brand-medium break-words">
+                                                  {label}
+                                                </div>
+                                              </div>
+                                              <button
+                                                type="button"
+                                                className="text-[10px] text-red-600 hover:underline"
+                                                onClick={() => {
+                                                  const next = selectedMatrixRows.filter((_, i) => i !== matchIdx);
+                                                  void handleGalleryFieldChange(idx, buildMatrixPatch(next));
+                                                }}
+                                              >
+                                                Remove
+                                              </button>
+                                            </div>
                                           );
-                                        })
-                                      }
-                                      onBlur={(e) =>
-                                        void handleGalleryFieldChange(idx, {
-                                          variantId: e.target.value.trim() || null,
-                                        })
-                                      }
-                                      placeholder="e.g. 4012"
-                                      className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                    />
-                                    {ruleOpts.printfulVariantIds.length > 0 && (
-                                      <datalist id={pfVidListId}>
-                                        {ruleOpts.printfulVariantIds.map((v) => (
-                                          <option key={v} value={v} />
-                                        ))}
-                                      </datalist>
-                                    )}
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] text-brand-medium mb-0.5">Size</label>
-                                    {ruleOpts.sizes.length > 0 ? (
-                                      <select
-                                        value={row.size || ""}
-                                        onChange={(e) =>
-                                          void handleGalleryFieldChange(idx, {
-                                            size: e.target.value.trim() || null,
-                                          })
-                                        }
-                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                      >
-                                        <option value="">(Any)</option>
-                                        {ruleOpts.sizes.map((o) => (
-                                          <option key={o} value={o}>
-                                            {o}
-                                          </option>
-                                        ))}
-                                      </select>
+                                        })}
+                                      </div>
                                     ) : (
-                                      <input
-                                        type="text"
-                                        value={row.size || ""}
-                                        onChange={(e) =>
-                                          setGalleryDraftSync((prev) => {
-                                            const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
-                                            return s.map((r, i) =>
-                                              i === idx ? { ...r, size: e.target.value || null } : r
-                                            );
-                                          })
-                                        }
-                                        onBlur={(e) =>
-                                          void handleGalleryFieldChange(idx, {
-                                            size: e.target.value.trim() || null,
-                                          })
-                                        }
-                                        placeholder="Size label"
-                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                      />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] text-brand-medium mb-0.5">Material / paper</label>
-                                    {ruleOpts.materials.length > 0 ? (
-                                      <select
-                                        value={row.material || ""}
-                                        onChange={(e) =>
-                                          void handleGalleryFieldChange(idx, {
-                                            material: e.target.value.trim() || null,
-                                          })
-                                        }
-                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                      >
-                                        <option value="">(Any)</option>
-                                        {ruleOpts.materials.map((o) => (
-                                          <option key={o} value={o}>
-                                            {o}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <input
-                                        type="text"
-                                        value={row.material || ""}
-                                        onChange={(e) =>
-                                          setGalleryDraftSync((prev) => {
-                                            const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
-                                            return s.map((r, i) =>
-                                              i === idx ? { ...r, material: e.target.value || null } : r
-                                            );
-                                          })
-                                        }
-                                        onBlur={(e) =>
-                                          void handleGalleryFieldChange(idx, {
-                                            material: e.target.value.trim() || null,
-                                          })
-                                        }
-                                        placeholder="Matches storefront material/paper"
-                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                      />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] text-brand-medium mb-0.5">Frame / finish</label>
-                                    {ruleOpts.frames.length > 0 ? (
-                                      <select
-                                        value={row.frame || ""}
-                                        onChange={(e) =>
-                                          void handleGalleryFieldChange(idx, {
-                                            frame: e.target.value.trim() || null,
-                                          })
-                                        }
-                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                      >
-                                        <option value="">(Any)</option>
-                                        {ruleOpts.frames.map((o) => (
-                                          <option key={o} value={o}>
-                                            {o}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <input
-                                        type="text"
-                                        value={row.frame || ""}
-                                        onChange={(e) =>
-                                          setGalleryDraftSync((prev) => {
-                                            const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
-                                            return s.map((r, i) =>
-                                              i === idx ? { ...r, frame: e.target.value || null } : r
-                                            );
-                                          })
-                                        }
-                                        onBlur={(e) =>
-                                          void handleGalleryFieldChange(idx, {
-                                            frame: e.target.value.trim() || null,
-                                          })
-                                        }
-                                        placeholder="Frame / envelope / finish"
-                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                      />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] text-brand-medium mb-0.5">Frame color</label>
-                                    {ruleOpts.frameColors.length > 0 ? (
-                                      <select
-                                        value={row.frameColor || ""}
-                                        onChange={(e) =>
-                                          void handleGalleryFieldChange(idx, {
-                                            frameColor: e.target.value.trim() || null,
-                                          })
-                                        }
-                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                      >
-                                        <option value="">(Any)</option>
-                                        {ruleOpts.frameColors.map((o) => (
-                                          <option key={o} value={o}>
-                                            {o}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <input
-                                        type="text"
-                                        value={row.frameColor || ""}
-                                        onChange={(e) =>
-                                          setGalleryDraftSync((prev) => {
-                                            const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
-                                            return s.map((r, i) =>
-                                              i === idx ? { ...r, frameColor: e.target.value || null } : r
-                                            );
-                                          })
-                                        }
-                                        onBlur={(e) =>
-                                          void handleGalleryFieldChange(idx, {
-                                            frameColor: e.target.value.trim() || null,
-                                          })
-                                        }
-                                        placeholder="Frame color"
-                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                      />
-                                    )}
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] text-brand-medium mb-0.5">Orientation</label>
-                                    <select
-                                      value={row.orientation || ""}
-                                      onChange={(e) =>
-                                        void handleGalleryFieldChange(idx, {
-                                          orientation: e.target.value.trim() || null,
-                                        })
-                                      }
-                                      className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                    >
-                                      <option value="">(Any)</option>
-                                      <option value="Portrait">Portrait</option>
-                                      <option value="Landscape">Landscape</option>
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] text-brand-medium mb-0.5">Format</label>
-                                    {ruleOpts.formats.length > 0 ? (
-                                      <select
-                                        value={row.format || ""}
-                                        onChange={(e) =>
-                                          void handleGalleryFieldChange(idx, {
-                                            format: e.target.value.trim() || null,
-                                          })
-                                        }
-                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                      >
-                                        <option value="">(Any)</option>
-                                        {ruleOpts.formats.map((o) => (
-                                          <option key={o} value={o}>
-                                            {o}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <input
-                                        type="text"
-                                        value={row.format || ""}
-                                        onChange={(e) =>
-                                          setGalleryDraftSync((prev) => {
-                                            const s = [...prev].sort((a, b) => a.sortOrder - b.sortOrder);
-                                            return s.map((r, i) =>
-                                              i === idx ? { ...r, format: e.target.value || null } : r
-                                            );
-                                          })
-                                        }
-                                        onBlur={(e) =>
-                                          void handleGalleryFieldChange(idx, {
-                                            format: e.target.value.trim() || null,
-                                          })
-                                        }
-                                        placeholder="e.g. flat, bifold"
-                                        className="w-full border border-brand-light px-2 py-1 text-[10px] bg-white"
-                                      />
+                                      <p className="text-[10px] text-brand-medium leading-snug">
+                                        No matrix rows selected yet. Until at least one row is added, this image behaves like a default gallery image.
+                                      </p>
                                     )}
                                   </div>
                                 </div>
-                              </div>
-                            )}
-                            <div className="flex justify-end">
+                              );
+                            })()}                            <div className="flex justify-end">
                               <button
                                 type="button"
                                 onClick={() => void handleRemoveGalleryRow(idx)}

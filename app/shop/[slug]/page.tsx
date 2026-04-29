@@ -230,6 +230,11 @@ function buildCustomerFacingDisplayUrls(args: {
   }
   for (const u of exactMatrixUrls) push(u);
   for (const u of formatSpecificUrls) push(u);
+  push(variantHero);
+
+  if (out.length > 0) {
+    return out;
+  }
 
   const broader = getBestProductImages(
     product.productImages,
@@ -239,7 +244,10 @@ function buildCustomerFacingDisplayUrls(args: {
   );
   for (const u of broader) push(u);
 
-  push(variantHero);
+  if (out.length > 0) {
+    return out;
+  }
+
   push(product.heroImage);
   for (const u of product.galleryImages || []) push(u);
 
@@ -464,32 +472,34 @@ export default function ProductDetailPage() {
         variantHero: currentVariant?.heroImage,
       });
     }
-    const fromShop = getBestProductImages(
-      product.productImages,
-      variantMatchCtx,
-      product.heroImage,
-      product.galleryImages || []
-    );
-    if (fromShop.length > 0) {
-      return fromShop;
-    }
-    const fallback = [
-      ...(product.heroImage && !isBlockedPrintfulImageUrl(product.heroImage) ? [product.heroImage] : []),
-      ...(product.galleryImages || []).filter(
-        (url) => !!url && url !== product.heroImage && !isBlockedPrintfulImageUrl(url)
-      ),
+    const activeRows = (product.productImages || []).filter((row) => {
+      if (row.isActive === false || isPrintfulApiSampleSourceRow(row)) return false;
+      return !isBlockedPrintfulImageUrl(row.previewUrl);
+    });
+
+    const generalRows = activeRows.filter((row) => {
+      const st = String(row.sourceType || "general").trim().toLowerCase();
+      const id = String(row.id || "");
+      return st === "general" || id.startsWith("libasset:");
+    });
+
+    const generalHero = generalRows.find((row) => row.isHero) || generalRows[0] || null;
+    const fromGeneral = [
+      ...(generalHero?.previewUrl ? [generalHero.previewUrl] : []),
+      ...generalRows
+        .filter((row) => !generalHero || row.id !== generalHero.id)
+        .map((row) => row.previewUrl)
+        .filter((url): url is string => !!url && url !== generalHero?.previewUrl),
     ];
-    const base =
-      exactVariantImages.length > 0
-        ? exactVariantImages
-        : formatSpecificImages.length > 0
-        ? formatSpecificImages
-        : [...new Set(fallback)];
-    const vh = currentVariant?.heroImage;
-    const safeVh = vh && !isBlockedPrintfulImageUrl(vh) ? vh : null;
-    if (!safeVh) return base;
-    if (exactVariantImages.length > 0) return base;
-    return [safeVh, ...base.filter((u) => u !== safeVh)];
+
+    if (fromGeneral.length > 0) return fromGeneral;
+
+    return [
+      ...(product.heroImage && !isBlockedPrintfulImageUrl(product.heroImage) ? [product.heroImage] : []),
+      ...((product.galleryImages || []).filter(
+        (url) => !!url && url !== product.heroImage && !isBlockedPrintfulImageUrl(url)
+      )),
+    ];
   }, [
     hasUserSelectedOption,
     variantMatchCtx,
@@ -499,16 +509,38 @@ export default function ProductDetailPage() {
     currentVariant?.heroImage,
   ]);
 
-  const initialHeroPreview = useMemo(() => {
-    const generalRows = (product?.productImages || []).filter((row) => {
+  const defaultCatalogImages = useMemo(() => {
+    const activeRows = (product?.productImages || []).filter((row) => {
       if (row.isActive === false || isPrintfulApiSampleSourceRow(row)) return false;
+      return !isBlockedPrintfulImageUrl(row.previewUrl);
+    });
+
+    const generalRows = activeRows.filter((row) => {
       const st = String(row.sourceType || "general").trim().toLowerCase();
       const id = String(row.id || "");
       return st === "general" || id.startsWith("libasset:");
     });
+
     const generalHero = generalRows.find((row) => row.isHero) || generalRows[0] || null;
-    return generalHero?.previewUrl || null;
+    const fromGeneral = [
+      ...(generalHero?.previewUrl ? [generalHero.previewUrl] : []),
+      ...generalRows
+        .filter((row) => !generalHero || row.id !== generalHero.id)
+        .map((row) => row.previewUrl)
+        .filter((url): url is string => !!url && url !== generalHero?.previewUrl),
+    ];
+
+    if (fromGeneral.length > 0) return fromGeneral;
+
+    return [
+      ...(product?.heroImage && !isBlockedPrintfulImageUrl(product.heroImage) ? [product.heroImage] : []),
+      ...((product?.galleryImages || []).filter(
+        (url) => !!url && url !== product?.heroImage && !isBlockedPrintfulImageUrl(url)
+      )),
+    ];
   }, [product]);
+
+  const initialHeroPreview = defaultCatalogImages[0] || null;
 
   useEffect(() => {
     setHasUserSelectedOption(false);

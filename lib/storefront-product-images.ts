@@ -20,6 +20,20 @@ function norm(s: unknown): string {
     .toLowerCase();
 }
 
+function parseMatchValues(raw: string | null | undefined): string[] {
+  const value = String(raw ?? "").trim();
+  if (!value) return [];
+  if (value.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return [...new Set(parsed.map((v) => String(v ?? "").trim()).filter(Boolean))];
+      }
+    } catch {}
+  }
+  return [value];
+}
+
 export type VariantImageMatchContext = {
   matrixRowId: string | null;
   printfulVariantId: number | null;
@@ -34,8 +48,8 @@ export type VariantImageMatchContext = {
 /** Non-empty variantId / variantKey / dimension fields mean the row is option-specific (not default catalog). */
 function hasRestrictiveMetadata(row: ProductImagePublic): boolean {
   return !!(
-    row.variantId?.trim() ||
-    row.variantKey?.trim() ||
+    parseMatchValues(row.variantId).length > 0 ||
+    parseMatchValues(row.variantKey).length > 0 ||
     row.size?.trim() ||
     row.frame?.trim() ||
     row.frameColor?.trim() ||
@@ -70,17 +84,19 @@ function metadataPairs(row: ProductImagePublic, ctx: VariantImageMatchContext) {
 /** All non-empty row dimensions must equal context; variantId / variantKey when present must match. */
 function exactMetadataMatch(row: StorefrontProductImage, ctx: VariantImageMatchContext): boolean {
   const pv = ctx.printfulVariantId;
-  const vid = row.variantId?.trim();
-  if (vid) {
+  const variantIds = parseMatchValues(row.variantId);
+  if (variantIds.length > 0) {
     if (pv == null || pv <= 0) return false;
-    const n = Number(vid);
-    const ok = (Number.isFinite(n) && Math.trunc(n) === pv) || vid === String(pv);
+    const ok = variantIds.some((vid) => {
+      const n = Number(vid);
+      return (Number.isFinite(n) && Math.trunc(n) === pv) || vid === String(pv);
+    });
     if (!ok) return false;
   }
 
-  const vk = row.variantKey?.trim();
-  if (vk) {
-    if (!ctx.matrixRowId || vk !== ctx.matrixRowId) return false;
+  const variantKeys = parseMatchValues(row.variantKey);
+  if (variantKeys.length > 0) {
+    if (!ctx.matrixRowId || !variantKeys.includes(ctx.matrixRowId)) return false;
   }
 
   for (const [rv, cv] of metadataPairs(row, ctx)) {
@@ -102,13 +118,16 @@ function exactMetadataMatch(row: StorefrontProductImage, ctx: VariantImageMatchC
 function partialMetadataScore(row: StorefrontProductImage, ctx: VariantImageMatchContext): number {
   let score = 0;
   const pv = ctx.printfulVariantId;
-  const vid = row.variantId?.trim();
-  if (vid && pv != null && pv > 0) {
-    const n = Number(vid);
-    if ((Number.isFinite(n) && Math.trunc(n) === pv) || vid === String(pv)) score += 1000;
+  const variantIds = parseMatchValues(row.variantId);
+  if (variantIds.length > 0 && pv != null && pv > 0) {
+    const matched = variantIds.some((vid) => {
+      const n = Number(vid);
+      return (Number.isFinite(n) && Math.trunc(n) === pv) || vid === String(pv);
+    });
+    if (matched) score += 1000;
   }
-  const vk = row.variantKey?.trim();
-  if (vk && ctx.matrixRowId && vk === ctx.matrixRowId) score += 1000;
+  const variantKeys = parseMatchValues(row.variantKey);
+  if (variantKeys.length > 0 && ctx.matrixRowId && variantKeys.includes(ctx.matrixRowId)) score += 1000;
 
   for (const [rv, cv] of metadataPairs(row, ctx)) {
     const r = norm(rv);
