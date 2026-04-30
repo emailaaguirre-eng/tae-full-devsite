@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useCallback, useState } from "react";
 
@@ -108,7 +109,267 @@ const AUTO_DELAY = 2600;
 const CARD_W = 332;
 const CARD_H = 520;
 
-export function PhoneCarousel() {
+const MOBILE_GAP = 14;
+
+/** Mobile-only order (desktop still uses CARD_DATA as-is). No duplicates. */
+const MOBILE_LEAD_HREFS = [
+  "/artkey-uses/birth-announcement",
+  "/artkey-uses/wedding",
+  "/artkey-uses/holiday-card",
+  "/artkey-uses/graduate",
+] as const;
+
+function mobileCarouselCards(): (typeof CARD_DATA)[number][] {
+  const byHref = new Map(CARD_DATA.map((c) => [c.href, c]));
+  const lead = MOBILE_LEAD_HREFS.map((h) => byHref.get(h)).filter(
+    (c): c is (typeof CARD_DATA)[number] => c != null
+  );
+  const leadSet = new Set<string>(MOBILE_LEAD_HREFS);
+  const rest = CARD_DATA.filter((c) => !leadSet.has(c.href));
+  return [...lead, ...rest];
+}
+
+const PHONE_CAROUSEL_MOBILE_CARDS = mobileCarouselCards();
+
+/**
+ * Mobile (viewport &lt; 768px): horizontal scroll-snap, next/image, no 3D / triple rail / ResizeObserver / autoplay.
+ * Desktop keeps PhoneCarouselDesktop.
+ */
+function PhoneCarouselMobile() {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  const scrollBySlide = (dir: number) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const slide = el.querySelector("article");
+    const w = slide ? slide.getBoundingClientRect().width + MOBILE_GAP : 294;
+    el.scrollBy({ left: dir * w, behavior: "smooth" });
+  };
+
+  return (
+    <section
+      aria-label="ArtKey uses"
+      style={{
+        width: "100%",
+        minHeight: "min(100vh, 720px)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "stretch",
+        justifyContent: "center",
+        padding: "24px 0 40px",
+        fontFamily:
+          "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        position: "relative",
+        background: "#fff",
+      }}
+    >
+      <div
+        ref={scrollerRef}
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          gap: MOBILE_GAP,
+          overflowX: "auto",
+          overflowY: "hidden",
+          scrollSnapType: "x mandatory",
+          WebkitOverflowScrolling: "touch",
+          overscrollBehaviorX: "contain",
+          touchAction: "pan-x",
+          padding: "12px max(16px, calc(50vw - min(42vw, 140px))) 20px",
+          scrollbarWidth: "thin",
+        }}
+      >
+        {PHONE_CAROUSEL_MOBILE_CARDS.map((card, i) => (
+          <article
+            key={card.href}
+            style={{
+              flex: "0 0 auto",
+              width: "min(calc(100vw - 48px), 300px)",
+              maxWidth: 300,
+              scrollSnapAlign: "center",
+              borderRadius: 20,
+              overflow: "hidden",
+              background: "#1f2937",
+              boxShadow: "0 12px 32px rgba(15,23,42,.18), 0 4px 12px rgba(15,23,42,.08)",
+              border: "1px solid rgba(255,255,255,.12)",
+            }}
+          >
+            <Link
+              href={card.href}
+              prefetch={false}
+              className="block h-full text-inherit no-underline outline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-accent"
+              aria-label={`Open ${card.top.replace(/\n/g, " ")} — ${card.title1} ${card.title2}`}
+            >
+              {/* Same text layout as PhoneCarouselDesktop: overlay on art, top label + bottom block (no separate footer strip). */}
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  aspectRatio: "332 / 520",
+                  background: "#1f2937",
+                }}
+              >
+                <Image
+                  src={card.art}
+                  alt=""
+                  fill
+                  sizes="(max-width: 767px) min(100vw - 48px, 300px) 300px"
+                  style={{
+                    objectFit: "cover",
+                    objectPosition: card.bgPos ?? "center",
+                    transform: "scale(1.02)",
+                  }}
+                  {...(i === 0 ? { priority: true } : { loading: "lazy" as const })}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 4,
+                    padding: "18px 16px 26px",
+                    boxSizing: "border-box",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-start",
+                    minHeight: "100%",
+                    color: "#ffffff",
+                    textShadow: "0 2px 16px rgba(0,0,0,.28)",
+                    background:
+                      "linear-gradient(180deg, rgba(12,18,28,0.12) 0%, rgba(12,18,28,0) 38%, rgba(10,14,22,0.45) 100%)",
+                  }}
+                >
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      fontFamily:
+                        "'Playfair Display', Georgia, 'Times New Roman', serif",
+                      fontSize: 22,
+                      lineHeight: 0.98,
+                      letterSpacing: "-0.025em",
+                      textTransform: "uppercase",
+                      textAlign: "center",
+                      maxWidth: "100%",
+                      minHeight: 80,
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "center",
+                      whiteSpace: "pre-line",
+                    }}
+                  >
+                    {card.top}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: "auto",
+                      flexShrink: 0,
+                      width: "100%",
+                      position: "relative",
+                      zIndex: 1,
+                      textAlign: card.bottomAlign ?? "left",
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: "0 0 8px",
+                        fontSize: 16,
+                        lineHeight: 1,
+                        fontWeight: 800,
+                        letterSpacing: "-0.01em",
+                        textTransform: "uppercase",
+                        fontFamily:
+                          "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                      }}
+                    >
+                      <span style={{ display: "block" }}>{card.title1}</span>
+                      <span style={{ display: "block" }}>{card.title2}</span>
+                    </h3>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 13,
+                        lineHeight: 1.34,
+                        opacity: 0.94,
+                      }}
+                    >
+                      {card.body}
+                    </p>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 8,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: 72,
+                    height: 3,
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,.88)",
+                    zIndex: 5,
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+            </Link>
+          </article>
+        ))}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: 12,
+          marginTop: 8,
+          paddingBottom: 8,
+        }}
+      >
+        <button
+          type="button"
+          aria-label="Scroll cards left"
+          onClick={() => scrollBySlide(-1)}
+          className="active:opacity-80"
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 999,
+            border: "1px solid rgba(100,116,139,.35)",
+            background: "rgba(255,255,255,.95)",
+            color: "#1e293b",
+            fontSize: 22,
+            lineHeight: 1,
+            cursor: "pointer",
+            boxShadow: "0 4px 14px rgba(15,23,42,.1)",
+          }}
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          aria-label="Scroll cards right"
+          onClick={() => scrollBySlide(1)}
+          className="active:opacity-80"
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 999,
+            border: "1px solid rgba(100,116,139,.35)",
+            background: "rgba(255,255,255,.95)",
+            color: "#1e293b",
+            fontSize: 22,
+            lineHeight: 1,
+            cursor: "pointer",
+            boxShadow: "0 4px 14px rgba(15,23,42,.1)",
+          }}
+        >
+          ›
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function PhoneCarouselDesktop() {
   const railRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const currentIndexRef = useRef(CARD_DATA.length);
@@ -311,7 +572,7 @@ export function PhoneCarousel() {
       style={{
         width: "100%",
         minHeight: "100vh",
-        background: "transparent",
+        background: "#fff",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -492,6 +753,8 @@ export function PhoneCarousel() {
                       fontWeight: 800,
                       letterSpacing: "-0.01em",
                       textTransform: "uppercase",
+                      fontFamily:
+                        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                     }}
                   >
                     <span style={{ display: "block" }}>{card.title1}</span>
@@ -616,4 +879,39 @@ export function PhoneCarousel() {
     </div>
     </>
   );
+}
+
+export function PhoneCarousel() {
+  const [viewport, setViewport] = useState<"pending" | "narrow" | "wide">("pending");
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const sync = () => setViewport(mq.matches ? "narrow" : "wide");
+    sync();
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", sync);
+      return () => mq.removeEventListener("change", sync);
+    }
+    mq.addListener(sync);
+    return () => mq.removeListener(sync);
+  }, []);
+
+  if (viewport === "pending") {
+    return (
+      <div
+        style={{
+          width: "100%",
+          minHeight: "min(100vh, 700px)",
+          background: "#fff",
+        }}
+        aria-hidden
+      />
+    );
+  }
+
+  if (viewport === "narrow") {
+    return <PhoneCarouselMobile />;
+  }
+
+  return <PhoneCarouselDesktop />;
 }

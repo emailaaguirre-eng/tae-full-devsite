@@ -161,7 +161,9 @@ export default function CoCreatorDetailPage() {
     .split("\n\n")
     .filter((part) => {
       const trimmed = part.trim();
-      return trimmed && trimmed !== creator.name.trim();
+      if (!trimmed || trimmed === creator.name.trim()) return false;
+      if (/^more about lance coming soon\.?$/i.test(trimmed)) return false;
+      return true;
     });
 
   const descLines = (creator.description || "")
