@@ -845,15 +845,23 @@ function StayConnectedContent() {
 }
 
 /* ─── Modal Shell ─────────────────────────────────────────────────────────── */
-function getContent(title: string) {
+/** Portal-style modal body by title (reused by the ArtKey builder feature library). */
+export function getPortalModalContent(title: string) {
   switch (title) {
-    case "Welcome Message": return <WelcomeMessageContent />;
-    case "Behind the Scenes": return <BehindTheScenesContent />;
-    case "Sponsors & Partners": return <SponsorsPartnersContent />;
-    case "Talks & Appearances": return <TalksAppearancesContent />;
-    case "Forum For Supporters": return <ForumContent />;
-    case "Stay Connected": return <StayConnectedContent />;
-    default: return null;
+    case "Welcome Message":
+      return <WelcomeMessageContent />;
+    case "Behind the Scenes":
+      return <BehindTheScenesContent />;
+    case "Sponsors & Partners":
+      return <SponsorsPartnersContent />;
+    case "Talks & Appearances":
+      return <TalksAppearancesContent />;
+    case "Forum For Supporters":
+      return <ForumContent />;
+    case "Stay Connected":
+      return <StayConnectedContent />;
+    default:
+      return null;
   }
 }
 
@@ -954,7 +962,7 @@ export function PhoneModal({ open, onClose, title }: PhoneModalProps) {
           </div>
 
           {/* Body */}
-          <div style={MODAL_STYLES.body}>{getContent(title)}</div>
+          <div style={MODAL_STYLES.body}>{getPortalModalContent(title)}</div>
 
           {/* Footer */}
           <div
