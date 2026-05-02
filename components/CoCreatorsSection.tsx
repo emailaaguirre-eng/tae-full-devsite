@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import { Creator, PhoneButton } from "@/data/creators";
@@ -16,6 +16,8 @@ interface Props {
   isActive: boolean;
   /** Optional page intro (small caps kicker + serif headline), e.g. on /cocreators */
   intro?: CoCreatorsIntro;
+  /** Inside the main white card, below the poster/phone row (e.g. home “Meet Our CoCreators”). */
+  belowCardSlot?: ReactNode;
 }
 
 const bentoCardVariants = {
@@ -27,7 +29,7 @@ const bentoCardVariants = {
   }),
 };
 
-export function CoCreatorsSection({ creator, isActive, intro }: Props) {
+export function CoCreatorsSection({ creator, isActive, intro, belowCardSlot }: Props) {
   const [activeModal, setActiveModal] = useState<PhoneButton | null>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(sectionRef, { once: true, margin: "-80px" });
@@ -174,6 +176,9 @@ export function CoCreatorsSection({ creator, isActive, intro }: Props) {
                   </motion.div>
                 </div>
               </div>
+              {belowCardSlot ? (
+                <div className="mt-2 pt-8 border-t border-brand-light">{belowCardSlot}</div>
+              ) : null}
             </div>
           </motion.div>
         )}

@@ -69,15 +69,20 @@ export default function FeaturedArtist() {
         </div>
 
         <div className="mb-20">
-          <CoCreatorsSection creator={featuredCreator} isActive />
-          <div className="text-center mt-10">
-            <Link
-              href="/cocreators"
-              className="inline-block bg-brand-dark text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-darkest transition-all shadow-lg text-center"
-            >
-              Meet Our CoCreators →
-            </Link>
-          </div>
+          <CoCreatorsSection
+            creator={featuredCreator}
+            isActive
+            belowCardSlot={
+              <div className="flex justify-center px-2">
+                <Link
+                  href="/cocreators"
+                  className="inline-flex items-center justify-center rounded-full bg-brand-dark text-white px-10 py-3.5 text-sm md:text-base font-semibold font-body shadow-lg hover:bg-brand-darkest transition-colors text-center"
+                >
+                  Meet Our CoCreators →
+                </Link>
+              </div>
+            }
+          />
         </div>
       </div>
     </section>
