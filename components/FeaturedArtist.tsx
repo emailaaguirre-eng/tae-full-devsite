@@ -3,13 +3,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import galleryData from "@/content/gallery.json";
+import { creators } from "@/data/creators";
+import { CoCreatorsSection } from "@/components/CoCreatorsSection";
 
 export default function FeaturedArtist() {
   const { featuredArtist } = galleryData;
+  const featuredCreator = creators[0];
 
   return (
     <section className="py-20" style={{ backgroundColor: '#ffffff' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* Featured Artist */}
         <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
             Featured Artist
@@ -17,10 +22,9 @@ export default function FeaturedArtist() {
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div className="bg-white shadow-xl overflow-hidden mb-20">
           <div className="grid md:grid-cols-2 gap-0">
-            {/* Artist Profile Picture */}
-            <div className="relative min-h-[400px] md:min-h-[500px] w-full">
+            <Link href={`/gallery/${featuredArtist.slug}`} className="relative min-h-[400px] md:min-h-[500px] w-full block cursor-pointer hover:opacity-90 transition-opacity">
               <Image
                 src={featuredArtist.image}
                 alt={featuredArtist.name}
@@ -29,9 +33,8 @@ export default function FeaturedArtist() {
                 style={{ objectPosition: 'top center' }}
                 unoptimized={featuredArtist.image.includes('theartfulexperience.com')}
               />
-            </div>
-            
-            {/* Artist Bio */}
+            </Link>
+
             <div className="p-8 md:p-12 flex flex-col justify-center">
               <h3 className="text-3xl md:text-4xl font-bold text-brand-darkest mb-4 font-playfair">
                 {featuredArtist.name}
@@ -49,15 +52,34 @@ export default function FeaturedArtist() {
               </p>
               <Link
                 href={`/gallery/${featuredArtist.slug}`}
-                className="bg-brand-medium text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-dark transition-all shadow-lg w-fit text-center"
+                className="bg-brand-dark text-white px-8 py-3 font-semibold hover:bg-brand-darkest transition-all shadow-lg w-fit text-center"
               >
                 {featuredArtist.buttonText}
               </Link>
             </div>
           </div>
         </div>
+
+        {/* CoCreators */}
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-5xl font-bold text-brand-dark mb-4 font-playfair">
+            Featured CoCreator
+          </h2>
+          <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
+        </div>
+
+        <div className="mb-20">
+          <CoCreatorsSection creator={featuredCreator} isActive />
+          <div className="text-center mt-10">
+            <Link
+              href="/cocreators"
+              className="inline-block bg-brand-dark text-white px-8 py-3 rounded-full font-semibold hover:bg-brand-darkest transition-all shadow-lg text-center"
+            >
+              Meet Our CoCreators →
+            </Link>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
-
