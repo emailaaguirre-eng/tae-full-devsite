@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArtKeyTrademark } from "@/components/RefinedTm";
 
 const PORTAL_BUTTONS = [
   "Videos",
@@ -14,7 +15,7 @@ function ArtKeyPhonePreview() {
     <div
       className="mx-auto w-[min(100%,280px)] sm:w-[300px] shrink-0"
       role="img"
-      aria-label="Illustration: ArtKey portal on a phone with Videos, Photos, Messages, Music, Community, and Memories buttons"
+      aria-label="Illustration: ArtKey trademark portal on a phone with Videos, Photos, Messages, Music, Community, and Memories buttons"
     >
       {/* Outer bezel */}
       <div className="rounded-[2.75rem] bg-black p-3 sm:p-3.5 shadow-2xl">
@@ -24,7 +25,7 @@ function ArtKeyPhonePreview() {
             <div className="h-7 w-[5.5rem] rounded-full bg-black" />
           </div>
           <h2 className="text-center text-lg sm:text-xl font-normal font-playfair text-brand-dark mb-6">
-            ArtKey™ Portal
+            <ArtKeyTrademark /> Portal
           </h2>
           <div className="flex flex-col gap-2.5 flex-1">
             {PORTAL_BUTTONS.map((label) => (
@@ -82,7 +83,7 @@ export default function HowToUseTheArtKey() {
             ))}
           </div>
           <p className="text-center text-sm text-brand-medium mb-8">
-            Preview: recipient&apos;s ArtKey™ portal on a phone
+            Preview: recipient&apos;s <ArtKeyTrademark /> portal on a phone
           </p>
           <div className="flex justify-center">
             <ArtKeyPhonePreview />

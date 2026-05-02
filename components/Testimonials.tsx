@@ -3,7 +3,10 @@
 import Image from "next/image";
 import { mediaUrl } from "@/lib/media";
 import { useSiteMedia } from "@/hooks/useSiteMedia";
-import { RefinedTm } from "@/components/RefinedTm";
+import {
+  ArtKeyTrademark,
+  renderStringWithArtKeyTrademarks,
+} from "@/components/RefinedTm";
 
 /**
  * TEMP: testimonial images hidden for now — set to `true` to show images again.
@@ -44,7 +47,7 @@ export default function Testimonials() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16 mt-16">
           <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4">
-            How Our Friends & Clients Use the ArtKey™
+            How Our Friends & Clients Use the <ArtKeyTrademark />
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
           <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
@@ -91,7 +94,7 @@ export default function Testimonials() {
                 </div>
                 
                 <p className="text-brand-darkest leading-relaxed italic text-sm group-hover:text-base group-hover:leading-loose transition-all duration-500 flex-1">
-                  &quot;{testimonial.text}&quot;
+                  &quot;{renderStringWithArtKeyTrademarks(testimonial.text)}&quot;
                 </p>
               </div>
               

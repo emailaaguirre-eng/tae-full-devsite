@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { ArtKeyTrademark } from "@/components/RefinedTm";
 
 export default function VideoSection() {
   const [showTooltip, setShowTooltip] = useState<string | null>(null);
@@ -27,10 +28,11 @@ export default function VideoSection() {
               Give a gift that will never be forgotten, even if that gift is for you.
             </p>
             <p>
-              Discover our ArtKey™ technology that allows you to upload videos, music, and time-released gift certificates that are embedded in the art.
+              Discover our <ArtKeyTrademark /> technology that allows you to upload videos, music, and time-released gift certificates that are embedded in the art.
             </p>
             <p>
-              When the giftee scans the ArtKey™/QR Code, they will be surprised by the unique message, video, song, or e-gift card you have uploaded for them.
+              When the giftee scans the <ArtKeyTrademark />
+              /QR Code, they will be surprised by the unique message, video, song, or e-gift card you have uploaded for them.
             </p>
           </div>
         </div>
@@ -46,7 +48,7 @@ export default function VideoSection() {
               {/* Phone Screen */}
               <div className="bg-white rounded-[2.5rem] overflow-hidden pt-10 pb-6 px-5 min-h-[500px] relative">
                 <h3 className="text-2xl font-normal text-brand-darkest mb-6 text-center font-playfair">
-                  ArtKey™ Portal
+                  <ArtKeyTrademark /> Portal
                 </h3>
                 
                 {/* Portal Buttons */}
@@ -54,41 +56,41 @@ export default function VideoSection() {
                   <button 
                     onClick={() => handlePortalButtonClick('Share Your Interests')}
                     className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left"
-                    title="Available in ArtKey Portal"
+                    title="Available in ArtKey\u2122 Portal"
                   >
                     Share Your Interests
                   </button>
                   <button 
                     onClick={() => handlePortalButtonClick('Playlist')}
                     className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left"
-                    title="Available in ArtKey Portal"
+                    title="Available in ArtKey\u2122 Portal"
                   >
                     Playlist
                   </button>
                   <button 
                     onClick={() => handlePortalButtonClick('Sign Guestbook')}
                     className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left"
-                    title="Available in ArtKey Portal"
+                    title="Available in ArtKey\u2122 Portal"
                   >
                     Sign Guestbook
                   </button>
                   <button 
                     onClick={() => handlePortalButtonClick('Video Greeting')}
                     className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left"
-                    title="Available in ArtKey Portal"
+                    title="Available in ArtKey\u2122 Portal"
                   >
                     Video Greeting
                   </button>
                   <button 
                     onClick={() => handlePortalButtonClick('Image Gallery')}
                     className="w-full bg-brand-dark text-white py-4 px-6 rounded-2xl font-semibold hover:bg-brand-darkest transition-all shadow-md hover:shadow-lg text-left"
-                    title="Available in ArtKey Portal"
+                    title="Available in ArtKey\u2122 Portal"
                   >
                     Image Gallery
                   </button>
                   {showTooltip && (
                     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-brand-darkest text-white px-4 py-2 rounded-lg shadow-xl z-10 text-sm whitespace-nowrap">
-                      {showTooltip} - Available in ArtKey Portal
+                      {`${showTooltip} - Available in ArtKey\u2122 Portal`}
                     </div>
                   )}
                 </div>

@@ -1,5 +1,9 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, Calendar, MapPin, ExternalLink, ChevronRight } from "lucide-react";
+import {
+  ArtKeyTrademark,
+  renderStringWithArtKeyTrademarks,
+} from "@/components/RefinedTm";
 
 interface PhoneModalProps {
   open: boolean;
@@ -238,7 +242,7 @@ function BehindTheScenesContent() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", fontWeight: 500, color: "#000", lineHeight: 1.4 }}>
-                {v.title}
+                {renderStringWithArtKeyTrademarks(v.title)}
               </div>
               <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "#918c86", marginTop: "4px" }}>
                 Kimber Cross
@@ -527,7 +531,7 @@ function TalksAppearancesContent() {
                   marginBottom: "5px",
                 }}
               >
-                {ev.title}
+                {renderStringWithArtKeyTrademarks(ev.title)}
               </div>
               <div
                 style={{
@@ -698,7 +702,7 @@ function ForumContent() {
                 lineHeight: 1.35,
               }}
             >
-              {post.title}
+              {renderStringWithArtKeyTrademarks(post.title)}
             </h4>
             <p
               style={{
@@ -906,7 +910,7 @@ export function PhoneModal({ open, onClose, title }: PhoneModalProps) {
                   lineHeight: 1.2,
                 }}
               >
-                {title}
+                {renderStringWithArtKeyTrademarks(title)}
               </div>
               <div
                 style={{
@@ -919,7 +923,7 @@ export function PhoneModal({ open, onClose, title }: PhoneModalProps) {
                   marginTop: "2px",
                 }}
               >
-                ArtKey™ Portal
+                <ArtKeyTrademark /> Portal
               </div>
             </div>
             <DialogPrimitive.Close
@@ -973,7 +977,7 @@ export function PhoneModal({ open, onClose, title }: PhoneModalProps) {
                 textTransform: "uppercase",
               }}
             >
-              Powered by The ArtKey™
+              Powered by The <ArtKeyTrademark />
             </span>
           </div>
         </DialogPrimitive.Content>

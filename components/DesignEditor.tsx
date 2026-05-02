@@ -7,6 +7,7 @@ import {
   Undo2, Redo2, Trash2, ZoomIn, ZoomOut, X, Check, Upload, Bold, Italic,
   Layers, Aperture, Palette
 } from 'lucide-react';
+import { ArtKeyTrademark } from "@/components/RefinedTm";
 
 // =============================================================================
 // TYPES
@@ -890,7 +891,7 @@ export default function DesignEditor({
           </button>
           <button onClick={exportDesign} className="px-6 py-2 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 flex items-center gap-2">
             <Check className="w-4 h-4" />
-            Save and Design the ArtKey™
+            Save and Design the <ArtKeyTrademark />
           </button>
         </div>
       </div>

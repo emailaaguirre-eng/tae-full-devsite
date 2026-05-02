@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { ArtKeyTrademark } from "@/components/RefinedTm";
 import {
   Check,
   Package,
@@ -234,8 +235,8 @@ export default function OrderPage() {
         {/* ArtKey Portals */}
         {portalItems.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
-            <h2 className="font-semibold text-brand-darkest mb-4">
-              Your ArtKey Portals
+            <h2 className="font-semibold text-brand-darkest mb-4 inline-flex flex-wrap items-baseline gap-x-1 gap-y-0">
+              Your <ArtKeyTrademark /> Portals
             </h2>
             <div className="space-y-4">
               {portalItems.map((item) => (
@@ -313,8 +314,8 @@ export default function OrderPage() {
                   <p className="text-xs text-brand-darkest/50">
                     Qty: {item.quantity}{" "}
                     {item.itemType === "custom" && (
-                      <span className="ml-1 bg-brand-light/50 text-brand-dark px-1.5 py-0.5 rounded-full text-[10px]">
-                        ArtKey
+                      <span className="ml-1 bg-brand-light/50 text-brand-dark px-1.5 py-0.5 rounded-full text-[10px] inline-flex items-baseline">
+                        <ArtKeyTrademark />
                       </span>
                     )}
                   </p>

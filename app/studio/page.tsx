@@ -15,7 +15,7 @@ import { customerStudioProofMessageFromApi } from "@/lib/customer-proof-errors";
 
 /** Shown in the studio when live preview can’t run (avoid provider jargon in customer UI). */
 const STUDIO_PREVIEW_UNAVAILABLE_HINT =
-  "We can’t show a live print preview for this product in the studio yet. You can still save your design and continue to your ArtKey.";
+  "We can’t show a live print preview for this product in the studio yet. You can still save your design and continue to your ArtKey\u2122.";
 
 const CustomizationStudio = dynamic(
   () => import("@/customization-studio").then((m) => m.CustomizationStudio),
@@ -57,7 +57,7 @@ type ProductDefinition = {
 const PRODUCTS: ProductDefinition[] = [
   {
     id: "TAE-CARD",
-    name: "ArtKey Card",
+    name: "ArtKey\u2122 Card",
     printfulProductId: 568,
     variants: [
       { id: "TAE-CARD-SM", name: 'Small (4.25" x 5.5")', printfulVariantId: 14457, landscapeWidth: 1842, landscapeHeight: 1240 },

@@ -12,6 +12,10 @@
 import React, { useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
+import {
+  ArtKeyTrademark,
+  renderStringWithArtKeyTrademarks,
+} from '@/components/RefinedTm';
 import { ARTKEY_ADMIN_DASHBOARD_PATH } from '@/lib/routes';
 import { 
   TEMPLATE_CATEGORIES, 
@@ -2414,14 +2418,16 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
               <div>
                 <h1 className="text-lg sm:text-xl font-normal font-playfair text-white flex items-center gap-2">
                   <span className="text-amber-400">✦</span>
-                  {modeHeading}
+                  {renderStringWithArtKeyTrademarks(modeHeading)}
                 </h1>
                 <p className="text-[11px] text-slate-300 mt-0.5">
-                  {editorMode === 'customer'
-                    ? 'Design your ArtKey Portal, then continue your purchase flow.'
-                    : editorMode === 'host'
-                    ? 'Update your live ArtKey Portal experience for guests.'
-                    : 'Create and polish demo portal experiences for review.'}
+                  {renderStringWithArtKeyTrademarks(
+                    editorMode === 'customer'
+                      ? 'Design your ArtKey Portal, then continue your purchase flow.'
+                      : editorMode === 'host'
+                        ? 'Update your live ArtKey Portal experience for guests.'
+                        : 'Create and polish demo portal experiences for review.'
+                  )}
                 </p>
                 {customizationData && (
                   <p className="text-xs text-slate-400 mt-0.5">
@@ -2704,7 +2710,11 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       icon={<CustomIcon name="sparkle" size={40} color={COLOR_ACCENT} />}
                     >
                       Build Manually
-                      <div className="text-sm text-[#444] mt-1">Begin with a clean ArtKey Portal canvas</div>
+                      <div className="text-sm text-[#444] mt-1">
+                        {renderStringWithArtKeyTrademarks(
+                          'Begin with a clean ArtKey Portal canvas'
+                        )}
+                      </div>
                     </PrimaryButton>
                   </div>
                 </Card>
@@ -4017,8 +4027,9 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
                       💡 QR Code Information
                     </div>
                     <p className="text-xs" style={{ color: '#78350f' }}>
-                      A unique QR code will be generated for this ArtKey and placed on your selected template at the chosen position. 
-                      The QR code will include "Scan QR Code" text and will link directly to your ArtKey portal.
+                      {renderStringWithArtKeyTrademarks(
+                        'A unique QR code will be generated for this ArtKey and placed on your selected template at the chosen position. The QR code will include "Scan QR Code" text and will link directly to your ArtKey portal.'
+                      )}
                     </p>
                   </div>
                 </div>
@@ -4033,9 +4044,19 @@ function ArtKeyEditorContent({ artkeyId = null }: ArtKeyEditorProps) {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 animate-in fade-in">
             <h3 className="text-lg font-normal mb-3" style={{ color: COLOR_ACCENT }}>
-              {saveModal.url ? 'ArtKey Saved' : saveModal.message.startsWith('Finish your portal') ? 'Finish setup' : 'Notice'}
+              {saveModal.url ? (
+                <>
+                  <ArtKeyTrademark /> Saved
+                </>
+              ) : saveModal.message.startsWith('Finish your portal') ? (
+                'Finish setup'
+              ) : (
+                'Notice'
+              )}
             </h3>
-            <p className="text-sm text-gray-700 mb-4 whitespace-pre-wrap break-words">{saveModal.message}</p>
+            <p className="text-sm text-gray-700 mb-4 whitespace-pre-wrap break-words">
+              {renderStringWithArtKeyTrademarks(saveModal.message)}
+            </p>
             {saveModal.url && (
               <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-500 mb-1">Portal URL</label>

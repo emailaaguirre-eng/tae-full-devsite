@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ARTKEY_ADMIN_DASHBOARD_PATH } from "@/lib/routes";
+import { renderStringWithArtKeyTrademarks } from "@/components/RefinedTm";
 
 interface ArtKeyDemo {
   id: string;
@@ -77,7 +78,7 @@ export default function AdminArtKeyDemosPage() {
       if (data.success) setDemos(data.data || []);
       else setError(data.error);
     } catch {
-      setError("Failed to load ArtKey demos");
+      setError("Failed to load ArtKey\u2122 demos");
     } finally {
       setLoading(false);
     }
@@ -203,7 +204,7 @@ export default function AdminArtKeyDemosPage() {
       }
       w.document.write(`
         <html>
-          <head><title>Print ArtKey QR</title></head>
+          <head><title>Print ArtKey\u2122 QR</title></head>
           <body style="font-family:Arial,sans-serif;padding:24px">
             <h2 style="margin:0 0 8px">${demo.title}</h2>
             <p style="margin:0 0 16px"><a href="${demo.portalUrl}">${demo.portalUrl}</a></p>
@@ -288,16 +289,20 @@ export default function AdminArtKeyDemosPage() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64"><div className="text-brand-medium text-sm">Loading ArtKey demos...</div></div>;
+    return <div className="flex items-center justify-center h-64"><div className="text-brand-medium text-sm">{renderStringWithArtKeyTrademarks("Loading ArtKey demos...")}</div></div>;
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-normal text-brand-dark font-playfair">ArtKey Demo Builder</h1>
+          <h1 className="text-2xl font-normal text-brand-dark font-playfair">
+            {renderStringWithArtKeyTrademarks("ArtKey Demo Builder")}
+          </h1>
           <p className="text-sm text-brand-medium mt-1">
-            Create ArtKey portals with unique URLs and QR codes
+            {renderStringWithArtKeyTrademarks(
+              "Create ArtKey portals with unique URLs and QR codes"
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -353,7 +358,9 @@ export default function AdminArtKeyDemosPage() {
       {/* Create form */}
       {showForm && !newResult && (
         <div className="bg-white border border-brand-light p-6 mb-6">
-          <h3 className="text-sm font-semibold text-brand-dark mb-4">Create New ArtKey Portal</h3>
+          <h3 className="text-sm font-semibold text-brand-dark mb-4">
+            {renderStringWithArtKeyTrademarks("Create New ArtKey Portal")}
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">Portal Title *</label>
@@ -428,7 +435,9 @@ export default function AdminArtKeyDemosPage() {
                 </div>
               </div>
               <div>
-                <div className="text-[10px] text-brand-dark/70 uppercase tracking-wider mb-1 font-medium">Host: Edit ArtKey Portal URL</div>
+                <div className="text-[10px] text-brand-dark/70 uppercase tracking-wider mb-1 font-medium">
+                  {renderStringWithArtKeyTrademarks("Host: Edit ArtKey Portal URL")}
+                </div>
                 <div className="flex items-center gap-2">
                   <code className="text-xs bg-white px-3 py-2 border border-green-200 flex-1 break-all">
                     {newResult.editUrl}
@@ -482,13 +491,15 @@ export default function AdminArtKeyDemosPage() {
               href={`/artkey-editor?portal_token=${newResult.publicToken}&owner_token=${newResult.ownerToken}`}
               className="px-4 py-2 text-sm bg-brand-dark text-white hover:bg-brand-dark/90 transition-colors flex items-center gap-2"
             >
-              <Paintbrush className="w-4 h-4" /> ArtKey Demo Page Editor
+              <Paintbrush className="w-4 h-4" />{" "}
+              {renderStringWithArtKeyTrademarks("ArtKey Demo Page Editor")}
             </a>
             <a
               href={`/art-key/${newResult.publicToken}/edit?owner=${newResult.ownerToken}`}
               className="px-4 py-2 text-sm border border-brand-dark text-brand-dark hover:bg-brand-lightest transition-colors flex items-center gap-2"
             >
-              <Settings className="w-4 h-4" /> Host: Edit ArtKey Portal
+              <Settings className="w-4 h-4" />{" "}
+              {renderStringWithArtKeyTrademarks("Host: Edit ArtKey Portal")}
             </a>
             <button
               onClick={() => printPortalQr({ title: newResult.title, portalUrl: newResult.portalUrl })}
@@ -516,7 +527,9 @@ export default function AdminArtKeyDemosPage() {
         {demos.length === 0 ? (
           <div className="p-8 text-center">
             <QrCode className="w-8 h-8 text-brand-medium mx-auto mb-2" />
-            <div className="text-sm text-brand-medium">No ArtKey demos yet</div>
+            <div className="text-sm text-brand-medium">
+              {renderStringWithArtKeyTrademarks("No ArtKey demos yet")}
+            </div>
             <button
               onClick={() => setShowForm(true)}
               className="text-xs text-brand-accent hover:underline mt-2"
@@ -560,7 +573,7 @@ export default function AdminArtKeyDemosPage() {
                   <a
                     href={`/artkey-editor?portal_token=${d.publicToken}&owner_token=${d.ownerToken}`}
                     className="px-2 py-1 text-[10px] border border-brand-light text-brand-medium hover:text-brand-dark hover:bg-brand-lightest transition-colors inline-flex items-center gap-1"
-                    title="ArtKey Demo Page Editor"
+                    title="ArtKey\u2122 Demo Page Editor"
                   >
                     <Paintbrush className="w-3 h-3" />
                     <span>Admin Editor</span>
@@ -568,7 +581,7 @@ export default function AdminArtKeyDemosPage() {
                   <a
                     href={d.editUrl}
                     className="px-2 py-1 text-[10px] border border-brand-light text-brand-medium hover:text-brand-dark hover:bg-brand-lightest transition-colors inline-flex items-center gap-1"
-                    title="Host: Edit ArtKey Portal"
+                    title="Host: Edit ArtKey\u2122 Portal"
                   >
                     <Settings className="w-3 h-3" />
                     <span>Host Settings</span>

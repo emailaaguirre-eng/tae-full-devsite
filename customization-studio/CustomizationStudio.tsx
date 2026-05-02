@@ -18,6 +18,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  ArtKeyTrademark,
+  renderStringWithArtKeyTrademarks,
+} from "@/components/RefinedTm";
 import { createPortal } from "react-dom";
 import { Circle, Group, Image as KonvaImage, Layer, Rect, Stage, Text as KonvaText, Transformer, Line } from "react-konva";
 import Konva from "konva";
@@ -4269,11 +4273,13 @@ export function CustomizationStudio({
           {/* ArtKey QR Code Section */}
           {productSpec.requiresQrCode && (
             <div className="p-4 border-b" style={{ borderColor: BRAND.light }}>
-              <h3 className="font-semibold mb-2">ArtKey QR Code</h3>
+              <h3 className="font-semibold mb-2 inline-flex flex-wrap items-baseline gap-x-1 gap-y-0">
+                <ArtKeyTrademark /> QR Code
+              </h3>
 
               <div className="mb-3">
                 <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                  Place ArtKey on
+                  Place <ArtKeyTrademark /> on
                 </label>
                 <select
                   value={qrPlacement}
@@ -4291,7 +4297,7 @@ export function CustomizationStudio({
 
               <div className="mb-3">
                 <label className="text-xs block mb-1" style={{ color: BRAND.medium }}>
-                  ArtKey
+                  <ArtKeyTrademark />
                 </label>
                 <select
                   value={selectedArtKeyTemplateId}
@@ -4308,7 +4314,11 @@ export function CustomizationStudio({
               </div>
 
               <p className="text-xs" style={{ color: BRAND.medium }}>
-                {hasQrOnCurrentSurface ? "Drag the ArtKey to position it." : `Switch to ${getLabel(qrPlacement)} to see the ArtKey.`}
+                {hasQrOnCurrentSurface
+                  ? renderStringWithArtKeyTrademarks("Drag the ArtKey to position it.")
+                  : renderStringWithArtKeyTrademarks(
+                      `Switch to ${getLabel(qrPlacement)} to see the ArtKey.`
+                    )}
               </p>
 
               <div className="mt-2 text-xs" style={{ color: BRAND.medium }}>
@@ -4884,7 +4894,7 @@ export function CustomizationStudio({
                     </div>
                     <div className="text-[10px] mt-0.5 text-left" style={{ color: BRAND.medium }}>
                       {qrPlacement === p && productSpec.requiresQrCode
-                        ? "ArtKey surface"
+                        ? renderStringWithArtKeyTrademarks("ArtKey surface")
                         : `${(designs[p]?.images?.length || 0) + (designs[p]?.texts?.length || 0) + (decoratives[p]?.length || 0)} items`}
                     </div>
                   </div>

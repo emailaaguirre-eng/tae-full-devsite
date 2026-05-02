@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ArtKeyTrademark,
+  renderStringWithArtKeyTrademarks,
+} from "@/components/RefinedTm";
 import { ArtKeyQR } from './ArtKeyQR';
 
 type Phase = 'scan' | 'portal' | 'video';
@@ -132,7 +136,7 @@ export function PhoneScanWidget() {
                 />
               </div>
               <p style={{ fontSize: 11, color: 'rgba(0,0,0,0.4)', letterSpacing: '0.09em' }}>
-                Scanning ArtKey...
+                {renderStringWithArtKeyTrademarks("Scanning ArtKey...")}
               </p>
             </motion.div>
           )}
@@ -159,7 +163,7 @@ export function PhoneScanWidget() {
                 color: '#1A1A2E',
                 textAlign: 'center', marginBottom: 28, lineHeight: 1.2,
               }}>
-                ArtKey<sup style={{ fontSize: '0.55em', verticalAlign: 'super' }}>™</sup> Portal
+                <ArtKeyTrademark /> Portal
               </h2>
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {MENU_ITEMS.map((label, i) => {

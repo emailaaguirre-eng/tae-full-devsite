@@ -5,7 +5,7 @@ import { headers } from "next/headers"
 
 export const metadata = {
   title: 'The Artful Experience — Custom Prints, Cards & Digital Portals',
-  description: 'Create custom greeting cards, prints, and canvas art with a digital twist. Every product includes an ArtKey portal — a scannable QR experience for your recipients.',
+  description: 'Create custom greeting cards, prints, and canvas art with a digital twist. Every product includes an ArtKey\u2122 portal — a scannable QR experience for your recipients.',
 }
 
 export default function RootLayout({

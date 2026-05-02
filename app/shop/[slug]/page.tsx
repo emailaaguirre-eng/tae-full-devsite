@@ -5,6 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
+import {
+  ArtKeyTrademark,
+  renderStringWithArtKeyTrademarks,
+} from "@/components/RefinedTm";
 import { AdminAccordionSection } from "@/components/admin/AdminAccordionSection";
 import {
   getBestProductImages,
@@ -845,7 +849,7 @@ export default function ProductDetailPage() {
               )}
               {product.requiresQrCode && (
                 <div className="absolute top-4 right-4 bg-brand-dark text-white text-xs px-3 py-1.5 rounded-full font-semibold">
-                  Includes ArtKey Portal
+                  Includes <ArtKeyTrademark /> Portal
                 </div>
               )}
               {hoverVariant && hoverVariant.heroImage && (
@@ -1070,12 +1074,12 @@ export default function ProductDetailPage() {
             {product.requiresQrCode && (
               <div className="bg-gradient-to-r from-brand-light/50 to-brand-medium/20 border border-brand-medium/30 rounded-xl p-6 mb-8">
                 <h3 className="font-normal text-brand-darkest mb-2">
-                  Includes ArtKey Portal
+                  Includes <ArtKeyTrademark /> Portal
                 </h3>
                 <p className="text-sm text-brand-darkest/70 leading-relaxed">
-                  Your product will include a unique QR code linked to a
-                  personal ArtKey portal. Share images, videos, links, a
-                  guestbook, and more with anyone who scans it.
+                  {renderStringWithArtKeyTrademarks(
+                    "Your product will include a unique QR code linked to a personal ArtKey portal. Share images, videos, links, a guestbook, and more with anyone who scans it."
+                  )}
                 </p>
               </div>
             )}
@@ -1093,8 +1097,9 @@ export default function ProductDetailPage() {
                 <p className="text-center text-xs text-brand-darkest/40 mt-3">
                   {product.requiresQrCode ? (
                     <>
-                      You&apos;ll upload your image and design your ArtKey portal in
-                      the next step.
+                      {renderStringWithArtKeyTrademarks(
+                        "You'll upload your image and design your ArtKey portal in the next step."
+                      )}
                     </>
                   ) : (
                     <>

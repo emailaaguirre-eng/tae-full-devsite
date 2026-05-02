@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "ArtKey Portal",
+  title: "ArtKey\u2122 Portal",
   description:
     "A personal digital experience — images, videos, links, guestbook, and more.",
   robots: {
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "ArtKey Portal",
+    title: "ArtKey\u2122 Portal",
   },
 };
 

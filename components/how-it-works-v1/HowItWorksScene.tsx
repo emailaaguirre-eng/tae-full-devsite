@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from 'framer-motion';
+import { renderStringWithArtKeyTrademarks } from "@/components/RefinedTm";
 import { EnvelopeWidget } from './EnvelopeWidget';
 import { PortalBuilderWidget } from './PortalBuilderWidget';
 import { PhoneScanWidget } from './PhoneScanWidget';
@@ -83,7 +84,7 @@ export function HowItWorksScene() {
                 className="font-display text-xl leading-snug"
                 style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-display)' }}
               >
-                {step.heading}
+                {renderStringWithArtKeyTrademarks(step.heading)}
               </h3>
             </div>
 
@@ -92,7 +93,7 @@ export function HowItWorksScene() {
               className="font-body text-sm mb-5 leading-relaxed min-h-[2.5rem] text-center"
               style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-body)' }}
             >
-              {step.body}
+              {renderStringWithArtKeyTrademarks(step.body)}
             </p>
 
             {/* Widget card — fixed height, flex column */}

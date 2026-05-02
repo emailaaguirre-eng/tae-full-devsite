@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArtKeyTrademark } from "@/components/RefinedTm";
 import { mediaUrl } from "@/lib/media";
 import { useSiteMedia } from "@/hooks/useSiteMedia";
 
@@ -38,9 +39,9 @@ export default function Hero() {
                 </h1>
                 <div className="pl-3 sm:pl-4 border-l-4 border-brand-medium space-y-4">
                   <p className="text-base md:text-lg text-brand-darkest leading-relaxed font-light">
-                    {
-                      "ArtKey™ turns photographs, artwork, and moments into living portals filled with memories, videos, music, and connection."
-                    }
+                    <ArtKeyTrademark /> turns photographs, artwork, and moments
+                    into living portals filled with memories, videos, music, and
+                    connection.
                   </p>
                 </div>
                 <div className="pt-2">
@@ -48,7 +49,7 @@ export default function Hero() {
                     href="/#how-it-works"
                     className="inline-block bg-brand-dark text-white px-8 py-4 text-base font-medium hover:bg-brand-darkest transition-all duration-300 text-center"
                   >
-                    Explore How To Use The ArtKey
+                    Explore How To Use The <ArtKeyTrademark />
                   </Link>
                 </div>
               </div>
@@ -65,7 +66,7 @@ export default function Hero() {
                     loop
                     playsInline
                     preload="metadata"
-                    aria-label="ArtKey experience"
+                    aria-label="ArtKey trademark experience"
                   >
                     <source src={heroVideoSrc} type="video/mp4" />
                   </video>

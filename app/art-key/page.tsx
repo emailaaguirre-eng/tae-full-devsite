@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import {
+  ArtKeyTrademark,
+  renderStringWithArtKeyTrademarks,
+} from "@/components/RefinedTm";
 
 interface PortalResult {
   title: string;
@@ -34,7 +38,7 @@ export default function ArtKeyHostLogin() {
 
       if (data.success) {
         if (data.portals.length === 0) {
-          setError("No ArtKey portals found for this email address.");
+          setError("No ArtKey\u2122 portals found for this email address.");
         } else {
           setPortals(data.portals);
         }
@@ -53,8 +57,8 @@ export default function ArtKeyHostLogin() {
       {/* Header */}
       <div className="pt-12 pb-6 text-center">
         <div className="text-amber-400 text-3xl mb-3">✦</div>
-        <h1 className="text-3xl font-normal text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
-          ArtKey Portal
+        <h1 className="text-3xl font-normal text-white inline-flex flex-wrap items-baseline justify-center gap-x-1 gap-y-0 w-full" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <ArtKeyTrademark /> Portal
         </h1>
         <p className="text-slate-400 text-sm mt-2">by The Artful Experience</p>
       </div>
@@ -69,7 +73,9 @@ export default function ArtKeyHostLogin() {
                 Host Login
               </h2>
               <p className="text-slate-400 text-sm mb-6">
-                Enter the email associated with your ArtKey portal to access your dashboard.
+                {renderStringWithArtKeyTrademarks(
+                  "Enter the email associated with your ArtKey portal to access your dashboard."
+                )}
               </p>
 
               <form onSubmit={handleLookup} className="space-y-4">
@@ -112,7 +118,9 @@ export default function ArtKeyHostLogin() {
 
               <div className="mt-6 pt-6 border-t border-white/10 text-center">
                 <p className="text-slate-500 text-xs">
-                  Don&apos;t have an ArtKey portal yet?
+                  {renderStringWithArtKeyTrademarks(
+                    "Don't have an ArtKey portal yet?"
+                  )}
                 </p>
                 <Link
                   href="/"

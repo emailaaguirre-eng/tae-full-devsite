@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "ArtKey Portal — Host Login",
-  description: "Access your ArtKey portal to manage your digital experience.",
+  title: "ArtKey\u2122 Portal — Host Login",
+  description: "Access your ArtKey\u2122 portal to manage your digital experience.",
   robots: {
     index: false,
     follow: false,

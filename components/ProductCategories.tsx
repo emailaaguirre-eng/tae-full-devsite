@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { UploadIcon, GalleryIcon, HandshakeIcon } from "@/components/CustomIcons";
+import { renderStringWithArtKeyTrademarks } from "@/components/RefinedTm";
 
 const categories = [
   {
@@ -62,8 +63,9 @@ export default function ProductCategories() {
           </h2>
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
           <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
-            Create something personal, discover curated art, or explore unique
-            collaborations — each with an optional digital ArtKey experience.
+            {renderStringWithArtKeyTrademarks(
+              "Create something personal, discover curated art, or explore unique collaborations — each with an optional digital ArtKey experience."
+            )}
           </p>
         </div>
 
@@ -91,7 +93,7 @@ export default function ProductCategories() {
                 </div>
                 <div className="p-6 flex flex-col flex-1">
                   <p className="text-brand-darkest mb-4 text-sm leading-relaxed">
-                    {category.description}
+                    {renderStringWithArtKeyTrademarks(category.description)}
                   </p>
                   <ul className="space-y-2 mb-6 flex-1">
                     {category.items.map((item, idx) => (
@@ -100,7 +102,7 @@ export default function ProductCategories() {
                         className="text-sm text-brand-darkest flex items-start gap-2"
                       >
                         <span className="text-brand-medium mt-0.5">✓</span>
-                        {item}
+                        {renderStringWithArtKeyTrademarks(item)}
                       </li>
                     ))}
                   </ul>

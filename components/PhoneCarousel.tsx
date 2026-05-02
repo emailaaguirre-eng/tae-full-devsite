@@ -2,7 +2,27 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useCallback, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  useState,
+} from "react";
+import { ArtKeyTrademark } from "@/components/RefinedTm";
+import { ARTKEY_USE_CAROUSEL_IMAGE } from "@/lib/artkeyUseCarouselImages";
+
+function carouselArtFields(href: string): { art: string; bgPos?: string } {
+  const slug = href.replace(/^\/artkey-uses\//, "");
+  const m = ARTKEY_USE_CAROUSEL_IMAGE[slug];
+  if (!m) {
+    throw new Error(`PhoneCarousel: missing ARTKEY_USE_CAROUSEL_IMAGE for slug "${slug}"`);
+  }
+  return {
+    art: m.src,
+    ...(m.objectPosition ? { bgPos: m.objectPosition } : {}),
+  };
+}
 
 /**
  * `currentIndex === CARD_DATA.length` centers the middle copy’s first slot = `CARD_DATA[0]` (Birth).
@@ -11,7 +31,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
  */
 const CARD_DATA = [
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Birth-Announcement.png",
+    ...carouselArtFields("/artkey-uses/birth-announcement"),
     top: "Birth\nAnnouncement",
     title1: "The First",
     title2: "Chapter",
@@ -20,7 +40,7 @@ const CARD_DATA = [
     href: "/artkey-uses/birth-announcement",
   },
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/HolidayCard.png",
+    ...carouselArtFields("/artkey-uses/holiday-card"),
     top: "Holiday\nCard",
     title1: "Year in",
     title2: "Review",
@@ -29,7 +49,7 @@ const CARD_DATA = [
     href: "/artkey-uses/holiday-card",
   },
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/graduate_1.jpg",
+    ...carouselArtFields("/artkey-uses/graduate"),
     top: "Graduate",
     title1: "The",
     title2: "Milestone",
@@ -38,7 +58,7 @@ const CARD_DATA = [
     href: "/artkey-uses/graduate",
   },
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/AirBnb.png",
+    ...carouselArtFields("/artkey-uses/airbnb"),
     top: "Airbnb",
     title1: "The",
     title2: "Experience",
@@ -47,7 +67,7 @@ const CARD_DATA = [
     href: "/artkey-uses/airbnb",
   },
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Artists.png",
+    ...carouselArtFields("/artkey-uses/artists"),
     top: "Artists",
     title1: "The Creator",
     title2: "Portal",
@@ -56,17 +76,16 @@ const CARD_DATA = [
     href: "/artkey-uses/artists",
   },
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/morgan.jpg-1.jpeg",
+    ...carouselArtFields("/artkey-uses/travel"),
     top: "Travel",
     title1: "The",
     title2: "Postcard",
     body: "A living postcard or print to memorialize your trip",
     accent: "#f0a45a",
-    bgPos: "center 70%",
     href: "/artkey-uses/travel",
   },
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Public-Speakers.png",
+    ...carouselArtFields("/artkey-uses/public-figures-speakers"),
     top: "Influencers",
     title1: "The Living",
     title2: "Poster",
@@ -75,7 +94,7 @@ const CARD_DATA = [
     href: "/artkey-uses/public-figures-speakers",
   },
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Realtor.png",
+    ...carouselArtFields("/artkey-uses/realtor"),
     top: "Realtor",
     title1: "The Closing",
     title2: "Moment",
@@ -85,7 +104,7 @@ const CARD_DATA = [
     href: "/artkey-uses/realtor",
   },
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Coaches.png",
+    ...carouselArtFields("/artkey-uses/coaches"),
     top: "Coaches",
     title1: "Defining",
     title2: "Moment",
@@ -94,7 +113,7 @@ const CARD_DATA = [
     href: "/artkey-uses/coaches",
   },
   {
-    art: "https://theartfulexperience.com/wp-content/uploads/2026/04/Wedding.png",
+    ...carouselArtFields("/artkey-uses/wedding"),
     top: "Wedding",
     title1: "The",
     title2: "Keepsake",
@@ -131,6 +150,19 @@ function mobileCarouselCards(): (typeof CARD_DATA)[number][] {
 
 const PHONE_CAROUSEL_MOBILE_CARDS = mobileCarouselCards();
 
+function ArtKeyUsesSectionHeading() {
+  return (
+    <header className="mx-auto w-full max-w-screen-2xl px-4 pt-10 pb-3 text-center sm:px-6 md:pt-12 md:pb-5 lg:px-8">
+      <h2
+        id="artkey-uses-heading"
+        className="font-playfair text-3xl font-normal leading-[1.12] tracking-tight text-brand-dark sm:text-4xl md:text-5xl"
+      >
+        Ways to use your <ArtKeyTrademark />
+      </h2>
+    </header>
+  );
+}
+
 /**
  * Mobile (viewport &lt; 768px): horizontal scroll-snap, next/image, no 3D / triple rail / ResizeObserver / autoplay.
  * Desktop keeps PhoneCarouselDesktop.
@@ -147,8 +179,9 @@ function PhoneCarouselMobile() {
   };
 
   return (
-    <section
-      aria-label="ArtKey uses"
+    <div
+      role="region"
+      aria-labelledby="artkey-uses-heading"
       style={{
         width: "100%",
         minHeight: "min(100vh, 720px)",
@@ -156,7 +189,7 @@ function PhoneCarouselMobile() {
         flexDirection: "column",
         alignItems: "stretch",
         justifyContent: "center",
-        padding: "24px 0 40px",
+        padding: "0 0 40px",
         fontFamily:
           "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         position: "relative",
@@ -365,7 +398,7 @@ function PhoneCarouselMobile() {
           ›
         </button>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -378,7 +411,6 @@ function PhoneCarouselDesktop() {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [reveal, setReveal] = useState(false);
   const autoTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Tripled dataset for infinite looping
@@ -503,10 +535,8 @@ function PhoneCarouselDesktop() {
     const raf = requestAnimationFrame(() => {
       applyPosition(center, false);
     });
-    const t = setTimeout(() => setReveal(true), 80);
     return () => {
       cancelAnimationFrame(raf);
-      clearTimeout(t);
     };
   }, [applyPosition]);
 
@@ -613,8 +643,7 @@ function PhoneCarouselDesktop() {
             transformStyle: "preserve-3d",
             willChange: "transform",
             zIndex: 3,
-            opacity: reveal ? 1 : 0,
-            transition: "opacity 600ms ease 100ms",
+            opacity: 1,
           }}
         >
           {allCards.map((card, idx) => (
@@ -882,9 +911,11 @@ function PhoneCarouselDesktop() {
 }
 
 export function PhoneCarousel() {
-  const [viewport, setViewport] = useState<"pending" | "narrow" | "wide">("pending");
+  const [viewport, setViewport] = useState<"pending" | "narrow" | "wide">(
+    "pending"
+  );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
     const sync = () => setViewport(mq.matches ? "narrow" : "wide");
     sync();
@@ -899,19 +930,30 @@ export function PhoneCarousel() {
   if (viewport === "pending") {
     return (
       <div
+        id="artkey-uses"
         style={{
           width: "100%",
           minHeight: "min(100vh, 700px)",
           background: "#fff",
+          scrollMarginTop: "5rem",
         }}
         aria-hidden
       />
     );
   }
 
-  if (viewport === "narrow") {
-    return <PhoneCarouselMobile />;
-  }
-
-  return <PhoneCarouselDesktop />;
+  return (
+    <section
+      id="artkey-uses"
+      className="bg-white"
+      style={{ scrollMarginTop: "5rem" }}
+    >
+      <ArtKeyUsesSectionHeading />
+      {viewport === "narrow" ? (
+        <PhoneCarouselMobile />
+      ) : (
+        <PhoneCarouselDesktop />
+      )}
+    </section>
+  );
 }

@@ -94,7 +94,7 @@ export default function AdminDashboardPage() {
     { label: "Customers", value: stats?.totalCustomers || 0, icon: Users, href: "/b_d_admn_tae/customers", color: "bg-green-50 text-green-600" },
     { label: "Orders", value: stats?.totalOrders || 0, sub: `${stats?.pendingOrders || 0} pending`, icon: ShoppingCart, href: "/b_d_admn_tae/orders", color: "bg-amber-50 text-amber-600" },
     { label: "Revenue", value: `$${(stats?.totalRevenue || 0).toFixed(2)}`, icon: DollarSign, color: "bg-emerald-50 text-emerald-600" },
-    { label: "ArtKey Portals", value: stats?.totalArtKeys || 0, icon: QrCode, href: "/b_d_admn_tae/artkey-demos", color: "bg-rose-50 text-rose-600" },
+    { label: "ArtKey\u2122 Portals", value: stats?.totalArtKeys || 0, icon: QrCode, href: "/b_d_admn_tae/artkey-demos", color: "bg-rose-50 text-rose-600" },
   ];
 
   const statusBadge = (status: string) => {
@@ -165,7 +165,7 @@ export default function AdminDashboardPage() {
           <div className="w-8 h-8 bg-white/15 rounded-md flex items-center justify-center mb-2">
             <QrCode className="w-4 h-4" />
           </div>
-          <div className="text-sm font-semibold">ArtKey Demo Builder</div>
+          <div className="text-sm font-semibold">ArtKey\u2122 Demo Builder</div>
           <div className="text-xs text-white/60 mt-0.5">Generate a portal URL + QR code</div>
         </Link>
         <Link

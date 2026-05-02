@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import { Creator, PhoneButton } from "@/data/creators";
+import { ArtKeyTrademark } from "@/components/RefinedTm";
 import { PhoneModal } from "./PhoneModal";
 import PortalButtonList from "@/artkey-portal/PortalButtonList";
 
@@ -130,7 +131,7 @@ function PhoneMockup({
             letterSpacing: "-0.01em",
           }}
         >
-          ArtKey™ Portal
+          <ArtKeyTrademark /> Portal
         </h4>
         <PortalButtonList
           mode="live"

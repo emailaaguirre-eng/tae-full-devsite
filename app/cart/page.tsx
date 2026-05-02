@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
+import { ArtKeyTrademark, renderStringWithArtKeyTrademarks } from "@/components/RefinedTm";
 
 const safeNumber = (value: unknown, fallback = 0) => {
   const n = Number(value);
@@ -48,8 +49,8 @@ function CartItemRow({
           </div>
         )}
         {item.requiresQrCode && (
-          <span className="absolute top-1 right-1 bg-brand-dark/80 text-white text-[8px] px-1.5 py-0.5 rounded-full font-semibold">
-            ArtKey
+          <span className="absolute top-1 right-1 bg-brand-dark/80 text-white text-[8px] px-1.5 py-0.5 rounded-full font-semibold inline-flex items-baseline gap-0">
+            <ArtKeyTrademark />
           </span>
         )}
       </div>
@@ -103,7 +104,9 @@ function CartItemRow({
         {/* ArtKey badge */}
         {item.artKeyData?.title && (
           <div className="mt-2 inline-flex items-center gap-1.5 bg-brand-light/50 text-brand-darkest px-2.5 py-1 rounded-full text-xs">
-            <span>ArtKey:</span>
+            <span className="inline-flex items-baseline gap-0">
+              <ArtKeyTrademark />:
+            </span>
             <span className="font-medium truncate max-w-[120px]">
               {item.artKeyData.title}
             </span>
@@ -263,7 +266,9 @@ export default function CartPage() {
               {cart.some((item) => item.requiresQrCode) && (
                 <div className="bg-brand-light/30 border border-brand-medium/20 rounded-lg p-4 mb-6">
                   <p className="text-xs text-brand-darkest/70 leading-relaxed">
-                    <span className="font-semibold">ArtKey items included.</span>{" "}
+                    <span className="font-semibold inline-flex flex-wrap items-baseline gap-x-1 gap-y-0">
+                      {renderStringWithArtKeyTrademarks("ArtKey items included.")}
+                    </span>{" "}
                     During checkout, we&apos;ll generate your unique QR codes and
                     show you a proof with the real QR before you pay.
                   </p>

@@ -354,7 +354,9 @@ export default function CatalogV2ListingDetailPage() {
             <div>
               <div className="text-brand-medium text-xs uppercase tracking-wider mb-1">Flags</div>
               <div className="text-brand-dark">
-                Customizable: {listing.customizable ? "Yes" : "No"} · ArtKey required: {listing.requiresQrCode ? "Yes" : "No"}
+                Customizable: {listing.customizable ? "Yes" : "No"} ·{" "}
+                {"ArtKey\u2122 required:"}{" "}
+                {listing.requiresQrCode ? "Yes" : "No"}
               </div>
             </div>
             <div className="md:col-span-2">
@@ -606,7 +608,7 @@ export default function CatalogV2ListingDetailPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-brand-dark/70 mb-1.5 uppercase tracking-wider">
-                    Requires ArtKey / QR
+                    {"Requires ArtKey\u2122 / QR"}
                   </label>
                   <select
                     value={editingAssignment.requiresQrCode}

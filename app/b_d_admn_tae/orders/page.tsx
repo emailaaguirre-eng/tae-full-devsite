@@ -328,7 +328,7 @@ export default function AdminOrdersPage() {
                       <div className="text-sm text-brand-dark">{item.itemName}</div>
                       <div className="text-[10px] text-brand-medium">
                         {item.itemType} {item.quantity > 1 ? `x${item.quantity}` : ""}
-                        {item.artKeyId && " | Has ArtKey Portal"}
+                        {item.artKeyId && " | Has ArtKey\u2122 Portal"}
                       </div>
                     </div>
                     <div className="text-sm font-medium">${(item.unitPrice || 0).toFixed(2)}</div>

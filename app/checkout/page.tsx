@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/contexts/CartContext";
 import type { CartItem } from "@/contexts/CartContext";
 import Link from "next/link";
+import { renderStringWithArtKeyTrademarks } from "@/components/RefinedTm";
 import { ArrowLeft, Check, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { customerPlacementLabel } from "@/lib/customer-placement-label";
@@ -172,7 +173,7 @@ export default function CheckoutPage() {
       return "Design render data is missing for one or more items. Please return to cart/studio and re-save your design.";
     }
     if (paymentBlockedForQr) {
-      return "Final proof must be approved before payment for ArtKey / QR products. Use the proof step or return to shipping to continue.";
+      return "Final proof must be approved before payment for ArtKey\u2122 / QR products. Use the proof step or return to shipping to continue.";
     }
     return undefined;
   }, [hasMissingDesignRenders, paymentBlockedForQr]);
@@ -844,9 +845,9 @@ export default function CheckoutPage() {
                       Final proof approval
                     </h2>
                     <p className="text-sm text-brand-darkest/65 mt-2 max-w-2xl leading-relaxed">
-                      Review your design before payment. This is the version we&apos;ll use for production,
-                      including your ArtKey QR where it appears on the artwork. Take a moment to confirm
-                      everything looks right.
+                      {renderStringWithArtKeyTrademarks(
+                        "Review your design before payment. This is the version we'll use for production, including your ArtKey QR where it appears on the artwork. Take a moment to confirm everything looks right."
+                      )}
                     </p>
                   </div>
                 </div>
@@ -860,8 +861,9 @@ export default function CheckoutPage() {
                       Preparing your final proof
                     </p>
                     <p className="text-sm text-brand-darkest/55 mt-2 max-w-md mx-auto leading-relaxed">
-                      Finalizing your ArtKey details and generating your print-ready proof. This usually
-                      takes just a moment.
+                      {renderStringWithArtKeyTrademarks(
+                        "Finalizing your ArtKey details and generating your print-ready proof. This usually takes just a moment."
+                      )}
                     </p>
                   </div>
                 )}
@@ -914,13 +916,16 @@ export default function CheckoutPage() {
                               </h3>
                               {proof.portalUrl ? (
                                 <p className="text-sm text-brand-darkest/60 mt-2 leading-relaxed">
-                                  Your personal ArtKey is part of this design. You&apos;ll get access details
-                                  in your order confirmation—we don&apos;t show private links on this screen.
+                                  {renderStringWithArtKeyTrademarks(
+                                    "Your personal ArtKey is part of this design. You'll get access details in your order confirmation—we don't show private links on this screen."
+                                  )}
                                 </p>
                               ) : null}
                               {proof.reusedPortal ? (
                                 <p className="text-xs text-brand-darkest/50 mt-2">
-                                  Using your saved ArtKey from an earlier step.
+                                  {renderStringWithArtKeyTrademarks(
+                                    "Using your saved ArtKey from an earlier step."
+                                  )}
                                 </p>
                               ) : null}
                             </div>
@@ -997,8 +1002,9 @@ export default function CheckoutPage() {
                           I approve this artwork for production
                         </span>
                         <span className="text-brand-darkest/65 text-xs mt-1.5 block leading-relaxed">
-                          I&apos;ve reviewed each surface. The artwork shown—including the ArtKey QR where it
-                          appears—is what I want submitted to fulfill my order.
+                          {renderStringWithArtKeyTrademarks(
+                            "I've reviewed each surface. The artwork shown—including the ArtKey QR where it appears—is what I want submitted to fulfill my order."
+                          )}
                         </span>
                       </span>
                     </label>

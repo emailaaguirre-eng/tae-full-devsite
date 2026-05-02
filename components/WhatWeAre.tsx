@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  ArtKeyTrademark,
+  ArtKeysTrademark,
+} from "@/components/RefinedTm";
+
 export function ArtTechnologySection() {
   const artKeyReveals = [
     "Videos",
@@ -20,10 +25,11 @@ export function ArtTechnologySection() {
             Turn a Meaningful Image Into a Living Experience
           </h2>
           <p className="text-lg md:text-xl max-w-3xl mx-auto opacity-90 text-center">
-            Each piece includes an ArtKey™ that unlocks videos, music, messages, photos, and surprises when scanned.
+            Each piece includes an <ArtKeyTrademark /> that unlocks videos,
+            music, messages, photos, and surprises when scanned.
           </p>
           <p className="text-base md:text-lg mt-6 mb-4 max-w-3xl mx-auto opacity-90 text-center">
-            When scanned, the ArtKey™ can reveal:
+            When scanned, the <ArtKeyTrademark /> can reveal:
           </p>
           <ul className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-left">
             {artKeyReveals.map((item) => (
@@ -50,10 +56,15 @@ export function WhatIsTheArtfulExperienceSection() {
           <div className="w-24 h-1 bg-brand-medium mx-auto mb-6"></div>
           <div className="text-lg text-brand-darkest max-w-4xl mx-auto space-y-4 text-left">
             <p>
-              <strong>The Artful Experience</strong> is more than a product—it&apos;s a gift that opens a world. Powered by <strong>ArtKey™ technology</strong>, every card and image becomes an interactive portal that grows, responds, and continues giving long after it&apos;s shared.
+              <strong>The Artful Experience</strong> is more than a product—it&apos;s a gift that opens a world. Powered by{" "}
+              <strong>
+                <ArtKeyTrademark /> technology
+              </strong>
+              , every card and image becomes an interactive portal that grows, responds, and continues giving long after it&apos;s shared.
             </p>
             <p>
-              Imagine sending a <strong>wedding invitation</strong> that doesn&apos;t just announce a date—it tells your story. With the ArtKey™, your invitation can include photos, a short video of how you met, or a curated gallery of favorite moments. Guests can RSVP directly through the ArtKey™ portal, sign the digital guestbook, share their well wishes, and upload photos from the celebration.
+              Imagine sending a <strong>wedding invitation</strong> that doesn&apos;t just announce a date—it tells your story. With the{" "}
+              <ArtKeyTrademark />, your invitation can include photos, a short video of how you met, or a curated gallery of favorite moments. Guests can RSVP directly through the <ArtKeyTrademark /> portal, sign the digital guestbook, share their well wishes, and upload photos from the celebration.
             </p>
             <p>
               The same applies to holiday cards, baby reveals, graduation announcements, promotions, birthday cards, or any image or painting you would like to gift.
@@ -78,10 +89,10 @@ export function EveryProductIncludesArtKeySection() {
         <div className="p-8 md:p-12" style={{ backgroundColor: "#000000" }}>
           <div className="text-center mb-8">
             <h3 className="text-3xl font-normal text-white mb-4 font-playfair">
-              Every Product Includes ArtKey™ Technology
+              Every Product Includes <ArtKeyTrademark /> Technology
             </h3>
             <p className="text-lg text-white/90 max-w-2xl mx-auto">
-              The ArtKey™ works seamlessly with today&apos;s smartphones, turning every piece into an interactive experience. We print ArtKeys™ on cards, invitations, and announcements, and discreetly embed them into commissioned artwork and art prints. The beauty of the piece remains untouched while the technology stays elegantly hidden.
+              The <ArtKeyTrademark /> works seamlessly with today&apos;s smartphones, turning every piece into an interactive experience. We print <ArtKeysTrademark /> on cards, invitations, and announcements, and discreetly embed them into commissioned artwork and art prints. The beauty of the piece remains untouched while the technology stays elegantly hidden.
             </p>
           </div>
         </div>

@@ -95,7 +95,7 @@ export async function POST(req: Request) {
       publicToken,
       ownerToken,
       ownerEmail: null,
-      title: data.title || 'My ArtKey Portal',
+      title: data.title || 'My ArtKey\u2122 Portal',
       theme: JSON.stringify(data.theme || {}),
       features: JSON.stringify(data.features || {}),
       links: JSON.stringify(data.links || []),

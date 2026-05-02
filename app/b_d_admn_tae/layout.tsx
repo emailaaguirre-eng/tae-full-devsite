@@ -32,7 +32,7 @@ const NAV_ITEMS = [
   { href: "/b_d_admn_tae/site-media", label: "Site Media", icon: ImageIcon },
   { href: "/b_d_admn_tae/customers", label: "Customers", icon: Users },
   { href: "/b_d_admn_tae/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/b_d_admn_tae/artkey-demos", label: "ArtKey Demos", icon: QrCode },
+  { href: "/b_d_admn_tae/artkey-demos", label: "ArtKey\u2122 Demos", icon: QrCode },
   { href: "/b_d_admn_tae/admin-users", label: "Admin Users", icon: ShieldCheck },
 ];
 

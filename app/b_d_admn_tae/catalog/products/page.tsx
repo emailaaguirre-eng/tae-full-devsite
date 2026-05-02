@@ -2932,10 +2932,10 @@ export default function AdminProductsPage() {
                   <div className="flex items-center justify-between gap-3 border border-brand-light rounded-lg p-3 bg-white">
                     <div>
                       <div className="text-xs font-medium text-brand-dark/70 uppercase tracking-wider">
-                        Requires QR / ArtKey portal
+                        {"Requires QR / ArtKey\u2122 portal"}
                       </div>
                       <p className="text-[11px] mt-1 text-brand-medium">
-                        When on, studio flow expects ArtKey portal setup for this product.
+                        {"When on, studio flow expects ArtKey\u2122 portal setup for this product."}
                       </p>
                     </div>
                     <button

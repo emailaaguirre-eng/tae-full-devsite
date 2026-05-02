@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { ArtKeyTrademark } from "@/components/RefinedTm";
 
 export default function PortalEditPage() {
   const params = useParams();
@@ -93,8 +94,8 @@ function NotAuthenticated({ token }: { token: string }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
       <div className="max-w-sm w-full">
-        <h1 className="text-xl font-normal text-gray-900 text-center mb-2">
-          ArtKey Portal Access
+        <h1 className="text-xl font-normal text-gray-900 text-center mb-2 inline-flex flex-wrap items-baseline justify-center gap-x-1 gap-y-0 w-full">
+          <ArtKeyTrademark /> Portal Access
         </h1>
         <p className="text-sm text-gray-500 text-center mb-8">
           Enter the email associated with your portal to access your edit link.

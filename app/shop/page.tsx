@@ -4,6 +4,10 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import {
+  ArtKeyTrademark,
+  renderStringWithArtKeyTrademarks,
+} from "@/components/RefinedTm";
 
 interface ShopProduct {
   id: string;
@@ -80,8 +84,9 @@ export default function ShopPage() {
             Shop &mdash; Customize Your Own
           </h1>
           <p className="text-lg text-brand-lightest max-w-2xl mx-auto">
-            Upload your image, design your ArtKey portal, and create something
-            truly personal. Every product includes a scannable QR experience.
+            {renderStringWithArtKeyTrademarks(
+              "Upload your image, design your ArtKey portal, and create something truly personal. Every product includes a scannable QR experience."
+            )}
           </p>
         </div>
       </div>
@@ -189,8 +194,8 @@ export default function ShopPage() {
                     </div>
                   )}
                   {product.requiresQrCode && (
-                    <span className="absolute top-3 right-3 bg-brand-dark/80 text-white text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide">
-                      ArtKey
+                    <span className="absolute top-3 right-3 bg-brand-dark/80 text-white text-[10px] px-2.5 py-1 rounded-full font-semibold tracking-wide inline-flex items-baseline">
+                      <ArtKeyTrademark />
                     </span>
                   )}
                 </div>
