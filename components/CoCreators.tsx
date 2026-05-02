@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import cocreatorsData from "@/content/cocreators.json";
+import { creators as portalCreators } from "@/data/creators";
+import { CoCreatorsSection } from "@/components/CoCreatorsSection";
 
 interface CoCreator {
   name: string;
@@ -125,7 +127,7 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
                     </span>
                   </div>
                   <p className="text-lg text-brand-darkest leading-relaxed mb-6">
-                    We welcome {kimber.name.split(" ")[0]} as The Artful Experience&apos;s first co-creator, with an art collaboration launching in the New Year.
+                    We welcome {kimber.name.split(" ")[0]} as The Artful Experience&apos;s first co-creator, with an art collaboration launching this month.
                   </p>
                   <Link
                     href="/cocreators"
@@ -142,20 +144,26 @@ export default function CoCreators({ simplified = false }: CoCreatorsProps) {
     );
   }
 
+  const sectionKicker =
+    "sectionKicker" in cocreatorsData && typeof (cocreatorsData as { sectionKicker?: string }).sectionKicker === "string"
+      ? (cocreatorsData as { sectionKicker: string }).sectionKicker
+      : "THE COCREATORS";
+  const sectionHeadline =
+    "sectionHeadline" in cocreatorsData &&
+    typeof (cocreatorsData as { sectionHeadline?: string }).sectionHeadline === "string"
+      ? (cocreatorsData as { sectionHeadline: string }).sectionHeadline
+      : subtitle;
+
   return (
     <section id="cocreators" className="py-20" style={{ backgroundColor: "#ecece9" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-normal text-brand-dark mb-4 font-playfair">
-            {title}
-          </h2>
-          <div className="w-24 h-1 bg-brand-medium mx-auto mb-4"></div>
-          <p className="text-lg text-brand-darkest max-w-2xl mx-auto">
-            {subtitle}
-          </p>
-        </div>
+        <CoCreatorsSection
+          creator={portalCreators[0]}
+          isActive
+          intro={{ kicker: sectionKicker, headline: sectionHeadline }}
+        />
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16 mt-16 md:mt-20">
           {creators.map((cocreator) => (
             <div
               key={cocreator.slug}
