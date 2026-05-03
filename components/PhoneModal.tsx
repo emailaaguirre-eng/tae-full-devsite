@@ -1,5 +1,5 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X, Calendar, MapPin, ExternalLink, ChevronRight } from "lucide-react";
+import { X, Calendar, MapPin, ExternalLink, ChevronRight, Instagram } from "lucide-react";
 import {
   ArtKeyTrademark,
   renderStringWithArtKeyTrademarks,
@@ -51,7 +51,7 @@ function WelcomeMessageContent() {
             fontWeight: 400,
           }}
         >
-          We're deeply honored to welcome Kimber as The Artful Experience's first co-creator, with an art collaboration launching in the New Year, followed by talks and immersive events. Her story is living proof that limits are meant to be rewritten—and we're just getting started together.
+          We're deeply honored to welcome Kimber as The Artful Experience's first co-creator, with an art collaboration launching this month. Her story is living proof that limits are meant to be rewritten, and we're just getting started together.
         </p>
         <div
           style={{
@@ -256,11 +256,13 @@ function BehindTheScenesContent() {
 }
 
 /* ─── Sponsors & Partners ─────────────────────────────────────────────────── */
-// To add a sponsor: set sponsorLogoUrl to the logo image URL and fill in the other fields.
-const sponsorLogoUrl: string | null = null;        // e.g. "https://example.com/logo.png"
-const sponsorName: string | null = null;            // e.g. "The North Face"
-const sponsorDescription: string | null = null;     // short paragraph about the partnership
-const sponsorWebsite: string | null = null;         // e.g. "https://www.thenorthface.com"
+// Kimber / portal preview — keep logo URL in sync with `data/creators.ts` → `sponsor.logoUrl`.
+const sponsorLogoUrl: string | null =
+  "https://theartfulexperience.com/wp-content/uploads/2026/04/northfacelogo.png";
+const sponsorName: string | null = "The North Face";
+const sponsorDescription: string | null =
+  "Kimber is a former member of The North Face Athlete Development Program. We are proud to spotlight her journey alongside partners who believe limits are meant to be rewritten.";
+const sponsorWebsite: string | null = "https://www.thenorthface.com";
 
 function SponsorsPartnersContent() {
   if (!sponsorName) {
@@ -335,7 +337,7 @@ function SponsorsPartnersContent() {
       >
         <div
           style={{
-            background: "#000",
+            background: "#f4f4f2",
             padding: "28px 24px",
             display: "flex",
             alignItems: "center",
@@ -345,8 +347,8 @@ function SponsorsPartnersContent() {
           {sponsorLogoUrl ? (
             <img
               src={sponsorLogoUrl}
-              alt={sponsorName}
-              style={{ maxHeight: "36px", maxWidth: "160px", objectFit: "contain", filter: "invert(1)" }}
+              alt={sponsorName ?? "Sponsor"}
+              style={{ maxHeight: "48px", maxWidth: "280px", objectFit: "contain" }}
             />
           ) : (
             <span style={{ color: "#fff", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 900, letterSpacing: "0.18em" }}>
@@ -392,50 +394,31 @@ function SponsorsPartnersContent() {
 }
 
 /* ─── Talks & Appearances ─────────────────────────────────────────────────── */
-const appearances = [
+type AppearanceRow = {
+  date: { month: string; day: string; year: string };
+  title: string;
+  venue: string;
+  type: string;
+  past: boolean;
+};
+
+/** Kimber — same card layout as real events; add rows when dates are confirmed. */
+const talksAppearancesSchedule: AppearanceRow[] = [
   {
-    date: { month: "JAN", day: "15", year: "2026" },
-    title: "Summit Stories: Women in Adaptive Climbing",
-    venue: "REI Co-op — Seattle, WA",
-    type: "Panel Discussion",
-    past: true,
-  },
-  {
-    date: { month: "FEB", day: "8", year: "2026" },
-    title: "Adaptive Athletics & The Future of Gear",
-    venue: "Outdoor Retailer — Denver, CO",
-    type: "Keynote",
-    past: true,
-  },
-  {
-    date: { month: "FEB", day: "22", year: "2026" },
-    title: "Climbing Without Limits — Book Talk",
-    venue: "Powell's Books — Portland, OR",
-    type: "Speaking",
-    past: true,
-  },
-  {
-    date: { month: "MAR", day: "8", year: "2026" },
-    title: "International Women's Day — Guest Speaker",
-    venue: "University of Washington — Seattle, WA",
-    type: "Guest Lecture",
-    past: true,
-  },
-  {
-    date: { month: "MAR", day: "29", year: "2026" },
-    title: "Adaptive Athlete Summit",
-    venue: "San Leandro, CA",
-    type: "Athlete Event",
-    past: true,
+    date: { month: "TBD", day: "\u2013", year: "2026" },
+    title: "Coming soon",
+    venue: "Talks and appearances for 2026 will be posted here.",
+    type: "Coming soon",
+    past: false,
   },
 ];
 
 function TalksAppearancesContent() {
   return (
     <div style={MODAL_STYLES.section}>
-      <span style={MODAL_STYLES.label}>Past Appearances</span>
+      <span style={MODAL_STYLES.label}>Schedule</span>
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        {appearances.map((ev, i) => (
+        {talksAppearancesSchedule.map((ev, i) => (
           <div
             key={i}
             style={{
@@ -555,121 +538,84 @@ function TalksAppearancesContent() {
 }
 
 /* ─── Forum / Blog ────────────────────────────────────────────────────────── */
-const posts = [
+/** Real posts only — add rows here when content exists (no mock imagery or lorem). */
+type ForumPost = {
+  id: number;
+  title: string;
+  date: string;
+  excerpt: string;
+  tag: string;
+  readTime?: string;
+  /** Optional hero image URL; omit unless you have a real asset. */
+  imageUrl?: string | null;
+  /** Same height as a hero image, neutral — shows list layout before real photography exists. */
+  layoutPlaceholder?: boolean;
+  /** Set true when a full article exists and “Read more” should appear. */
+  showReadMore?: boolean;
+};
+
+/** Kimber — first row is “coming soon” so the forum list layout is visible; add real posts below when ready. */
+const forumPosts: ForumPost[] = [
   {
     id: 1,
-    title: "Why I Climbed Rainier Six Times",
-    date: "March 28, 2026",
-    excerpt: "People ask me what keeps me going back. It's not the summit — it's the space between the decisions. The mountain doesn't care about your limitations. It just asks: what will you do next?",
-    image: "climbing5",
-    tag: "Mindset",
-    readTime: "4 min read",
-  },
-  {
-    id: 2,
-    title: "Building the Prosthetic That Let Me Ice Climb",
-    date: "February 14, 2026",
-    excerpt: "Two seasons, three prototypes, and one breakthrough. Here's the full story of how we worked with engineers, climbers, and occupational therapists to design a tool that changed everything.",
-    image: "climbing6",
-    tag: "Gear",
-    readTime: "6 min read",
-  },
-  {
-    id: 3,
-    title: "To Every Adaptive Athlete Starting Out",
-    date: "January 5, 2026",
-    excerpt: "You're going to hear a lot of 'that's impressive for someone with your condition.' Ignore it. Every boundary you push doesn't just move for you — it moves for everyone who comes after.",
-    image: "climbing7",
-    tag: "Community",
-    readTime: "3 min read",
+    title: "Coming soon",
+    date: "First post",
+    excerpt:
+      "Kimber's supporter forum will go live here first. When it opens, you'll find updates and conversation starters from Kimber and The Artful Experience.",
+    tag: "Announcement",
+    imageUrl: null,
+    layoutPlaceholder: true,
   },
 ];
 
-// Set to true when forum/blog content is ready to go live
-const FORUM_LIVE = false;
-
 function ForumContent() {
-  if (!FORUM_LIVE) {
-    return (
-      <div style={MODAL_STYLES.section}>
-        <div
-          style={{
-            background: "#ecece9",
-            border: "1px solid #ded8d3",
-            borderRadius: "14px",
-            padding: "40px 24px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "12px",
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              width: "52px",
-              height: "52px",
-              background: "#ded8d3",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "20px",
-            }}
-          >
-            ✍️
-          </div>
-          <h4
-            style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: "1.1rem",
-              fontWeight: 500,
-              color: "#000",
-              margin: 0,
-            }}
-          >
-            Coming Soon
-          </h4>
-          <p
-            style={{
-              fontFamily: "Inter, sans-serif",
-              fontSize: "0.82rem",
-              color: "#918c86",
-              lineHeight: 1.6,
-              margin: 0,
-              maxWidth: "280px",
-            }}
-          >
-            The supporter forum is coming soon. Posts and updates from Kimber will appear here.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div>
       <div style={{ padding: "20px 24px 4px" }}>
         <span style={MODAL_STYLES.label}>Forum For Supporters</span>
       </div>
-      {posts.map((post, i) => (
+      {forumPosts.map((post, i) => (
         <div key={post.id}>
           <div style={{ padding: "0 24px 20px" }}>
-            <img
-              src={`https://picsum.photos/seed/${post.image}/480/200`}
-              alt={post.title}
-              style={{
-                width: "100%",
-                height: "140px",
-                objectFit: "cover",
-                borderRadius: "10px",
-                display: "block",
-                marginBottom: "12px",
-                border: "1px solid #ded8d3",
-              }}
-            />
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+            {post.imageUrl ? (
+              <img
+                src={post.imageUrl}
+                alt={post.title}
+                style={{
+                  width: "100%",
+                  height: "140px",
+                  objectFit: "cover",
+                  borderRadius: "10px",
+                  display: "block",
+                  marginBottom: "12px",
+                  border: "1px solid #ded8d3",
+                }}
+              />
+            ) : post.layoutPlaceholder ? (
+              <div
+                aria-hidden
+                style={{
+                  width: "100%",
+                  height: "140px",
+                  borderRadius: "10px",
+                  marginBottom: "12px",
+                  border: "1px solid #ded8d3",
+                  background: "linear-gradient(180deg, #f2f1ee 0%, #e8e7e4 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase" as const,
+                  color: "#918c86",
+                }}
+              >
+                Coming soon
+              </div>
+            ) : null}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
               <span
                 style={{
                   background: "#ecece9",
@@ -687,10 +633,14 @@ function ForumContent() {
               <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "#918c86" }}>
                 {post.date}
               </span>
-              <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "#ded8d3" }}>·</span>
-              <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "#918c86" }}>
-                {post.readTime}
-              </span>
+              {post.readTime ? (
+                <>
+                  <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "#ded8d3" }}>·</span>
+                  <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "#918c86" }}>
+                    {post.readTime}
+                  </span>
+                </>
+              ) : null}
             </div>
             <h4
               style={{
@@ -710,33 +660,36 @@ function ForumContent() {
                 fontSize: "0.8rem",
                 color: "#555",
                 lineHeight: 1.65,
-                margin: "0 0 12px",
+                margin: post.showReadMore ? "0 0 12px" : "0",
               }}
             >
               {post.excerpt}
             </p>
-            <button
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                background: "none",
-                border: "none",
-                fontFamily: "Inter, sans-serif",
-                fontSize: "0.78rem",
-                fontWeight: 600,
-                color: "#000",
-                cursor: "pointer",
-                padding: 0,
-                textDecoration: "underline",
-                textUnderlineOffset: "3px",
-              }}
-            >
-              Read more <ChevronRight size={13} />
-            </button>
+            {post.showReadMore ? (
+              <button
+                type="button"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  background: "none",
+                  border: "none",
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  color: "#000",
+                  cursor: "pointer",
+                  padding: 0,
+                  textDecoration: "underline",
+                  textUnderlineOffset: "3px",
+                }}
+              >
+                Read more <ChevronRight size={13} />
+              </button>
+            ) : null}
           </div>
-          {i < posts.length - 1 && <hr style={MODAL_STYLES.divider} />}
-          {i < posts.length - 1 && <div style={{ height: "20px" }} />}
+          {i < forumPosts.length - 1 ? <hr style={MODAL_STYLES.divider} /> : null}
+          {i < forumPosts.length - 1 ? <div style={{ height: "20px" }} /> : null}
         </div>
       ))}
     </div>
@@ -798,13 +751,21 @@ function StayConnectedContent() {
         </button>
       </div>
       <span style={MODAL_STYLES.label}>Follow Along</span>
-      {[
-        { platform: "Instagram", handle: "@kimbercrossclimbs", icon: "📷" },
-        { platform: "YouTube", handle: "Kimber Cross", icon: "▶" },
-        { platform: "Strava", handle: "Kimber Cross", icon: "🏃" },
-      ].map((s) => (
-        <div
+      {(
+        [
+          {
+            platform: "Instagram",
+            handle: "@kimbercrossclimbs",
+            href: "https://www.instagram.com/kimbercrossclimbs/",
+            icon: <Instagram size={20} color="#E4405F" aria-hidden strokeWidth={2} />,
+          },
+        ] as const
+      ).map((s) => (
+        <a
           key={s.platform}
+          href={s.href}
+          target="_blank"
+          rel="noopener noreferrer"
           style={{
             display: "flex",
             alignItems: "center",
@@ -812,18 +773,20 @@ function StayConnectedContent() {
             padding: "12px 0",
             borderBottom: "1px solid #ded8d3",
             cursor: "pointer",
+            textDecoration: "none",
+            color: "inherit",
           }}
         >
           <div
             style={{
               width: "36px",
               height: "36px",
-              background: "#ecece9",
+              background: "#ffffff",
+              border: "1px solid #ded8d3",
               borderRadius: "8px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "16px",
               flexShrink: 0,
             }}
           >
@@ -838,22 +801,30 @@ function StayConnectedContent() {
             </div>
           </div>
           <ExternalLink size={13} color="#918c86" style={{ marginLeft: "auto" }} />
-        </div>
+        </a>
       ))}
     </div>
   );
 }
 
 /* ─── Modal Shell ─────────────────────────────────────────────────────────── */
-function getContent(title: string) {
+/** Portal-style modal body by title (reused by the ArtKey builder feature library). */
+export function getPortalModalContent(title: string) {
   switch (title) {
-    case "Welcome Message": return <WelcomeMessageContent />;
-    case "Behind the Scenes": return <BehindTheScenesContent />;
-    case "Sponsors & Partners": return <SponsorsPartnersContent />;
-    case "Talks & Appearances": return <TalksAppearancesContent />;
-    case "Forum For Supporters": return <ForumContent />;
-    case "Stay Connected": return <StayConnectedContent />;
-    default: return null;
+    case "Welcome Message":
+      return <WelcomeMessageContent />;
+    case "Behind the Scenes":
+      return <BehindTheScenesContent />;
+    case "Sponsors & Partners":
+      return <SponsorsPartnersContent />;
+    case "Talks & Appearances":
+      return <TalksAppearancesContent />;
+    case "Forum For Supporters":
+      return <ForumContent />;
+    case "Stay Connected":
+      return <StayConnectedContent />;
+    default:
+      return null;
   }
 }
 
@@ -923,7 +894,7 @@ export function PhoneModal({ open, onClose, title }: PhoneModalProps) {
                   marginTop: "2px",
                 }}
               >
-                <ArtKeyTrademark /> Portal
+                <ArtKeyTrademark /> Portal Feature
               </div>
             </div>
             <DialogPrimitive.Close
@@ -954,7 +925,7 @@ export function PhoneModal({ open, onClose, title }: PhoneModalProps) {
           </div>
 
           {/* Body */}
-          <div style={MODAL_STYLES.body}>{getContent(title)}</div>
+          <div style={MODAL_STYLES.body}>{getPortalModalContent(title)}</div>
 
           {/* Footer */}
           <div
@@ -977,7 +948,7 @@ export function PhoneModal({ open, onClose, title }: PhoneModalProps) {
                 textTransform: "uppercase",
               }}
             >
-              Powered by The <ArtKeyTrademark />
+              Powered By <ArtKeyTrademark /> Technology
             </span>
           </div>
         </DialogPrimitive.Content>

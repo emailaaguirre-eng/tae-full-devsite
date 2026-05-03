@@ -28,6 +28,8 @@ export interface Creator {
   ctaHeading: string;
   ctaSubtext: string;
   ctaLabel: string;
+  /** Primary CTA under the portal preview (e.g. shop listing). */
+  ctaHref?: string;
 }
 
 export const creators: Creator[] = [
@@ -55,13 +57,15 @@ export const creators: Creator[] = [
       { label: "Making the Art" },
     ],
     sponsor: {
-      name: "Coming Soon",
-      placeholder: true,
+      name: "The North Face",
+      placeholder: false,
+      logoUrl: "https://theartfulexperience.com/wp-content/uploads/2026/04/northfacelogo.png",
     },
     ctaHeading: "Unlock Kimber's Story",
     ctaSubtext:
       "Get your ArtKey poster and access the full experience: gallery, video, playlist, and more.",
     ctaLabel: "Purchase the Poster",
+    ctaHref: "https://dev.theartfulexperience.com/shop/can-t-will-did-artprint",
   },
   {
     id: "maya-torres",
