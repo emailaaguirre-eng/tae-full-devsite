@@ -98,16 +98,18 @@ export default function FeaturedArtist() {
                   {kimber.title}
                 </span>
               </div>
-              <p className="text-lg text-brand-darkest leading-relaxed mb-6">
+              <p className="text-lg text-brand-darkest leading-relaxed mb-0">
                 We welcome Kimber as The Artful Experience&apos;s first co-creator, with an art collaboration launching in the New Year.
               </p>
-              <Link
-                href="/cocreators"
-                className="bg-brand-dark text-white px-8 py-3 font-semibold hover:bg-brand-darkest transition-all shadow-lg w-fit text-center"
-              >
-                Meet Our CoCreators →
-              </Link>
             </div>
+          </div>
+          <div className="mt-2 border-t border-brand-light bg-white pt-8 pb-8 md:pb-10 px-4 sm:px-6 flex justify-center">
+            <Link
+              href="/cocreators"
+              className="inline-flex items-center justify-center rounded-full bg-brand-dark text-white px-10 py-3.5 text-sm md:text-base font-semibold font-body shadow-lg hover:bg-brand-darkest transition-colors text-center"
+            >
+              Meet Our CoCreators →
+            </Link>
           </div>
         </div>
 
