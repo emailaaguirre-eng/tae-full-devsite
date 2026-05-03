@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import type { FeatureModuleId } from "./featureModules";
 import { ArtKeyTrademark } from "@/components/RefinedTm";
+import { PlaylistConfigurePanel } from "./PlaylistConfigurePanel";
+import { VideoGalleryConfigurePanel } from "./VideoGalleryConfigurePanel";
 import styles from "./akBuilder.module.css";
 
 /**
@@ -24,6 +26,36 @@ export function neutralBuilderConfigureBody(id: FeatureModuleId): ReactNode {
           </p>
         </div>
       );
+    case "image_gallery":
+      return (
+        <div className={styles.featureModalGeneric}>
+          <p className={styles.featureModalGenericLead}>
+            Build ordered sets of images with optional captions and a lightbox-style
+            viewer for guests.
+          </p>
+          <p className={styles.featureModalGenericText}>
+            Cropping, upload limits, and CDN delivery match the live editor later. This
+            screen is layout-only.
+          </p>
+        </div>
+      );
+    case "video_featured":
+      return <VideoGalleryConfigurePanel />;
+    case "guestbook":
+      return (
+        <div className={styles.featureModalGeneric}>
+          <p className={styles.featureModalGenericLead}>
+            Let visitors leave a short signed message; hosts review before publishing in
+            production workflows.
+          </p>
+          <p className={styles.featureModalGenericText}>
+            Moderation queues and notifications are not wired here — only the on/off
+            toggle is local.
+          </p>
+        </div>
+      );
+    case "spotify":
+      return <PlaylistConfigurePanel />;
     case "sponsors":
       return (
         <div className={styles.featureModalGeneric}>
@@ -78,14 +110,37 @@ export function neutralBuilderConfigureBody(id: FeatureModuleId): ReactNode {
       );
     case "favorites_links":
       return (
+        <div className={styles.favoritesConfigureWrap}>
+          <div className={styles.favoritesConfigureCard}>
+            <h3 className={styles.favoritesConfigureTitle}>Favorites</h3>
+            <p className={styles.favoritesConfigureHelp}>
+              Add up to 6 favorites. Turn <strong>Favorites</strong> on in{" "}
+              <strong>Add Buttons</strong> and drag it to reorder. Each card can mix
+              title, description, image, and link — a row is saved only if at least one
+              field is filled after trimming; http(s) URLs are validated and invalid URLs
+              are dropped. Thumbnail: paste an image URL or upload (upload replaces the URL
+              field). All text is trimmed on save.
+            </p>
+            <button
+              type="button"
+              className={styles.favoritesConfigureAddBtn}
+              title="Demo only — add flow not wired in this prototype"
+            >
+              + Add favorite (0/6)
+            </button>
+          </div>
+        </div>
+      );
+    case "continuing_story":
+      return (
         <div className={styles.featureModalGeneric}>
           <p className={styles.featureModalGenericLead}>
-            Curate outbound links: press, shop, playlist, or resources you want every
-            visitor to see.
+            Continuing Story will let hosts publish linked chapters over time so guests
+            can follow a narrative inside the portal.
           </p>
           <p className={styles.featureModalGenericText}>
-            Thumbnails and ordering behave like favorites in live portals. No link
-            health checks or analytics in this build.
+            This module is marked <strong>Coming soon</strong> in the prototype — no
+            fields to edit yet.
           </p>
         </div>
       );

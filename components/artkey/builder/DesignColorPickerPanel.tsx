@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useRef, useState } from "react";
 import styles from "./akBuilder.module.css";
+import {
+  normalizeSolidHex,
+  SOLID_COLOR_PRESETS,
+} from "./designSolidColorPresets";
 
 export type ColorPickerMode = "background" | "button";
 
@@ -12,41 +16,14 @@ type Props = {
   selectedHex: string | null;
   onSelectHex: (hex: string) => void;
   onClearHex?: () => void;
-  onBack: () => void;
 };
 
-/** Page 1 — matches reference layout (2×6). */
-const SWATCH_PAGE_1: string[] = [
-  "#ffffff",
-  "#000000",
-  "#ef4444",
-  "#f97316",
-  "#eab308",
-  "#22c55e",
-  "#3b82f6",
-  "#a855f7",
-  "#ec4899",
-  "#64748b",
-  "#d97706",
-  "#06b6d4",
-];
-
-const SWATCH_PAGE_2: string[] = [
-  "#f8fafc",
-  "#1e293b",
-  "#fecaca",
-  "#ffedd5",
-  "#fef9c3",
-  "#bbf7d0",
-  "#bfdbfe",
-  "#ddd6fe",
-  "#fbcfe8",
-  "#cbd5e1",
-  "#fdba74",
-  "#a5f3fc",
-];
-
-const SWATCH_PAGES = [SWATCH_PAGE_1, SWATCH_PAGE_2];
+function normalizeColorInputValue(hex: string | null): string {
+  if (!hex) return "#1a2338";
+  const h = hex.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(h)) return h.toLowerCase();
+  return "#1a2338";
+}
 
 export function DesignColorPickerPanel({
   mode,
@@ -56,26 +33,93 @@ export function DesignColorPickerPanel({
   onBack,
 }: Props) {
   const [sourceTab, setSourceTab] = useState<ColorSourceTab>("solid");
-  const [page, setPage] = useState(0);
+  const nativePickerRef = useRef<HTMLInputElement>(null);
+
+  const isButtonMode = mode === "button";
 
   const title =
     mode === "background" ? "Select a Background" : "Select Button Color";
 
-  const pageColors = useMemo(() => SWATCH_PAGES[page] ?? SWATCH_PAGE_1, [page]);
-  const pageCount = SWATCH_PAGES.length;
+  const solidPresetGrid = (
+    <div className={styles.titleTextColorBlock}>
+      <div
+        className={styles.titleTextPresetGrid}
+        role="group"
+        aria-label={
+          isButtonMode ? "Solid button colors" : "Solid background colors"
+        }
+      >
+        {SOLID_COLOR_PRESETS.map(({ hex, label }) => {
+          const current = selectedHex ? normalizeSolidHex(selectedHex) : "";
+          const preset = normalizeSolidHex(hex);
+          const active = current !== "" && preset !== "" && current === preset;
+          const lightFill =
+            hex.toLowerCase() === "#ffffff" || hex.toLowerCase() === "#facc15";
+          return (
+            <button
+              key={hex}
+              type="button"
+              className={[
+                styles.titleTextPresetSwatch,
+                lightFill ? styles.titleTextPresetSwatchLight : "",
+                active ? styles.titleTextPresetSwatchActive : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              style={{ backgroundColor: hex }}
+              title={label}
+              aria-label={label}
+              aria-pressed={active}
+              onClick={() => onSelectHex(hex)}
+            />
+          );
+        })}
+      </div>
+      <input
+        ref={nativePickerRef}
+        type="color"
+        className={styles.colorPickerNativeInput}
+        value={normalizeColorInputValue(selectedHex)}
+        aria-label={
+          isButtonMode
+            ? "Pick a custom button color"
+            : "Pick a custom background color"
+        }
+        onChange={(e) => onSelectHex(e.target.value)}
+      />
+      <button
+        type="button"
+        className={styles.titleTextMoreColorsBtn}
+        onClick={() => nativePickerRef.current?.click()}
+      >
+        <span className={styles.titleTextMoreColorsIcon} aria-hidden>
+          🎨
+        </span>
+        More Colors
+      </button>
+    </div>
+  );
+
+  const showClear =
+    Boolean(onClearHex && selectedHex) &&
+    (isButtonMode || sourceTab === "solid");
+  const clearBtn = showClear ? (
+    <button type="button" className={styles.colorPickerReset} onClick={onClearHex}>
+      Clear custom color (use tone / preset)
+    </button>
+  ) : null;
+
+  if (isButtonMode) {
+    return (
+      <>
+        {solidPresetGrid}
+        {clearBtn}
+      </>
+    );
+  }
 
   return (
     <div className={styles.colorPickerCard}>
-      <div className={styles.colorPickerHeader}>
-        <div className={styles.colorPickerTitleRow}>
-          <span className={styles.colorPickerTitleIcon} aria-hidden />
-          <h3 className={styles.colorPickerTitle}>{title}</h3>
-        </div>
-        <button type="button" className={styles.colorPickerBack} onClick={onBack}>
-          ← Back
-        </button>
-      </div>
-
       <div className={styles.colorPickerTabBar} role="tablist" aria-label="Color source">
         <button
           type="button"
@@ -112,56 +156,7 @@ export function DesignColorPickerPanel({
         </button>
       </div>
 
-      {sourceTab === "solid" && (
-        <>
-          <div className={styles.colorPickerPagination}>
-            <button
-              type="button"
-              className={styles.colorPickerPageArrow}
-              aria-label="Previous page"
-              disabled={page <= 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-            >
-              ‹
-            </button>
-            <span className={styles.colorPickerPageLabel}>Page {page + 1}</span>
-            <button
-              type="button"
-              className={styles.colorPickerPageArrow}
-              aria-label="Next page"
-              disabled={page >= pageCount - 1}
-              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-            >
-              ›
-            </button>
-          </div>
-          <div className={styles.colorPickerSwatchGrid}>
-            {pageColors.map((hex) => {
-              const selected = selectedHex?.toLowerCase() === hex.toLowerCase();
-              return (
-                <button
-                  key={`${page}-${hex}`}
-                  type="button"
-                  className={
-                    selected ? styles.colorPickerSwatchSelected : styles.colorPickerSwatch
-                  }
-                  style={{ backgroundColor: hex }}
-                  aria-label={`Color ${hex}`}
-                  aria-pressed={selected}
-                  onClick={() => onSelectHex(hex)}
-                />
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            className={styles.colorPickerMoreBtn}
-            onClick={() => setPage((p) => (p + 1) % pageCount)}
-          >
-            <span aria-hidden>🎨</span> More Colors
-          </button>
-        </>
-      )}
+      {sourceTab === "solid" && solidPresetGrid}
 
       {sourceTab === "stock" && (
         <p className={styles.colorPickerPlaceholder}>
@@ -177,11 +172,7 @@ export function DesignColorPickerPanel({
         </p>
       )}
 
-      {onClearHex && selectedHex && sourceTab === "solid" && (
-        <button type="button" className={styles.colorPickerReset} onClick={onClearHex}>
-          Clear custom color (use tone / preset)
-        </button>
-      )}
+      {clearBtn}
     </div>
   );
 }

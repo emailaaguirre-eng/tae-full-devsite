@@ -1,10 +1,15 @@
 export type FeatureModuleId =
   | "welcome_message"
+  | "image_gallery"
+  | "video_featured"
+  | "guestbook"
+  | "spotify"
   | "sponsors"
   | "events"
   | "supporter_updates"
   | "stay_connected"
-  | "favorites_links";
+  | "favorites_links"
+  | "continuing_story";
 
 export type FeatureModuleDef = {
   id: FeatureModuleId;
@@ -18,7 +23,8 @@ export type FeatureModuleDef = {
 };
 
 /**
- * Generic portal modules for this prototype (order matches design preview CTAs).
+ * Full portal feature set for the library (order matches design-preview module strip,
+ * excluding entries marked `comingSoon`).
  */
 export const FEATURE_MODULES: FeatureModuleDef[] = [
   {
@@ -28,6 +34,38 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
     short: "Introduce the portal and set the tone for visitors.",
     description:
       "A short greeting and orientation block at the top of the guest experience. Demo copy only — no persistence.",
+  },
+  {
+    id: "image_gallery",
+    cardIcon: "🖼",
+    title: "Image Gallery",
+    short: "Photo grids, lightbox, and optional captions.",
+    description:
+      "Curated image sets with ordering and captions. Demo toggles are local; uploads are not wired in this phase.",
+  },
+  {
+    id: "video_featured",
+    cardIcon: "▶️",
+    title: "Video Gallery",
+    short: "Featured clip plus optional multi-video layout.",
+    description:
+      "Primary featured video with optional gallery of additional embeds. Static copy in this builder prototype.",
+  },
+  {
+    id: "guestbook",
+    cardIcon: "✍️",
+    title: "Guestbook",
+    short: "Signed messages from visitors with moderation hooks.",
+    description:
+      "Collects guest messages for host review. Live portals support moderation; here you only toggle a local “enabled” flag.",
+  },
+  {
+    id: "spotify",
+    cardIcon: "🎵",
+    title: "Playlist (Spotify)",
+    short: "Embed a playlist or album for visitors to play in-portal.",
+    description:
+      "Host pastes a Spotify URL; guests open an in-page player experience. Prototype only — no OAuth or API calls.",
   },
   {
     id: "sponsors",
@@ -68,5 +106,14 @@ export const FEATURE_MODULES: FeatureModuleDef[] = [
     short: "Curated links with labels (and optional thumbnails in live portals).",
     description:
       "Maps to favorites and custom links in production portals. Toggle below controls a local-only enabled flag.",
+  },
+  {
+    id: "continuing_story",
+    cardIcon: "📖",
+    title: "Continuing Story",
+    short: "Linked chapters that unfold over time — coming soon.",
+    description:
+      "Sequential story blocks tied to the portal, aligned with the Continuing Story concept in the live ArtKey editor. Not available in this prototype build.",
+    comingSoon: true,
   },
 ];

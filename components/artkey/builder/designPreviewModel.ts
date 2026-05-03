@@ -1,10 +1,24 @@
 import type { DesignStartingPoint } from "./designTypes";
 
-export type DesignPreviewTitleFont = "playfair" | "source_serif" | "inter_display";
-export type DesignPreviewButtonFont = "inter" | "georgia" | "nunito";
+/** Title font family options (matches editor-style dropdown labels). */
+export type DesignPreviewTitleFont =
+  | "system"
+  | "serif"
+  | "monospace"
+  | "inter"
+  | "poppins"
+  | "lato"
+  | "montserrat"
+  | "roboto"
+  | "playfair"
+  | "open_sans";
+
+/** Same family set as title font (shared stacks in `TITLE_FONT_STACK`). */
+export type DesignPreviewButtonFont = DesignPreviewTitleFont;
+
 export type DesignPreviewButtonShape = "pill" | "rounded" | "square";
 export type DesignPreviewButtonColor = "gold" | "navy" | "sage";
-export type DesignPreviewButtonStyle = "solid" | "outline" | "soft";
+export type DesignPreviewButtonStyle = "solid" | "outline" | "glass";
 export type DesignPreviewBgTone = "paper" | "cool" | "warm";
 
 export type DesignPreviewState = {
@@ -14,6 +28,10 @@ export type DesignPreviewState = {
   btnColor: DesignPreviewButtonColor;
   btnStyle: DesignPreviewButtonStyle;
   bgTone: DesignPreviewBgTone;
+  /** Supporting / body text on the guest preview (module hints, tagline). */
+  bodyTextHex: string;
+  /** Module CTA label color in Live Preview (Design phone + portal strip). */
+  buttonLabelTextHex: string;
   /** When set, phone screen uses this solid fill instead of `bgTone` mapping. */
   screenSolidHex: string | null;
   /** When set, module CTAs use this fill (preset color/style classes skipped). */
@@ -21,15 +39,16 @@ export type DesignPreviewState = {
 };
 
 export const TITLE_FONT_STACK: Record<DesignPreviewTitleFont, string> = {
-  playfair: '"Playfair Display", Georgia, "Times New Roman", serif',
-  source_serif: 'Georgia, "Palatino Linotype", "Times New Roman", serif',
-  inter_display: '"Inter", system-ui, -apple-system, sans-serif',
-};
-
-export const BUTTON_FONT_STACK: Record<DesignPreviewButtonFont, string> = {
+  system: 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  serif: 'Georgia, "Times New Roman", "Palatino Linotype", serif',
+  monospace: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
   inter: '"Inter", system-ui, -apple-system, sans-serif',
-  georgia: 'Georgia, "Times New Roman", serif',
-  nunito: 'system-ui, "Segoe UI", "Inter", sans-serif',
+  poppins: '"Poppins", system-ui, -apple-system, sans-serif',
+  lato: '"Lato", "Helvetica Neue", Arial, sans-serif',
+  montserrat: '"Montserrat", system-ui, sans-serif',
+  roboto: '"Roboto", "Helvetica Neue", Arial, sans-serif',
+  playfair: '"Playfair Display", Georgia, "Times New Roman", serif',
+  open_sans: '"Open Sans", "Helvetica Neue", Arial, sans-serif',
 };
 
 export function defaultDesignPreview(): DesignPreviewState {
@@ -40,6 +59,8 @@ export function defaultDesignPreview(): DesignPreviewState {
     btnColor: "navy",
     btnStyle: "outline",
     bgTone: "paper",
+    bodyTextHex: "#64748b",
+    buttonLabelTextHex: "#1e293b",
     screenSolidHex: null,
     moduleFillHex: null,
   };
@@ -56,18 +77,22 @@ export function designPreviewForStartingPoint(
       btnColor: "gold",
       btnStyle: "solid",
       bgTone: "warm",
+      bodyTextHex: "#64748b",
+      buttonLabelTextHex: "#1e293b",
       screenSolidHex: null,
       moduleFillHex: null,
     };
   }
   if (sp === "manual") {
     return {
-      titleFont: "inter_display",
+      titleFont: "inter",
       buttonFont: "inter",
       btnShape: "rounded",
       btnColor: "navy",
       btnStyle: "outline",
       bgTone: "paper",
+      bodyTextHex: "#64748b",
+      buttonLabelTextHex: "#1e293b",
       screenSolidHex: null,
       moduleFillHex: null,
     };
@@ -103,7 +128,7 @@ export type DesignModuleStyleKeys = {
   designModBtnColorSage: string;
   designModBtnStyleSolid: string;
   designModBtnStyleOutline: string;
-  designModBtnStyleSoft: string;
+  designModBtnStyleGlass: string;
   designModBtnCustom: string;
 };
 
@@ -129,8 +154,8 @@ export function designModuleButtonClassNames(
   const sty =
     p.btnStyle === "outline"
       ? s.designModBtnStyleOutline
-      : p.btnStyle === "soft"
-        ? s.designModBtnStyleSoft
+      : p.btnStyle === "glass"
+        ? s.designModBtnStyleGlass
         : s.designModBtnStyleSolid;
   return [s.designModuleBtn, shape, color, sty].join(" ");
 }

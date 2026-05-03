@@ -245,6 +245,13 @@
   align-items: start;
 }
 
+@media (min-width: 900px) {
+  .layoutGrid {
+    grid-template-columns: 1fr min(340px, 36%);
+    align-items: stretch;
+  }
+}
+
 @media (min-width: 1024px) {
   .layoutGrid {
     grid-template-columns: 1fr min(360px, 38%);
@@ -326,12 +333,6 @@
   background: rgba(26, 35, 56, 0.06);
   color: var(--ab-navy-mid);
   border: 1px solid var(--ab-line);
-}
-
-.mutedNote {
-  margin-top: 1rem;
-  font-size: 0.75rem;
-  color: var(--ab-slate-light);
 }
 
 .featureGrid {
@@ -708,6 +709,433 @@
   color: var(--ab-slate-light);
 }
 
+/* Favorites configure — matches editor-style card in Features → Configure. */
+.favoritesConfigureWrap {
+  padding: 1rem 1.15rem 1.2rem;
+}
+
+.favoritesConfigureCard {
+  padding: 1.15rem 1.2rem 1.25rem;
+  border-radius: var(--ab-radius-lg);
+  border: 1px solid var(--ab-line);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(18, 26, 42, 0.05);
+}
+
+.favoritesConfigureTitle {
+  margin: 0 0 0.75rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ab-navy-deep);
+}
+
+.favoritesConfigureHelp {
+  margin: 0 0 1.1rem;
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+  font-size: 0.84rem;
+  font-weight: 400;
+  line-height: 1.55;
+  color: var(--ab-slate);
+}
+
+.favoritesConfigureHelp strong {
+  font-weight: 650;
+  color: var(--ab-navy);
+}
+
+.favoritesConfigureAddBtn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem 1rem;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ab-navy-deep);
+  background: transparent;
+  border: 2px dashed rgba(26, 35, 56, 0.22);
+  border-radius: 999px;
+  cursor: default;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.favoritesConfigureAddBtn:hover {
+  border-color: rgba(110, 163, 196, 0.45);
+  background: rgba(142, 202, 230, 0.08);
+}
+
+/* Playlist (Spotify) configure — editor-style collapsed / expanded panels. */
+.playlistConfigureWrap {
+  padding: 1rem 1.15rem 1.2rem;
+}
+
+.playlistConfigurePageTitle {
+  margin: 0 0 0.85rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.45rem;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--ab-navy-deep);
+}
+
+.playlistConfigureCard {
+  padding: 0.15rem;
+  border-radius: 14px;
+  border: 1px solid rgba(26, 35, 56, 0.12);
+  background: #f8f9fb;
+}
+
+.playlistConfigureRow {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: background 0.12s ease;
+}
+
+.playlistConfigureRow:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.playlistConfigureRowLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.playlistConfigureEmoji {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.playlistConfigureModuleTitle {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ab-navy-deep);
+}
+
+.playlistConfigureRowRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.playlistPlayIcon {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #4a90e2;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.playlistPlayTriangle {
+  display: block;
+  width: 0;
+  height: 0;
+  margin-left: 3px;
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent #fff;
+}
+
+.playlistStateLabel {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--ab-slate);
+}
+
+.playlistConfigureExpanded {
+  padding: 0.9rem 1rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid #4a90e2;
+  background: #e8f4fc;
+  box-shadow: 0 1px 3px rgba(74, 144, 226, 0.12);
+}
+
+.playlistInnerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.playlistInnerHeaderLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.playlistOpenToggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+  color: #4a90e2;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.playlistOpenToggle:hover {
+  background: rgba(74, 144, 226, 0.14);
+}
+
+.playlistOpenCaret {
+  display: inline-block;
+  font-size: 0.62rem;
+  line-height: 1;
+  transform: translateY(1px);
+}
+
+.playlistFieldLabel {
+  margin: 0 0 0.65rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ab-navy);
+}
+
+.playlistPasteBtn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--ab-navy-deep);
+  background: #fff;
+  border: 1px solid rgba(26, 35, 56, 0.16);
+  border-radius: 999px;
+  cursor: default;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.playlistPasteBtn:hover {
+  border-color: rgba(74, 144, 226, 0.45);
+  box-shadow: 0 1px 4px rgba(74, 144, 226, 0.12);
+}
+
+/* Video Gallery configure — same flow as playlist (closed → open → + Upload). */
+.videoGalleryConfigureWrap {
+  padding: 1rem 1.15rem 1.2rem;
+}
+
+.videoGalleryConfigurePageTitle {
+  margin: 0 0 0.85rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.45rem;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--ab-navy-deep);
+  text-transform: none;
+}
+
+.videoGalleryConfigureCard {
+  padding: 0.15rem;
+  border-radius: 14px;
+  border: 1px solid rgba(26, 35, 56, 0.12);
+  background: #f8f9fb;
+}
+
+.videoGalleryConfigureRow {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: background 0.12s ease;
+}
+
+.videoGalleryConfigureRow:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.videoGalleryConfigureRowLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.videoGalleryConfigureEmoji {
+  font-size: 1.15rem;
+  line-height: 1;
+  filter: saturate(0.85) hue-rotate(-8deg);
+  opacity: 0.92;
+}
+
+.videoGalleryConfigureModuleTitle {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ab-navy-deep);
+}
+
+.videoGalleryConfigureModuleTitleRow {
+  color: #4a5568;
+}
+
+.videoGalleryConfigureRowRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.videoGalleryPlayIcon {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #4a90e2;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.videoGalleryPlayTriangle {
+  display: block;
+  width: 0;
+  height: 0;
+  margin-left: 3px;
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent #fff;
+}
+
+.videoGalleryStateLabel {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.videoGalleryConfigureExpanded {
+  padding: 0.9rem 1rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid #4a90e2;
+  background: #e8f4fc;
+  box-shadow: 0 1px 3px rgba(74, 144, 226, 0.12);
+}
+
+.videoGalleryInnerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.videoGalleryInnerHeaderLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.videoGalleryOpenToggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+  color: #4a90e2;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.videoGalleryOpenToggle:hover {
+  background: rgba(74, 144, 226, 0.14);
+}
+
+.videoGalleryOpenCaret {
+  display: inline-block;
+  font-size: 0.62rem;
+  line-height: 1;
+  transform: translateY(1px);
+}
+
+.videoGalleryFieldLabel {
+  margin: 0 0 0.65rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ab-navy);
+}
+
+.videoGalleryUploadBtn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--ab-navy-deep);
+  background: #fff;
+  border: 1px solid rgba(26, 35, 56, 0.16);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.videoGalleryUploadBtn:hover {
+  border-color: rgba(74, 144, 226, 0.45);
+  box-shadow: 0 1px 4px rgba(74, 144, 226, 0.12);
+}
+
+.videoGalleryUploadNote {
+  margin: 0.75rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--ab-slate);
+  text-align: center;
+}
+
 /* —— Live Preview (reference: white card, toggle, device + Dynamic Island) —— */
 
 .livePreviewCard {
@@ -962,10 +1390,11 @@
   box-shadow: var(--ab-shadow);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 900px) {
   .aside {
     position: sticky;
     top: 1.25rem;
+    align-self: start;
   }
 }
 
@@ -1175,35 +1604,44 @@
 
 .designDetailTabScroll {
   margin-top: 0.25rem;
+  width: 100%;
   overflow-x: auto;
   padding-bottom: 0.15rem;
   -webkit-overflow-scrolling: touch;
 }
 
 .designDetailTabs {
-  display: inline-flex;
+  display: flex;
   flex-wrap: nowrap;
-  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  gap: 0.4rem;
   padding: 0.35rem;
   border-radius: var(--ab-radius-lg);
   background: #ebedf1;
   border: 1px solid var(--ab-line);
-  min-width: min(100%, 640px);
 }
 
 .designDetailTab,
 .designDetailTabActive {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   border: none;
   cursor: pointer;
   border-radius: var(--ab-radius-md);
-  padding: 0.45rem 0.65rem;
+  padding: 0.45rem 0.4rem;
   font-family: inherit;
   font-size: 11px;
   font-weight: 600;
   color: var(--ab-slate);
   background: var(--ab-white);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition:
     background 0.12s ease,
     color 0.12s ease,
@@ -1252,6 +1690,330 @@
 
 .designPresetBlock {
   margin-top: 1rem;
+}
+
+/* Title font tab — dropdown + body text color (editor-style). */
+.titleFontControls {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.titleFontFieldLabel {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--ab-ink-on-light);
+  letter-spacing: 0.01em;
+}
+
+.titleFontSelectWrap {
+  position: relative;
+  width: 100%;
+}
+
+.titleFontSelectWrap::after {
+  content: "";
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  width: 0;
+  height: 0;
+  margin-top: 2px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--ab-slate);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.titleFontSelect {
+  display: block;
+  width: 100%;
+  padding: 0.65rem 2.35rem 0.65rem 0.85rem;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--ab-ink-on-light);
+  background: #fff;
+  border: 1px solid rgba(26, 35, 56, 0.14);
+  border-radius: 10px;
+  cursor: pointer;
+  appearance: none;
+  box-shadow: 0 1px 2px rgba(18, 26, 42, 0.04);
+  transition: border-color 0.12s ease;
+}
+
+.titleFontSelect:hover {
+  border-color: rgba(110, 163, 196, 0.45);
+}
+
+.titleFontSelect:focus {
+  outline: none;
+  border-color: rgba(110, 163, 196, 0.65);
+  box-shadow: 0 0 0 3px rgba(142, 202, 230, 0.35);
+}
+
+.bodyTextColorRow {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem 1rem;
+}
+
+.bodyTextColorInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.bodyTextColorSwatch {
+  flex-shrink: 0;
+  width: 2.65rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid rgba(26, 35, 56, 0.18);
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  transition: border-color 0.12s ease, transform 0.08s ease;
+}
+
+.bodyTextColorSwatch:hover {
+  border-color: rgba(110, 163, 196, 0.55);
+  transform: scale(1.02);
+}
+
+.bodyTextColorHint {
+  flex: 1 1 12rem;
+  margin: 0.1rem 0 0;
+  min-width: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--ab-slate-light);
+}
+
+/* Title font — text color presets + “More colors” (swatch size matches former single swatch). */
+.titleTextColorBlock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.titleTextPresetGrid {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  gap: 0.3rem 0.32rem;
+  width: 100%;
+}
+
+.titleTextPresetSwatch {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 1;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(26, 35, 56, 0.18);
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  transition:
+    border-color 0.12s ease,
+    transform 0.08s ease,
+    box-shadow 0.12s ease;
+}
+
+.titleTextPresetSwatch:hover {
+  border-color: rgba(110, 163, 196, 0.55);
+  transform: scale(1.02);
+}
+
+.titleTextPresetSwatch:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 0 0 3px rgba(142, 202, 230, 0.45);
+}
+
+.titleTextPresetSwatchLight {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(26, 35, 56, 0.12);
+}
+
+.titleTextPresetSwatchLight:hover {
+  border-color: rgba(110, 163, 196, 0.45);
+}
+
+.titleTextPresetSwatchActive {
+  border-color: rgba(110, 163, 196, 0.75);
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px rgba(110, 163, 196, 0.85),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.titleTextMoreColorsBtn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.52rem 0.85rem;
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--ab-navy-deep);
+  background: #fff;
+  border: 1px solid rgba(26, 35, 56, 0.14);
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(18, 26, 42, 0.04);
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.titleTextMoreColorsBtn:hover {
+  border-color: rgba(110, 163, 196, 0.45);
+  background: #fafbfc;
+}
+
+.titleTextMoreColorsBtn:focus-visible {
+  outline: none;
+  border-color: rgba(110, 163, 196, 0.65);
+  box-shadow: 0 0 0 3px rgba(142, 202, 230, 0.35);
+}
+
+.titleTextMoreColorsIcon {
+  flex-shrink: 0;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+/* Button style & shapes — shared segmented control. */
+.buttonStyleSection {
+  margin-top: 0.35rem;
+}
+
+.buttonStyleSectionTitle {
+  margin: 0 0 0.75rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ab-navy-deep);
+}
+
+.buttonStyleSegWrap {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.4rem;
+  border-radius: 12px;
+  border: 1px solid rgba(26, 35, 56, 0.1);
+  background: #e4e7ed;
+}
+
+.buttonStyleSeg {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.58rem 0.45rem;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--ab-navy-deep);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.buttonStyleSeg:hover:not(.buttonStyleSegActive) {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.buttonStyleSegActive {
+  color: #f8fafc;
+  background: #1e293b;
+  box-shadow: 0 2px 8px rgba(18, 26, 42, 0.2);
+}
+
+/* Button style tab — one mini mock per segment; selection = ring (not dark fill). */
+.buttonStyleSegWrapWithPreview .buttonStyleSeg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.72rem 0.34rem;
+}
+
+.buttonStyleSegWrapWithPreview .buttonStyleSegActive {
+  color: var(--ab-navy-deep);
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(110, 163, 196, 0.75);
+}
+
+.buttonStyleSegWrapWithPreview .buttonStyleSegActive:hover {
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(110, 163, 196, 0.88);
+}
+
+.buttonStyleSegWrapWithPreview .buttonStyleSeg:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(142, 202, 230, 0.45);
+}
+
+.buttonStyleSegWrapWithPreview .buttonStyleSegActive:focus-visible {
+  box-shadow:
+    0 0 0 2px rgba(110, 163, 196, 0.75),
+    0 0 0 5px rgba(142, 202, 230, 0.35);
+}
+
+.buttonStylePreviewShelf {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.52rem 0.38rem;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #eef1f6 0%, #dfe4ec 100%);
+  border: 1px solid rgba(26, 35, 56, 0.08);
+}
+
+.buttonStylePreviewMock.designModuleBtn {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  padding: 0.22rem 0.28rem;
+  font-size: 0.58rem;
+  font-weight: 650;
+  pointer-events: none;
+}
+
+.buttonStyleSegWrapWithPreview .buttonStylePreviewMock.designModuleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 1.75rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  padding: 0.44rem 0.34rem;
 }
 
 .designPresetLabel {
@@ -1319,18 +2081,39 @@
   justify-content: flex-start;
 }
 
+.phoneRefTitleBlock {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 0.2rem;
+}
+
 .phoneRefTitle {
-  margin: 0 0 0.62rem;
+  margin: 0 0 0.28rem;
   padding: 0.15rem 0.25rem 0.1rem;
   width: 100%;
   max-width: 11.5rem;
   align-self: center;
   text-align: center;
   font-size: 0.64rem;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.28;
   letter-spacing: 0.02em;
-  color: #8b7cab;
+  text-wrap: balance;
+}
+
+.phoneRefSubtitle {
+  margin: 0 0 0.42rem;
+  padding: 0 0.25rem;
+  width: 100%;
+  max-width: 11.75rem;
+  align-self: center;
+  text-align: center;
+  font-size: 0.52rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.015em;
   text-wrap: balance;
 }
 
@@ -1338,6 +2121,11 @@
   .phoneRefTitle {
     font-size: 0.7rem;
     max-width: 12rem;
+  }
+
+  .phoneRefSubtitle {
+    font-size: 0.56rem;
+    max-width: 12.25rem;
   }
 }
 
@@ -1357,8 +2145,8 @@
   width: 100%;
   align-items: center;
   justify-content: center;
-  gap: 0.32rem;
-  padding: 0.4rem 0.55rem;
+  gap: 0.28rem;
+  padding: 0.32rem 0.42rem;
   border: none;
   background: #b8aed8;
   background: linear-gradient(180deg, #c4bbe4 0%, #aea3d4 48%, #9f94c9 100%);
@@ -1366,7 +2154,7 @@
   font-size: 7.75px;
   font-weight: 650;
   letter-spacing: 0.02em;
-  line-height: 1.15;
+  line-height: 1.2;
   text-align: center;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.38) inset,
@@ -1397,6 +2185,14 @@
 .phoneRefBtnLabel {
   flex: 1 1 auto;
   min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  max-height: 2.6em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 @media (min-width: 640px) {
@@ -1493,37 +2289,80 @@
 .designModBtnStyleOutline.designModBtnColorGold {
   color: var(--ab-navy-deep);
   background: transparent;
+  background-image: none;
   border-color: rgba(201, 166, 50, 0.85);
+  box-shadow: none;
 }
 
 .designModBtnStyleOutline.designModBtnColorNavy {
   color: var(--ab-navy);
   background: transparent;
+  background-image: none;
   border-color: rgba(26, 35, 56, 0.45);
+  box-shadow: none;
 }
 
 .designModBtnStyleOutline.designModBtnColorSage {
   color: #3f5a4c;
   background: transparent;
+  background-image: none;
   border-color: rgba(63, 90, 76, 0.55);
+  box-shadow: none;
 }
 
-.designModBtnStyleSoft.designModBtnColorGold {
+/* Glass: frosted fill + diagonal shine so it reads clearly vs flat outline. */
+.designModBtnStyleGlass.designModBtnColorGold {
   color: var(--ab-navy-deep);
-  background: rgba(229, 189, 58, 0.22);
-  border-color: rgba(201, 166, 50, 0.35);
+  background:
+    linear-gradient(
+      148deg,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(255, 255, 255, 0.32) 38%,
+      rgba(255, 255, 255, 0) 56%
+    ),
+    linear-gradient(180deg, rgba(255, 250, 230, 0.65) 0%, rgba(229, 189, 58, 0.2) 100%);
+  border-color: rgba(201, 166, 50, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    inset 0 -1px 0 rgba(201, 166, 50, 0.18),
+    0 2px 12px rgba(18, 26, 42, 0.1);
+  backdrop-filter: blur(10px);
 }
 
-.designModBtnStyleSoft.designModBtnColorNavy {
+.designModBtnStyleGlass.designModBtnColorNavy {
   color: var(--ab-navy);
-  background: rgba(26, 35, 56, 0.08);
-  border-color: rgba(26, 35, 56, 0.12);
+  background:
+    linear-gradient(
+      148deg,
+      rgba(255, 255, 255, 0.78) 0%,
+      rgba(255, 255, 255, 0.22) 40%,
+      rgba(255, 255, 255, 0) 56%
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.48) 0%, rgba(226, 232, 240, 0.32) 100%);
+  border-color: rgba(26, 35, 56, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(26, 35, 56, 0.1),
+    0 2px 14px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(12px);
 }
 
-.designModBtnStyleSoft.designModBtnColorSage {
+.designModBtnStyleGlass.designModBtnColorSage {
   color: #3f5a4c;
-  background: rgba(95, 122, 106, 0.15);
-  border-color: rgba(63, 90, 76, 0.2);
+  background:
+    linear-gradient(
+      148deg,
+      rgba(255, 255, 255, 0.88) 0%,
+      rgba(255, 255, 255, 0.28) 40%,
+      rgba(255, 255, 255, 0) 55%
+    ),
+    linear-gradient(180deg, rgba(236, 245, 238, 0.75) 0%, rgba(95, 122, 106, 0.18) 100%);
+  border-color: rgba(63, 90, 76, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(63, 90, 76, 0.12),
+    0 2px 12px rgba(18, 26, 42, 0.08);
+  backdrop-filter: blur(10px);
 }
 
 /* Solid hex override on module CTAs (inline backgroundColor wins). */
@@ -1534,8 +2373,9 @@
   border-style: solid;
 }
 
-/* Design tab — shared color picker shell (background + button color). */
+/* Design tab — background color picker shell (solid / stock / upload). */
 .colorPickerCard {
+  position: relative;
   margin-top: 0.65rem;
   padding: 1rem 1rem 1.05rem;
   border-radius: 14px;
@@ -1544,56 +2384,18 @@
   box-shadow: 0 1px 3px rgba(18, 26, 42, 0.06);
 }
 
-.colorPickerHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.85rem;
-}
-
-.colorPickerTitleRow {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
-}
-
-.colorPickerTitleIcon {
-  flex: 0 0 auto;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: var(--ab-navy-deep);
-}
-
-.colorPickerTitle {
+.colorPickerNativeInput {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  padding: 0;
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--ab-navy-deep);
-  line-height: 1.25;
-}
-
-.colorPickerBack {
-  flex: 0 0 auto;
-  padding: 0.35rem 0.65rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--ab-slate);
-  background: #fff;
-  border: 1px solid rgba(26, 35, 56, 0.14);
-  border-radius: 8px;
-  cursor: pointer;
-  transition:
-    border-color 0.12s ease,
-    color 0.12s ease;
-}
-
-.colorPickerBack:hover {
-  border-color: rgba(110, 163, 196, 0.45);
-  color: var(--ab-navy);
 }
 
 .colorPickerTabBar {
@@ -1637,99 +2439,6 @@
   color: var(--ab-navy-deep);
   background: #fff;
   box-shadow: 0 1px 4px rgba(18, 26, 42, 0.12);
-}
-
-.colorPickerPagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.55rem;
-  padding: 0 0.1rem;
-}
-
-.colorPickerPageLabel {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--ab-slate);
-}
-
-.colorPickerPageArrow {
-  width: 1.65rem;
-  height: 1.65rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  line-height: 1;
-  color: var(--ab-navy);
-  background: #fff;
-  border: 1px solid rgba(26, 35, 56, 0.12);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.colorPickerPageArrow:hover:not(:disabled) {
-  border-color: rgba(110, 163, 196, 0.45);
-}
-
-.colorPickerPageArrow:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.colorPickerSwatchGrid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 0.45rem;
-  margin-bottom: 0.75rem;
-}
-
-.colorPickerSwatch,
-.colorPickerSwatchSelected {
-  aspect-ratio: 1;
-  width: 100%;
-  max-width: 100%;
-  padding: 0;
-  border-radius: 10px;
-  cursor: pointer;
-  transition:
-    transform 0.1s ease,
-    box-shadow 0.1s ease;
-}
-
-.colorPickerSwatch {
-  border: 1px solid rgba(26, 35, 56, 0.12);
-}
-
-.colorPickerSwatch:hover {
-  transform: scale(1.04);
-}
-
-.colorPickerSwatchSelected {
-  border: 2px solid var(--ab-navy-deep);
-  box-shadow: 0 0 0 2px rgba(142, 202, 230, 0.55);
-  transform: scale(1.02);
-}
-
-.colorPickerMoreBtn {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  padding: 0.55rem 0.75rem;
-  font-size: 0.82rem;
-  font-weight: 650;
-  color: var(--ab-navy-deep);
-  background: #fff;
-  border: 1px solid rgba(26, 35, 56, 0.14);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: border-color 0.12s ease;
-}
-
-.colorPickerMoreBtn:hover {
-  border-color: rgba(110, 163, 196, 0.45);
 }
 
 .colorPickerPlaceholder {

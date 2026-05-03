@@ -51,10 +51,9 @@ export function ArtKeyBuilderPrototype({ visualMock = false }: ArtKeyBuilderProt
   const [configureFeature, setConfigureFeature] = useState<FeatureModuleDef | null>(null);
   const [moduleOn, setModuleOn] = useState<Record<FeatureModuleId, boolean>>(
     () =>
-      Object.fromEntries(FEATURE_MODULES.map((m) => [m.id, true])) as Record<
-        FeatureModuleId,
-        boolean
-      >
+      Object.fromEntries(
+        FEATURE_MODULES.map((m) => [m.id, !m.comingSoon])
+      ) as Record<FeatureModuleId, boolean>
   );
 
   const enabledModulesForPhone = useMemo(
@@ -155,7 +154,7 @@ export function ArtKeyBuilderPrototype({ visualMock = false }: ArtKeyBuilderProt
             </p>
             <LivePreviewCard
               variant="aside"
-              designMode={tab === "design"}
+              designMode={tab === "design" && designStart !== null}
               designPreview={designPreview}
               enabledPortalModules={
                 tab !== "design" ? enabledModulesForPhone : undefined
@@ -188,9 +187,9 @@ export function ArtKeyBuilderPrototype({ visualMock = false }: ArtKeyBuilderProt
                     <>
                       {" "}
                       — pick <strong>Use a Template</strong> or{" "}
-                      <strong>Build Manually</strong>, then use the appearance tabs.
-                      The phone shows the six prototype module buttons (Welcome through
-                      Favorites & Links) with your font, shape, color, and style choices.
+                      <strong>Build Manually</strong> first. The module strip and style
+                      preview load after you choose a path; until then the phone shows a
+                      short placeholder.
                     </>
                   ) : (
                     <>

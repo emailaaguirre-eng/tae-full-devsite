@@ -5,13 +5,11 @@ import { Monitor, Smartphone } from "lucide-react";
 import { DEMO_PORTAL, LIVE_PREVIEW_PLACEHOLDER } from "./demoData";
 import { DESIGN_PORTAL_MODULE_BUTTONS } from "./designTypes";
 import {
-  BUTTON_FONT_STACK,
   defaultDesignPreview,
   type DesignPreviewState,
   guestPhoneCanvasBackground,
   TITLE_FONT_STACK,
 } from "./designPreviewModel";
-import { pickTextOnBackground } from "./designColorUtils";
 import styles from "./akBuilder.module.css";
 
 type Viewport = "mobile" | "desktop";
@@ -40,16 +38,26 @@ function phoneShapeClass(s: typeof styles, p: DesignPreviewState): string {
 
 function GuestPhoneTitle({
   titleFont,
+  bodyTextHex,
 }: {
   titleFont: DesignPreviewState["titleFont"];
+  bodyTextHex: string;
 }) {
   return (
-    <p
-      className={styles.phoneRefTitle}
-      style={{ fontFamily: TITLE_FONT_STACK[titleFont] }}
-    >
-      {DEMO_PORTAL.title}
-    </p>
+    <div className={styles.phoneRefTitleBlock}>
+      <p
+        className={styles.phoneRefTitle}
+        style={{
+          fontFamily: TITLE_FONT_STACK[titleFont],
+          color: "#1a2338",
+        }}
+      >
+        {DEMO_PORTAL.title}
+      </p>
+      <p className={styles.phoneRefSubtitle} style={{ color: bodyTextHex }}>
+        {DEMO_PORTAL.tagline}
+      </p>
+    </div>
   );
 }
 
@@ -86,6 +94,8 @@ export function LivePreviewCard({
 
   const titleFont = showDesignPhone && designPreview ? designPreview.titleFont : preview.titleFont;
   const buttonFont = showDesignPhone && designPreview ? designPreview.buttonFont : preview.buttonFont;
+  const bodyTextHex = preview.bodyTextHex;
+  const buttonLabelTextHex = preview.buttonLabelTextHex;
 
   return (
     <div
@@ -159,7 +169,7 @@ export function LivePreviewCard({
           >
             {showDesignPhone && designPreview ? (
               <div className={`${styles.phoneScreenDesign} ${styles.phoneScreenDesignReference}`}>
-                <GuestPhoneTitle titleFont={titleFont} />
+                <GuestPhoneTitle titleFont={titleFont} bodyTextHex={bodyTextHex} />
                 <div className={styles.phoneRefModuleStack}>
                   {DESIGN_PORTAL_MODULE_BUTTONS.map((btn) => (
                     <button
@@ -175,12 +185,12 @@ export function LivePreviewCard({
                         .filter(Boolean)
                         .join(" ")}
                       style={{
-                        fontFamily: BUTTON_FONT_STACK[buttonFont],
+                        fontFamily: TITLE_FONT_STACK[buttonFont],
+                        color: buttonLabelTextHex,
                         ...(customFill
                           ? {
                               background: customFill,
                               backgroundImage: "none",
-                              color: pickTextOnBackground(customFill),
                               boxShadow: "0 2px 8px rgba(18, 26, 42, 0.18)",
                             }
                           : {}),
@@ -205,10 +215,13 @@ export function LivePreviewCard({
               </div>
             ) : portalModuleList !== null ? (
               <div className={`${styles.phoneScreenDesign} ${styles.phoneScreenDesignReference}`}>
-                <GuestPhoneTitle titleFont={titleFont} />
+                <GuestPhoneTitle titleFont={titleFont} bodyTextHex={bodyTextHex} />
                 <div className={styles.phoneRefModuleStack}>
                   {portalModuleList.length === 0 ? (
-                    <p className={styles.phoneFeaturesEmpty}>
+                    <p
+                      className={styles.phoneFeaturesEmpty}
+                      style={{ color: bodyTextHex }}
+                    >
                       No modules enabled. On the Features tab, turn a module to{" "}
                       <strong>Enabled</strong> and it will list here.
                     </p>
@@ -227,12 +240,12 @@ export function LivePreviewCard({
                           .filter(Boolean)
                           .join(" ")}
                         style={{
-                          fontFamily: BUTTON_FONT_STACK[buttonFont],
+                          fontFamily: TITLE_FONT_STACK[buttonFont],
+                          color: buttonLabelTextHex,
                           ...(customFill
                             ? {
                                 background: customFill,
                                 backgroundImage: "none",
-                                color: pickTextOnBackground(customFill),
                                 boxShadow: "0 2px 8px rgba(18, 26, 42, 0.18)",
                               }
                             : {}),
