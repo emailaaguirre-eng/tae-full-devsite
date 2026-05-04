@@ -504,8 +504,11 @@
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: var(--ab-navy-deep);
-  font-size: 1.05rem;
+  /* Light tile so emoji (esp. framed-picture U+1F5BC on Windows) stay legible on the white cards. */
+  background: linear-gradient(180deg, #f4f6fb 0%, #e4eaf2 100%);
+  border: 1px solid rgba(26, 35, 56, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  font-size: 1.2rem;
   line-height: 1;
 }
 
@@ -2180,6 +2183,8 @@
   font-size: 1.05em;
   line-height: 1;
   opacity: 0.95;
+  /* Helps low-contrast emoji (e.g. framed picture) on lavender module buttons. */
+  filter: drop-shadow(0 0.5px 0.5px rgba(26, 35, 56, 0.35));
 }
 
 .phoneRefBtnLabel {
